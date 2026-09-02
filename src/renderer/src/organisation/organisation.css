@@ -1,0 +1,476 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The organisation sidebar.
+ *
+ * Every colour here is a `--kh-color-*` token — there is not one literal in this file, so
+ * the six themes and the contrast guard in the test suite both keep applying. The one
+ * `background` that is not a token is `transparent`, which is the absence of a colour.
+ *
+ * Motion goes through `--kh-duration-*`, which are multiplied by `--kh-motion-scale`; the
+ * reduced-motion setting drops that to 0 and stops every transition in the app at once. The
+ * explicit media query at the bottom is belt and braces for the case where the JS-driven
+ * scale has not been applied yet (first paint) or the user set the preference at the OS
+ * level without touching the app's own switch.
+ *
+ * Selection and drop state are never carried by colour alone: a selected row has a border
+ * and an inset marker, a valid drop target has a solid outline, an invalid one a dashed
+ * outline, and a broken folder carries a ⚠ glyph with a sentence in its tooltip.
+ */
+
+.kh-organisation {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--kh-space-2);
+  padding-bottom: var(--kh-space-3);
+}
+
+.kh-sidebar__symbol {
+  width: 1.25em;
+  text-align: center;
+  flex: none;
+}
+
+/* The label takes the slack so the count stays hard against the right edge. */
+.kh-sidebar__item-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kh-sidebar__item {
+  gap: var(--kh-space-2);
+  justify-content: flex-start;
+}
+
+/* ── The tree ──────────────────────────────────────────────────────────────── */
+
+.kh-tree {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 var(--kh-space-2);
+  border-top: 1px solid var(--kh-color-border);
+  padding-top: var(--kh-space-2);
+}
+
+.kh-tree__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-2);
+}
+
+.kh-tree__rows {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/*
+ * The whole tree is one tab stop (roving tabindex), so the focus ring has to be obvious on
+ * whichever row currently holds it — it is the only indication of where the arrow keys will
+ * act.
+ */
+.kh-tree__rows:focus-visible {
+  outline: none;
+}
+
+.kh-tree__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+  min-height: var(--kh-row-height);
+  padding-inline-end: var(--kh-space-2);
+  border-radius: var(--kh-radius-md);
+  color: var(--kh-color-text);
+  font-size: var(--kh-text-base);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-tree__item:hover {
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-tree__item:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Selection is a tint AND a marker on the leading edge, never colour alone. */
+.kh-tree__item[data-selected] {
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+  font-weight: var(--kh-weight-medium);
+}
+
+.kh-tree__item[data-selected]::before {
+  content: '';
+  position: absolute;
+  inset-block: 4px;
+  inset-inline-start: 0;
+  width: 3px;
+  border-radius: var(--kh-radius-full);
+  background: var(--kh-color-accent);
+}
+
+/* A drop target says yes with a solid outline and no with a dashed one — shape, not hue. */
+.kh-tree__item[data-drop='valid'],
+.kh-tree__root-drop[data-drop='valid'] {
+  outline: 2px solid var(--kh-color-accent);
+  outline-offset: -2px;
+  background: var(--kh-color-accent-subtle);
+}
+
+.kh-tree__item[data-drop='invalid'],
+.kh-tree__root-drop[data-drop='invalid'] {
+  outline: 2px dashed var(--kh-color-danger);
+  outline-offset: -2px;
+  cursor: not-allowed;
+}
+
+.kh-tree__chevron {
+  flex: none;
+  width: 1em;
+  text-align: center;
+  color: var(--kh-color-text-subtle);
+  transition: transform var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-tree__chevron[data-open] {
+  transform: rotate(90deg);
+}
+
+/* A leaf keeps the space so labels line up, but shows nothing to click. */
+.kh-tree__chevron[data-leaf] {
+  visibility: hidden;
+}
+
+.kh-tree__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kh-tree__flag {
+  flex: none;
+  color: var(--kh-color-warning-text);
+}
+
+.kh-tree__count,
+.kh-tree__subcount {
+  flex: none;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.kh-tree__rename {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--kh-control-height);
+  padding: 0 var(--kh-space-2);
+  background: var(--kh-color-surface-sunken);
+  color: var(--kh-color-text);
+  border: 1px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-sm);
+  font: inherit;
+}
+
+.kh-tree__rename:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.kh-tree__draft {
+  display: flex;
+  padding: var(--kh-space-1) var(--kh-space-2);
+}
+
+.kh-tree__root-drop {
+  margin-top: var(--kh-space-1);
+  padding: var(--kh-space-2);
+  border: 1px dashed var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  color: var(--kh-color-text-subtle);
+  font-size: var(--kh-text-sm);
+  text-align: center;
+}
+
+.kh-tree__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-1);
+  padding-top: var(--kh-space-2);
+}
+
+.kh-tree__hint,
+.kh-tree__orphans {
+  margin: var(--kh-space-2) 0 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-tree__orphans {
+  color: var(--kh-color-warning-text);
+}
+
+.kh-tree__problems {
+  margin: var(--kh-space-2) 0;
+  padding: var(--kh-space-2);
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-tree__problems-title {
+  margin: 0 0 var(--kh-space-1);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-tree__problems ul {
+  margin: 0;
+  padding-inline-start: var(--kh-space-4);
+}
+
+/* ── Tags ──────────────────────────────────────────────────────────────────── */
+
+.kh-tags {
+  padding: var(--kh-space-2) var(--kh-space-2) 0;
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-tags__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-2);
+}
+
+.kh-tags__match {
+  display: flex;
+  gap: var(--kh-space-3);
+  margin: 0 0 var(--kh-space-2);
+  padding: 0;
+  border: none;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-tags__match-option {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+}
+
+.kh-tags__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 30vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.kh-tag-row {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  width: 100%;
+  min-height: var(--kh-row-height);
+  padding: 0 var(--kh-space-2);
+  background: none;
+  border: none;
+  border-radius: var(--kh-radius-md);
+  color: var(--kh-color-text);
+  font-size: var(--kh-text-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.kh-tag-row:hover:not(:disabled) {
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-tag-row:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Pressed is a tint plus the tick rendered in the markup — two signals, not one. */
+.kh-tag-row[aria-pressed='true'] {
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+}
+
+.kh-tag-row:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/*
+ * The swatch is decoration. Its colour comes from a token resolved in `tag-colours.ts`, and
+ * the ring keeps it visible against a tinted selected row without needing a second colour.
+ */
+.kh-tag-row__swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--kh-radius-full);
+  box-shadow: 0 0 0 1px var(--kh-color-border);
+}
+
+.kh-tag-row__tick {
+  flex: none;
+  width: 1em;
+  text-align: center;
+}
+
+.kh-tag-row__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Move and delete dialogs ───────────────────────────────────────────────── */
+
+.kh-move {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  margin: 0;
+  padding: 0;
+  border: none;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.kh-move__option {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-1) var(--kh-space-2);
+  border-radius: var(--kh-radius-sm);
+  cursor: pointer;
+}
+
+.kh-move__option:hover {
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-move__label {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kh-move__current {
+  flex: none;
+  padding: 0 var(--kh-space-1);
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-accent-subtle-text);
+  background: var(--kh-color-accent-subtle);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-move__path {
+  flex: 1 1 auto;
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+  text-align: right;
+}
+
+.kh-delete-folder__facts {
+  margin: 0 0 var(--kh-space-4);
+  padding-inline-start: var(--kh-space-4);
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-base);
+}
+
+.kh-delete-folder__policy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  margin: 0;
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-delete-folder__policy legend {
+  padding: 0 var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-delete-folder__option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kh-space-2);
+  cursor: pointer;
+}
+
+.kh-delete-folder__option > span {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Odds and ends ─────────────────────────────────────────────────────────── */
+
+.kh-organisation__toggle,
+.kh-organisation__record-move {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding: 0 var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-organisation__record-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kh-organisation__error {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  margin: 0 var(--kh-space-2);
+  padding: var(--kh-space-2);
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+}
+
+/*
+ * Belt and braces alongside `--kh-motion-scale`. The chevron still turns — it is a state,
+ * not an animation — it simply arrives instantly.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .kh-tree__item,
+  .kh-tree__chevron {
+    transition: none;
+  }
+}
