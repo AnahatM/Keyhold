@@ -299,6 +299,33 @@ this class of defect, and are run after any change to main, preload, or the buil
 **Why:** Phase 0 ships no cryptography. Calibration needs the real Argon2 implementation to
 measure against, so it belongs in Phase 1 where `hash-wasm` is actually wired up.
 
+### D22 — Crypto and format implementations live in `src/main`, not `src/shared`
+
+**Status:** Accepted
+**Decision:** `@shared` holds types, constants and pure data shapes only. Every
+implementation that touches key material or the filesystem lives under `src/main/`.
+
+**Why:** the original plan (in the founding spec) put these in `shared/crypto/` and
+`shared/format/`. That turns out to be wrong for two reasons, discovered while building
+Phase 1:
+
+1. **`@shared` is compiled by `tsconfig.web.json`**, because the renderer imports the IPC
+   contract from it. Anything in `@shared` that imports `node:crypto` or `node:zlib` fails
+   to type-check in the renderer environment — and the fix of loosening that tsconfig would
+   remove the very check that keeps shared code honest.
+2. **More importantly, it would make the crypto layer importable from the renderer.** The
+   whole point of decision D13 is that the renderer cannot reach key material. Putting the
+   key-derivation function somewhere the renderer can `import` it is the opposite of that,
+   even if nothing imports it today.
+
+**Consequence:** `src/shared/format/types.ts` holds the container's types and constants —
+useful to both sides, dangerous to neither. `src/main/crypto/` and `src/main/format/` hold
+the implementations. The renderer lint zone additionally makes `import ... from '@main/*'`
+a hard error, so this is enforced rather than merely intended.
+
+**Supersedes:** the module layout sketched in the founding spec §10. The spec is history
+and is not edited; this entry is the current truth.
+
 ---
 
 ## Decisions deferred to implementation
