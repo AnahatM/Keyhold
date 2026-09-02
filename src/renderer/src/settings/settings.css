@@ -1,0 +1,650 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The settings screen.
+ *
+ * ZERO literal colours. Every value is a `--kh-color-*` token, and every foreground /
+ * background pair used below is one already declared in `CONTRAST_REQUIREMENTS`
+ * (`@shared/theme/tokens.ts`), so the WCAG AA guard test covers this file by construction.
+ * Introducing a new pair here means adding it there first — that is the point of the list.
+ *
+ * Spacing, type and motion all come from the scaled tokens in `styles/base.css`, so density
+ * and text-size settings move this screen with everything else rather than leaving it
+ * behind. Nothing here is an absolute pixel value except hairlines and control sizes that
+ * must not scale.
+ *
+ * Motion: every transition multiplies `--kh-duration-*`, which the reduced-motion setting
+ * drops to zero — one switch for the whole app. The one extra guard is `scroll-behavior`,
+ * which is not a transition and therefore has to be turned off explicitly.
+ */
+
+.kh-settings {
+  max-width: 62rem;
+  padding: var(--kh-space-5) var(--kh-space-5) var(--kh-space-7);
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kh-settings {
+    scroll-behavior: auto;
+  }
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.kh-settings__header {
+  margin-bottom: var(--kh-space-5);
+}
+
+.kh-settings__title {
+  font-size: var(--kh-text-xl);
+  font-weight: var(--kh-weight-semibold);
+  letter-spacing: -0.01em;
+}
+
+.kh-settings__subtitle {
+  max-width: 64ch;
+  margin-top: var(--kh-space-1);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-scope-legend {
+  display: grid;
+  gap: var(--kh-space-2);
+  margin-top: var(--kh-space-4);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-scope-legend > div {
+  display: grid;
+  grid-template-columns: minmax(9rem, auto) 1fr;
+  gap: var(--kh-space-3);
+  align-items: start;
+}
+
+.kh-scope-legend dd {
+  margin: 0;
+  max-width: 64ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Scope badge ──────────────────────────────────────────────────────────── */
+
+/*
+ * The badge carries its meaning in WORDS ("This computer" / "Travels with the vault").
+ * The tint only reinforces it — a reader who cannot distinguish the two hues, or who is in
+ * the high-contrast theme, loses nothing.
+ */
+.kh-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+  padding: 1px var(--kh-space-2);
+  font-size: var(--kh-text-xs);
+  font-weight: var(--kh-weight-medium);
+  white-space: nowrap;
+  border-radius: var(--kh-radius-full);
+}
+
+.kh-scope--machine {
+  background: var(--kh-color-info-subtle);
+  color: var(--kh-color-info-text);
+}
+
+.kh-scope--vault {
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+}
+
+.kh-scope__mark {
+  font-size: 0.9em;
+}
+
+/* ── Nav ──────────────────────────────────────────────────────────────────── */
+
+.kh-settings__nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-1);
+  padding: 0;
+  margin: 0 0 var(--kh-space-4);
+  list-style: none;
+}
+
+.kh-settings__nav-link {
+  display: inline-block;
+  padding: var(--kh-space-1) var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  text-decoration: none;
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-full);
+  transition: background var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-settings__nav-link:hover {
+  background: var(--kh-color-surface-hover);
+  color: var(--kh-color-text);
+}
+
+.kh-settings__nav-link:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────────── */
+
+.kh-settings__body {
+  display: grid;
+  gap: var(--kh-space-5);
+}
+
+.kh-settings-section {
+  padding: var(--kh-space-4);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+}
+
+.kh-settings-section:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
+
+/*
+ * The danger zone is marked three ways — the word "Danger zone" in the heading, a heavier
+ * border, and the tint. The word is the one that matters: a border colour is invisible to
+ * a colour-blind reader, which is exactly the person who most needs to be told that the
+ * next button is irreversible.
+ */
+.kh-settings-section--danger {
+  border-color: var(--kh-color-danger);
+  border-width: 2px;
+}
+
+.kh-settings-section__danger-word {
+  color: var(--kh-color-danger-text);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.85em;
+}
+
+.kh-settings-section__head {
+  margin-bottom: var(--kh-space-3);
+}
+
+.kh-settings-section__title {
+  font-size: var(--kh-text-md);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-settings-section__description {
+  max-width: 68ch;
+  margin-top: var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-settings-section__scope {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  margin-bottom: var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Fieldsets ────────────────────────────────────────────────────────────── */
+
+.kh-fieldset {
+  margin: 0 0 var(--kh-space-4);
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-fieldset--caution {
+  border-color: var(--kh-color-warning);
+}
+
+.kh-fieldset__legend {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding: 0 var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+/* ── A setting row ────────────────────────────────────────────────────────── */
+
+.kh-setting {
+  padding: var(--kh-space-3) 0;
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-setting:first-of-type {
+  border-top: none;
+}
+
+.kh-setting__head {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  flex-wrap: wrap;
+}
+
+.kh-setting__label {
+  font-weight: var(--kh-weight-medium);
+}
+
+.kh-setting__control {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-3);
+  margin-top: var(--kh-space-2);
+  flex-wrap: wrap;
+}
+
+.kh-setting__help {
+  max-width: 72ch;
+  margin-top: var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-setting__detail {
+  margin-top: var(--kh-space-2);
+}
+
+.kh-setting__state {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Select ───────────────────────────────────────────────────────────────── */
+
+.kh-select {
+  min-width: 16rem;
+  height: var(--kh-control-height);
+  padding: 0 var(--kh-space-2);
+  font: inherit;
+  color: var(--kh-color-text);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-select:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.kh-select:disabled {
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Switch ───────────────────────────────────────────────────────────────── */
+
+.kh-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-switch__input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--kh-color-accent);
+}
+
+.kh-switch__input:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* The state in words, so it is never carried by the checkbox glyph alone. */
+.kh-switch__state {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Trade-off note ───────────────────────────────────────────────────────── */
+
+.kh-tradeoff {
+  max-width: 72ch;
+  margin-top: var(--kh-space-2);
+  padding: var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  border-radius: var(--kh-radius-sm);
+}
+
+/*
+ * Only the row whose looser option is actually chosen gets the warning treatment. A caution
+ * that is always lit is wallpaper, and the one that matters stops being noticed.
+ */
+.kh-tradeoff--active {
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+}
+
+.kh-tradeoff__symbol {
+  margin-right: var(--kh-space-1);
+}
+
+.kh-tradeoff__label {
+  font-weight: var(--kh-weight-semibold);
+}
+
+/* ── Callout ──────────────────────────────────────────────────────────────── */
+
+.kh-callout {
+  display: flex;
+  gap: var(--kh-space-3);
+  max-width: 72ch;
+  margin: var(--kh-space-3) 0;
+  padding: var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-callout--vault {
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+}
+
+.kh-callout__symbol {
+  flex: none;
+}
+
+/* ── Audit privacy levels ─────────────────────────────────────────────────── */
+
+.kh-audit-levels {
+  display: grid;
+  gap: var(--kh-space-2);
+  margin-top: var(--kh-space-3);
+}
+
+.kh-audit-level {
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-audit-level--selected {
+  border-color: var(--kh-color-accent);
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-audit-level__head {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-audit-level__input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--kh-color-accent);
+}
+
+.kh-audit-level__input:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.kh-audit-level__label {
+  font-weight: var(--kh-weight-medium);
+}
+
+/* The machine-readable key, so a value seen in an export or a doc is recognisable here. */
+.kh-audit-level__key {
+  font-family: var(--kh-font-secret);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-audit-level__body {
+  margin-top: var(--kh-space-2);
+  padding-left: calc(18px + var(--kh-space-2));
+}
+
+.kh-audit-level__list {
+  max-width: 72ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-audit-level__list-label {
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-audit-level__cost {
+  max-width: 72ch;
+  margin-top: var(--kh-space-2);
+  padding: var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+  border-radius: var(--kh-radius-sm);
+}
+
+/* ── The network check ────────────────────────────────────────────────────── */
+
+.kh-network-check {
+  margin-top: var(--kh-space-3);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-network-check__result {
+  max-width: 72ch;
+  margin-top: var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text);
+}
+
+.kh-network-check__note {
+  margin-top: var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Health rules ─────────────────────────────────────────────────────────── */
+
+.kh-rule-list {
+  display: grid;
+  gap: var(--kh-space-2);
+  margin-top: var(--kh-space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.kh-rule {
+  display: flex;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-2);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-rule__input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--kh-color-accent);
+}
+
+.kh-rule__input:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.kh-rule__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-rule__label {
+  font-weight: var(--kh-weight-medium);
+}
+
+/* The score cost, so switching a check off is a decision with a visible size. */
+.kh-rule__weight {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-rule__description {
+  flex-basis: 100%;
+  max-width: 72ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── KDF presets ──────────────────────────────────────────────────────────── */
+
+.kh-kdf-presets {
+  display: grid;
+  gap: var(--kh-space-2);
+  margin-top: var(--kh-space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.kh-kdf {
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-kdf--current {
+  border-color: var(--kh-color-accent);
+}
+
+.kh-kdf__head {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  flex-wrap: wrap;
+}
+
+.kh-kdf__name {
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-kdf__cost {
+  font-family: var(--kh-font-secret);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* "In use" in words as well as the border colour. */
+.kh-kdf__current-word {
+  padding: 1px var(--kh-space-2);
+  font-size: var(--kh-text-xs);
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+  border-radius: var(--kh-radius-full);
+}
+
+.kh-kdf__note {
+  max-width: 72ch;
+  margin: var(--kh-space-1) 0 var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Danger rows ──────────────────────────────────────────────────────────── */
+
+.kh-danger-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kh-space-4);
+  padding: var(--kh-space-3) 0;
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-danger-row:first-of-type {
+  border-top: none;
+}
+
+.kh-danger-row__body {
+  flex: 1;
+}
+
+.kh-danger-row__title {
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-danger-row__help {
+  max-width: 72ch;
+  margin-top: var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Dialog content ───────────────────────────────────────────────────────── */
+
+.kh-consequences {
+  margin: 0 0 var(--kh-space-3);
+  padding-left: var(--kh-space-5);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-consequences li + li {
+  margin-top: var(--kh-space-1);
+}
+
+.kh-consequence-note {
+  margin-bottom: var(--kh-space-3);
+  padding: var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+  border-radius: var(--kh-radius-sm);
+}
+
+/* ── Errors and footer ────────────────────────────────────────────────────── */
+
+.kh-settings__error {
+  margin-bottom: var(--kh-space-4);
+  padding: var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-settings__footer {
+  margin-top: var(--kh-space-5);
+  padding-top: var(--kh-space-4);
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-settings__footer-note {
+  max-width: 72ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-settings__footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-3);
+  margin-top: var(--kh-space-3);
+}
