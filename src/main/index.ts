@@ -5,9 +5,12 @@ import {
   registerIpcHandlers,
   unregisterIpcHandlers,
 } from './ipc/register.js';
+import { OriginCapture } from './history/origin.js';
+import { SystemNetworkProbe } from './history/network-name.js';
 import { applySessionHardening, applyWebContentsHardening } from './security.js';
 import { isSmokeRun, runSmokeCheck } from './smoke.js';
 import { SessionController } from './session/session-controller.js';
+import { VaultService } from './vault/vault-service.js';
 import { createMainWindow, focusMainWindow } from './window.js';
 
 /** Baked in at build time by electron-vite. */
@@ -20,7 +23,19 @@ declare const APP_VERSION: string;
  * and race each other's atomic writes, which is the data-loss bug the single-instance lock
  * below also guards against from the other direction.
  */
-const session = new SessionController();
+/**
+ * The provenance source for the audit trail.
+ *
+ * Constructed here rather than inside `VaultService`, because it is the one thing in that
+ * class that reads the machine — and a default that reached for the hostname would mean
+ * every test, and every embedding that forgot, recorded it.
+ */
+const originCapture = new OriginCapture({
+  appVersion: APP_VERSION,
+  probe: new SystemNetworkProbe(),
+});
+
+const session = new SessionController(new VaultService(undefined, originCapture));
 
 /**
  * Keyhold main process entry point.
@@ -58,6 +73,7 @@ if (!gotTheLock) {
     registerIpcHandlers({
       session,
       appVersion: APP_VERSION,
+      originCapture,
       getWindow: () => mainWindow,
     });
 

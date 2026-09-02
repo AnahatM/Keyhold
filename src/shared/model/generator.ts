@@ -101,3 +101,21 @@ export interface GeneratorRange {
   readonly min: number;
   readonly max: number;
 }
+
+/**
+ * The names of the numeric bounds the engine enforces.
+ *
+ * The *values* live in `src/main/generator/generator.ts`, beside the code that enforces
+ * them; only the shape is declared here, because the shape is what the IPC contract and
+ * the UI controls need to agree on. Declaring the values twice would be a second list.
+ */
+export type GeneratorLimitName =
+  'randomLength' | 'passphraseWords' | 'pronounceableLength' | 'pinLength';
+
+/** What every unspecified option means, per mode. */
+export interface GeneratorDefaults {
+  readonly random: Required<Omit<RandomGeneratorOptions, 'mode'>>;
+  readonly passphrase: Required<Omit<PassphraseGeneratorOptions, 'mode'>>;
+  readonly pronounceable: Required<Omit<PronounceableGeneratorOptions, 'mode'>>;
+  readonly pin: Required<Omit<PinGeneratorOptions, 'mode'>>;
+}

@@ -12,16 +12,29 @@ import {
   requireCredentialEdit,
   requireCredentialInput,
 } from '@shared/ipc/credential-validation.js';
+import { requireGeneratorOptions } from '@shared/ipc/generator-validation.js';
 import {
   IpcValidationError,
+  requireHealthOptions,
+  requireHistoryPoint,
   requireId,
   requireListOptions,
   requireNonEmptyString,
   requireSecretRef,
   requireString,
   requireVaultPath,
+  requireVersionedField,
+  requireVersionNumber,
 } from '@shared/ipc/validation.js';
 import { VaultError } from '../crypto/errors.js';
+import {
+  estimateEntropyBits,
+  GENERATOR_DEFAULTS,
+  GENERATOR_LIMITS,
+  generatePassword,
+  GeneratorConfigurationError,
+} from '../generator/generator.js';
+import type { OriginCapture } from '../history/origin.js';
 import { RateLimitExceededError } from '../vault/secret-broker.js';
 import type { SessionController } from '../session/session-controller.js';
 
@@ -57,6 +70,12 @@ function toFailure(error: unknown): IpcResult<never> {
   if (error instanceof IpcValidationError) {
     return { ok: false, code: 'INVALID_REQUEST', message: error.message, recoverable: false };
   }
+  // An over-restrictive generator configuration. Its message is written for a user, names
+  // only the character class at fault, and deliberately never echoes their exclusion string
+  // back — so it is safe to surface verbatim, and useless if it is not.
+  if (error instanceof GeneratorConfigurationError) {
+    return { ok: false, code: 'INVALID_REQUEST', message: error.message, recoverable: true };
+  }
 
   // Anything else is a bug. Report that it happened, and deliberately NOT what it was: an
   // arbitrary error message may contain a path, a filename, or — from a crypto library — a
@@ -91,6 +110,13 @@ export interface IpcContext {
   readonly session: SessionController;
   readonly appVersion: string;
   readonly getWindow: () => BrowserWindow | null;
+  /**
+   * The provenance source, for the settings screen's "what network am I on?" check.
+   *
+   * Optional because a headless or test embedding has no reason to probe the machine, and
+   * the channel degrades to "not detected" rather than failing.
+   */
+  readonly originCapture?: OriginCapture | undefined;
 }
 
 export function registerIpcHandlers(context: IpcContext): void {
@@ -290,8 +316,97 @@ export function registerIpcHandlers(context: IpcContext): void {
     vault.markUsed(requireId(CHANNELS.credentialsMarkUsed, credentialId, 'credentialId'));
     return null;
   });
-}
+  // ── generator ──────────────────────────────────────────────────────────────
+  //
+  // The only channels that need no open vault: generation is pure, and a user choosing a
+  // password before they have unlocked anything is a reasonable thing to do.
+  //
+  // These return the generated password in plaintext, which is a deliberate, bounded
+  // exception to decision D13 rather than an oversight. The renderer has to render it —
+  // that is the entire feature — and what crosses is one value the user just asked to see,
+  // which is not yet stored anywhere and has no account attached to it. That is a different
+  // proposition from holding a vault's worth of secrets, which is what D13 is about.
 
+  handle(CHANNELS.generatorGenerate, (options) =>
+    generatePassword(requireGeneratorOptions(CHANNELS.generatorGenerate, options))
+  );
+
+  /**
+   * Entropy for a configuration, without producing a password.
+   *
+   * So a slider can show the strength of what it is *about* to make. Generating on every
+   * drag would put a stream of discarded passwords through the bridge for no reason.
+   */
+  handle(CHANNELS.generatorEstimate, (options) =>
+    estimateEntropyBits(requireGeneratorOptions(CHANNELS.generatorEstimate, options))
+  );
+
+  /**
+   * The bounds and defaults, read across the contract rather than restated in the UI.
+   *
+   * A slider with `min={8}` typed into it is a second list, and it disagrees with the
+   * engine the first time either changes.
+   */
+  handle(CHANNELS.generatorLimits, () => ({
+    limits: GENERATOR_LIMITS,
+    defaults: GENERATOR_DEFAULTS,
+  }));
+
+  // ── health ─────────────────────────────────────────────────────────────────
+
+  handle(CHANNELS.healthAnalyse, (options) =>
+    vault.analyseHealth(requireHealthOptions(CHANNELS.healthAnalyse, options))
+  );
+
+  // ── history ────────────────────────────────────────────────────────────────
+
+  handle(CHANNELS.historyDiff, (credentialId, versionNumber) =>
+    vault.diffVersionProjection(
+      requireId(CHANNELS.historyDiff, credentialId, 'credentialId'),
+      requireVersionNumber(CHANNELS.historyDiff, versionNumber, 'versionNumber')
+    )
+  );
+
+  handle(CHANNELS.historyCompare, (credentialId, from, to) =>
+    vault.compareVersionsProjection(
+      requireId(CHANNELS.historyCompare, credentialId, 'credentialId'),
+      requireHistoryPoint(CHANNELS.historyCompare, from, 'from'),
+      requireHistoryPoint(CHANNELS.historyCompare, to, 'to')
+    )
+  );
+
+  handle(CHANNELS.historyRestoreVersion, (credentialId, versionNumber) =>
+    vault.restoreVersion(
+      requireId(CHANNELS.historyRestoreVersion, credentialId, 'credentialId'),
+      requireVersionNumber(CHANNELS.historyRestoreVersion, versionNumber, 'versionNumber')
+    )
+  );
+
+  handle(CHANNELS.historyRestoreField, (credentialId, versionNumber, field) =>
+    vault.restoreField(
+      requireId(CHANNELS.historyRestoreField, credentialId, 'credentialId'),
+      requireVersionNumber(CHANNELS.historyRestoreField, versionNumber, 'versionNumber'),
+      requireVersionedField(CHANNELS.historyRestoreField, field)
+    )
+  );
+
+  handle(CHANNELS.historyClear, (credentialId) =>
+    vault.clearHistory(requireId(CHANNELS.historyClear, credentialId, 'credentialId'))
+  );
+
+  /**
+   * What network the app thinks it is on.
+   *
+   * For the settings screen, so the audit-privacy choice can be made against the actual
+   * string that would be recorded rather than against a guess. This is the one place a
+   * probe is awaited, because here the user asked and is watching a spinner — on the save
+   * path it is never awaited at all.
+   */
+  handle(CHANNELS.historyNetworkName, async () => {
+    const capture = context.originCapture;
+    return capture === undefined ? null : await capture.refreshNetwork();
+  });
+}
 /**
  * Tells the renderer the session changed underneath it.
  *

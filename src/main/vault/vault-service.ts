@@ -11,6 +11,8 @@ import {
   type SecretRef,
   type VersionedField,
 } from '@shared/model/credential.js';
+import type { FieldDiffProjection } from '@shared/model/history.js';
+import type { HealthAnalysisOptions, VaultHealthReport } from '@shared/model/health.js';
 import {
   emptyVaultDocument,
   VAULT_DOCUMENT_VERSION,
@@ -55,6 +57,8 @@ import {
   type NewCredentialInput,
   type OpsContext,
 } from './credential-ops.js';
+import { analyseVault } from '../health/rules.js';
+import { toDiffProjection } from '../history/diff-projection.js';
 import { toProjection, toProjections } from './projection.js';
 import { SecretBroker } from './secret-broker.js';
 
@@ -576,6 +580,44 @@ export class VaultService {
     this.#requireOpen();
     const record = this.#findRecord(credentialId);
     return record === null ? null : comparePoints(record, from, to);
+  }
+
+  /**
+   * The same two, projected for the renderer.
+   *
+   * Separate methods rather than a flag, so the raw form cannot be sent by passing the
+   * wrong boolean. A caller reaching for `diffVersion` over IPC has to notice it is
+   * returning values rather than a projection.
+   */
+  diffVersionProjection(credentialId: string, versionNumber: number): FieldDiffProjection[] | null {
+    const diffs = this.diffVersion(credentialId, versionNumber);
+    return diffs === null ? null : toDiffProjection(diffs);
+  }
+
+  compareVersionsProjection(
+    credentialId: string,
+    from: HistoryPoint,
+    to: HistoryPoint
+  ): FieldDiffProjection[] | null {
+    const diffs = this.compareVersions(credentialId, from, to);
+    return diffs === null ? null : toDiffProjection(diffs);
+  }
+
+  /**
+   * Analyses the open vault.
+   *
+   * `now` is taken here rather than inside `analyseVault`, which is pure by design — the
+   * clock is I/O, and a health report that reads one is a health report that cannot be
+   * tested at a boundary.
+   *
+   * The report contains no secret material by construction (see
+   * `docs/05-Features/01-Health-Rules.md`), which is why it crosses IPC whole rather than
+   * being projected first.
+   */
+  analyseHealth(options: Omit<HealthAnalysisOptions, 'now'> = {}): VaultHealthReport {
+    const open = this.#requireOpen();
+    const analysis: HealthAnalysisOptions = { ...options, now: Date.now() };
+    return analyseVault(open.document, analysis);
   }
 
   /**

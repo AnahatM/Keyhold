@@ -1,5 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { SECRET_REF_KINDS, type SecretRef } from '../model/credential.js';
+import {
+  SECRET_REF_KINDS,
+  VERSIONED_FIELDS,
+  type SecretRef,
+  type VersionedField,
+} from '../model/credential.js';
+import {
+  DEFAULT_HEALTH_THRESHOLDS,
+  HEALTH_RULE_IDS,
+  type HealthAnalysisOptions,
+  type HealthRuleId,
+  type HealthThresholds,
+} from '../model/health.js';
+import type { HistoryPointRef } from '../model/history.js';
 
 /**
  * Runtime validation for everything crossing IPC.
@@ -100,7 +113,8 @@ export function requireSecretRef(channel: string, value: unknown): SecretRef {
   const credentialId = requireId(channel, value.credentialId, 'ref.credentialId');
   // Read lazily: the live kinds carry no version number, and demanding one up front would
   // reject every ordinary reveal.
-  const version = (): number => requireVersionNumber(channel, value.versionNumber);
+  const version = (): number =>
+    requireVersionNumber(channel, value.versionNumber, 'ref.versionNumber');
 
   switch (kind as SecretRef['kind']) {
     case 'password':
@@ -140,21 +154,6 @@ export function requireSecretRef(channel: string, value: unknown): SecretRef {
   }
 }
 
-/**
- * Version numbers are positive integers, and nothing else.
- *
- * A float, a negative or a `NaN` would sail through a `typeof value === 'number'` check
- * and then be compared against real version numbers, matching nothing — which looks like
- * "that version was pruned" rather than "the renderer sent something malformed". They are
- * different bugs and should not present identically.
- */
-function requireVersionNumber(channel: string, value: unknown): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
-    throw new IpcValidationError(channel, 'ref.versionNumber must be a positive integer');
-  }
-  return value;
-}
-
 export interface ListOptions {
   readonly includeTrashed: boolean;
 }
@@ -187,4 +186,96 @@ export function requireVaultPath(channel: string, value: unknown): string {
     throw new IpcValidationError(channel, 'path contains a null byte');
   }
   return path;
+}
+
+// ── History and health ───────────────────────────────────────────────────────
+
+/**
+ * Version numbers are positive integers and nothing else.
+ *
+ * A float, a negative or a `NaN` sails through `typeof value === 'number'` and then matches
+ * no real version — which presents as "that version was pruned" rather than "the renderer
+ * sent something malformed". They are different bugs and should not look the same.
+ */
+export function requireVersionNumber(channel: string, value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw new IpcValidationError(channel, `${name} must be a positive whole number`);
+  }
+  return value;
+}
+
+/** A point in a timeline: a version number, or the live record. */
+export function requireHistoryPoint(
+  channel: string,
+  value: unknown,
+  name: string
+): HistoryPointRef {
+  if (value === 'current') return 'current';
+  return requireVersionNumber(channel, value, name);
+}
+
+export function requireVersionedField(channel: string, value: unknown): VersionedField {
+  if (typeof value !== 'string' || !(VERSIONED_FIELDS as readonly string[]).includes(value)) {
+    // Rejected rather than ignored: a restore addressed at an unknown field would silently
+    // do nothing, and "the button did nothing" is the hardest kind of bug to report.
+    throw new IpcValidationError(channel, 'field is not a versioned field');
+  }
+  return value as VersionedField;
+}
+
+/**
+ * Health options, minus `now` — the clock belongs to the main process.
+ *
+ * Rule ids and threshold names are checked against the model rather than accepted as a
+ * free-form record, so a typo disables nothing silently and an unexpected key cannot ride
+ * along into the analysis.
+ */
+export function requireHealthOptions(
+  channel: string,
+  value: unknown
+): Omit<HealthAnalysisOptions, 'now'> {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new IpcValidationError(channel, 'options must be an object');
+  }
+
+  const source = value as Record<string, unknown>;
+  const options: {
+    enabledRules?: Partial<Record<HealthRuleId, boolean>>;
+    thresholds?: Partial<HealthThresholds>;
+  } = {};
+
+  if (source.enabledRules !== undefined) {
+    const rules: Partial<Record<HealthRuleId, boolean>> = {};
+    if (typeof source.enabledRules !== 'object' || source.enabledRules === null) {
+      throw new IpcValidationError(channel, 'enabledRules must be an object');
+    }
+    for (const [key, enabled] of Object.entries(source.enabledRules as Record<string, unknown>)) {
+      if (!(HEALTH_RULE_IDS as readonly string[]).includes(key)) {
+        throw new IpcValidationError(channel, `"${key}" is not a health rule`);
+      }
+      rules[key as HealthRuleId] = requireBoolean(channel, enabled, `enabledRules.${key}`);
+    }
+    options.enabledRules = rules;
+  }
+
+  if (source.thresholds !== undefined) {
+    if (typeof source.thresholds !== 'object' || source.thresholds === null) {
+      throw new IpcValidationError(channel, 'thresholds must be an object');
+    }
+    const thresholds: Partial<HealthThresholds> = {};
+    const allowed = Object.keys(DEFAULT_HEALTH_THRESHOLDS);
+    for (const [key, threshold] of Object.entries(source.thresholds as Record<string, unknown>)) {
+      if (!allowed.includes(key)) {
+        throw new IpcValidationError(channel, `"${key}" is not a health threshold`);
+      }
+      if (typeof threshold !== 'number' || !Number.isFinite(threshold) || threshold < 0) {
+        throw new IpcValidationError(channel, `thresholds.${key} must be a non-negative number`);
+      }
+      (thresholds as Record<string, number>)[key] = threshold;
+    }
+    options.thresholds = thresholds;
+  }
+
+  return options;
 }

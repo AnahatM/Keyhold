@@ -6,11 +6,15 @@ import {
   type ClipboardView,
   type CredentialEdit,
   type CredentialInput,
+  type GeneratorLimitsView,
   type IpcResult,
   type KeyholdApi,
   type SessionStatusView,
 } from '@shared/ipc/api.js';
-import type { CredentialProjection, SecretRef } from '@shared/model/credential.js';
+import type { CredentialProjection, SecretRef, VersionedField } from '@shared/model/credential.js';
+import type { GeneratedPassword, GeneratorOptions } from '@shared/model/generator.js';
+import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '@shared/model/health.js';
+import type { FieldDiffProjection, HistoryPointRef } from '@shared/model/history.js';
 import type { PasswordStrength } from '@shared/model/strength.js';
 import type { VaultLockedInfo, VaultSummary } from '@shared/model/vault-document.js';
 
@@ -142,6 +146,51 @@ const api: KeyholdApi = {
       ipcRenderer.invoke(CHANNELS.credentialsPurge, credentialId) as Promise<IpcResult<boolean>>,
     markUsed: (credentialId: string) =>
       ipcRenderer.invoke(CHANNELS.credentialsMarkUsed, credentialId) as Promise<IpcResult<null>>,
+  },
+
+  generator: {
+    generate: (options: GeneratorOptions) =>
+      ipcRenderer.invoke(CHANNELS.generatorGenerate, options) as Promise<
+        IpcResult<GeneratedPassword>
+      >,
+    estimate: (options: GeneratorOptions) =>
+      ipcRenderer.invoke(CHANNELS.generatorEstimate, options) as Promise<IpcResult<number>>,
+    limits: () =>
+      ipcRenderer.invoke(CHANNELS.generatorLimits) as Promise<IpcResult<GeneratorLimitsView>>,
+  },
+
+  health: {
+    analyse: (options?: {
+      enabledRules?: Partial<Record<HealthRuleId, boolean>>;
+      thresholds?: Partial<HealthThresholds>;
+    }) =>
+      ipcRenderer.invoke(CHANNELS.healthAnalyse, options) as Promise<IpcResult<VaultHealthReport>>,
+  },
+
+  history: {
+    diff: (credentialId: string, versionNumber: number) =>
+      ipcRenderer.invoke(CHANNELS.historyDiff, credentialId, versionNumber) as Promise<
+        IpcResult<FieldDiffProjection[] | null>
+      >,
+    compare: (credentialId: string, from: HistoryPointRef, to: HistoryPointRef) =>
+      ipcRenderer.invoke(CHANNELS.historyCompare, credentialId, from, to) as Promise<
+        IpcResult<FieldDiffProjection[] | null>
+      >,
+    restoreVersion: (credentialId: string, versionNumber: number) =>
+      ipcRenderer.invoke(CHANNELS.historyRestoreVersion, credentialId, versionNumber) as Promise<
+        IpcResult<{ projection: CredentialProjection; changedFields: string[] } | null>
+      >,
+    restoreField: (credentialId: string, versionNumber: number, field: VersionedField) =>
+      ipcRenderer.invoke(
+        CHANNELS.historyRestoreField,
+        credentialId,
+        versionNumber,
+        field
+      ) as Promise<IpcResult<{ projection: CredentialProjection; changedFields: string[] } | null>>,
+    clear: (credentialId: string) =>
+      ipcRenderer.invoke(CHANNELS.historyClear, credentialId) as Promise<IpcResult<boolean>>,
+    networkName: () =>
+      ipcRenderer.invoke(CHANNELS.historyNetworkName) as Promise<IpcResult<string | null>>,
   },
 };
 

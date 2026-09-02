@@ -181,6 +181,148 @@ export function runSmokeCheck(window: BrowserWindow): void {
         const noop = await window.keyhold.credentials.update(id, { title: 'Renamed' });
         steps.push(['noop-update-reports-no-change', noop.ok === true && noop.value !== null && noop.value.changedFields.length === 0]);
 
+        // ── history ────────────────────────────────────────────────────────
+        //
+        // The record has now been created and edited twice (one of them a no-op), so it has
+        // exactly one version. These checks run against the live IPC surface rather than the
+        // engine, because the thing worth guarding here is the BOUNDARY: a diff that carries
+        // an old password is a leak no unit test of a pure function would notice.
+
+        // A password change, specifically, so the leak guard below has something to catch.
+        // Asserting "no old password in the diff" against a diff that contains no password
+        // at all is a guard that cannot fail, which is worse than no guard.
+        await window.keyhold.credentials.update(id, { password: 'rotated-value-4471' });
+
+        const afterEdit = await window.keyhold.credentials.get(id);
+        const versions = afterEdit.ok && afterEdit.value !== null ? afterEdit.value.history : [];
+        steps.push(['history-records-the-edit', versions.length === 2]);
+        steps.push([
+          'history-names-the-changed-field',
+          versions[0]?.changedFields.includes('title') === true,
+        ]);
+        steps.push([
+          'history-carries-the-device-origin',
+          typeof versions[0]?.origin.deviceName === 'string' &&
+            versions[0].origin.deviceName.length > 0,
+        ]);
+        steps.push([
+          'history-omits-the-network-at-the-default-privacy-level',
+          versions[0]?.origin.networkName === undefined,
+        ]);
+
+        const diff = await window.keyhold.history.diff(id, 1);
+        steps.push([
+          'history-diff-shows-the-old-title',
+          diff.ok === true &&
+            diff.value !== null &&
+            diff.value.some(
+              (entry) =>
+                entry.field === 'title' &&
+                entry.before.kind === 'value' &&
+                entry.before.value === 'Smoke Test Account'
+            ),
+        ]);
+
+        const passwordDiff = await window.keyhold.history.diff(id, 2);
+        steps.push([
+          'history-diff-reports-a-password-change-as-a-length',
+          passwordDiff.ok === true &&
+            passwordDiff.value !== null &&
+            passwordDiff.value.some(
+              (entry) =>
+                entry.field === 'password' &&
+                entry.before.kind === 'secret' &&
+                entry.before.length === 'a-secret-value-9182'.length
+            ),
+        ]);
+        steps.push([
+          'history-diff-has-no-secret-value',
+          diff.ok === true &&
+            passwordDiff.ok === true &&
+            !JSON.stringify([diff.value, passwordDiff.value]).includes('a-secret-value-9182'),
+        ]);
+
+        // The old password is still reachable — deliberately, through the broker, one
+        // version at a time — so the guard above is about the *diff*, not about the value
+        // being unrecoverable.
+        const oldPassword = await window.keyhold.credentials.revealSecret({
+          kind: 'historic-password',
+          credentialId: id,
+          versionNumber: 2,
+        });
+        steps.push([
+          'historic-password-reveals-through-the-broker',
+          oldPassword.ok === true && oldPassword.value === 'a-secret-value-9182',
+        ]);
+
+        const restoredTitle = await window.keyhold.history.restoreVersion(id, 1);
+        steps.push([
+          'history-restore-puts-the-title-back',
+          restoredTitle.ok === true &&
+            restoredTitle.value !== null &&
+            restoredTitle.value.projection.title === 'Smoke Test Account',
+        ]);
+        steps.push([
+          'history-restore-is-itself-versioned',
+          restoredTitle.ok === true &&
+            restoredTitle.value !== null &&
+            restoredTitle.value.projection.history.some((v) => v.origin.action === 'restore'),
+        ]);
+
+        const cleared = await window.keyhold.history.clear(id);
+        steps.push(['history-clear', cleared.ok === true && cleared.value === true]);
+
+        // ── generator ──────────────────────────────────────────────────────
+
+        const generated = await window.keyhold.generator.generate({ mode: 'random', length: 24 });
+        steps.push([
+          'generator-produces-the-requested-length',
+          generated.ok === true && generated.value.password.length === 24,
+        ]);
+        steps.push([
+          'generator-reports-entropy',
+          generated.ok === true && generated.value.entropyBits > 100,
+        ]);
+
+        const twice = await window.keyhold.generator.generate({ mode: 'random', length: 24 });
+        steps.push([
+          'generator-does-not-repeat-itself',
+          generated.ok === true && twice.ok === true && generated.value.password !== twice.value.password,
+        ]);
+
+        const impossible = await window.keyhold.generator.generate({
+          mode: 'random',
+          length: 12,
+          lowercase: true,
+          uppercase: false,
+          digits: false,
+          symbols: false,
+          excludeCharacters: 'abcdefghijklmnopqrstuvwxyz',
+        });
+        steps.push([
+          'generator-refuses-an-impossible-configuration',
+          impossible.ok === false && impossible.code === 'INVALID_REQUEST',
+        ]);
+        steps.push([
+          'generator-error-does-not-echo-the-exclusion-back',
+          impossible.ok === true || !impossible.message.includes('abcdefghij'),
+        ]);
+
+        const bounds = await window.keyhold.generator.limits();
+        steps.push([
+          'generator-limits-cross-the-contract',
+          bounds.ok === true && bounds.value.limits.randomLength.min === 8,
+        ]);
+
+        // ── health ─────────────────────────────────────────────────────────
+
+        const report = await window.keyhold.health.analyse();
+        steps.push(['health-scores-the-vault', report.ok === true && report.value.score >= 0]);
+        steps.push([
+          'health-report-has-no-secret-value',
+          report.ok === true && !JSON.stringify(report.value).includes('a-secret-value-9182'),
+        ]);
+
         const copied = await window.keyhold.credentials.duplicate(id);
         steps.push(['duplicate', copied.ok === true && copied.value !== null && copied.value.id !== id]);
 
