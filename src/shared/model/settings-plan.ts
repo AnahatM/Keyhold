@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { DEFAULT_KDF_PARAMS, MAX_KDF_PARAMS, MIN_KDF_PARAMS } from '../format/types.js';
 import {
-  DEFAULT_HEALTH_RULE_TOGGLES,
-  DEFAULT_HEALTH_THRESHOLDS,
-  type HealthRuleId,
-} from './health.js';
-import { DEFAULT_VAULT_SETTINGS, type VaultSettings } from './vault-document.js';
+  DEFAULT_VAULT_HEALTH_SETTINGS,
+  DEFAULT_VAULT_SETTINGS,
+  type VaultHealthSettings,
+  type VaultSettings,
+} from './vault-document.js';
 
 /**
  * The settings contract — what is configurable, where each setting lives, what its bounds
@@ -125,17 +125,9 @@ export const DEFAULT_MACHINE_SETTINGS: MachineSettings = {
  * produce exactly the confusion this screen exists to remove. "How this vault is judged"
  * is a property of the data, not of the machine looking at it.
  */
-export interface HealthSettings {
-  readonly enabledRules: Readonly<Record<HealthRuleId, boolean>>;
-  readonly weakEntropyBits: number;
-  readonly expiringWithinDays: number;
-}
+export type HealthSettings = VaultHealthSettings;
 
-export const DEFAULT_HEALTH_SETTINGS: HealthSettings = {
-  enabledRules: DEFAULT_HEALTH_RULE_TOGGLES,
-  weakEntropyBits: DEFAULT_HEALTH_THRESHOLDS.weakEntropyBits,
-  expiringWithinDays: DEFAULT_HEALTH_THRESHOLDS.expiringWithinDays,
-};
+export const DEFAULT_HEALTH_SETTINGS: HealthSettings = DEFAULT_VAULT_HEALTH_SETTINGS;
 
 /**
  * `VaultSettings` plus the health configuration Phase 14 adds to it.
@@ -144,14 +136,17 @@ export const DEFAULT_HEALTH_SETTINGS: HealthSettings = {
  * in `vault-document.ts`, and folding `health` into that interface later removes this type
  * without touching a single consumer.
  */
-export interface ConfigurableVaultSettings extends VaultSettings {
-  readonly health: HealthSettings;
-}
+/**
+ * The vault-scoped settings this screen edits.
+ *
+ * Now exactly `VaultSettings`: `health` used to be declared here as an addition, which made
+ * two shapes for one thing and meant a rule added to the engine could be configurable in the
+ * screen's type and absent from the file it is stored in. It lives in the model.
+ */
+export type ConfigurableVaultSettings = VaultSettings;
 
-export const DEFAULT_CONFIGURABLE_VAULT_SETTINGS: ConfigurableVaultSettings = {
-  ...DEFAULT_VAULT_SETTINGS,
-  health: DEFAULT_HEALTH_SETTINGS,
-};
+export const DEFAULT_CONFIGURABLE_VAULT_SETTINGS: ConfigurableVaultSettings =
+  DEFAULT_VAULT_SETTINGS;
 
 // ── The registry ─────────────────────────────────────────────────────────────
 

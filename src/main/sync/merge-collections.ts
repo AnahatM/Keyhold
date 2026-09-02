@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { HEALTH_RULE_IDS } from '@shared/model/health.js';
 import {
   AUDIT_PRIVACY_LEVELS,
   type AuditPrivacyLevel,
@@ -435,6 +436,15 @@ export const SETTING_POLICY = {
   passwordAgeWarningDays: 'warn-sooner',
   /** The longer retention wins (`null` is never purge): trash that survives can be restored. */
   trashRetentionDays: 'larger-cap',
+  /**
+   * The stricter configuration wins, field by field.
+   *
+   * A rule enabled on either side stays enabled, the lower `weakEntropyBits` threshold is
+   * taken and the longer `expiringWithinDays` warning is — every one of which resolves toward
+   * *more* warning rather than less. A health setting is advice, so a merge that quietly
+   * silenced a warning one device was giving would be the one direction with a cost.
+   */
+  health: 'stricter-wins',
 } as const satisfies Readonly<Record<keyof VaultSettings, string>>;
 
 export interface SettingsMerge {
@@ -477,8 +487,31 @@ export function mergeSettings(
     return value;
   };
 
+  // Health is the one compound setting, and it is reconciled field by field rather than
+  // settled as a whole. A whole-object `settle` would ask the user to choose between two
+  // configurations when every field has an answer that cannot cost them anything: a rule
+  // enabled on either side stays enabled, and both thresholds take the value that warns
+  // more. A health setting is *advice*, so the only direction with a real cost is a merge
+  // that quietly silences a warning one device was giving.
+  // No conflict entry, and that is a decision rather than an omission. `ConflictSide`
+  // carries a scalar, because a resolver's whole job is to offer a user one value or the
+  // other — and there is no version of that question here: every field of `health` has an
+  // answer that cannot cost anything. Reporting it as a conflict would put a choice in front
+  // of someone that has already been made correctly on their behalf.
+  const mergedHealth: VaultSettings['health'] = {
+    enabledRules: Object.fromEntries(
+      HEALTH_RULE_IDS.map((rule) => [
+        rule,
+        ours.health.enabledRules[rule] || theirs.health.enabledRules[rule],
+      ])
+    ) as VaultSettings['health']['enabledRules'],
+    weakEntropyBits: Math.max(ours.health.weakEntropyBits, theirs.health.weakEntropyBits),
+    expiringWithinDays: Math.max(ours.health.expiringWithinDays, theirs.health.expiringWithinDays),
+  };
+
   return {
     settings: {
+      health: mergedHealth,
       historyEnabledByDefault: settle(
         'historyEnabledByDefault',
         ours.historyEnabledByDefault,

@@ -245,7 +245,7 @@ interface PolicyCase {
  * side simply did not move. Without an ancestor every difference is a conflict, so this is the
  * only shape in which all five policies are reachable at once.
  */
-const POLICY_CASES: Readonly<Record<keyof typeof SETTING_POLICY, PolicyCase>> = {
+const POLICY_CASES: Readonly<Record<Exclude<keyof typeof SETTING_POLICY, 'health'>, PolicyCase>> = {
   // Off wins: recording old passwords is a privacy decision, and the quieter answer cannot
   // surprise someone who was not asked.
   historyEnabledByDefault: {
@@ -283,6 +283,64 @@ const POLICY_CASES: Readonly<Record<keyof typeof SETTING_POLICY, PolicyCase>> = 
     expected: null,
   },
 };
+
+/**
+ * `health` is deliberately absent from the table above.
+ *
+ * Every other setting is a scalar that `settle` either takes from one side or reports as a
+ * conflict, and this table exists so that adding one without deciding which is a compile
+ * error. `health` is compound and is reconciled field by field, so it has no single "ours or
+ * theirs" answer to assert here — the `Exclude` names it rather than letting it be forgotten,
+ * and the tests directly below cover it.
+ */
+
+/** A document whose health settings differ from the defaults in exactly the named fields. */
+function withHealth(patch: Partial<VaultSettings['health']>): VaultSettings {
+  return {
+    ...DEFAULT_VAULT_SETTINGS,
+    health: { ...DEFAULT_VAULT_SETTINGS.health, ...patch },
+  };
+}
+
+describe('health settings merge field by field, toward more warning', () => {
+  it('keeps a rule enabled if either side had it enabled', () => {
+    const ours = withHealth({
+      enabledRules: { ...DEFAULT_VAULT_SETTINGS.health.enabledRules, reused: false },
+    });
+    const theirs = withHealth({
+      enabledRules: { ...DEFAULT_VAULT_SETTINGS.health.enabledRules, weak: false },
+    });
+
+    const merged = mergeSettings(null, ours, theirs, new Map()).settings.health.enabledRules;
+    // Neither side's disabling wins: a merge that silenced a warning the other device was
+    // giving would be the one direction with a cost a user cannot see.
+    expect(merged.reused).toBe(true);
+    expect(merged.weak).toBe(true);
+  });
+
+  it('takes the longer expiry warning', () => {
+    const merged = mergeSettings(
+      null,
+      withHealth({ expiringWithinDays: 7 }),
+      withHealth({ expiringWithinDays: 30 }),
+      new Map()
+    );
+    expect(merged.settings.health.expiringWithinDays).toBe(30);
+  });
+
+  it('asks the user nothing, because every field has a costless answer', () => {
+    const merged = mergeSettings(
+      null,
+      withHealth({ weakEntropyBits: 60 }),
+      withHealth({ weakEntropyBits: 80 }),
+      new Map()
+    );
+    // Not reported at all, and that is the point: a conflict entry exists so a resolver can
+    // offer a user one value or the other, and there is no version of that question here.
+    // Every field has an answer that cannot cost them anything.
+    expect(merged.conflicts.filter((conflict) => conflict.targetId === 'health')).toEqual([]);
+  });
+});
 
 describe('every setting resolves by a policy the table names', () => {
   it('has a policy for every setting in the model', () => {

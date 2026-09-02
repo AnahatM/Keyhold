@@ -5,8 +5,10 @@ import type { BrowserWindow } from 'electron';
 import type { SecretRef } from '@shared/model/credential.js';
 import type { PasswordStrength } from '@shared/model/strength.js';
 import type { VaultLockedInfo, VaultSummary } from '@shared/model/vault-document.js';
+import { DEFAULT_SECRET_REVEAL_LIMITS, type MachineSettings } from '@shared/model/settings-plan.js';
 import { KdfRunner, type KdfProvider } from '../crypto/kdf-runner.js';
 import { VaultError } from '../crypto/errors.js';
+import { listVaultCopyPaths } from '../vault/atomic-write.js';
 import { VaultService } from '../vault/vault-service.js';
 import { AutoLock, type LockReason } from './auto-lock.js';
 import { SecretClipboard, type ClipboardState } from './clipboard.js';
@@ -71,6 +73,47 @@ export class SessionController {
   attachWindow(window: BrowserWindow, onStatusChange: () => void): void {
     this.#window = window;
     this.#onStatusChange = onStatusChange;
+  }
+
+  /**
+   * The machine-scoped settings, as one object.
+   *
+   * Assembled from `PreferencesStore` rather than stored separately, because preferences are
+   * already the single home for "how this computer behaves" — a second store would be a
+   * second list, and the two would disagree the first time one of them was written.
+   */
+  machineSettings(): MachineSettings {
+    const preferences = this.#preferences.get();
+    return {
+      autoLock: preferences.autoLock,
+      clipboardClearMs: preferences.clipboardClearMs,
+      wipeAfterFailedAttempts: preferences.wipeAfterFailedAttempts,
+      secretReveal: DEFAULT_SECRET_REVEAL_LIMITS,
+    };
+  }
+
+  /**
+   * Applies a machine-settings patch, and makes it take effect now.
+   *
+   * Auto-lock is reconfigured immediately rather than at the next unlock: a user who has just
+   * shortened their idle timeout because they are about to walk away should not have to lock
+   * and reopen the vault for the change to mean anything.
+   */
+  updateMachineSettings(patch: Partial<MachineSettings>): MachineSettings {
+    // Assembled field by field rather than spread: under `exactOptionalPropertyTypes` a
+    // spread of an all-optional patch widens every key to include `undefined`, and an
+    // explicitly-undefined preference is a *different* thing from an absent one — it would
+    // overwrite the stored value with nothing.
+    const applied: { -readonly [K in keyof Preferences]?: Preferences[K] } = {};
+    if (patch.autoLock !== undefined) applied.autoLock = patch.autoLock;
+    if (patch.clipboardClearMs !== undefined) applied.clipboardClearMs = patch.clipboardClearMs;
+    if (patch.wipeAfterFailedAttempts !== undefined) {
+      applied.wipeAfterFailedAttempts = patch.wipeAfterFailedAttempts;
+    }
+
+    this.#preferences.update(applied);
+    if (patch.autoLock !== undefined) this.#autoLock.configure(patch.autoLock);
+    return this.machineSettings();
   }
 
   get vault(): VaultService {
@@ -284,16 +327,27 @@ export class SessionController {
    * request in some threat models and a permanent data-loss trap in most, so it never
    * happens without an explicit, type-to-confirm opt-in, and never below three attempts.
    *
-   * Backups are removed too. Leaving them would make the whole feature theatre.
+   * **Every copy goes, not just the vault and its backups.** An earlier version removed the
+   * vault and ten `.bak.N` slots by name, which left behind the two files most likely to be
+   * a complete openable vault: the `.tmp` an interrupted write orphans, and the
+   * `.recovered-<stamp>` that `quarantineOrphanedTemp` deliberately creates and never
+   * deletes. Either one hands back everything the wipe was asked to destroy. `atomic-write`
+   * owns the naming and answers what the copies are, so this cannot drift from the write
+   * path that creates them.
+   *
+   * Deletion is best-effort per file: one locked handle must not stop the rest being
+   * removed, because a partial wipe is still better than none.
    */
   async #maybeWipe(path: string): Promise<void> {
     const threshold = this.#preferences.get().wipeAfterFailedAttempts;
     if (threshold === null) return;
     if (this.#throttle.state.failedAttempts < threshold) return;
 
+    // The vault itself is removed explicitly as well as through the listing, so a directory
+    // that cannot be read still loses the file the user actually pointed at.
     await rm(path, { force: true });
-    for (let index = 1; index <= 10; index += 1) {
-      await rm(`${path}.bak.${index}`, { force: true });
+    for (const copy of await listVaultCopyPaths(path)) {
+      await rm(copy, { force: true }).catch(() => undefined);
     }
     this.#preferences.forgetVault(path);
     this.#pendingVault = null;

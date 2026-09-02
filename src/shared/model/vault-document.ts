@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { AuditPrivacyLevel, Credential } from './credential.js';
+import {
+  DEFAULT_HEALTH_RULE_TOGGLES,
+  DEFAULT_HEALTH_THRESHOLDS,
+  type HealthRuleId,
+} from './health.js';
 
 /**
  * The decrypted contents of a vault — what the KEEP container's body holds once
@@ -45,7 +50,34 @@ export interface VaultSettings {
   readonly passwordAgeWarningDays: number;
   /** Days a trashed record is kept before permanent deletion. `null` disables purging. */
   readonly trashRetentionDays: number | null;
+  /**
+   * Which health rules run, and at what thresholds.
+   *
+   * Vault-scoped rather than machine-scoped, and deliberately: `passwordAgeWarningDays`
+   * above is already one of these thresholds, and splitting the set across two scopes would
+   * produce exactly the confusion the settings screen exists to remove. *How this vault is
+   * judged* is a property of the data, not of the machine looking at it.
+   */
+  readonly health: VaultHealthSettings;
 }
+
+/**
+ * Health configuration, stored with the vault.
+ *
+ * The rule ids come from `HEALTH_RULE_IDS`, so a rule added to the engine and not to this
+ * record is a type error rather than a rule that silently cannot be switched off.
+ */
+export interface VaultHealthSettings {
+  readonly enabledRules: Readonly<Record<HealthRuleId, boolean>>;
+  readonly weakEntropyBits: number;
+  readonly expiringWithinDays: number;
+}
+
+export const DEFAULT_VAULT_HEALTH_SETTINGS: VaultHealthSettings = {
+  enabledRules: DEFAULT_HEALTH_RULE_TOGGLES,
+  weakEntropyBits: DEFAULT_HEALTH_THRESHOLDS.weakEntropyBits,
+  expiringWithinDays: DEFAULT_HEALTH_THRESHOLDS.expiringWithinDays,
+};
 
 export const DEFAULT_VAULT_SETTINGS: VaultSettings = {
   historyEnabledByDefault: true,
@@ -53,6 +85,7 @@ export const DEFAULT_VAULT_SETTINGS: VaultSettings = {
   auditPrivacyLevel: 'device',
   passwordAgeWarningDays: 365,
   trashRetentionDays: 30,
+  health: DEFAULT_VAULT_HEALTH_SETTINGS,
 };
 
 export interface VaultDocument {

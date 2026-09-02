@@ -12,6 +12,7 @@ import {
   backupPathFor,
   findOrphanedTemp,
   listBackups,
+  listVaultCopyPaths,
   quarantineOrphanedTemp,
   readVaultFile,
   tempPathFor,
@@ -229,5 +230,65 @@ describe('failure handling', () => {
     // quietly age out every good copy the user has.
     expect(await listBackups(vaultPath)).toEqual(backupsBefore);
     expect(await read(vaultPath)).toBe('v2');
+  });
+});
+
+/**
+ * Guard for the failed-attempt wipe.
+ *
+ * The wipe's whole purpose is destruction, so a copy it misses is a broken promise rather
+ * than an ordinary bug. The two it used to miss are the two most likely to be a *complete*
+ * vault: the `.tmp` an interrupted write orphans, and the `.recovered-<stamp>` that
+ * quarantine deliberately creates and never deletes.
+ *
+ * Fault injection performed: removing the `isTemp` clause from `listVaultCopyPaths` fails
+ * "finds every copy of the vault, including the two the wipe used to miss"; removing the
+ * `toLowerCase` normalisation fails "matches case-insensitively, like NTFS and APFS do".
+ */
+describe('listVaultCopyPaths', () => {
+  it('finds every copy of the vault, including the two the wipe used to miss', async () => {
+    await writeVaultFileAtomically(vaultPath, utf8('v1'));
+    await writeVaultFileAtomically(vaultPath, utf8('v2'));
+    await writeFile(tempPathFor(vaultPath), 'an interrupted save');
+    const quarantined = await quarantineOrphanedTemp(vaultPath);
+    await writeFile(tempPathFor(vaultPath), 'a second interrupted save');
+
+    const found = new Set(await listVaultCopyPaths(vaultPath));
+    expect(found).toContain(vaultPath);
+    expect(found).toContain(backupPathFor(vaultPath, 1));
+    expect(found).toContain(tempPathFor(vaultPath));
+    expect(found).toContain(quarantined!);
+  });
+
+  it('never claims a different vault in the same folder', async () => {
+    await writeVaultFileAtomically(vaultPath, utf8('mine'));
+    const other = join(dir, 'someone-else.keep');
+    await writeVaultFileAtomically(other, utf8('not mine'));
+    await writeFile(join(dir, 'notes.txt'), 'unrelated');
+
+    const found = await listVaultCopyPaths(vaultPath);
+    expect(found).toEqual([vaultPath]);
+  });
+
+  it('matches case-insensitively, like NTFS and APFS do', async () => {
+    await writeVaultFileAtomically(vaultPath, utf8('v1'));
+    // A backup written by an older build, or by a user copying a file by hand.
+    await writeFile(join(dir, 'TEST.KEEP.BAK.7'), 'an older copy');
+
+    expect(await listVaultCopyPaths(vaultPath)).toContain(join(dir, 'TEST.KEEP.BAK.7'));
+  });
+
+  it('does not treat a non-numeric backup suffix as a backup', async () => {
+    await writeVaultFileAtomically(vaultPath, utf8('v1'));
+    await writeFile(join(dir, 'test.keep.bak.old'), 'hand-renamed');
+    await writeFile(join(dir, 'test.keep.bak.0'), 'index zero is not a slot we write');
+
+    const found = await listVaultCopyPaths(vaultPath);
+    expect(found).not.toContain(join(dir, 'test.keep.bak.old'));
+    expect(found).not.toContain(join(dir, 'test.keep.bak.0'));
+  });
+
+  it('answers with an empty list rather than throwing when the folder is gone', async () => {
+    await expect(listVaultCopyPaths(join(dir, 'no-such-folder', 'x.keep'))).resolves.toEqual([]);
   });
 });

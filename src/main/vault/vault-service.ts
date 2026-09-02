@@ -13,7 +13,9 @@ import {
 } from '@shared/model/credential.js';
 import type { FieldDiffProjection } from '@shared/model/history.js';
 import type { HealthAnalysisOptions, VaultHealthReport } from '@shared/model/health.js';
+import type { Folder, Tag } from '@shared/model/vault-document.js';
 import {
+  DEFAULT_VAULT_HEALTH_SETTINGS,
   emptyVaultDocument,
   VAULT_DOCUMENT_VERSION,
   type VaultDocument,
@@ -58,6 +60,21 @@ import {
   type OpsContext,
 } from './credential-ops.js';
 import { pruneUnreferencedChunks } from '../attachments/audit.js';
+import {
+  createFolder,
+  deleteFolder,
+  moveFolder,
+  renameFolder,
+  type FolderDeletePolicy,
+  type NewFolderInput,
+} from '../organisation/folder-ops.js';
+import {
+  createTag,
+  deleteTag,
+  renameTag,
+  setTagColour,
+  type NewTagInput,
+} from '../organisation/tag-ops.js';
 import { chunkIdsOrphanedBy } from '../attachments/references.js';
 import { analyseVault } from '../health/rules.js';
 import { toDiffProjection } from '../history/diff-projection.js';
@@ -505,9 +522,15 @@ export class VaultService {
       case 'custom-value': {
         const field = record.fields.custom.find((f) => f.id === ref.fieldId);
         if (field === undefined) return null;
-        // Non-secret values already reached the renderer in the projection, so asking for
-        // one here is either redundant or a probe. Either way there is nothing to add.
-        return isCustomFieldValueSecret(field) ? field.value : field.value;
+        // Deliberately unconditional, and it used to be written as
+        // `isCustomFieldValueSecret(field) ? field.value : field.value` — a ternary whose
+        // branches are identical. That looked like the secret gate to anyone skimming, so a
+        // reviewer asking "is the classification enforced on this path?" read a yes where
+        // the honest answer is "it does not need to be". A non-secret value already reached
+        // the renderer in the projection, so asking for one here is redundant or a probe;
+        // either way this route discloses nothing the caller does not have. The gate that
+        // matters is in `projection.ts`, which is where the classification decides anything.
+        return field.value;
       }
 
       // Historic reveals resolve the *state at that point*, not the raw snapshot. A version
@@ -627,6 +650,165 @@ export class VaultService {
     );
     this.#open = { ...open, document: replaceCredential(open.document, versioned), dirty: true };
     return { projection: toProjection(versioned), changedFields };
+  }
+
+  // ── Vault settings ───────────────────────────────────────────────────────────
+
+  /**
+   * Replaces the vault-scoped settings.
+   *
+   * These live **inside** the encrypted body rather than in app preferences, because they
+   * are properties of the data: copy the vault to another machine and its history retention
+   * and audit privacy level go with it. See `VaultSettings`.
+   *
+   * Merged rather than replaced, so a caller sending one field cannot silently reset the
+   * rest to whatever its own defaults happened to be.
+   */
+  updateSettings(patch: Partial<VaultSettings>): VaultSettings {
+    const open = this.#requireOpen();
+    const settings: VaultSettings = { ...open.document.settings, ...patch };
+    this.#open = {
+      ...open,
+      document: { ...open.document, settings },
+      dirty: true,
+    };
+    return settings;
+  }
+
+  /** The vault-scoped settings as stored. No secrets — retention, privacy level, thresholds. */
+  settings(): VaultSettings {
+    return this.#requireOpen().document.settings;
+  }
+
+  /** Every stored version across every record — what "clear all history" is about to cost. */
+  historyVersionCount(): number {
+    const open = this.#requireOpen();
+    return open.document.records.reduce(
+      (total, record) => total + record.history.versions.length,
+      0
+    );
+  }
+
+  /**
+   * Clears every record's history in one action.
+   *
+   * The bulk form of `clearHistory`, and it exists for the same reason: the audit trail is
+   * the one feature that can hold something a user wants gone. Like the per-record version it
+   * is deliberately **not** itself versioned — recording "all history was cleared, from
+   * DESKTOP-A, at 14:02" would defeat the point of the button.
+   */
+  clearAllHistory(): number {
+    const open = this.#requireOpen();
+    const removed = this.historyVersionCount();
+    if (removed === 0) return 0;
+
+    this.#open = {
+      ...open,
+      document: {
+        ...open.document,
+        records: open.document.records.map((record) =>
+          record.history.versions.length === 0
+            ? record
+            : { ...record, history: { ...record.history, versions: [] } }
+        ),
+      },
+      dirty: true,
+    };
+    return removed;
+  }
+
+  /** The KDF cost this vault was created with. Read-only here; changing it is a re-key. */
+  kdfParams(): KdfParams {
+    return this.#requireOpen().header.kdf;
+  }
+
+  // ── Folders and tags ─────────────────────────────────────────────────────────
+  //
+  // Thin: every rule lives in `src/main/organisation/`, which is pure, and this layer only
+  // supplies the id generator and marks the vault dirty. A rule that leaked up to here
+  // would be a rule the pure tests cannot reach.
+
+  /** Folders and tags as the vault holds them. No secrets — names, colours and structure. */
+  organisation(): { folders: readonly Folder[]; tags: readonly Tag[] } {
+    const open = this.#requireOpen();
+    return { folders: open.document.folders, tags: open.document.tags };
+  }
+
+  createFolder(input: NewFolderInput): Folder {
+    const open = this.#requireOpen();
+    const result = createFolder(open.document, input, { newId: uuid });
+    this.#open = { ...open, document: result.document, dirty: true };
+    return result.folder;
+  }
+
+  renameFolder(folderId: string, name: string): Folder {
+    const open = this.#requireOpen();
+    const document = renameFolder(open.document, folderId, name);
+    this.#open = { ...open, document, dirty: true };
+    return requireFolderIn(document, folderId);
+  }
+
+  moveFolder(folderId: string, parentId: string | null, index?: number): Folder {
+    const open = this.#requireOpen();
+    const document = moveFolder(open.document, folderId, parentId, {
+      ...(index === undefined ? {} : { index }),
+    });
+    this.#open = { ...open, document, dirty: true };
+    return requireFolderIn(document, folderId);
+  }
+
+  /**
+   * Deletes a folder, and the caller says what happens to the records inside.
+   *
+   * There is deliberately no "delete everything inside" policy. Records reach the trash by
+   * their own action, with undo; a folder delete able to sweep records away would be the one
+   * destructive path in the app with no recovery.
+   */
+  deleteFolder(folderId: string, policy: FolderDeletePolicy): { movedRecords: number } {
+    const open = this.#requireOpen();
+    // Counted before the delete, because afterwards there is nothing to count: the records
+    // have been reparented or unfiled and no longer name this folder.
+    const movedRecords = open.document.records.filter(
+      (record) => record.folderId === folderId
+    ).length;
+    this.#open = {
+      ...open,
+      document: deleteFolder(open.document, folderId, policy),
+      dirty: true,
+    };
+    return { movedRecords };
+  }
+
+  createTag(input: NewTagInput): Tag {
+    const open = this.#requireOpen();
+    const result = createTag(open.document, input, { newId: uuid });
+    this.#open = { ...open, document: result.document, dirty: true };
+    return result.tag;
+  }
+
+  /** Renames the tag **and** every record carrying it — the classic half of this that gets missed. */
+  renameTag(tagId: string, name: string): { tag: Tag; updatedRecords: number } {
+    const open = this.#requireOpen();
+    const result = renameTag(open.document, tagId, name);
+    this.#open = { ...open, document: result.document, dirty: true };
+    return {
+      tag: requireTagIn(result.document, tagId),
+      updatedRecords: result.changedRecordIds.length,
+    };
+  }
+
+  setTagColour(tagId: string, colour: string): Tag {
+    const open = this.#requireOpen();
+    const document = setTagColour(open.document, tagId, colour);
+    this.#open = { ...open, document, dirty: true };
+    return requireTagIn(document, tagId);
+  }
+
+  deleteTag(tagId: string): { updatedRecords: number } {
+    const open = this.#requireOpen();
+    const result = deleteTag(open.document, tagId);
+    this.#open = { ...open, document: result.document, dirty: true };
+    return { updatedRecords: result.changedRecordIds.length };
   }
 
   // ── History ──────────────────────────────────────────────────────────────────
@@ -897,7 +1079,15 @@ export function parseVaultDocument(body: Uint8Array): VaultDocument {
     records: candidate.records.map(normaliseRecord),
     folders: candidate.folders ?? [],
     tags: candidate.tags ?? [],
-    settings: candidate.settings ?? emptyVaultDocument().settings,
+    // Merged rather than defaulted wholesale: a vault written before a settings field
+    // existed must keep every setting it *does* carry, and gain only the missing one. A
+    // `?? defaults` would silently reset the user's whole configuration on the first open
+    // after an upgrade — which looks exactly like the app forgetting their choices.
+    settings: {
+      ...emptyVaultDocument().settings,
+      ...candidate.settings,
+      health: { ...DEFAULT_VAULT_HEALTH_SETTINGS, ...candidate.settings?.health },
+    },
   };
 }
 
@@ -930,4 +1120,23 @@ function normaliseRecord(record: Credential): Credential {
     throw malformed(error instanceof Error ? error.message : 'a record has invalid history');
   }
   return normalised;
+}
+
+/**
+ * Reads back a folder the operation just wrote.
+ *
+ * The pure operations return a document rather than the entity, because an entity is a view
+ * of a document and returning both invites them to disagree. This is the read side of that
+ * choice, in one place rather than four.
+ */
+function requireFolderIn(document: VaultDocument, folderId: string): Folder {
+  const folder = document.folders.find((candidate) => candidate.id === folderId);
+  if (folder === undefined) throw malformed(`folder ${folderId} vanished during the operation`);
+  return folder;
+}
+
+function requireTagIn(document: VaultDocument, tagId: string): Tag {
+  const tag = document.tags.find((candidate) => candidate.id === tagId);
+  if (tag === undefined) throw malformed(`tag ${tagId} vanished during the operation`);
+  return tag;
 }
