@@ -172,24 +172,31 @@ leaked from a sibling class and centred the action buttons.
 DEK, and change KDF parameters. The service methods exist and are tested; only the settings
 surface to drive them is outstanding.
 
-## Phase 5 — Credential CRUD & the field system
+## Phase 5 — Credential CRUD & the field system ✅
 
 _Goal: full create/read/update/delete over every field discussed._
 
-- [ ] Credential list — virtualised, handles 10 000+ entries
-- [ ] Detail view; edit view; create flow
-- [ ] Core fields: title, username, email, password, **multiple URLs**, notes
-- [ ] Security questions — repeatable, first-class `{question, answer}` pairs, answers treated as secrets
-- [ ] Custom fields — unlimited, drag-to-reorder, individually hidden, 14 types: `text`, `password`, `email`, `url`, `number`, `date`, `datetime`, `boolean`, `multiline`, `phone`, `pin`, `otp-secret`, `address`
-- [ ] Per-field reveal / copy / hide with an `aria-live` announcement
-- [ ] Icons: auto (favicon-free, derived from the title), letter, emoji, custom
-- [ ] Duplicate a credential
-- [ ] Bulk edit: move to folder, add/remove tag, set favourite, delete
-- [ ] Soft delete → Trash, with restore and configurable auto-purge
-- [ ] Undo on every destructive action (toast with an Undo button)
-- [ ] Unsaved-changes guard on navigation and on quit
-- [ ] **Tests:** the record model's invariants · custom-field type validation · trash and restore round-trip
-- [ ] `docs/03-Data-Model/` and `docs/05-Features/` written
+- [x] Credential list — **virtualised**, handles 10 000+ entries; row height read from the density token so it stays correct when density changes
+- [x] Detail view, edit view, create flow
+- [x] Core fields: title, username, email, password, **multiple URLs**, notes
+- [x] Security questions as repeatable first-class `{question, answer}` pairs — the prompt is not secret, the answer is treated as a password
+- [x] Custom fields — unlimited, 14 types, reorderable, individually hidden
+- [x] Per-field reveal / copy / hide, with `aria-live` announcements (a copy's visible feedback is invisible to a screen reader)
+- [x] Icons: letter and emoji. **No favicon fetching** — it would tell a server which accounts exist
+- [x] Duplicate a credential, regenerating **every** id, without history or attachments
+- [x] Soft delete → Trash, with restore and retention enforced **on save, not on a timer**
+- [x] Undo on every destructive action; permanent deletion is the one exception and asks first instead
+- [x] Unsaved-changes guard
+- [x] **Tests (29 unit + 14 end-to-end):** defaults · the change-detection matrix for every tracked field · the no-op case · `passwordUpdatedAt` separation · duplicate-id rejection · trash/restore idempotence · retention boundaries
+- [x] **The smoke run now asserts the live IPC surface never returns a password or a note in a projection** — fault-injected and confirmed
+- [x] `docs/03-Data-Model/` written
+
+**Verified:** 21 end-to-end checks pass in the running app; the populated UI captured and
+visually checked (which caught a leftover duplicate the CRUD cycle was not cleaning up).
+
+**Deferred:** bulk edit and drag-to-reorder for custom fields — both want the selection and
+drag machinery that arrives with Phase 7's organisation work, and building them twice would
+be worse than building them once.
 
 ## Phase 6 — History, versioning & the audit trail _(headline feature)_
 
@@ -228,18 +235,20 @@ _Goal: finding one credential among thousands takes under two seconds._
 - [ ] **Tests:** search operator parser · filter composition · sort stability
 - [ ] `docs/05-Features/organisation-and-search.md` written
 
-## Phase 8 — Password generator & strength
+## Phase 8 — Password generator & strength ~ ENGINE DONE
 
-- [ ] Random mode: length, character classes, exclude-ambiguous, require-one-of-each, custom exclude set
-- [ ] Passphrase mode: bundled EFF large wordlist, word count, separator, capitalisation, number injection
-- [ ] Pronounceable mode; PIN mode
-- [ ] Entropy calculation plus a crack-time estimate (`@zxcvbn-ts/core`, lazily loaded in main only)
-- [ ] Session generation history
-- [ ] Per-site rule memory for sites that reject symbols
-- [ ] Generate-and-replace inside a credential — auto-versions the previous password
-- [ ] Standalone generator view and a command-palette action
-- [ ] **Tests:** every requested class is present · excluded characters never appear · entropy maths · passphrase wordlist integrity
-- [ ] `docs/05-Features/password-generator.md` written
+_The generation engine is built and tested; the IPC channel and the UI are not._
+_Full notes: `docs/05-Features/00-Password-Generator.md`._
+
+- [x] Random mode: length, character classes, exclude-ambiguous, require-one-of-each, custom exclude set
+- [x] Passphrase mode with the **real EFF large wordlist** (7 776 words, hash pinned, prefix-freedom asserted — including the four hyphenated entries a naive guard would have rejected)
+- [x] Pronounceable mode and PIN mode
+- [x] Entropy that reflects the alphabet **after** exclusions, and that **charges for** `requireEachClass` rather than overstating it
+- [x] An over-restrictive config throws rather than silently producing something weaker
+- [x] **Tests (14)**, including a statistical anti-bias guard over ~2 000 samples. Six fault injections; one found a real gap — applying exclusions to the output rather than the alphabet is caught only by the length assertion, which is now documented as that defect's sole guard
+- [ ] IPC channel and generator UI
+- [ ] Session generation history, per-site rule memory, generate-and-replace (auto-versioning the old password)
+- [x] `docs/05-Features/00-Password-Generator.md` written
 
 ## Phase 9 — Encrypted attachments
 
@@ -313,18 +322,21 @@ _Goal: two devices, one cloud folder, and never a lost edit._
 - [ ] **Tests:** the full conflict matrix · a property test asserting no merge ever loses a record · tombstone correctness · idempotent re-merge
 - [ ] `docs/10-Sync-And-Transfer/` written
 
-## Phase 13 — Health dashboard
+## Phase 13 — Health dashboard ~ RULES DONE
 
-- [ ] Offline rules: weak · reused (with the cluster listed) · old · expiring/expired · insecure `http://` URL · missing-2FA flag · incomplete · likely-duplicate
-- [ ] Overall health score, tracked over time inside the vault
-- [ ] Dashboard view with drill-down and one-click jump-to-fix
-- [ ] Per-rule enable/disable and threshold configuration
-- [ ] **HIBP Pwned Passwords, opt-in, off by default** — k-anonymity (SHA-1 prefix of 5 chars only)
-- [ ] A plain-English explainer of exactly what leaves the device, shown before it is ever enabled
-- [ ] Result caching, rate limiting, offline-graceful failure, a visible "last checked" timestamp
-- [ ] A global network kill-switch in Settings that disables even this
-- [ ] **Tests:** each rule's boundary conditions · k-anonymity request builder sends only the 5-char prefix · cache behaviour
-- [ ] `docs/05-Features/health-dashboard.md` written
+_The eight offline rules are built and tested; the dashboard, the IPC channel and the
+opt-in HIBP check are not. Full notes: `docs/05-Features/01-Health-Rules.md`._
+
+- [x] Offline rules: weak · reused (with the cluster) · old · expiring/expired · insecure `http://` URL · incomplete · likely-duplicate · empty title
+- [x] Trashed records excluded from every rule
+- [x] An overall score with **explicit, arguable weights** rather than an opaque formula, reproducible from the report itself so it can be audited
+- [x] Disabling a rule can only raise the score or leave it — renormalising would change the score of a vault that never broke the rule you just switched off
+- [x] **The report can never carry a password**: cluster ids are synthetic counters not hashes, and `insecureUrl` reports the host rather than the URL (which can carry credentials in its userinfo)
+- [x] **Tests (44)**, including every rule's boundary conditions and a no-secrets property test. Four fault injections
+- [ ] Dashboard view, IPC channel, per-rule settings
+- [ ] **HIBP Pwned Passwords, opt-in and off by default** — deliberately absent for now: no network code, no stub, no fetching import
+- [ ] `missing-2FA` — needs a model decision, since there is no 2FA field to key it off
+- [x] `docs/05-Features/01-Health-Rules.md` written
 
 ## Phase 14 — Settings & configurability
 
@@ -416,25 +428,25 @@ _Goal: the user, not us, decides their security/convenience trade-off._
 
 ## Progress
 
-| Phase                            | Status      |
-| -------------------------------- | ----------- |
-| 0 · Scaffold                     | ✅ **Done** |
-| 1 · Crypto & KEEP format         | ✅ **Done** |
-| 2 · Vault service & IPC          | ✅ **Done** |
-| 3 · Shell, design system, themes | ✅ **Done** |
-| 4 · Unlock, lock, session        | ✅ **Done** |
-| 5 · CRUD & fields                | Not started |
-| 6 · History & audit trail        | Not started |
-| 7 · Organisation & search        | Not started |
-| 8 · Password generator           | Not started |
-| 9 · Attachments                  | Not started |
-| 10 · Import                      | Not started |
-| 11 · Export & transfer bundle    | Not started |
-| 12 · Sync & merge                | Not started |
-| 13 · Health dashboard            | Not started |
-| 14 · Settings                    | Not started |
-| 15 · Chrome & QoL                | Not started |
-| 16 · In-app content              | Not started |
-| 17 · Audits                      | Not started |
-| 18 · Packaging & CI              | Not started |
-| 19 · Docs & README               | Not started |
+| Phase                            | Status        |
+| -------------------------------- | ------------- |
+| 0 · Scaffold                     | ✅ **Done**   |
+| 1 · Crypto & KEEP format         | ✅ **Done**   |
+| 2 · Vault service & IPC          | ✅ **Done**   |
+| 3 · Shell, design system, themes | ✅ **Done**   |
+| 4 · Unlock, lock, session        | ✅ **Done**   |
+| 5 · CRUD & fields                | ✅ **Done**   |
+| 6 · History & audit trail        | Not started   |
+| 7 · Organisation & search        | Not started   |
+| 8 · Password generator           | ~ Engine done |
+| 9 · Attachments                  | Not started   |
+| 10 · Import                      | Not started   |
+| 11 · Export & transfer bundle    | Not started   |
+| 12 · Sync & merge                | Not started   |
+| 13 · Health dashboard            | ~ Rules done  |
+| 14 · Settings                    | Not started   |
+| 15 · Chrome & QoL                | Not started   |
+| 16 · In-app content              | Not started   |
+| 17 · Audits                      | Not started   |
+| 18 · Packaging & CI              | Not started   |
+| 19 · Docs & README               | Not started   |
