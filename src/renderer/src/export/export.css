@@ -1,0 +1,537 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The export dialog.
+ *
+ * Every colour here is a `--kh-color-*` token, and every foreground/background pair used is
+ * one already declared in `CONTRAST_REQUIREMENTS` — so the contrast guard covers this
+ * screen without a new entry, rather than this screen inventing a pair nothing checks.
+ *
+ * Nothing signals with colour alone. Every tinted block carries a glyph, and every status
+ * carries a word: on the one screen in the app that turns an encrypted vault into a
+ * readable file, a signal only a full-colour eye can read would be the wrong economy.
+ */
+
+/* ── Steps ─────────────────────────────────────────────────────────────────── */
+
+.kh-export-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+  padding: 0;
+  margin: 0 0 var(--kh-space-4);
+  list-style: none;
+}
+
+.kh-export-steps__step {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-1) var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-full);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-export-steps__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35em;
+  height: 1.35em;
+  border-radius: var(--kh-radius-full);
+  background: var(--kh-color-surface-sunken);
+  color: var(--kh-color-text);
+  font-size: var(--kh-text-xs);
+  font-weight: var(--kh-weight-semibold);
+}
+
+/* The current step is bordered AND bold AND numbered — three signals, one of them colour. */
+.kh-export-steps__step--current {
+  border-color: var(--kh-color-accent);
+  color: var(--kh-color-text);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-export-steps__step--current .kh-export-steps__number {
+  background: var(--kh-color-accent);
+  color: var(--kh-color-accent-on);
+}
+
+.kh-export-steps__step--done .kh-export-steps__number {
+  background: var(--kh-color-success-subtle);
+  color: var(--kh-color-success-text);
+}
+
+.kh-export-step__heading {
+  margin: 0 0 var(--kh-space-1);
+  font-size: var(--kh-text-lg);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-export-step__lead {
+  margin: 0 0 var(--kh-space-4);
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-relaxed);
+}
+
+/* ── Format list ───────────────────────────────────────────────────────────── */
+
+.kh-export-formats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.kh-export-format {
+  display: flex;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  cursor: pointer;
+  transition: border-color var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-export-format:hover {
+  background: var(--kh-color-surface-hover);
+}
+
+/*
+ * Selection is a border, a tint and a checked radio — never the tint alone. `:has()` puts
+ * the focus ring on the whole card rather than on a 13px radio dot, so a keyboard user can
+ * see which row they are on.
+ */
+.kh-export-format--selected {
+  border-color: var(--kh-color-accent);
+  background: var(--kh-color-accent-subtle);
+}
+
+.kh-export-format:has(:focus-visible) {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.kh-export-format__radio {
+  margin-top: 0.2em;
+  flex: none;
+  accent-color: var(--kh-color-accent);
+}
+
+.kh-export-format__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  min-width: 0;
+}
+
+.kh-export-format__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-export-format__name {
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-export-format__extension {
+  padding: 0 var(--kh-space-1);
+  background: var(--kh-color-surface-sunken);
+  border-radius: var(--kh-radius-sm);
+  color: var(--kh-color-text-muted);
+  font-family: var(--kh-font-secret);
+  font-size: var(--kh-text-xs);
+}
+
+.kh-export-format__description,
+.kh-export-format__meaning,
+.kh-export-format__fidelity,
+.kh-export-format__losses {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-export-format__losses {
+  color: var(--kh-color-warning-text);
+}
+
+/* ── Scope ─────────────────────────────────────────────────────────────────── */
+
+.kh-export-scope {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+}
+
+.kh-export-scope__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.kh-export-scope__legend {
+  padding: 0;
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-export-choice {
+  display: flex;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  cursor: pointer;
+}
+
+.kh-export-choice input {
+  margin-top: 0.2em;
+  flex: none;
+  accent-color: var(--kh-color-accent);
+}
+
+.kh-export-choice:has(:focus-visible) {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.kh-export-choice span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+}
+
+.kh-export-choice small {
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+}
+
+/* Not `opacity`: a dimmed label is a contrast failure. The cursor and the disabled control
+   already say it is unavailable, and the text explains why. */
+.kh-export-choice--disabled {
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.kh-export-counts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-export-counts__line {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+}
+
+.kh-export-counts__line--warning {
+  color: var(--kh-color-warning-text);
+}
+
+/* ── Confirm ───────────────────────────────────────────────────────────────── */
+
+.kh-export-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+}
+
+/*
+ * The danger block. Left rule, tint, glyph and a bold sentence — four signals, because this
+ * is the one panel in Keyhold whose job is to stop somebody.
+ */
+.kh-export-danger {
+  padding: var(--kh-space-4);
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+  border-left: 4px solid var(--kh-color-danger);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-export-danger__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  margin: 0 0 var(--kh-space-2);
+  font-size: var(--kh-text-md);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-export-danger__symbol {
+  font-size: var(--kh-text-lg);
+  line-height: 1;
+}
+
+.kh-export-danger__body {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-relaxed);
+}
+
+.kh-export-note {
+  margin: 0;
+  padding: var(--kh-space-3);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface-sunken);
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-relaxed);
+}
+
+.kh-export-note p {
+  margin: 0 0 var(--kh-space-2);
+}
+
+.kh-export-note p:last-child {
+  margin-bottom: 0;
+}
+
+.kh-export-note--info {
+  background: var(--kh-color-info-subtle);
+  color: var(--kh-color-info-text);
+}
+
+.kh-export-note--warning {
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+}
+
+.kh-export-note--danger {
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+}
+
+.kh-export-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-export-section__heading {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+/* ── Losses ────────────────────────────────────────────────────────────────── */
+
+.kh-export-losses {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+}
+
+.kh-export-losses__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-export-losses__heading {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+}
+
+.kh-export-losses__meaning {
+  margin: 0;
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-export-losses__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  margin: var(--kh-space-2) 0 0;
+}
+
+.kh-export-losses__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--kh-space-3);
+  border-left: 2px solid var(--kh-color-border);
+}
+
+.kh-export-losses__field {
+  font-size: var(--kh-text-xs);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-export-losses__message {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-export-losses__empty {
+  display: flex;
+  gap: var(--kh-space-2);
+  margin: 0;
+  padding: var(--kh-space-3);
+  background: var(--kh-color-success-subtle);
+  color: var(--kh-color-success-text);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+}
+
+/* ── Passphrase strength ───────────────────────────────────────────────────── */
+
+.kh-export-strength {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-export-strength__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  margin: 0;
+  font-size: var(--kh-text-sm);
+}
+
+.kh-export-strength__label {
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-export-strength__label--success {
+  color: var(--kh-color-success-text);
+}
+
+.kh-export-strength__label--info {
+  color: var(--kh-color-info-text);
+}
+
+.kh-export-strength__label--warning {
+  color: var(--kh-color-warning-text);
+}
+
+.kh-export-strength__label--danger {
+  color: var(--kh-color-danger-text);
+}
+
+.kh-export-strength__time {
+  color: var(--kh-color-text-muted);
+}
+
+.kh-export-strength__bar {
+  display: flex;
+  gap: 3px;
+}
+
+.kh-export-strength__segment {
+  flex: 1;
+  height: 5px;
+  border-radius: var(--kh-radius-full);
+  background: var(--kh-color-surface-sunken);
+}
+
+.kh-export-strength__segment--success {
+  background: var(--kh-color-success);
+}
+
+.kh-export-strength__segment--info {
+  background: var(--kh-color-info);
+}
+
+.kh-export-strength__segment--warning {
+  background: var(--kh-color-warning);
+}
+
+.kh-export-strength__segment--danger {
+  background: var(--kh-color-danger);
+}
+
+.kh-export-strength__warning,
+.kh-export-strength__suggestions {
+  margin: 0;
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-export-strength__suggestions {
+  padding-left: var(--kh-space-4);
+}
+
+/* ── Result ────────────────────────────────────────────────────────────────── */
+
+.kh-export-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+}
+
+.kh-export-result__headline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  margin: 0;
+  font-size: var(--kh-text-md);
+}
+
+.kh-export-result__symbol {
+  color: var(--kh-color-success-text);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-export-result__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  margin: 0;
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-export-result__fact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-export-result__fact dt {
+  min-width: 5rem;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-export-result__fact dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
