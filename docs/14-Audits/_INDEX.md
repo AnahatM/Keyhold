@@ -4,10 +4,10 @@ Phase 17's findings. Each page is a **dated snapshot**, not current reference: i
 what was true on the day it was written, so that a later reader can tell what has since been
 fixed rather than re-deriving the whole sweep.
 
-| Page                                             | Date       | What it covers                                                                                                                                                                              |
-| ------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page                                             | Date       | What it covers                                                                                                                                                                                  |
+| ------------------------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`00-Security-Audit.md`](./00-Security-Audit.md) | 2026-09-02 | The secret boundary, secrets in logs and errors, Electron hardening, the preload bridge, IPC validation, cryptographic use, the filesystem and the one subprocess call, and the dependency tree |
-| [`01-Doc-Code-Audit.md`](./01-Doc-Code-Audit.md) | 2026-09-02 | Every page under `docs/` and every root markdown file, checked against the code it describes: stale numbers, moved paths, and absence claims that have rotted                                  |
+| [`01-Doc-Code-Audit.md`](./01-Doc-Code-Audit.md) | 2026-09-02 | Every page under `docs/` and every root markdown file, checked against the code it describes: stale numbers, moved paths, and absence claims that have rotted                                   |
 
 ---
 
