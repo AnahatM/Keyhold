@@ -60,15 +60,24 @@ this is enforced rather than merely intended.
 
 `src/main/vault/projection.ts` builds the only view of a credential that may cross.
 
-| Crosses                                                             | Never crosses                                     |
-| ------------------------------------------------------------------- | ------------------------------------------------- |
-| title, username, email, urls, tags, folder, favourite, icon         | password, notes                                   |
-| security-question **prompts**                                       | security-question **answers**                     |
-| custom-field labels, types, order                                   | values of secret-typed or user-hidden fields      |
-| attachment metadata (name, size, mime, hash)                        | attachment bytes                                  |
-| `hasPassword`, `passwordLength`, `hasNotes`                         | the values themselves                             |
-| history: version number, timestamp, changed-field names, **origin** | version `snapshot` — those are previous passwords |
-| all timestamps, use counts, rotation settings                       | —                                                 |
+| Crosses                                                              | Never crosses                                                            |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| title, username, email, urls, tags, folder, favourite, icon          | password, notes                                                          |
+| security-question **prompts**                                        | security-question **answers**                                            |
+| custom-field labels, types, order                                    | values of secret-typed or user-hidden fields                             |
+| attachment metadata (name, size, mime, hash)                         | attachment bytes                                                         |
+| `hasPassword`, `passwordLength`, `hasNotes`                          | the values themselves                                                    |
+| history: version number, timestamp, changed-field names, **origin**  | the _secret_ half of a version `snapshot` — an old password, an old note |
+| a version snapshot's non-secret half, and old secrets as **lengths** | —                                                                        |
+| all timestamps, use counts, rotation settings                        | —                                                                        |
+
+A version's snapshot is the one row that changed after this table was first written, and
+it is worth being precise about: the snapshot holds the values that were _replaced_, so
+for a password change it is an old password. `src/main/history/diff-projection.ts` sends
+the non-secret half verbatim — so a timeline can render `"Gmail" → "Google"` without a
+round trip — and the secret half only as a length. The old value itself is fetched one at
+a time through the broker, like any other secret. See
+[`../05-Features/02-History-And-Audit.md`](../05-Features/02-History-And-Audit.md) §7.
 
 Two design points:
 

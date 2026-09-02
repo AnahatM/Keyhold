@@ -3,8 +3,8 @@
 > The offline vault analysis: what it checks, how it scores, and why the report can never
 > carry a password. Current reference. Implemented by `src/main/health/rules.ts`.
 >
-> **Status: the rules engine is built and tested; the IPC channel, the dashboard and the
-> opt-in HIBP check are not.** See §6.
+> **Status: the rules engine, the IPC channel and the dashboard are built. The opt-in HIBP
+> check exists as an isolated client that nothing imports and no channel exposes.** See §6.
 
 ---
 
@@ -123,10 +123,11 @@ false one tells the user to merge two genuinely different accounts.
 
 ## 6. Not built yet
 
-- The IPC channel, the dashboard view, and per-rule settings persistence.
-- **The opt-in HIBP breach check.** Deliberately absent — no network code, no stub, no
-  fetching import anywhere in these files. It is a separate, off-by-default piece of work
-  behind a plain-English explainer.
+- Per-rule settings persistence — the toggles work, but nothing stores them yet.
+- **The opt-in HIBP breach check.** Still absent from _these_ files — no network code, no
+  stub, no fetching import in `src/main/health/`. A k-anonymity client now exists in
+  isolation at `src/main/breach/`, but nothing imports it, no channel exposes it, and the
+  CSP still says `connect-src 'none'`. It needs its own security pass before it ships.
 - **A `missing-2FA` rule.** Listed in the roadmap, but the record model has no 2FA field to
   key it off — only a generic `otp-secret` custom-field type. It needs a design decision
   rather than a guess.
