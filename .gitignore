@@ -1,0 +1,88 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+dist-electron/
+out/
+release/
+build/
+*.tsbuildinfo
+
+# Packaging artefacts
+*.exe
+*.dmg
+*.zip
+*.AppImage
+*.deb
+*.rpm
+*.blockmap
+*.snap
+
+# ─────────────────────────────────────────────────────────────
+# NEVER COMMIT VAULT DATA. These are real people's passwords.
+# ─────────────────────────────────────────────────────────────
+*.keep
+*.keepx
+*.keepbak
+*.keep.tmp
+vaults/
+!tests/**/fixtures/*.keep
+!tests/**/fixtures/*.keepx
+
+# Import/export fixtures that may contain real credentials
+*.kdbx
+*.csv
+*.1pux
+!tests/**/fixtures/*.csv
+!tests/**/fixtures/*.kdbx
+!tests/**/fixtures/*.1pux
+
+# Secrets & local config
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.cer
+*.mobileprovision
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test & coverage
+coverage/
+.nyc_output/
+.vitest/
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.recommended.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Scratch
+scratch/
+tmp/
+temp/
