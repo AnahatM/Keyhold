@@ -11,8 +11,8 @@ Last updated: 2026-09-02
 
 ## 🔴 M1 — Create the private GitHub repository and push
 
-**Blocks:** the explicit request *"setup a git repo in this codebase and push it online to GitHub
-privately for now"* (decision D12). Local git is already initialised and committed — only the remote
+**Blocks:** the explicit request _"setup a git repo in this codebase and push it online to GitHub
+privately for now"_ (decision D12). Local git is already initialised and committed — only the remote
 is missing.
 
 **Status:** GitHub CLI is **not installed** on this machine (checked 2026-09-02: `gh` is not on
@@ -48,7 +48,7 @@ git branch -M main
 git push -u origin main
 ```
 
-*(If a credential prompt appears on the push, Git Credential Manager will open a browser window.)*
+_(If a credential prompt appears on the push, Git Credential Manager will open a browser window.)_
 
 ---
 
@@ -77,7 +77,7 @@ run it manually in `C:\Dev\Credentials-App` and say so.
 
 ## 🟢 M4 — Code signing certificates (deferred by decision D16)
 
-Both cost money annually, which conflicts with decision D11 (*"I won't have to pay for anything"*).
+Both cost money annually, which conflicts with decision D11 (_"I won't have to pay for anything"_).
 **Deliberately not being done.** Recorded so the option is visible if that ever changes.
 
 - **Windows:** an OV/EV code-signing certificate (~$200–400/yr) removes SmartScreen warnings
@@ -108,4 +108,4 @@ Only worth doing once there is something to show.
 
 ## Done
 
-*(nothing yet)*
+_(nothing yet)_

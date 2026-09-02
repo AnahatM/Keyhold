@@ -1,0 +1,87 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * Phase 0 baseline only. The real token layer and theme engine land in Phase 3,
+ * at which point ZERO hardcoded colours are permitted anywhere — including here.
+ * The values below are deliberately temporary and are replaced wholesale.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  background: #12131a;
+  color: #e7e9ee;
+  -webkit-font-smoothing: antialiased;
+}
+
+.boot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: center;
+  height: 100%;
+  padding: 3rem;
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+.boot h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  margin: 0;
+  color: #9aa1b1;
+  font-size: 1rem;
+}
+
+.boot-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1.25rem;
+  margin: 1.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+.boot-facts dt {
+  color: #9aa1b1;
+}
+
+.boot-facts dd {
+  margin: 0;
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+}
+
+.phase {
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  color: #6d7486;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

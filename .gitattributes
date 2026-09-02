@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+# Binary — never touch these
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.wasm binary
+
+# Vault fixtures are binary and must never be line-ending mangled
+*.keep binary
+*.keepx binary
+*.keepbak binary
+*.kdbx binary
+
+# Keep the licence verbatim
+LICENSE -text

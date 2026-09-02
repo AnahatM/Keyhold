@@ -9,26 +9,26 @@
 
 ## The tree
 
-Folders are created as each system lands, not pre-created empty. Entries marked *planned* do not
+Folders are created as each system lands, not pre-created empty. Entries marked _planned_ do not
 exist yet; the phase that creates them is named.
 
-| Folder | Contents | Status |
-|---|---|---|
-| [`00-Overview/`](./00-Overview/_INDEX.md) | What Keyhold is · naming & glossary · competitive analysis · threat model | **Written** |
-| `01-Architecture/` | Process model, module map, data flow, IPC contract | *Planned — Phase 2* |
-| `02-Security/` | Crypto design, key hierarchy, session model, hardening checklist | *Planned — Phase 1 & 4* |
-| `03-Data-Model/` | The record schema, field types, history model, tombstones | *Planned — Phase 5* |
-| `04-Vault-Format/` | The **KEEP** container spec — publishable and implementable by third parties | *Planned — Phase 1* |
-| `05-Features/` | One page per feature: CRUD, history & audit, search, generator, attachments, health, settings | *Planned — Phases 5–14* |
-| `06-UI-Design-System/` | Tokens, themes, components, layout, motion, a11y rules | *Planned — Phase 3* |
-| `07-Main-Process-Services/` | Vault service, clipboard, biometrics, file watcher, origin capture | *Planned — Phase 2* |
-| `08-Renderer-State/` | Store shape, selectors, the safe projection, secret-fetch lifecycle | *Planned — Phase 2* |
-| `09-Import-Export/` | Every supported format, with per-format field-mapping tables | *Planned — Phases 10–11* |
-| `10-Sync-And-Transfer/` | Portable file · `.keepx` bundles · the merge engine and conflict matrix | *Planned — Phase 12* |
-| `11-Development/` | Setup, scripts, conventions, testing policy, release process | *Planned — Phase 0* |
-| [`12-Roadmap/`](./12-Roadmap/_INDEX.md) | Master checklist · feature backlog · decision log | **Written** |
-| `13-Appendix/` | Audit findings, benchmarks, doc-audit findings, deliberate oddities | *Planned — Phase 17* |
-| [`superpowers/specs/`](./superpowers/specs/) | Point-in-time design specs. **History, not current reference** | **Written** |
+| Folder                                          | Contents                                                                                      | Status                   |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------ |
+| [`00-Overview/`](./00-Overview/_INDEX.md)       | What Keyhold is · naming & glossary · competitive analysis · threat model                     | **Written**              |
+| `01-Architecture/`                              | Process model, module map, data flow, IPC contract                                            | _Planned — Phase 2_      |
+| `02-Security/`                                  | Crypto design, key hierarchy, session model, hardening checklist                              | _Planned — Phase 1 & 4_  |
+| `03-Data-Model/`                                | The record schema, field types, history model, tombstones                                     | _Planned — Phase 5_      |
+| `04-Vault-Format/`                              | The **KEEP** container spec — publishable and implementable by third parties                  | _Planned — Phase 1_      |
+| `05-Features/`                                  | One page per feature: CRUD, history & audit, search, generator, attachments, health, settings | _Planned — Phases 5–14_  |
+| `06-UI-Design-System/`                          | Tokens, themes, components, layout, motion, a11y rules                                        | _Planned — Phase 3_      |
+| `07-Main-Process-Services/`                     | Vault service, clipboard, biometrics, file watcher, origin capture                            | _Planned — Phase 2_      |
+| `08-Renderer-State/`                            | Store shape, selectors, the safe projection, secret-fetch lifecycle                           | _Planned — Phase 2_      |
+| `09-Import-Export/`                             | Every supported format, with per-format field-mapping tables                                  | _Planned — Phases 10–11_ |
+| `10-Sync-And-Transfer/`                         | Portable file · `.keepx` bundles · the merge engine and conflict matrix                       | _Planned — Phase 12_     |
+| [`11-Development/`](./11-Development/_INDEX.md) | Setup, scripts, conventions, testing policy, toolchain decisions                              | **Written**              |
+| [`12-Roadmap/`](./12-Roadmap/_INDEX.md)         | Master checklist · feature backlog · decision log                                             | **Written**              |
+| `13-Appendix/`                                  | Audit findings, benchmarks, doc-audit findings, deliberate oddities                           | _Planned — Phase 17_     |
+| [`superpowers/specs/`](./superpowers/specs/)    | Point-in-time design specs. **History, not current reference**                                | **Written**              |
 
 ---
 

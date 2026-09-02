@@ -16,29 +16,40 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 
 ---
 
-## Phase 0 — Project scaffold & tooling
+## Phase 0 — Project scaffold & tooling ✅
 
-*Goal: `npm run dev` opens a hardened, empty Electron window on Windows and macOS.*
+_Goal: `npm run dev` opens a hardened, empty Electron window on Windows and macOS._
 
-- [ ] Initialise `package.json` — name `keyhold`, GPL-3.0-or-later, author, repository
-- [ ] Scaffold with `electron-vite` (main / preload / renderer)
-- [ ] TypeScript strict everywhere (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`)
-- [ ] Path aliases (`@main`, `@preload`, `@renderer`, `@shared`) defined in **both** `electron.vite.config.ts` and every `tsconfig.*.json`, kept in sync
-- [ ] ESLint + Prettier + `.editorconfig`; scripts `lint`, `lint:fix`, `format`, `typecheck`
-- [ ] Vitest configured for the `main`, `shared` and `renderer` environments
-- [ ] Harden `BrowserWindow`: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `webSecurity: true`
-- [ ] Strict CSP — no `unsafe-inline`, no `unsafe-eval`, no remote origins
-- [ ] Block `will-navigate` and `setWindowOpenHandler` for anything not in-app
-- [ ] Disable devtools in production builds
-- [ ] Single-instance lock
-- [ ] `LICENSE` (GPL-3.0), SPDX header lint rule, `.gitignore`, `.gitattributes`
-- [ ] `CHANGELOG.md` (Keep a Changelog), `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md`
-- [ ] `docs/11-Development/` — setup, scripts, architecture-at-a-glance
-- [ ] Git: initial commit on `main`
+- [x] Initialise `package.json` — name `keyhold`, GPL-3.0-or-later, author, repository
+- [x] Scaffold with `electron-vite` (main / preload / renderer)
+- [x] TypeScript strict everywhere (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, and six more)
+- [x] Path aliases (`@main`, `@preload`, `@renderer`, `@shared`) in **both** `electron.vite.config.ts` and every `tsconfig.*.json` — kept in sync by `tools/alias-parity.test.ts`
+- [x] ESLint + Prettier + `.editorconfig`; scripts `lint`, `lint:fix`, `format`, `typecheck`, `verify`
+- [x] Vitest configured for the `node` and `renderer` environments
+- [x] Harden `BrowserWindow`: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `webSecurity: true`, `webviewTag: false`, spellcheck off
+- [x] Strict CSP — `default-src 'none'`, no `unsafe-inline` in `script-src`, no `unsafe-eval`, `connect-src 'none'`
+- [x] Block `will-navigate` and `setWindowOpenHandler` for anything not in-app; external links go to the real browser
+- [x] Deny every web permission (`setPermissionRequestHandler` / `setPermissionCheckHandler`)
+- [x] Disable devtools in production builds
+- [x] Single-instance lock
+- [x] `LICENSE` (GPL-3.0), SPDX header lint rule (local, with fault-injected test), `.gitignore`, `.gitattributes`
+- [x] `CHANGELOG.md` (Keep a Changelog), `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md`
+- [x] `docs/11-Development/` — setup & scripts, testing policy
+- [x] **Extra:** launch smoke test (`npm run test:smoke`) that starts the real app and verifies the preload bridge — added after discovering that a sandboxed ESM preload fails silently at runtime (decision D20)
+- [x] **Extra:** renderer lint zone that makes importing `electron`, `node:*`, `fs`, `crypto`, `os` or `@main/*` a hard error
+- [x] **Extra:** `Math.random()` banned project-wide by lint
+- [x] Git: initial commits on `main`
 
-## Phase 1 — Crypto core & the KEEP container *(headless, fully tested)*
+**Verified:** `npm run verify` green (20 tests) · `npm run build` clean · `npm run test:smoke`
+reports `SMOKE-PASS window created, renderer loaded, preload bridge present`.
+All three guards fault-injected and confirmed to fail on the defect they claim to catch.
 
-*Goal: a library that turns a password plus records into a `.keep` file and back, with no UI at all.*
+**Blocked:** the GitHub remote does not exist yet — GitHub CLI is not installed. See
+`MANUAL-BACKLOG.md` M1. Commits are landing locally; the push happens the moment the remote exists.
+
+## Phase 1 — Crypto core & the KEEP container _(headless, fully tested)_
+
+_Goal: a library that turns a password plus records into a `.keep` file and back, with no UI at all._
 
 - [ ] `shared/crypto/` — Argon2id via `hash-wasm`, AES-256-GCM via Node `crypto`
 - [ ] KDF calibration routine — target ≈500 ms on the current machine, return `{m, t, p}`
@@ -56,7 +67,7 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 
 ## Phase 2 — Vault service & the secure IPC bridge
 
-*Goal: the main process owns every secret; the renderer can only ask, never hold.*
+_Goal: the main process owns every secret; the renderer can only ask, never hold._
 
 - [ ] `main/vault/VaultService` — open, unlock, lock, save, close; holds the decrypted vault
 - [ ] Full secret zeroing on lock, on window close, and on app quit
@@ -73,7 +84,7 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 
 ## Phase 3 — App shell, design system & theme engine
 
-*Goal: the three-pane shell renders, and every theme is contrast-safe.*
+_Goal: the three-pane shell renders, and every theme is contrast-safe._
 
 - [ ] CSS token layer — colour, space, radius, shadow, motion, type. **Zero hardcoded colours.**
 - [ ] Theme engine: 8 themes — Dawn, Midnight, Slate, Nord, Solarized Light, Solarized Dark, Rose, High-Contrast
@@ -92,7 +103,7 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 
 ## Phase 4 — Unlock, lock & session security
 
-*Goal: you can create a vault, unlock it, and trust that it locks itself.*
+_Goal: you can create a vault, unlock it, and trust that it locks itself._
 
 - [ ] Welcome screen — create vault / open vault / recent vaults
 - [ ] Create-vault flow: choose location, master password with live strength meter, explicit "there is no recovery" acknowledgement
@@ -111,7 +122,7 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 
 ## Phase 5 — Credential CRUD & the field system
 
-*Goal: full create/read/update/delete over every field discussed.*
+_Goal: full create/read/update/delete over every field discussed._
 
 - [ ] Credential list — virtualised, handles 10 000+ entries
 - [ ] Detail view; edit view; create flow
@@ -128,9 +139,9 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 - [ ] **Tests:** the record model's invariants · custom-field type validation · trash and restore round-trip
 - [ ] `docs/03-Data-Model/` and `docs/05-Features/` written
 
-## Phase 6 — History, versioning & the audit trail *(headline feature)*
+## Phase 6 — History, versioning & the audit trail _(headline feature)_
 
-*Goal: "what changed, when, and from which device and network?" is always answerable.*
+_Goal: "what changed, when, and from which device and network?" is always answerable._
 
 - [ ] Version model — changed-field list plus a partial snapshot (never a full copy)
 - [ ] **Per-credential "keep past versions" checkbox**, with a global default and per-record override
@@ -149,7 +160,7 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 
 ## Phase 7 — Organisation, search, sort & filter
 
-*Goal: finding one credential among thousands takes under two seconds.*
+_Goal: finding one credential among thousands takes under two seconds._
 
 - [ ] Nested folders — tree, create/rename/move/delete, drag-and-drop
 - [ ] Tags — flat, multi-assign, colour-coded, rename cascades
@@ -192,7 +203,7 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 
 ## Phase 10 — Import engine
 
-*Goal: nobody has to retype anything, from any manager.*
+_Goal: nobody has to retype anything, from any manager._
 
 - [ ] Parser interface + shared normalisation pipeline
 - [ ] **Generic CSV with a column-mapping UI** — the catch-all that makes everything else possible
@@ -233,7 +244,7 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 
 ## Phase 12 — Sync & merge
 
-*Goal: two devices, one cloud folder, and never a lost edit.*
+_Goal: two devices, one cloud folder, and never a lost edit._
 
 - [ ] Generation counter and content hash in the header
 - [ ] File watcher on the open vault; detect external modification
@@ -265,7 +276,7 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 
 ## Phase 14 — Settings & configurability
 
-*Goal: the user, not us, decides their security/convenience trade-off.*
+_Goal: the user, not us, decides their security/convenience trade-off._
 
 - [ ] Settings shell: Vault · Security · Privacy · Appearance · Behaviour · Import/Export · Sync · Advanced · About
 - [ ] **Security presets** — Relaxed / Balanced / Strict / Paranoid — each a named bundle of the individual settings
@@ -298,7 +309,7 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 - [ ] Help & FAQ — fully offline, bundled
 - [ ] Changelog view, rendered from `CHANGELOG.md` at build time (never a hand-maintained second copy)
 - [ ] About — version, credits, links, and an **auto-generated** third-party licence list
-- [ ] **Security & Threat Model** page, in plain English, including what Keyhold does *not* protect against
+- [ ] **Security & Threat Model** page, in plain English, including what Keyhold does _not_ protect against
 - [ ] Keyboard shortcut reference
 - [ ] First-run onboarding tour, skippable and re-runnable
 - [ ] **Guard test:** the licence list is generated from `package.json`, not hand-written
@@ -353,25 +364,25 @@ accurate, `npm run lint`, `npm run typecheck` and `npm test` all pass, and a com
 
 ## Progress
 
-| Phase | Status |
-|---|---|
-| 0 · Scaffold | Not started |
-| 1 · Crypto & KEEP format | Not started |
-| 2 · Vault service & IPC | Not started |
+| Phase                            | Status      |
+| -------------------------------- | ----------- |
+| 0 · Scaffold                     | ✅ **Done** |
+| 1 · Crypto & KEEP format         | Not started |
+| 2 · Vault service & IPC          | Not started |
 | 3 · Shell, design system, themes | Not started |
-| 4 · Unlock, lock, session | Not started |
-| 5 · CRUD & fields | Not started |
-| 6 · History & audit trail | Not started |
-| 7 · Organisation & search | Not started |
-| 8 · Password generator | Not started |
-| 9 · Attachments | Not started |
-| 10 · Import | Not started |
-| 11 · Export & transfer bundle | Not started |
-| 12 · Sync & merge | Not started |
-| 13 · Health dashboard | Not started |
-| 14 · Settings | Not started |
-| 15 · Chrome & QoL | Not started |
-| 16 · In-app content | Not started |
-| 17 · Audits | Not started |
-| 18 · Packaging & CI | Not started |
-| 19 · Docs & README | Not started |
+| 4 · Unlock, lock, session        | Not started |
+| 5 · CRUD & fields                | Not started |
+| 6 · History & audit trail        | Not started |
+| 7 · Organisation & search        | Not started |
+| 8 · Password generator           | Not started |
+| 9 · Attachments                  | Not started |
+| 10 · Import                      | Not started |
+| 11 · Export & transfer bundle    | Not started |
+| 12 · Sync & merge                | Not started |
+| 13 · Health dashboard            | Not started |
+| 14 · Settings                    | Not started |
+| 15 · Chrome & QoL                | Not started |
+| 16 · In-app content              | Not started |
+| 17 · Audits                      | Not started |
+| 18 · Packaging & CI              | Not started |
+| 19 · Docs & README               | Not started |

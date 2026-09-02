@@ -29,6 +29,7 @@ representation in any existing format. Owning the format means the data model ca
 The interop layer removes the usual cost of a proprietary format.
 
 **Rejected:**
+
 - **KDBX 4 as native.** Would give instant KeePassXC compatibility, but history, provenance and
   structured metadata would have to be crammed into string custom-fields that read as noise in
   other clients. The data model would be dictated by a format designed in 2004.
@@ -36,7 +37,7 @@ The interop layer removes the usual cost of a proprietary format.
   binary to the build, and the vault stops being "one obvious thing you copy".
 
 **Consequence:** we owe the ecosystem a published, implementable format spec (Phase 19), and KDBX 4
-*export* becomes a hard requirement, not a nice-to-have (D3 of the anti-lock-in promise).
+_export_ becomes a hard requirement, not a nice-to-have (D3 of the anti-lock-in promise).
 
 ---
 
@@ -51,6 +52,7 @@ the interesting problem is concurrent edits, not encryption. Doing only tier 1 m
 conflict silently loses edits — unacceptable against goal G1 (never lose a credential).
 
 **Rejected:**
+
 - **Manual copy only** — last-writer-wins loses data.
 - **LAN device-to-device pairing** — deferred to backlog C1. It adds a listening network surface to
   an app whose main selling point is that it has none.
@@ -67,8 +69,8 @@ into Phase 5/6 rather than retrofitted in Phase 12.
 **Decision:** Password health dashboard (including opt-in HIBP) and encrypted attachments are in
 v1. Built-in TOTP and extra item types are **deferred, not dropped**.
 
-**Anahat's exact instruction:** *"Even though I didn't check all the options ensure that they are
-all written down in's docs for future implementation ideas at some later point."*
+**Anahat's exact instruction:** _"Even though I didn't check all the options ensure that they are
+all written down in's docs for future implementation ideas at some later point."_
 
 **Consequence:** backlog items A1 and A2. Groundwork is deliberately laid in v1 so both are additive
 later — the record model carries a `type` discriminator, and `otp-secret` already exists as a
@@ -82,8 +84,8 @@ custom-field type.
 **Decision:** Biometric quick-unlock and auto-lock plus clipboard hygiene are in v1. Key-file second
 factor and emergency recovery kit are **deferred, not dropped**.
 
-**Anahat's exact instruction:** *"Again even if I didn't check these options write them down as
-potential candidate features for the future."*
+**Anahat's exact instruction:** _"Again even if I didn't check these options write them down as
+potential candidate features for the future."_
 
 **Consequence:** backlog items A3 and A4. Envelope encryption (D14) is chosen specifically so both
 are additional DEK wrappings rather than format changes.
@@ -93,7 +95,7 @@ are additional DEK wrappings rather than format changes.
 ### D5 — App name: **Keyhold**
 
 **Status:** Accepted
-**Why:** A coined compound that reads two ways — the thing that *holds your keys*, and a *hold* in
+**Why:** A coined compound that reads two ways — the thing that _holds your keys_, and a _hold_ in
 the fortification sense. One word, memorable, unclaimed in this space, obvious wordmark.
 **Rejected:** Coffer (strong but old-world), Cipherfold (technical, longer), Credentials-App
 (descriptive but weak as an open-source project).
@@ -104,7 +106,7 @@ the fortification sense. One word, memorable, unclaimed in this space, obvious w
 
 **Status:** Accepted
 **Why:** What KeePassXC, KeePass, Bitwarden's clients and Proton Pass all use. For a security tool
-the copyleft guarantee *is* the trust argument: any fork stays auditable.
+the copyleft guarantee _is_ the trust argument: any fork stays auditable.
 **Rejected:** MIT and Apache-2.0 — a closed fork of a password manager cannot be inspected, which
 undermines the entire premise. AGPL-3.0 — the network clause buys nothing for an app that never runs
 as a service, and deters contributors.
@@ -136,8 +138,8 @@ token resolves in every theme; every pair passes AA contrast).
 
 **Status:** Accepted
 **Expansion:** Keyhold Encrypted Entry Package.
-**Why:** A *keep* is the fortified inner stronghold of a castle — exactly what a *keyhold* holds —
-and simultaneously the plain verb *to keep*. Short, warm, unclaimed.
+**Why:** A _keep_ is the fortified inner stronghold of a castle — exactly what a _keyhold_ holds —
+and simultaneously the plain verb _to keep_. Short, warm, unclaimed.
 **Rejected:** `.hold`, `.ward`, `.trove`, and from earlier brainstorming `.bastion`, `.redoubt`,
 `.coffer`, `.chest`, `.reliquary`, `.stash`, `.crypt`, `.cipher`, `.sealed`, `.enigma`, `.codex`,
 `.grimoire`, `.ledger`, `.sanctum`.
@@ -149,8 +151,8 @@ and simultaneously the plain verb *to keep*. Short, warm, unclaimed.
 ### D10 — Everything is user-configurable
 
 **Status:** Accepted
-**Anahat's exact instruction:** *"I want it fully customizable and configurable by the user based on
-what features or levels of security or auth they want to enable or disable."*
+**Anahat's exact instruction:** _"I want it fully customizable and configurable by the user based on
+what features or levels of security or auth they want to enable or disable."_
 **Decision:** Named security presets (Relaxed / Balanced / Strict / Paranoid) **plus** an
 independent override for every individual setting, with a visible "modified from preset" marker.
 **Consequence:** Phase 14 is a real phase, not a settings screen bolted on at the end. Every feature
@@ -158,11 +160,11 @@ built in phases 4–13 must expose its behaviour as a setting from the moment it
 
 ---
 
-### D11 — Zero cost and zero hosting, for the user *and* the maintainer
+### D11 — Zero cost and zero hosting, for the user _and_ the maintainer
 
 **Status:** Accepted
-**Anahat's exact instruction:** *"I just want this to be a foss utility where I won't have to pay
-for anything or host anything."*
+**Anahat's exact instruction:** _"I just want this to be a foss utility where I won't have to pay
+for anything or host anything."_
 **Consequence:** no server, no paid API, no code-signing certificate in v1 (D16), GitHub free tier
 only, GitHub Pages if a site is ever wanted. The one network feature (HIBP Pwned Passwords) is free
 and needs no API key — verified during planning.
@@ -172,8 +174,8 @@ and needs no API key — verified during planning.
 ### D12 — Repository: `AnahatM/Keyhold`, private for now
 
 **Status:** Accepted
-**Anahat's exact instruction:** *"setup a git repo in this codebase and push it online to GitHub
-privately for now."*
+**Anahat's exact instruction:** _"setup a git repo in this codebase and push it online to GitHub
+privately for now."_
 **Consequence:** flipped public at v1 (backlog G1). Blocked on tooling — see `MANUAL-BACKLOG.md`.
 
 ---
@@ -238,8 +240,8 @@ Gatekeeper steps in the README, and pursue reproducible builds (backlog D6) as t
 ### D17 — Positioning: the empty quadrant
 
 **Status:** Accepted
-**Decision:** Position Keyhold as *"KeePassXC's independence with 1Password's polish, without
-running a server"*, and lead marketing with the **version history and device/network audit trail**
+**Decision:** Position Keyhold as _"KeePassXC's independence with 1Password's polish, without
+running a server"_, and lead marketing with the **version history and device/network audit trail**
 rather than with "secure and open source", which every competitor says.
 **Why:** analysis in [`../00-Overview/02-Competitive-Analysis.md`](../00-Overview/02-Competitive-Analysis.md)
 found that everything modern requires a server or an account, and everything local looks dated. The
@@ -251,14 +253,62 @@ than omission.
 
 ---
 
+## Session 2 — 2026-09-02 · Phase 0 scaffold decisions
+
+Resolutions of the implementation questions I1 and I2 deferred above, plus two forced by
+the toolchain.
+
+---
+
+### D18 — TypeScript pinned to 5.9, not 7.x
+
+**Status:** Accepted (resolves I1)
+**Why:** TypeScript 7.0 is current, but `typescript-eslint@8` declares
+`typescript >=4.8.4 <6.1.0`. Adopting TS 7 today means losing **type-aware linting** —
+`no-floating-promises`, `no-unsafe-*`, `switch-exhaustiveness-check` and the rest all
+require a type program. In a codebase where an unawaited promise can mean a secret is not
+zeroed, those rules are worth more than being on the newest major.
+**Revisit when:** `typescript-eslint` ships TS 7 support.
+
+### D19 — Vite pinned to 7.x
+
+**Status:** Accepted
+**Why:** Forced. `electron-vite@5` peers `vite ^5 || ^6 || ^7`; vite 8 is current but
+unsupported. `@vitejs/plugin-react@6` requires vite 8, so plugin-react is pinned to 5.2.0
+to match.
+
+### D20 — The preload is CommonJS, not ESM
+
+**Status:** Accepted
+**Decision:** The preload bundle is emitted as `index.cjs` with `format: 'cjs'`, with
+`electron` as the only external.
+**Why:** Not a preference — a hard Electron constraint.
+[Sandboxed preload scripts run as plain CommonJS with no ESM context.](https://www.electronjs.org/docs/latest/tutorial/esm)
+Since `sandbox: true` is non-negotiable (it is part of decision D13's defence), the preload
+cannot be ESM.
+**Why this is dangerous enough to write down:** an `.mjs` preload **builds cleanly and
+launches cleanly, then silently never runs.** `window.keyhold` is simply `undefined`, every
+feature is dead, and there is no error anywhere — not in the build, not in the console, not
+in the main process. It was caught here only by adding a launch smoke test.
+**Consequence:** `npm run test:smoke` and `src/main/smoke.ts` exist specifically to catch
+this class of defect, and are run after any change to main, preload, or the build config.
+
+### D21 — Argon2 parameter calibration deferred to Phase 1
+
+**Status:** Deferred (I2 remains open)
+**Why:** Phase 0 ships no cryptography. Calibration needs the real Argon2 implementation to
+measure against, so it belongs in Phase 1 where `hash-wasm` is actually wired up.
+
+---
+
 ## Decisions deferred to implementation
 
 Recorded so they are consciously decided rather than accidentally defaulted.
 
-| # | Question | Decide by |
-|---|---|---|
-| I1 | Exact Electron and React majors | Pinning against current stable at scaffold time (Phase 0) |
-| I2 | Argon2 default `m`, `t`, `p` | Calibrating on the dev machine to ≈500 ms unlock, then writing the result into each vault's header (Phase 1) |
-| I3 | Deep search: inverted index in main, or linear scan | Measuring against a 10 000-record synthetic vault (Phase 7) |
-| I4 | Whether `.keepx` should carry an expiry at all | It can only ever be advisory, enforced by the importing client. Decide in Phase 11 and label honestly if kept |
-| I5 | Whether the vault activity log (backlog D3) pulls into v1 | After Phase 6, once the audit-trail machinery exists and the marginal cost is visible |
+| #      | Question                                                  | Decide by                                                                                                                                     |
+| ------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~I1~~ | ~~Exact Electron and React majors~~                       | **Resolved in Phase 0** — Electron 44.1.1, React 19.2.8. See D18–D20 for the constraints that shaped the rest of the matrix                   |
+| I2     | Argon2 default `m`, `t`, `p`                              | Calibrating on the dev machine to ≈500 ms unlock, then writing the result into each vault's header (Phase 1). Deferred from Phase 0 — see D21 |
+| I3     | Deep search: inverted index in main, or linear scan       | Measuring against a 10 000-record synthetic vault (Phase 7)                                                                                   |
+| I4     | Whether `.keepx` should carry an expiry at all            | It can only ever be advisory, enforced by the importing client. Decide in Phase 11 and label honestly if kept                                 |
+| I5     | Whether the vault activity log (backlog D3) pulls into v1 | After Phase 6, once the audit-trail machinery exists and the marginal cost is visible                                                         |

@@ -1,11 +1,11 @@
 # Keyhold — Feature Backlog
 
-> **Nothing here is rejected. Everything here is *deferred*.**
+> **Nothing here is rejected. Everything here is _deferred_.**
 >
-> Anahat's explicit instruction on 2026-09-02: *"Even though I didn't check all the options, ensure
-> they are all written down in the docs for future implementation ideas at some later point"* and
-> *"even if I didn't check these options write them down as potential candidate features for the
-> future."*
+> Anahat's explicit instruction on 2026-09-02: _"Even though I didn't check all the options, ensure
+> they are all written down in the docs for future implementation ideas at some later point"_ and
+> _"even if I didn't check these options write them down as potential candidate features for the
+> future."_
 >
 > This file exists so no idea from the planning session is ever lost. Items graduate from here into
 > [`00-Master-Checklist.md`](./00-Master-Checklist.md) when they are scheduled.
@@ -20,15 +20,16 @@ These four were presented as options and not chosen. They are recorded here verb
 instruction, so they are not lost.
 
 ### A1 · Built-in TOTP / 2FA code generator ⭐⭐⭐
+
 Store the TOTP secret alongside a credential and show the rotating 6-digit code with a countdown
 ring, replacing the need for Authy or Google Authenticator for those accounts. Fully offline —
 TOTP is pure local computation over a shared secret and the clock.
 
-*Groundwork already in v1:* the `otp-secret` custom-field type exists in the field system, and
+_Groundwork already in v1:_ the `otp-secret` custom-field type exists in the field system, and
 `has:totp` is already a planned search operator. Adding this is mostly UI plus an RFC 6238
 implementation.
 
-*Also then possible:* QR-code scanning from a screenshot for enrolment, `otpauth://` URI import,
+_Also then possible:_ QR-code scanning from a screenshot for enrolment, `otpauth://` URI import,
 Steam Guard variant, and a TOTP-only export for migrating to a dedicated authenticator.
 
 **Deliberate consideration:** storing the TOTP seed next to the password puts both factors in one
@@ -36,28 +37,31 @@ place, which weakens 2FA's separation. Ship it with a clear, non-preachy explana
 trade-off and a per-vault toggle to forbid it entirely.
 
 ### A2 · Extra item types beyond logins ⭐⭐⭐
+
 Secure notes · payment cards · identities and passports · SSH keys · software licences ·
 WiFi networks · API keys · bank accounts · medical records · membership cards.
 
 Each gets its own field template while sharing the same CRUD, history, search and health machinery.
 
-*Groundwork already in v1:* the record model carries a `type` discriminator and the field system is
+_Groundwork already in v1:_ the record model carries a `type` discriminator and the field system is
 already template-driven precisely so this is additive rather than a rewrite.
 
 ### A3 · Key file as a second factor ⭐⭐
+
 The vault requires the master password **and** a key file kept elsewhere (a USB stick, a separate
 drive). Someone with both the vault file and the password still cannot open it.
 
-*Groundwork already in v1:* envelope encryption means this is just another wrapping of the same
+_Groundwork already in v1:_ envelope encryption means this is just another wrapping of the same
 DEK — no vault re-encryption, no format change. Standard KeePass-style protection.
 
-*Also then possible:* auto-lock when the USB key is removed.
+_Also then possible:_ auto-lock when the USB key is removed.
 
 ### A4 · Emergency recovery kit ⭐⭐
+
 A printable or exportable recovery sheet carrying a high-entropy recovery key that can open the
 vault if the master password is forgotten.
 
-*Groundwork already in v1:* again just another DEK wrapping.
+_Groundwork already in v1:_ again just another DEK wrapping.
 
 **Deliberate consideration:** this creates a second key that exists in the physical world. It must
 be opt-in, generated once, shown once, and accompanied by an honest explanation that printing it
@@ -67,99 +71,99 @@ trades "I could lose access forever" for "someone could find this piece of paper
 
 ## B. Browser & OS integration
 
-| # | Item | Priority | Notes |
-|---|---|---|---|
-| B1 | Browser extension with autofill | ⭐⭐⭐ | **The single biggest gap versus every competitor.** Large surface with its own threat model: a native-messaging bridge, per-origin permission prompts, and strict URL matching to defeat lookalike domains. Deserves its own full Mode A design pass |
-| B2 | Auto-Type (KeePassXC-style) | ⭐⭐ | Simulated keystrokes into the focused window. Avoids a browser extension entirely, works with desktop apps too. Needs per-platform input APIs and careful window-title matching |
-| B3 | System-wide quick-access hotkey overlay | ⭐⭐ | A global hotkey opens a small search overlay anywhere in the OS; pick an entry, copy the password, overlay disappears |
-| B4 | Passkeys / WebAuthn storage | ⭐⭐ | KeePassXC added this. Meaningful and growing, but a genuinely large piece of work |
-| B5 | CLI companion (`keyhold` / `warden`) | ⭐ | Scriptable read access for developers. Would need its own auth story |
-| B6 | Windows Credential Provider / macOS Autofill provider | ⭐ | Deep OS integration; substantial platform-specific work |
+| #   | Item                                                  | Priority | Notes                                                                                                                                                                                                                                                |
+| --- | ----------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | Browser extension with autofill                       | ⭐⭐⭐   | **The single biggest gap versus every competitor.** Large surface with its own threat model: a native-messaging bridge, per-origin permission prompts, and strict URL matching to defeat lookalike domains. Deserves its own full Mode A design pass |
+| B2  | Auto-Type (KeePassXC-style)                           | ⭐⭐     | Simulated keystrokes into the focused window. Avoids a browser extension entirely, works with desktop apps too. Needs per-platform input APIs and careful window-title matching                                                                      |
+| B3  | System-wide quick-access hotkey overlay               | ⭐⭐     | A global hotkey opens a small search overlay anywhere in the OS; pick an entry, copy the password, overlay disappears                                                                                                                                |
+| B4  | Passkeys / WebAuthn storage                           | ⭐⭐     | KeePassXC added this. Meaningful and growing, but a genuinely large piece of work                                                                                                                                                                    |
+| B5  | CLI companion (`keyhold` / `warden`)                  | ⭐       | Scriptable read access for developers. Would need its own auth story                                                                                                                                                                                 |
+| B6  | Windows Credential Provider / macOS Autofill provider | ⭐       | Deep OS integration; substantial platform-specific work                                                                                                                                                                                              |
 
 ## C. Sync & sharing
 
-| # | Item | Priority | Notes |
-|---|---|---|---|
-| C1 | Direct LAN device-to-device transfer | ⭐⭐ | Offered during planning, not selected. Pair two instances on the same network with a short code and push the encrypted vault directly — no cloud, no USB. Adds a network surface to an otherwise offline app, which is why it was deferred |
-| C2 | QR-code pairing for LAN transfer | ⭐ | Companion to C1 |
-| C3 | Optional git-backed vault versioning | ⭐ | Commit the `.keep` on every save. Full history, free off-site backup, and diff-free (it is ciphertext) but still versioned |
-| C4 | WebDAV / S3 / SFTP sync targets | ⭐ | For users who want a destination without a desktop sync client |
-| C5 | Read-only "shared view" export | 💭 | Hand someone a subset that cannot be edited or re-exported. Advisory only, honestly labelled |
-| C6 | Automatic scheduled backup to a second location | ⭐⭐ | Cheap to build, high value, may pull forward into v1.1 |
+| #   | Item                                            | Priority | Notes                                                                                                                                                                                                                                      |
+| --- | ----------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| C1  | Direct LAN device-to-device transfer            | ⭐⭐     | Offered during planning, not selected. Pair two instances on the same network with a short code and push the encrypted vault directly — no cloud, no USB. Adds a network surface to an otherwise offline app, which is why it was deferred |
+| C2  | QR-code pairing for LAN transfer                | ⭐       | Companion to C1                                                                                                                                                                                                                            |
+| C3  | Optional git-backed vault versioning            | ⭐       | Commit the `.keep` on every save. Full history, free off-site backup, and diff-free (it is ciphertext) but still versioned                                                                                                                 |
+| C4  | WebDAV / S3 / SFTP sync targets                 | ⭐       | For users who want a destination without a desktop sync client                                                                                                                                                                             |
+| C5  | Read-only "shared view" export                  | 💭       | Hand someone a subset that cannot be edited or re-exported. Advisory only, honestly labelled                                                                                                                                               |
+| C6  | Automatic scheduled backup to a second location | ⭐⭐     | Cheap to build, high value, may pull forward into v1.1                                                                                                                                                                                     |
 
 ## D. Security hardening
 
-| # | Item | Priority | Notes |
-|---|---|---|---|
-| D1 | YubiKey / hardware security key (challenge-response) | ⭐⭐ | Another DEK wrapping. KeePassXC supports this and it is frequently requested |
-| D2 | Duress / decoy vault | ⭐ | A second password opens a plausible decoy. Genuinely useful in some threat models, easy to get subtly wrong |
-| D3 | Vault-open activity log | ⭐⭐ | Beyond per-record history: log every unlock, failed attempt, export and merge, with device and network. A natural extension of the Phase 6 audit trail |
-| D4 | Screenshot / screen-recording blocking on the vault window | ⭐⭐ | `setContentProtection(true)` in Electron. Cheap, and a strong signal of intent |
-| D5 | Memory-locking (`mlock`) for key material | ⭐ | Prevents keys reaching swap. Limited by what Node exposes; may need a native addon, which conflicts with the no-native-binary decision |
-| D6 | Reproducible builds | ⭐⭐ | Lets a third party verify a released binary matches the source. High trust value for a password manager |
-| D7 | Third-party security audit | ⭐ | Costs real money. Only if the project ever attracts funding |
-| D8 | Code signing (Windows EV + Apple Developer ID) | ⭐⭐ | Removes SmartScreen and Gatekeeper friction. Deliberately deferred: it costs money and the project is committed to costing nothing. See `MANUAL-BACKLOG.md` |
-| D9 | Post-quantum-ready KDF/cipher agility | 💭 | The header already carries algorithm identifiers, so swapping primitives later is a migration, not a rewrite. Nothing to do yet |
+| #   | Item                                                       | Priority | Notes                                                                                                                                                       |
+| --- | ---------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | YubiKey / hardware security key (challenge-response)       | ⭐⭐     | Another DEK wrapping. KeePassXC supports this and it is frequently requested                                                                                |
+| D2  | Duress / decoy vault                                       | ⭐       | A second password opens a plausible decoy. Genuinely useful in some threat models, easy to get subtly wrong                                                 |
+| D3  | Vault-open activity log                                    | ⭐⭐     | Beyond per-record history: log every unlock, failed attempt, export and merge, with device and network. A natural extension of the Phase 6 audit trail      |
+| D4  | Screenshot / screen-recording blocking on the vault window | ⭐⭐     | `setContentProtection(true)` in Electron. Cheap, and a strong signal of intent                                                                              |
+| D5  | Memory-locking (`mlock`) for key material                  | ⭐       | Prevents keys reaching swap. Limited by what Node exposes; may need a native addon, which conflicts with the no-native-binary decision                      |
+| D6  | Reproducible builds                                        | ⭐⭐     | Lets a third party verify a released binary matches the source. High trust value for a password manager                                                     |
+| D7  | Third-party security audit                                 | ⭐       | Costs real money. Only if the project ever attracts funding                                                                                                 |
+| D8  | Code signing (Windows EV + Apple Developer ID)             | ⭐⭐     | Removes SmartScreen and Gatekeeper friction. Deliberately deferred: it costs money and the project is committed to costing nothing. See `MANUAL-BACKLOG.md` |
+| D9  | Post-quantum-ready KDF/cipher agility                      | 💭       | The header already carries algorithm identifiers, so swapping primitives later is a migration, not a rewrite. Nothing to do yet                             |
 
 ## E. Features & UX
 
-| # | Item | Priority | Notes |
-|---|---|---|---|
-| E1 | Password rotation reminders with notifications | ⭐⭐ | `rotationIntervalDays` and `expiresAt` already exist in the v1 model; only the notification layer is missing |
-| E2 | Breach *email* monitoring (HIBP account API) | ⭐ | Unlike Pwned Passwords, this needs a paid API key and sends the actual email address. Would have to be very clearly opt-in |
-| E3 | Favicon fetching for entry icons | ⭐ | Genuinely nice, but every fetch tells a server which sites you have accounts on. If ever built: strictly opt-in, cached, and clearly explained |
-| E4 | Offline icon pack | ⭐⭐ | The privacy-preserving alternative to E3 — bundle recognisable icons for the top few thousand sites, matched locally |
-| E5 | Vault statistics dashboard | ⭐⭐ | Entry counts, age distribution, strength histogram, growth over time, most-used entries |
-| E6 | Markdown-formatted notes | ⭐ | Rendered preview for the notes field |
-| E7 | Entry relationships / linking | ⭐⭐ | "This recovery email belongs to that account." Fits the interconnected-features principle in the global CLAUDE.md |
-| E8 | Templates for new entries | ⭐⭐ | Pre-filled field sets per category, user-definable |
-| E9 | Bulk password rotation assistant | ⭐ | Walks the weak/reused/old list one entry at a time, generating and versioning as it goes |
-| E10 | Print a credential (masked or revealed) | ⭐ | With a loud warning |
-| E11 | Multiple simultaneously-open vaults | ⭐ | Currently one at a time, switchable |
-| E12 | Vault-level notes / a README inside the vault | 💭 | A place to record what this vault is for |
-| E13 | Configurable list columns | ⭐⭐ | Choose which fields the middle pane shows |
-| E14 | Compact "menu bar / tray only" mode | ⭐ | Live entirely in the tray for quick lookups |
-| E15 | Localisation (i18n) | ⭐⭐ | Externalise strings early even if only English ships, so translation is possible later |
-| E16 | Custom user-defined field *types* | 💭 | Beyond the built-in 14 |
-| E17 | Search history and recent searches | ⭐ | |
-| E18 | Trash retention policy per folder | 💭 | |
-| E19 | Import directly from a browser profile on disk | ⭐ | Skip the manual CSV export step entirely |
-| E20 | Password strength *policy* per folder | 💭 | "Everything in Work must be 16+ characters" |
+| #   | Item                                           | Priority | Notes                                                                                                                                          |
+| --- | ---------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| E1  | Password rotation reminders with notifications | ⭐⭐     | `rotationIntervalDays` and `expiresAt` already exist in the v1 model; only the notification layer is missing                                   |
+| E2  | Breach _email_ monitoring (HIBP account API)   | ⭐       | Unlike Pwned Passwords, this needs a paid API key and sends the actual email address. Would have to be very clearly opt-in                     |
+| E3  | Favicon fetching for entry icons               | ⭐       | Genuinely nice, but every fetch tells a server which sites you have accounts on. If ever built: strictly opt-in, cached, and clearly explained |
+| E4  | Offline icon pack                              | ⭐⭐     | The privacy-preserving alternative to E3 — bundle recognisable icons for the top few thousand sites, matched locally                           |
+| E5  | Vault statistics dashboard                     | ⭐⭐     | Entry counts, age distribution, strength histogram, growth over time, most-used entries                                                        |
+| E6  | Markdown-formatted notes                       | ⭐       | Rendered preview for the notes field                                                                                                           |
+| E7  | Entry relationships / linking                  | ⭐⭐     | "This recovery email belongs to that account." Fits the interconnected-features principle in the global CLAUDE.md                              |
+| E8  | Templates for new entries                      | ⭐⭐     | Pre-filled field sets per category, user-definable                                                                                             |
+| E9  | Bulk password rotation assistant               | ⭐       | Walks the weak/reused/old list one entry at a time, generating and versioning as it goes                                                       |
+| E10 | Print a credential (masked or revealed)        | ⭐       | With a loud warning                                                                                                                            |
+| E11 | Multiple simultaneously-open vaults            | ⭐       | Currently one at a time, switchable                                                                                                            |
+| E12 | Vault-level notes / a README inside the vault  | 💭       | A place to record what this vault is for                                                                                                       |
+| E13 | Configurable list columns                      | ⭐⭐     | Choose which fields the middle pane shows                                                                                                      |
+| E14 | Compact "menu bar / tray only" mode            | ⭐       | Live entirely in the tray for quick lookups                                                                                                    |
+| E15 | Localisation (i18n)                            | ⭐⭐     | Externalise strings early even if only English ships, so translation is possible later                                                         |
+| E16 | Custom user-defined field _types_              | 💭       | Beyond the built-in 14                                                                                                                         |
+| E17 | Search history and recent searches             | ⭐       |                                                                                                                                                |
+| E18 | Trash retention policy per folder              | 💭       |                                                                                                                                                |
+| E19 | Import directly from a browser profile on disk | ⭐       | Skip the manual CSV export step entirely                                                                                                       |
+| E20 | Password strength _policy_ per folder          | 💭       | "Everything in Work must be 16+ characters"                                                                                                    |
 
 ## F. Platform & distribution
 
-| # | Item | Priority | Notes |
-|---|---|---|---|
-| F1 | Linux build (AppImage / deb / rpm / Flatpak) | ⭐⭐⭐ | Electron makes this nearly free; only the `safeStorage` backend and SSID detection differ. Very likely v1.1 |
-| F2 | Mobile companion (iOS / Android) | ⭐ | Large. Mitigated today by KDBX export opening in existing mobile KeePass clients |
-| F3 | Winget / Chocolatey / Homebrew Cask packages | ⭐⭐ | Cheap distribution wins once releases are stable |
-| F4 | Portable no-install Windows build | ⭐⭐ | Run from a USB stick beside the vault. Fits the philosophy perfectly and is nearly free with electron-builder |
-| F5 | Auto-update | ⭐ | Deliberately contentious for an offline-first app. If ever built: opt-in, signature-verified, and never silent |
-| F6 | Non-Electron rewrite (Tauri / native) | 💭 | Would answer the "Electron is bloat" criticism directly, at the cost of a full rewrite. Only worth considering if the project gets real traction |
+| #   | Item                                         | Priority | Notes                                                                                                                                            |
+| --- | -------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| F1  | Linux build (AppImage / deb / rpm / Flatpak) | ⭐⭐⭐   | Electron makes this nearly free; only the `safeStorage` backend and SSID detection differ. Very likely v1.1                                      |
+| F2  | Mobile companion (iOS / Android)             | ⭐       | Large. Mitigated today by KDBX export opening in existing mobile KeePass clients                                                                 |
+| F3  | Winget / Chocolatey / Homebrew Cask packages | ⭐⭐     | Cheap distribution wins once releases are stable                                                                                                 |
+| F4  | Portable no-install Windows build            | ⭐⭐     | Run from a USB stick beside the vault. Fits the philosophy perfectly and is nearly free with electron-builder                                    |
+| F5  | Auto-update                                  | ⭐       | Deliberately contentious for an offline-first app. If ever built: opt-in, signature-verified, and never silent                                   |
+| F6  | Non-Electron rewrite (Tauri / native)        | 💭       | Would answer the "Electron is bloat" criticism directly, at the cost of a full rewrite. Only worth considering if the project gets real traction |
 
 ## G. Project & community
 
-| # | Item | Priority | Notes |
-|---|---|---|---|
-| G1 | Flip the repository public at v1 | ⭐⭐⭐ | Currently private by decision D12 |
-| G2 | Project website / landing page (GitHub Pages, free) | ⭐⭐ | Screenshots, the comparison table, downloads |
-| G3 | Publish the KEEP format spec as a standalone document | ⭐⭐⭐ | Part of Phase 19. Central to the no-lock-in claim |
-| G4 | Submit to `awesome-privacy`, AlternativeTo, PrivacyTools, `awesome-selfhosted` | ⭐⭐ | Free distribution to exactly the right audience |
-| G5 | Demo GIFs and screenshots for the README | ⭐⭐⭐ | Part of Phase 19 |
-| G6 | A public roadmap page | ⭐ | |
-| G7 | Bug-bounty policy (recognition-only, no payout) | ⭐ | |
+| #   | Item                                                                           | Priority | Notes                                             |
+| --- | ------------------------------------------------------------------------------ | -------- | ------------------------------------------------- |
+| G1  | Flip the repository public at v1                                               | ⭐⭐⭐   | Currently private by decision D12                 |
+| G2  | Project website / landing page (GitHub Pages, free)                            | ⭐⭐     | Screenshots, the comparison table, downloads      |
+| G3  | Publish the KEEP format spec as a standalone document                          | ⭐⭐⭐   | Part of Phase 19. Central to the no-lock-in claim |
+| G4  | Submit to `awesome-privacy`, AlternativeTo, PrivacyTools, `awesome-selfhosted` | ⭐⭐     | Free distribution to exactly the right audience   |
+| G5  | Demo GIFs and screenshots for the README                                       | ⭐⭐⭐   | Part of Phase 19                                  |
+| G6  | A public roadmap page                                                          | ⭐       |                                                   |
+| G7  | Bug-bounty policy (recognition-only, no payout)                                | ⭐       |                                                   |
 
 ---
 
 ## Ideas explicitly rejected — do not re-propose without a reason
 
-| Idea | Why rejected |
-|---|---|
-| Any hosted service or account | Violates the core premise and decision D11 |
-| Telemetry or crash reporting, even anonymous | Violates the zero-network default. A password manager should not phone home |
-| Paid tier, licence key, or donation nag inside the app | GPL-3.0, free forever, by decision D6/D11 |
-| Bundling the HIBP password list offline | Over 30 GB. Not viable |
-| Custom or novel cryptography | Standard primitives only. Never invent a cipher |
-| Storing the master password anywhere, in any form | The whole point |
-| A "remember my password" convenience toggle | Biometric quick-unlock is the correct, revocable answer to this need |
-| Cloud icon fetching on by default | Leaks the user's account list to a third party. See E3/E4 |
+| Idea                                                   | Why rejected                                                                |
+| ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Any hosted service or account                          | Violates the core premise and decision D11                                  |
+| Telemetry or crash reporting, even anonymous           | Violates the zero-network default. A password manager should not phone home |
+| Paid tier, licence key, or donation nag inside the app | GPL-3.0, free forever, by decision D6/D11                                   |
+| Bundling the HIBP password list offline                | Over 30 GB. Not viable                                                      |
+| Custom or novel cryptography                           | Standard primitives only. Never invent a cipher                             |
+| Storing the master password anywhere, in any form      | The whole point                                                             |
+| A "remember my password" convenience toggle            | Biometric quick-unlock is the correct, revocable answer to this need        |
+| Cloud icon fetching on by default                      | Leaks the user's account list to a third party. See E3/E4                   |

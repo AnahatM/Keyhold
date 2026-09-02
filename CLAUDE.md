@@ -19,19 +19,19 @@ Work the phases in order. Tick items as they land. Nothing lives only in chat.
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| Shell | Electron (pinned at scaffold) — Windows + macOS, x64 + arm64 |
-| Build | electron-vite |
-| UI | React 19 + TypeScript **strict** |
-| Styling | Hand-written CSS over custom-property tokens. **No Tailwind, no CSS-in-JS.** |
-| State | Zustand |
-| Tests | Vitest |
-| Packaging | electron-builder — NSIS + portable (Win), DMG + zip (macOS) |
-| Argon2id | `hash-wasm` (pure WASM — **never** a native binding) |
-| AES-256-GCM | Node `crypto`, main process only |
-| KDBX interop | `kdbxweb` + our WASM Argon2 |
-| Strength | `@zxcvbn-ts/core`, lazily loaded, **main process only** |
+| Layer        | Choice                                                                       |
+| ------------ | ---------------------------------------------------------------------------- |
+| Shell        | Electron (pinned at scaffold) — Windows + macOS, x64 + arm64                 |
+| Build        | electron-vite                                                                |
+| UI           | React 19 + TypeScript **strict**                                             |
+| Styling      | Hand-written CSS over custom-property tokens. **No Tailwind, no CSS-in-JS.** |
+| State        | Zustand                                                                      |
+| Tests        | Vitest                                                                       |
+| Packaging    | electron-builder — NSIS + portable (Win), DMG + zip (macOS)                  |
+| Argon2id     | `hash-wasm` (pure WASM — **never** a native binding)                         |
+| AES-256-GCM  | Node `crypto`, main process only                                             |
+| KDBX interop | `kdbxweb` + our WASM Argon2                                                  |
+| Strength     | `@zxcvbn-ts/core`, lazily loaded, **main process only**                      |
 
 ---
 
@@ -103,15 +103,15 @@ unlock methods are additive.
 
 ## Conventions
 
-| Thing | Convention |
-|---|---|
-| TS files | `kebab-case.ts` |
-| React components | `PascalCase.tsx`, one per file |
-| Types | `PascalCase` · functions/vars `camelCase` · constants `SCREAMING_SNAKE_CASE` |
-| CSS tokens | `--kh-<category>-<name>` |
-| IPC channels | `kh:<domain>:<action>` |
-| Tests | `<name>.test.ts` beside the source |
-| Secrets | Anything holding secret material carries `secret` / `Secret` / `SecretString` in its name, so a reviewer can see at a glance where secrets flow |
+| Thing            | Convention                                                                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| TS files         | `kebab-case.ts`                                                                                                                                 |
+| React components | `PascalCase.tsx`, one per file                                                                                                                  |
+| Types            | `PascalCase` · functions/vars `camelCase` · constants `SCREAMING_SNAKE_CASE`                                                                    |
+| CSS tokens       | `--kh-<category>-<name>`                                                                                                                        |
+| IPC channels     | `kh:<domain>:<action>`                                                                                                                          |
+| Tests            | `<name>.test.ts` beside the source                                                                                                              |
+| Secrets          | Anything holding secret material carries `secret` / `Secret` / `SecretString` in its name, so a reviewer can see at a glance where secrets flow |
 
 Every source file carries an SPDX header: `// SPDX-License-Identifier: GPL-3.0-or-later`
 
@@ -132,24 +132,24 @@ test could never fail. No coverage target is chased.
 
 ## Docs map
 
-| Need | Go to |
-|---|---|
-| Entry point | [`docs/_INDEX.md`](./docs/_INDEX.md) |
-| **What to build next** | [`docs/12-Roadmap/00-Master-Checklist.md`](./docs/12-Roadmap/00-Master-Checklist.md) |
-| Deferred ideas | [`docs/12-Roadmap/01-Feature-Backlog.md`](./docs/12-Roadmap/01-Feature-Backlog.md) |
-| Why something is this way | [`docs/12-Roadmap/02-Decision-Log.md`](./docs/12-Roadmap/02-Decision-Log.md) |
-| Naming, KEEP, extensions, glossary | [`docs/00-Overview/01-Naming-And-Glossary.md`](./docs/00-Overview/01-Naming-And-Glossary.md) |
-| Positioning & USPs | [`docs/00-Overview/02-Competitive-Analysis.md`](./docs/00-Overview/02-Competitive-Analysis.md) |
-| Security posture | [`docs/00-Overview/03-Threat-Model.md`](./docs/00-Overview/03-Threat-Model.md) |
+| Need                                                  | Go to                                                                                                                      |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Entry point                                           | [`docs/_INDEX.md`](./docs/_INDEX.md)                                                                                       |
+| **What to build next**                                | [`docs/12-Roadmap/00-Master-Checklist.md`](./docs/12-Roadmap/00-Master-Checklist.md)                                       |
+| Deferred ideas                                        | [`docs/12-Roadmap/01-Feature-Backlog.md`](./docs/12-Roadmap/01-Feature-Backlog.md)                                         |
+| Why something is this way                             | [`docs/12-Roadmap/02-Decision-Log.md`](./docs/12-Roadmap/02-Decision-Log.md)                                               |
+| Naming, KEEP, extensions, glossary                    | [`docs/00-Overview/01-Naming-And-Glossary.md`](./docs/00-Overview/01-Naming-And-Glossary.md)                               |
+| Positioning & USPs                                    | [`docs/00-Overview/02-Competitive-Analysis.md`](./docs/00-Overview/02-Competitive-Analysis.md)                             |
+| Security posture                                      | [`docs/00-Overview/03-Threat-Model.md`](./docs/00-Overview/03-Threat-Model.md)                                             |
 | Frozen founding design (**history — never "fix" it**) | [`docs/superpowers/specs/2026-09-02-keyhold-product-spec.md`](./docs/superpowers/specs/2026-09-02-keyhold-product-spec.md) |
-| Things only Anahat can do | [`MANUAL-BACKLOG.md`](./MANUAL-BACKLOG.md) |
+| Things only Anahat can do                             | [`MANUAL-BACKLOG.md`](./MANUAL-BACKLOG.md)                                                                                 |
 
 ---
 
 ## Watch out for
 
-- **`.keep` vs `.keepx`.** A `.keep` is *the vault*, opened with the master password. A `.keepx` is
-  *a parcel* — a chosen subset, under its own separate passphrase. Never blur these in code or copy.
+- **`.keep` vs `.keepx`.** A `.keep` is _the vault_, opened with the master password. A `.keepx` is
+  _a parcel_ — a chosen subset, under its own separate passphrase. Never blur these in code or copy.
 - **Argon2 takes real time by design.** Always run it off the UI thread and always show determinate
   progress. A frozen window during unlock is a bug, not a cost of doing business.
 - **Nonce reuse is catastrophic.** Generate a fresh random nonce for every single encryption. Never
