@@ -137,3 +137,54 @@ failing on another in-flight change at the time. Not a defect — the guard doin
 `build/icon.png` (512×512 or larger, with an `.ico` and `.icns` derived from it) does not
 exist. `electron-builder.yml` and the README's header both want one. Until then the README
 uses an emoji and the packaged app gets Electron's default icon.
+
+## M-PKG · Confirm a packaged build actually unlocks a vault
+
+**Unblocks:** the first release. Nothing else can be verified until this is done once.
+
+`electron-builder.yml` is written and schema-valid, but **no packaged build has ever been
+produced**. The specific risk it was written to contain: `src/main/crypto/kdf-runner.ts`
+starts the Argon2 worker from a **runtime path**, not an import. Inside an asar that depends
+on Electron's fs shim reaching into the archive from a worker thread. If it fails, the app
+builds, launches, shows the unlock screen — and can never derive a key. Nothing in `build`,
+`test` or `test:smoke` would notice, because none of them run against an asar.
+
+`asarUnpack` should prevent it. Confirming it costs one run:
+
+```bash
+npm run package:dir
+# then launch the unpacked build and unlock a vault
+```
+
+Then the full path: `npm run package:win`, install it, unlock a vault.
+macOS needs a Mac (see M2).
+
+## M-CI · Apply the remaining packaging steps
+
+1. `npm run format` once — a number of files are not Prettier-clean, and `verify.yml`'s
+   `format:check` step would fail on the first run.
+2. Create `.github/dependabot.yml` — paste-ready content is in
+   `docs/13-Packaging/00-Building-And-Releasing.md` under "Dependabot".
+3. Once the repo is public: add `macos-latest` to the `verify.yml` matrix (four lines,
+   flagged in a comment there) and add `actions/dependency-review-action`, which needs the
+   dependency graph that private repos only get under Advanced Security.
+
+No secrets to add — both workflows use the run's own `github.token`.
+
+## M-IPC · The channels the finished UIs are waiting on
+
+Several screens are built and tested against a gateway interface because their IPC does not
+exist yet. Each needs a channel group added to `src/shared/ipc/api.ts`, a handler in
+`src/main/ipc/register.ts`, a validator, and a preload binding — the same shape as
+`kh:generator:*`, `kh:health:*` and `kh:history:*`, which are done and can be copied.
+
+- `kh:settings:*` — reading and writing `VaultSettings`, plus the master-password change.
+- `kh:import:*` — list formats, detect, preview (a dry run), commit, undo.
+- `kh:export:*` — list formats, run an export, and **the main process owns the save dialog
+  and the file write**; the renderer must never receive a path it chose.
+- `kh:folders:*` and `kh:tags:*` — the operations in `src/main/organisation/`.
+- `kh:attachments:*` — add, remove, read, audit. **Attachment bytes go through the secret
+  broker with a TTL**, exactly like a password reveal.
+- `kh:totp:*`, `kh:recovery:*`, `kh:sync:*` — once those engines are finished.
+
+Each agent's report names the exact payloads.
