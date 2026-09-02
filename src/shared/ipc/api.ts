@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { CredentialProjection, SecretRef } from '../model/credential.js';
+import type { PasswordStrength } from '../model/strength.js';
 import type { VaultLockedInfo, VaultSummary } from '../model/vault-document.js';
 
 /**
@@ -71,6 +72,72 @@ export interface AppApi {
   getPlatform: () => Promise<Platform>;
 }
 
+/**
+ * The clipboard's state, as the renderer sees it.
+ *
+ * Carries an absolute deadline as well as a duration, so a ticking countdown can be
+ * derived by subtraction rather than mirrored into component state and decremented.
+ */
+export interface ClipboardView {
+  readonly hasSecret: boolean;
+  readonly clearsInMs: number | null;
+  readonly clearsAt: number | null;
+}
+
+/** Mirrors `SessionStatus` in the main process, minus anything the renderer must not hold. */
+export interface SessionStatusView {
+  readonly state: 'no-vault' | 'locked' | 'unlocked';
+  readonly vault: VaultSummary | null;
+  readonly pendingVault: VaultLockedInfo | null;
+  readonly throttle: {
+    failedAttempts: number;
+    lockedForMs: number;
+    /** Absolute epoch ms, or 0. The renderer derives a live countdown from this. */
+    lockedUntil: number;
+    nextDelayMs: number;
+  };
+  readonly clipboard: ClipboardView;
+  readonly quickUnlock: {
+    available: boolean;
+    mechanism: string;
+    promptsForBiometrics: boolean;
+    description: string;
+    enrolledForThisVault: boolean;
+  };
+  readonly recentVaults: readonly {
+    path: string;
+    displayName: string;
+    vaultId: string;
+    lastOpenedAt: number;
+  }[];
+  readonly lastLockReason: string | null;
+  readonly hasUnsavedChanges: boolean;
+}
+
+export interface SessionApi {
+  status: () => Promise<IpcResult<SessionStatusView>>;
+  /**
+   * Opens a native file dialog and returns the chosen path.
+   *
+   * The dialog is opened by the MAIN process, not the renderer: a renderer-supplied path
+   * would be attacker-controlled if the renderer were ever compromised, whereas a path the
+   * user picked in an OS dialog is a genuine act of consent. `null` means they cancelled.
+   */
+  chooseVaultToOpen: () => Promise<IpcResult<string | null>>;
+  chooseVaultLocation: (suggestedName?: string) => Promise<IpcResult<string | null>>;
+  /** Estimates master-password strength. The password never leaves the main process. */
+  estimateStrength: (password: string) => Promise<IpcResult<PasswordStrength>>;
+  /** Reveals a secret and copies it, with the configured auto-clear. */
+  copySecret: (ref: SecretRef) => Promise<IpcResult<ClipboardView | null>>;
+  clearClipboard: () => Promise<IpcResult<ClipboardView>>;
+  enrolQuickUnlock: () => Promise<IpcResult<null>>;
+  revokeQuickUnlock: () => Promise<IpcResult<null>>;
+  unlockWithQuickUnlock: (path: string) => Promise<IpcResult<VaultSummary | null>>;
+  forgetVault: (path: string) => Promise<IpcResult<null>>;
+  /** Fires whenever the session changes underneath the renderer — an auto-lock, chiefly. */
+  onStatusChanged: (listener: () => void) => () => void;
+}
+
 export interface VaultApi {
   /** What can be known about a vault file without the password. */
   inspect: (path: string) => Promise<IpcResult<VaultLockedInfo>>;
@@ -108,6 +175,7 @@ export interface CredentialsApi {
  */
 export interface KeyholdApi {
   app: AppApi;
+  session: SessionApi;
   vault: VaultApi;
   credentials: CredentialsApi;
 }
@@ -125,6 +193,17 @@ export const CHANNELS = {
   vaultSummary: 'kh:vault:summary',
   vaultHasUnsavedChanges: 'kh:vault:has-unsaved-changes',
 
+  sessionStatus: 'kh:session:status',
+  sessionChooseVaultToOpen: 'kh:session:choose-vault-to-open',
+  sessionChooseVaultLocation: 'kh:session:choose-vault-location',
+  sessionEstimateStrength: 'kh:session:estimate-strength',
+  sessionCopySecret: 'kh:session:copy-secret',
+  sessionClearClipboard: 'kh:session:clear-clipboard',
+  sessionEnrolQuickUnlock: 'kh:session:enrol-quick-unlock',
+  sessionRevokeQuickUnlock: 'kh:session:revoke-quick-unlock',
+  sessionUnlockWithQuickUnlock: 'kh:session:unlock-with-quick-unlock',
+  sessionForgetVault: 'kh:session:forget-vault',
+
   credentialsList: 'kh:credentials:list',
   credentialsGet: 'kh:credentials:get',
   credentialsRevealSecret: 'kh:credentials:reveal-secret',
@@ -132,6 +211,17 @@ export const CHANNELS = {
 } as const;
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
+
+/**
+ * Main → renderer events.
+ *
+ * Separate from CHANNELS because the direction matters: these are pushed, not requested,
+ * and the preload exposes only a subscribe function — never a general listener that would
+ * let the renderer attach to any channel it liked.
+ */
+export const EVENTS = {
+  sessionChanged: 'kh:event:session-changed',
+} as const;
 
 /** Every channel name, for the allow-list check in the main process. */
 export const ALL_CHANNELS: readonly ChannelName[] = Object.values(CHANNELS);

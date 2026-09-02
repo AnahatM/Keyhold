@@ -26,6 +26,15 @@ export interface ThrottleState {
   readonly failedAttempts: number;
   /** Milliseconds until another attempt is allowed. Zero when one is allowed now. */
   readonly lockedForMs: number;
+  /**
+   * Absolute epoch-ms deadline, or 0 when not throttled.
+   *
+   * Sent alongside the duration because the renderer needs a *ticking* countdown, and a
+   * duration is stale the instant it crosses the bridge. Given a fixed point the UI
+   * subtracts a ticking clock from it — no mirrored state, no drift, and no impure
+   * `Date.now()` during render. Both processes share a machine, so clock skew is moot.
+   */
+  readonly lockedUntil: number;
   readonly nextDelayMs: number;
 }
 
@@ -54,9 +63,11 @@ export class UnlockThrottle {
   }
 
   get state(): ThrottleState {
+    const remaining = Math.max(0, this.#blockedUntil - this.#now());
     return {
       failedAttempts: this.#failedAttempts,
-      lockedForMs: Math.max(0, this.#blockedUntil - this.#now()),
+      lockedForMs: remaining,
+      lockedUntil: remaining > 0 ? this.#blockedUntil : 0,
       nextDelayMs: this.#delayAfter(this.#failedAttempts + 1),
     };
   }

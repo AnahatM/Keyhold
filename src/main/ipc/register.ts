@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { ipcMain } from 'electron';
-import { CHANNELS, type IpcResult } from '@shared/ipc/api.js';
+import { basename } from 'node:path';
+import {
+  dialog,
+  ipcMain,
+  type BrowserWindow,
+  type OpenDialogOptions,
+  type SaveDialogOptions,
+} from 'electron';
+import { CHANNELS, EVENTS, type IpcResult } from '@shared/ipc/api.js';
 import {
   IpcValidationError,
   requireId,
   requireListOptions,
   requireNonEmptyString,
   requireSecretRef,
+  requireString,
   requireVaultPath,
 } from '@shared/ipc/validation.js';
 import { VaultError } from '../crypto/errors.js';
 import { RateLimitExceededError } from '../vault/secret-broker.js';
-import { VaultService } from '../vault/vault-service.js';
+import type { SessionController } from '../session/session-controller.js';
 
 /**
  * Registers every IPC handler.
@@ -19,13 +27,12 @@ import { VaultService } from '../vault/vault-service.js';
  * Three properties this file exists to guarantee:
  *
  * **1. Every handler validates its arguments before touching the vault.** The renderer is
- * semi-trusted (decision D13) and the type annotations are erased at runtime.
+ * semi-trusted (decision D13), and type annotations are erased at runtime.
  *
  * **2. No error ever crosses the boundary raw.** `toFailure` converts everything into a
  * structured result with a scrubbed message. An unhandled throw in an `ipcMain.handle`
- * serialises the error's `message` and `stack` straight into the renderer, and a stack
- * carries absolute filesystem paths — which is a small but free information leak, on
- * every single error, forever.
+ * serialises the error's message and stack straight into the renderer, and a stack carries
+ * absolute filesystem paths — a small but free information leak, on every error, forever.
  *
  * **3. Handlers return results, never throw.** The renderer gets a discriminated union it
  * has to look at, rather than a rejected promise it might not catch.
@@ -40,18 +47,16 @@ function toFailure(error: unknown): IpcResult<never> {
       recoverable: error.isRecoverable,
     };
   }
-
   if (error instanceof RateLimitExceededError) {
     return { ok: false, code: 'RATE_LIMITED', message: error.message, recoverable: false };
   }
-
   if (error instanceof IpcValidationError) {
     return { ok: false, code: 'INVALID_REQUEST', message: error.message, recoverable: false };
   }
 
-  // Anything else is a bug. Report that it happened, and deliberately NOT what it was:
-  // an arbitrary error message may contain a path, a filename, or — from a crypto library
-  // — a fragment of the data being processed.
+  // Anything else is a bug. Report that it happened, and deliberately NOT what it was: an
+  // arbitrary error message may contain a path, a filename, or — from a crypto library — a
+  // fragment of the data being processed.
   return {
     ok: false,
     code: 'INTERNAL',
@@ -70,8 +75,8 @@ function handle<T>(channel: string, run: (...args: unknown[]) => Promise<T> | T)
     try {
       return ok(await run(...args));
     } catch (error) {
-      // Logged at `error` level with the real cause, which stays in this process. Only the
-      // scrubbed version crosses the bridge.
+      // Logged with the real cause, which stays in this process. Only the scrubbed version
+      // crosses the bridge.
       console.error(`[ipc] ${channel} failed:`, error);
       return toFailure(error);
     }
@@ -79,45 +84,123 @@ function handle<T>(channel: string, run: (...args: unknown[]) => Promise<T> | T)
 }
 
 export interface IpcContext {
-  readonly vault: VaultService;
+  readonly session: SessionController;
   readonly appVersion: string;
+  readonly getWindow: () => BrowserWindow | null;
 }
 
 export function registerIpcHandlers(context: IpcContext): void {
-  const { vault } = context;
+  const { session } = context;
+  const vault = session.vault;
 
   // ── app ────────────────────────────────────────────────────────────────────
   handle(CHANNELS.appGetVersion, () => context.appVersion);
   handle(CHANNELS.appGetPlatform, () => process.platform);
 
+  // ── session ────────────────────────────────────────────────────────────────
+  handle(CHANNELS.sessionStatus, () => session.status());
+
+  /**
+   * File dialogs are opened by the MAIN process, never given a renderer-supplied path.
+   *
+   * A path the renderer chose would be attacker-controlled if the renderer were ever
+   * compromised; a path the user picked in an OS dialog is a genuine act of consent, and
+   * the OS — not us — decides what they were allowed to reach.
+   */
+  handle(CHANNELS.sessionChooseVaultToOpen, async () => {
+    // Modal to the window when there is one. `showOpenDialog` has separate overloads for
+    // with/without a parent, so the branch is real rather than a null-check formality —
+    // a parented dialog is modal and cannot be lost behind the app window.
+    const window = context.getWindow();
+    const options: OpenDialogOptions = {
+      title: 'Open a Keyhold vault',
+      filters: [
+        { name: 'Keyhold vault', extensions: ['keep'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    };
+    const result =
+      window === null
+        ? await dialog.showOpenDialog(options)
+        : await dialog.showOpenDialog(window, options);
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  });
+
+  handle(CHANNELS.sessionChooseVaultLocation, async (suggestedName) => {
+    const window = context.getWindow();
+    const name =
+      typeof suggestedName === 'string' && suggestedName !== '' ? suggestedName : 'vault';
+    const options: SaveDialogOptions = {
+      title: 'Create a Keyhold vault',
+      defaultPath: `${basename(name)}.keep`,
+      filters: [{ name: 'Keyhold vault', extensions: ['keep'] }],
+      properties: ['createDirectory', 'showOverwriteConfirmation'],
+    };
+    const result =
+      window === null
+        ? await dialog.showSaveDialog(options)
+        : await dialog.showSaveDialog(window, options);
+    return result.canceled ? null : result.filePath;
+  });
+
+  handle(CHANNELS.sessionEstimateStrength, async (password) =>
+    // Not `requireNonEmptyString`: an empty field is a normal state while typing, and the
+    // estimator returns an explicit "not judged yet" result for it.
+    session.estimateStrength(requireString(CHANNELS.sessionEstimateStrength, password, 'password'))
+  );
+
+  handle(CHANNELS.sessionCopySecret, async (ref) =>
+    session.copySecret(requireSecretRef(CHANNELS.sessionCopySecret, ref))
+  );
+
+  handle(CHANNELS.sessionClearClipboard, async () => session.clearClipboard());
+
+  handle(CHANNELS.sessionEnrolQuickUnlock, () => {
+    session.enrolQuickUnlock();
+    return null;
+  });
+
+  handle(CHANNELS.sessionRevokeQuickUnlock, () => {
+    session.revokeQuickUnlock();
+    return null;
+  });
+
+  handle(CHANNELS.sessionUnlockWithQuickUnlock, async (path) =>
+    session.unlockWithQuickUnlock(requireVaultPath(CHANNELS.sessionUnlockWithQuickUnlock, path))
+  );
+
+  handle(CHANNELS.sessionForgetVault, (path) => {
+    session.forgetVault(requireVaultPath(CHANNELS.sessionForgetVault, path));
+    return null;
+  });
+
   // ── vault ──────────────────────────────────────────────────────────────────
   handle(CHANNELS.vaultInspect, async (path) =>
-    VaultService.inspect(requireVaultPath(CHANNELS.vaultInspect, path))
+    session.inspect(requireVaultPath(CHANNELS.vaultInspect, path))
   );
 
   handle(CHANNELS.vaultCreate, async (path, password) =>
-    vault.createVault({
-      path: requireVaultPath(CHANNELS.vaultCreate, path),
-      password: requireNonEmptyString(CHANNELS.vaultCreate, password, 'password'),
-    })
+    session.createVault(
+      requireVaultPath(CHANNELS.vaultCreate, path),
+      requireNonEmptyString(CHANNELS.vaultCreate, password, 'password')
+    )
   );
 
   handle(CHANNELS.vaultUnlock, async (path, password) =>
-    vault.unlock(
+    session.unlock(
       requireVaultPath(CHANNELS.vaultUnlock, path),
       requireNonEmptyString(CHANNELS.vaultUnlock, password, 'password')
     )
   );
 
   handle(CHANNELS.vaultLock, () => {
-    vault.lock();
+    session.lock('manual');
     return null;
   });
 
-  handle(CHANNELS.vaultSave, async () => vault.save());
-
+  handle(CHANNELS.vaultSave, async () => session.save());
   handle(CHANNELS.vaultSummary, () => (vault.state === 'unlocked' ? vault.summary() : null));
-
   handle(CHANNELS.vaultHasUnsavedChanges, () => vault.hasUnsavedChanges);
 
   // ── credentials ────────────────────────────────────────────────────────────
@@ -136,6 +219,18 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.credentialsDeepSearch, (query) =>
     vault.deepSearch(requireNonEmptyString(CHANNELS.credentialsDeepSearch, query, 'query'))
   );
+}
+
+/**
+ * Tells the renderer the session changed underneath it.
+ *
+ * Needed because auto-lock is initiated by the main process, not by anything the renderer
+ * did. Without this the UI keeps rendering an unlocked vault that is no longer open, and
+ * the first sign of trouble is every action failing.
+ */
+export function notifySessionChanged(window: BrowserWindow | null): void {
+  if (window === null || window.isDestroyed()) return;
+  window.webContents.send(EVENTS.sessionChanged);
 }
 
 /** Removes every handler. Used on quit so nothing answers during teardown. */

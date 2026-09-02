@@ -28,12 +28,17 @@ const electronBinary = require('electron');
 const shotIndex = process.argv.indexOf('--shot');
 const shotPath = shotIndex === -1 ? undefined : process.argv[shotIndex + 1];
 
+// `--vault <path>` runs the full create -> lock -> unlock cycle against a real file.
+const vaultIndex = process.argv.indexOf('--vault');
+const vaultPath = vaultIndex === -1 ? undefined : process.argv[vaultIndex + 1];
+
 const child = spawn(electronBinary, ['.'], {
   env: {
     ...process.env,
     KEYHOLD_SMOKE: '1',
     ELECTRON_DISABLE_SECURITY_WARNINGS: '1',
     ...(shotPath === undefined ? {} : { KEYHOLD_SMOKE_SHOT: shotPath }),
+    ...(vaultPath === undefined ? {} : { KEYHOLD_SMOKE_VAULT: vaultPath }),
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });

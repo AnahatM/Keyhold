@@ -1,0 +1,311 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* The full-window screens: welcome, create, unlock. */
+
+.kh-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--kh-space-5);
+  overflow-y: auto;
+  background: var(--kh-color-bg);
+}
+
+.kh-screen__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+  width: 100%;
+  max-width: 30rem;
+  padding: var(--kh-space-6);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  box-shadow: var(--kh-shadow-md);
+}
+
+.kh-screen__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+}
+
+.kh-screen__mark {
+  font-size: var(--kh-text-2xl);
+  line-height: 1;
+}
+
+.kh-screen__title {
+  font-size: var(--kh-text-xl);
+  font-weight: var(--kh-weight-semibold);
+  letter-spacing: -0.01em;
+}
+
+.kh-screen__subtitle {
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-base);
+}
+
+.kh-screen__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-screen__heading {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-screen__actions {
+  display: flex;
+  /*
+   * Stated explicitly: `.kh-screen__section` sets `flex-direction: column`, and an element
+   * carrying both classes inherits it — which stacked the buttons and, combined with
+   * `align-items: center`, centred them against every other left-aligned element on the
+   * screen.
+   */
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+  align-items: center;
+}
+
+.kh-screen__note {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-screen__note--info {
+  padding: var(--kh-space-2) var(--kh-space-3);
+  background: var(--kh-color-info-subtle);
+  color: var(--kh-color-info-text);
+  border-radius: var(--kh-radius-md);
+}
+
+/* Errors and warnings carry an icon as well as colour — never colour alone. */
+.kh-screen__error,
+.kh-screen__warning {
+  display: flex;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-screen__error {
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+}
+
+.kh-screen__error::before {
+  content: '⚠';
+}
+
+.kh-screen__warning {
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+}
+
+.kh-screen__warning::before {
+  content: '⚠';
+}
+
+/* A filesystem path is not secret — it is on the user's own disk — but it is the only way
+   to tell two vaults of the same name apart, so it must stay selectable and readable. */
+.kh-path {
+  font-family: var(--kh-font-secret);
+  font-size: var(--kh-text-sm);
+  word-break: break-all;
+  user-select: text;
+}
+
+/* ── Recent vaults ─────────────────────────────────────────────────────────── */
+
+.kh-recent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+}
+
+.kh-recent__item {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+}
+
+.kh-recent__open {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--kh-row-height);
+  padding: var(--kh-space-2) var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  color: var(--kh-color-text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-recent__open:hover:not(:disabled) {
+  border-color: var(--kh-color-accent);
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-recent__name {
+  font-weight: var(--kh-weight-medium);
+}
+
+.kh-recent__path {
+  overflow: hidden;
+  font-family: var(--kh-font-secret);
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl; /* Truncates the START of a long path, keeping the filename visible. */
+  text-align: left;
+}
+
+/* ── Facts list on the welcome screen ──────────────────────────────────────── */
+
+.kh-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding-top: var(--kh-space-3);
+  border-top: 1px solid var(--kh-color-border);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-facts strong {
+  color: var(--kh-color-text);
+}
+
+/* ── The no-recovery acknowledgement ───────────────────────────────────────── */
+
+.kh-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-warning-subtle);
+  border-radius: var(--kh-radius-md);
+  cursor: pointer;
+}
+
+.kh-ack input {
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  accent-color: var(--kh-color-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.kh-ack strong {
+  display: block;
+  color: var(--kh-color-warning-text);
+  font-size: var(--kh-text-base);
+}
+
+.kh-ack small {
+  display: block;
+  margin-top: var(--kh-space-1);
+  color: var(--kh-color-warning-text);
+  font-size: var(--kh-text-sm);
+}
+
+/* ── Strength meter ────────────────────────────────────────────────────────── */
+
+.kh-strength {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-strength__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+/* The word comes first and is never omitted: "Weak" is unambiguous in a way that a shade
+   of orange is not, and colour alone would fail WCAG 1.4.1. */
+.kh-strength__label {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-strength__label--success {
+  color: var(--kh-color-success-text);
+}
+.kh-strength__label--info {
+  color: var(--kh-color-info-text);
+}
+.kh-strength__label--warning {
+  color: var(--kh-color-warning-text);
+}
+.kh-strength__label--danger {
+  color: var(--kh-color-danger-text);
+}
+
+.kh-strength__time {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-strength__bar {
+  display: flex;
+  gap: 3px;
+}
+
+.kh-strength__segment {
+  flex: 1;
+  height: 5px;
+  background: var(--kh-color-surface-hover);
+  border-radius: var(--kh-radius-full);
+  transition: background-color var(--kh-duration-base) var(--kh-ease);
+}
+
+.kh-strength__segment--success {
+  background: var(--kh-color-success);
+}
+.kh-strength__segment--info {
+  background: var(--kh-color-info);
+}
+.kh-strength__segment--warning {
+  background: var(--kh-color-warning);
+}
+.kh-strength__segment--danger {
+  background: var(--kh-color-danger);
+}
+
+.kh-strength__warning {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-warning-text);
+}
+
+.kh-strength__suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-strength__suggestions li::before {
+  content: '· ';
+  color: var(--kh-color-text-subtle);
+}
