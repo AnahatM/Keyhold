@@ -12,23 +12,23 @@
 Folders are created as each system lands, not pre-created empty. Entries marked _planned_ do not
 exist yet; the phase that creates them is named.
 
-| Folder                                                    | Contents                                                                                      | Status                   |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------ |
-| [`00-Overview/`](./00-Overview/_INDEX.md)                 | What Keyhold is · naming & glossary · competitive analysis · threat model                     | **Written**              |
-| [`01-Architecture/`](./01-Architecture/_INDEX.md)         | Process model, module map, the safe projection, the IPC contract                              | **Written**              |
-| [`02-Security/`](./02-Security/_INDEX.md)                 | Crypto design, key hierarchy, process hardening, the safe-projection boundary                 | **Written**              |
-| `03-Data-Model/`                                          | The record schema, field types, history model, tombstones                                     | _Planned — Phase 5_      |
-| [`04-Vault-Format/`](./04-Vault-Format/_INDEX.md)         | The **KEEP** container spec — publishable and implementable by third parties                  | **Written**              |
-| `05-Features/`                                            | One page per feature: CRUD, history & audit, search, generator, attachments, health, settings | _Planned — Phases 5–14_  |
-| [`06-UI-Design-System/`](./06-UI-Design-System/_INDEX.md) | Tokens, themes, the accent system, the shell, components, a11y rules                          | **Written**              |
-| `07-Main-Process-Services/`                               | Vault service, clipboard, biometrics, file watcher, origin capture                            | _Planned — Phase 2_      |
-| `08-Renderer-State/`                                      | Store shape, selectors, the safe projection, secret-fetch lifecycle                           | _Planned — Phase 2_      |
-| `09-Import-Export/`                                       | Every supported format, with per-format field-mapping tables                                  | _Planned — Phases 10–11_ |
-| `10-Sync-And-Transfer/`                                   | Portable file · `.keepx` bundles · the merge engine and conflict matrix                       | _Planned — Phase 12_     |
-| [`11-Development/`](./11-Development/_INDEX.md)           | Setup, scripts, conventions, testing policy, toolchain decisions                              | **Written**              |
-| [`12-Roadmap/`](./12-Roadmap/_INDEX.md)                   | Master checklist · feature backlog · decision log                                             | **Written**              |
-| `13-Appendix/`                                            | Audit findings, benchmarks, doc-audit findings, deliberate oddities                           | _Planned — Phase 17_     |
-| [`superpowers/specs/`](./superpowers/specs/)              | Point-in-time design specs. **History, not current reference**                                | **Written**              |
+| Folder                                                    | Contents                                                                      | Status                   |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------ |
+| [`00-Overview/`](./00-Overview/_INDEX.md)                 | What Keyhold is · naming & glossary · competitive analysis · threat model     | **Written**              |
+| [`01-Architecture/`](./01-Architecture/_INDEX.md)         | Process model, module map, the safe projection, the IPC contract              | **Written**              |
+| [`02-Security/`](./02-Security/_INDEX.md)                 | Crypto design, key hierarchy, process hardening, the safe-projection boundary | **Written**              |
+| [`03-Data-Model/`](./03-Data-Model/_INDEX.md)             | The record schema, the secret classification, field types, operations         | **Written**              |
+| [`04-Vault-Format/`](./04-Vault-Format/_INDEX.md)         | The **KEEP** container spec — publishable and implementable by third parties  | **Written**              |
+| [`05-Features/`](./05-Features/_INDEX.md)                 | One page per feature — generator and health rules so far                      | **Partial**              |
+| [`06-UI-Design-System/`](./06-UI-Design-System/_INDEX.md) | Tokens, themes, the accent system, the shell, components, a11y rules          | **Written**              |
+| `07-Main-Process-Services/`                               | Vault service, clipboard, biometrics, file watcher, origin capture            | _Planned — Phase 2_      |
+| `08-Renderer-State/`                                      | Store shape, selectors, the safe projection, secret-fetch lifecycle           | _Planned — Phase 2_      |
+| `09-Import-Export/`                                       | Every supported format, with per-format field-mapping tables                  | _Planned — Phases 10–11_ |
+| `10-Sync-And-Transfer/`                                   | Portable file · `.keepx` bundles · the merge engine and conflict matrix       | _Planned — Phase 12_     |
+| [`11-Development/`](./11-Development/_INDEX.md)           | Setup, scripts, conventions, testing policy, toolchain decisions              | **Written**              |
+| [`12-Roadmap/`](./12-Roadmap/_INDEX.md)                   | Master checklist · feature backlog · decision log                             | **Written**              |
+| `13-Appendix/`                                            | Audit findings, benchmarks, doc-audit findings, deliberate oddities           | _Planned — Phase 17_     |
+| [`superpowers/specs/`](./superpowers/specs/)              | Point-in-time design specs. **History, not current reference**                | **Written**              |
 
 ---
 
