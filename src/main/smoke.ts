@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { writeFile } from 'node:fs/promises';
 import { app, type BrowserWindow } from 'electron';
+import { notifySessionChanged } from './ipc/register.js';
 
 /**
  * Headless-ish launch smoke check, enabled only by `KEYHOLD_SMOKE=1`.
@@ -198,6 +199,29 @@ export function runSmokeCheck(window: BrowserWindow): void {
         const purged = await window.keyhold.credentials.purge(id);
         steps.push(['purge', purged.ok === true && purged.value === true]);
 
+        // The duplicate is a separate record and outlives its original. Cleaning it up
+        // keeps the seeded demo vault below honest about what it contains.
+        if (copied.ok && copied.value !== null) {
+          await window.keyhold.credentials.purge(copied.value.id);
+        }
+
+        // Leave a few realistic records behind, so a screenshot taken after this run shows
+        // the populated UI rather than an empty state. Also the seed for Phase 19's README
+        // screenshots, which should be reproducible rather than hand-made.
+        for (const seed of [
+          { title: 'GitHub', username: 'anahat', urls: ['https://github.com'], tags: ['dev'] },
+          { title: 'Cloudflare', email: 'a@example.com', urls: ['https://dash.cloudflare.com'], tags: ['dev', 'infra'] },
+          { title: 'Namecheap', username: 'anahat', urls: ['https://namecheap.com'], tags: ['infra'] },
+          { title: 'Steam', username: 'anahat', urls: ['https://store.steampowered.com'], tags: ['personal'] },
+          { title: 'Vercel', email: 'a@example.com', urls: ['https://vercel.com'], tags: ['dev'] },
+        ]) {
+          await window.keyhold.credentials.create({
+            ...seed,
+            password: 'a-generated-looking-password-here',
+            notes: 'Recovery codes live here.',
+          });
+        }
+
         await window.keyhold.vault.save();
 
         return { stage: 'cycle', ok: steps.every((s) => s[1] === true), steps };
@@ -207,6 +231,14 @@ export function runSmokeCheck(window: BrowserWindow): void {
     window.webContents
       .executeJavaScript(probe, true)
       .then(async (outcome: unknown) => {
+        // The probe drove the session from outside the renderer's own event flow, so the
+        // UI still shows whatever it mounted with. Firing the real notification is both
+        // what makes a screenshot show the opened vault AND a genuine exercise of the
+        // path auto-lock depends on — the one case where main changes state and the
+        // renderer has to find out.
+        notifySessionChanged(window);
+        await new Promise<void>((resolve) => setTimeout(resolve, 400));
+
         const report = outcome as {
           stage?: string;
           ok?: boolean;
