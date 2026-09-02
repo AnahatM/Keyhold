@@ -1,0 +1,361 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* ── Sidebar ───────────────────────────────────────────────────────────────── */
+
+.kh-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.kh-sidebar__header {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  border-bottom: 1px solid var(--kh-color-border);
+}
+
+.kh-sidebar__mark {
+  font-size: var(--kh-text-lg);
+}
+
+.kh-sidebar__name {
+  font-weight: var(--kh-weight-semibold);
+  font-size: var(--kh-text-md);
+}
+
+.kh-sidebar__version {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-sidebar__header > :last-child {
+  margin-left: auto;
+}
+
+.kh-sidebar__nav {
+  padding: var(--kh-space-3) var(--kh-space-2);
+}
+
+.kh-sidebar__group {
+  padding: var(--kh-space-2) var(--kh-space-2) var(--kh-space-1);
+  font-size: var(--kh-text-xs);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-sidebar__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: var(--kh-row-height);
+  padding: 0 var(--kh-space-2);
+  background: none;
+  border: none;
+  border-radius: var(--kh-radius-md);
+  color: var(--kh-color-text);
+  font-size: var(--kh-text-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.kh-sidebar__item:hover:not(:disabled) {
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-sidebar__item[aria-current='true'] {
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+}
+
+.kh-sidebar__item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.kh-sidebar__count {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.kh-sidebar__note {
+  padding: var(--kh-space-3) var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+}
+
+/* ── List pane ─────────────────────────────────────────────────────────────── */
+
+.kh-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.kh-list__header {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3) var(--kh-space-4);
+  border-bottom: 1px solid var(--kh-color-border);
+}
+
+.kh-list__title {
+  font-size: var(--kh-text-md);
+  font-weight: var(--kh-weight-semibold);
+  margin-right: auto;
+}
+
+/* ── Detail panel ──────────────────────────────────────────────────────────── */
+
+.kh-panel {
+  max-width: 62rem;
+  padding: var(--kh-space-5) var(--kh-space-5) var(--kh-space-7);
+}
+
+.kh-panel__header {
+  margin-bottom: var(--kh-space-5);
+}
+
+.kh-panel__title {
+  font-size: var(--kh-text-xl);
+  font-weight: var(--kh-weight-semibold);
+  letter-spacing: -0.01em;
+}
+
+.kh-panel__subtitle {
+  max-width: 60ch;
+  margin-top: var(--kh-space-1);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-panel__section {
+  padding: var(--kh-space-4) 0;
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-panel__heading {
+  margin-bottom: var(--kh-space-3);
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-panel__hint {
+  max-width: 64ch;
+  margin-top: var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-panel__hint code {
+  font-family: var(--kh-font-secret);
+  font-size: 0.95em;
+}
+
+.kh-panel__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-3);
+  padding-top: var(--kh-space-5);
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-panel__status {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+}
+
+/* ── Segmented control ─────────────────────────────────────────────────────── */
+
+.kh-segmented {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-segmented__option {
+  min-height: calc(var(--kh-control-height) - var(--kh-space-2));
+  padding: 0 var(--kh-space-3);
+  background: none;
+  border: none;
+  border-radius: calc(var(--kh-radius-md) - 2px);
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-sm);
+  text-transform: capitalize;
+  cursor: pointer;
+  transition:
+    background-color var(--kh-duration-fast) var(--kh-ease),
+    color var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-segmented__option:hover {
+  color: var(--kh-color-text);
+}
+
+/*
+ * The selected option is announced by aria-pressed AND shown by fill and weight, so the
+ * state never depends on colour alone (WCAG 1.4.1).
+ */
+.kh-segmented__option[aria-pressed='true'] {
+  background: var(--kh-color-accent);
+  color: var(--kh-color-accent-on);
+  font-weight: var(--kh-weight-medium);
+}
+
+.kh-control-row {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-2) 0;
+  flex-wrap: wrap;
+}
+
+.kh-control-row__label {
+  min-width: 7rem;
+  font-size: var(--kh-text-base);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Theme cards ───────────────────────────────────────────────────────────── */
+
+.kh-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--kh-space-3);
+  margin-top: var(--kh-space-3);
+}
+
+.kh-theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding: var(--kh-space-2);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-theme-card:hover {
+  border-color: var(--kh-color-border-strong);
+}
+
+/* Selection is a border AND a tick, never colour alone. */
+.kh-theme-card[aria-pressed='true'] {
+  border-color: var(--kh-color-accent);
+  box-shadow: inset 0 0 0 1px var(--kh-color-accent);
+}
+
+.kh-theme-card[aria-pressed='true'] .kh-theme-card__name::after {
+  content: ' \2713';
+  color: var(--kh-color-accent);
+}
+
+.kh-theme-card__swatch {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 44px;
+  padding: var(--kh-space-2);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-theme-card__swatch i {
+  flex: 1;
+  height: 60%;
+  border-radius: 2px;
+}
+
+.kh-theme-card__name {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-medium);
+}
+
+.kh-theme-card__scheme {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+  text-transform: capitalize;
+}
+
+/* ── Accent swatches ───────────────────────────────────────────────────────── */
+
+.kh-accents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+  margin-top: var(--kh-space-3);
+}
+
+.kh-accents__swatch {
+  width: 32px;
+  height: 32px;
+  background: var(--kh-color-surface-sunken);
+  border: 2px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-full);
+  color: var(--kh-color-text-muted);
+  cursor: pointer;
+  transition: transform var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-accents__swatch:hover {
+  transform: scale(1.1);
+}
+
+/* A ring plus a size change, so a colour-blind user still sees which is chosen. */
+.kh-accents__swatch[aria-pressed='true'] {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+  transform: scale(1.12);
+}
+
+/* ── Checkbox ──────────────────────────────────────────────────────────────── */
+
+.kh-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kh-space-2);
+  margin-top: var(--kh-space-3);
+  cursor: pointer;
+}
+
+.kh-checkbox input {
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  accent-color: var(--kh-color-accent);
+  cursor: pointer;
+}
+
+.kh-checkbox small {
+  display: block;
+  max-width: 56ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+}
+
+/* ── Sample row ────────────────────────────────────────────────────────────── */
+
+.kh-sample {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-sample__secret {
+  padding: var(--kh-space-1) var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-base);
+}

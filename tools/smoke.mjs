@@ -24,8 +24,17 @@ if (!existsSync(resolve('out/main/index.js'))) {
 
 const electronBinary = require('electron');
 
+// `--shot <path>` captures the rendered window to a PNG.
+const shotIndex = process.argv.indexOf('--shot');
+const shotPath = shotIndex === -1 ? undefined : process.argv[shotIndex + 1];
+
 const child = spawn(electronBinary, ['.'], {
-  env: { ...process.env, KEYHOLD_SMOKE: '1', ELECTRON_DISABLE_SECURITY_WARNINGS: '1' },
+  env: {
+    ...process.env,
+    KEYHOLD_SMOKE: '1',
+    ELECTRON_DISABLE_SECURITY_WARNINGS: '1',
+    ...(shotPath === undefined ? {} : { KEYHOLD_SMOKE_SHOT: shotPath }),
+  },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 

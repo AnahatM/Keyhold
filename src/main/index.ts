@@ -51,7 +51,24 @@ if (!gotTheLock) {
   void app.whenReady().then(() => {
     applySessionHardening();
     registerIpcHandlers({ vault, appVersion: APP_VERSION });
-    const window = createMainWindow();
+
+    const window = createMainWindow({
+      onLockVault: () => {
+        vault.lock();
+      },
+      onSaveVault: () => {
+        // Menu items cannot await, and a failed save must not become an unhandled
+        // rejection that takes the process down. The renderer is told either way.
+        void vault.save().catch((error: unknown) => {
+          console.error('[menu] save failed:', error);
+        });
+      },
+      onOpenPreferences: () => {
+        // Wired to the settings route in Phase 14; the accelerator exists now so the
+        // shortcut does not have to be re-taught later.
+      },
+      isVaultUnlocked: () => vault.state === 'unlocked',
+    });
 
     // Only ever active under KEYHOLD_SMOKE=1; see src/main/smoke.ts.
     if (isSmokeRun()) runSmokeCheck(window);

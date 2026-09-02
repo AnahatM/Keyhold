@@ -105,24 +105,41 @@ _Goal: the main process owns every secret; the renderer can only ask, never hold
 app-level preference storage, which arrives with settings; `replaceDocument` covers the
 service's needs until then. Recorded here rather than dropped.
 
-## Phase 3 — App shell, design system & theme engine
+## Phase 3 — App shell, design system & theme engine ✅
 
 _Goal: the three-pane shell renders, and every theme is contrast-safe._
 
-- [ ] CSS token layer — colour, space, radius, shadow, motion, type. **Zero hardcoded colours.**
-- [ ] Theme engine: 8 themes — Dawn, Midnight, Slate, Nord, Solarized Light, Solarized Dark, Rose, High-Contrast
-- [ ] Independent accent-colour picker
-- [ ] Density control (compact / comfortable / spacious)
-- [ ] Font-size scale + font-family choice, including a monospace face for secrets
-- [ ] Follow-OS theme toggle; `prefers-reduced-motion` respected throughout
-- [ ] Custom theme editor with live preview; `.keeptheme` export and import
-- [ ] Three-pane shell with both side panes collapsible and persisted; responsive down to one pane
-- [ ] Base components: Button, Input, Select, Checkbox, Switch, Radio, Tabs, Badge, Chip, Tooltip, Menu, Card, Skeleton, EmptyState, ErrorState
-- [ ] Native menu bar (Windows + macOS variants) and system tray with quick actions
-- [ ] Window state persistence (size, position, maximised, pane widths)
-- [ ] **Guard test:** every token resolves to a non-empty value in every theme
-- [ ] **Guard test:** every foreground/background token pair passes WCAG AA contrast in every theme
-- [ ] `docs/06-UI-Design-System/` written
+- [x] CSS token layer — colour, space, radius, shadow, motion, type. **Zero hardcoded colours**
+- [x] Themes defined as **typed data, not CSS**, so one source feeds the runtime, the contrast guard and the theme editor — no second list
+- [x] Eight themes: Dawn, Midnight, Slate, Nord, Solarized Light, Solarized Dark, Rose, High-Contrast
+- [x] Independent accent picker with **runtime contrast derivation** — the picker is the one place a user can create a combination the build-time guard never saw
+- [x] Density control (compact / comfortable / spacious), with comfortable and above at or over the 44px WCAG target size
+- [x] Font-size scale and font-family choice; **secrets always monospace** regardless
+- [x] Follow-OS toggle; `prefers-reduced-motion` OR-ed with the app setting, never overridden
+- [x] `.keeptheme` export and import, with validation that names the missing tokens
+- [x] Three-pane shell, both panes collapsible, widths persisted, dividers keyboard-operable
+- [x] Degrades three-pane → two → one rather than squeezing
+- [x] Base components: Button, Input/Field, Badge, EmptyState, ErrorState, LoadingState, Skeleton
+- [x] Native menu bar with correct macOS and Windows conventions; vault items disabled while locked
+- [x] Window state persistence, including the **off-screen-restore guard**
+- [x] **Guard test:** every token resolves in every theme, no unknown keys, every colour parseable
+- [x] **Guard test:** every foreground/background pair passes WCAG AA in **every** theme (252 assertions)
+- [x] **Guard test:** every theme × every accent preset × 10 hostile colours stays readable (~970 assertions)
+- [x] **Extra:** screenshot capture in the smoke harness (`npm run test:smoke -- --shot <path>`), for verifying the UI actually renders and for reproducible README screenshots in Phase 19
+- [x] `docs/06-UI-Design-System/` written
+
+**Verified:** `npm run verify` green (1252 tests) · `npm run test:smoke` passes · the running
+app captured and visually checked. Fault injection confirmed the window-state guard (3 tests
+fail without the display check); the theme guard caught two genuine contrast failures during
+authoring (Dawn `border-strong` at 2.99:1, Nord `danger-text` at 4.23:1), and the accent
+guard caught a real quantisation bug where a value accepted at 4.50:1 shipped at 4.48:1.
+
+**Deferred, with reasons — see `docs/06-UI-Design-System/01-Layout-And-Components.md` §4:**
+Select/Switch/Radio (Phase 14, settings), Tabs/Card/Chip (Phase 5, the detail view),
+Tooltip/Menu/Modal/Toast (Phase 15, where the chrome systems live), the theme **editor UI**
+(Phase 14 — the model, contrast maths, validation and import/export are already built and
+tested; only the editing surface is outstanding), and the system tray (Phase 15, alongside
+the commands it would contain). A component with no caller is designed against a guess.
 
 ## Phase 4 — Unlock, lock & session security
 
@@ -392,7 +409,7 @@ _Goal: the user, not us, decides their security/convenience trade-off._
 | 0 · Scaffold                     | ✅ **Done** |
 | 1 · Crypto & KEEP format         | ✅ **Done** |
 | 2 · Vault service & IPC          | ✅ **Done** |
-| 3 · Shell, design system, themes | Not started |
+| 3 · Shell, design system, themes | ✅ **Done** |
 | 4 · Unlock, lock, session        | Not started |
 | 5 · CRUD & fields                | Not started |
 | 6 · History & audit trail        | Not started |

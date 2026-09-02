@@ -1,0 +1,110 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+.kh-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-7) var(--kh-space-5);
+  text-align: center;
+  color: var(--kh-color-text-muted);
+}
+
+.kh-empty__icon {
+  font-size: var(--kh-text-2xl);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-empty--error .kh-empty__icon {
+  color: var(--kh-color-danger);
+}
+
+.kh-empty__title {
+  font-size: var(--kh-text-md);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-empty__description {
+  max-width: 42ch;
+  font-size: var(--kh-text-base);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-empty__action {
+  margin-top: var(--kh-space-2);
+}
+
+/* ── Skeletons ─────────────────────────────────────────────────────────────── */
+
+.kh-skeleton {
+  display: block;
+  background: var(--kh-color-surface-hover);
+  animation: kh-pulse calc(1600ms * var(--kh-motion-scale)) ease-in-out infinite;
+}
+
+/*
+ * At --kh-motion-scale: 0 the duration becomes 0s and the animation never advances, so the
+ * skeleton sits still at its start value. Reduced motion keeps the placeholder without the
+ * pulsing.
+ */
+@keyframes kh-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.kh-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-3);
+}
+
+.kh-loading__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  min-height: var(--kh-row-height);
+  justify-content: center;
+}
+
+/* ── Badges ────────────────────────────────────────────────────────────────── */
+
+.kh-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+  padding: 0 var(--kh-space-2);
+  border-radius: var(--kh-radius-full);
+  font-size: var(--kh-text-xs);
+  font-weight: var(--kh-weight-medium);
+  line-height: 1.8;
+  white-space: nowrap;
+}
+
+.kh-badge--neutral {
+  background: var(--kh-color-surface-hover);
+  color: var(--kh-color-text-muted);
+}
+.kh-badge--success {
+  background: var(--kh-color-success-subtle);
+  color: var(--kh-color-success-text);
+}
+.kh-badge--warning {
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+}
+.kh-badge--danger {
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+}
+.kh-badge--info {
+  background: var(--kh-color-info-subtle);
+  color: var(--kh-color-info-text);
+}

@@ -1,0 +1,91 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+.kh-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+}
+
+.kh-field__label {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-field__control {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+  min-height: var(--kh-control-height);
+  padding-right: var(--kh-space-1);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  transition: border-color var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-field__control:hover {
+  border-color: var(--kh-color-border-strong);
+}
+
+/*
+ * The ring goes on the wrapper, not the input, so it surrounds the trailing controls too.
+ * `:focus-within` rather than `:focus-visible` because a click into a text field genuinely
+ * should show where focus went — unlike a button, where it is noise.
+ */
+.kh-field__control:focus-within {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 1px;
+  border-color: var(--kh-color-accent);
+}
+
+.kh-field__control--error {
+  border-color: var(--kh-color-danger);
+}
+
+.kh-field__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--kh-space-3);
+  background: none;
+  border: none;
+  color: var(--kh-color-text);
+  font-size: var(--kh-text-base);
+}
+
+.kh-field__input:focus {
+  outline: none;
+}
+
+.kh-field__input::placeholder {
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-field__trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+  flex-shrink: 0;
+}
+
+.kh-field__hint {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+}
+
+/*
+ * Errors get an icon as well as colour. Colour alone fails WCAG 1.4.1 and is invisible to
+ * the ~8% of men with a colour-vision deficiency.
+ */
+.kh-field__error {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-danger-text);
+}
+
+.kh-field__error::before {
+  content: '⚠';
+  font-size: var(--kh-text-sm);
+}

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { writeFile } from 'node:fs/promises';
 import { app, type BrowserWindow } from 'electron';
 
 /**
@@ -26,6 +27,27 @@ const SMOKE_TIMEOUT_MS = 20_000;
 
 export function isSmokeRun(): boolean {
   return process.env.KEYHOLD_SMOKE === '1';
+}
+
+/**
+ * Captures the window to a PNG when `KEYHOLD_SMOKE_SHOT` names a path.
+ *
+ * Two uses, both real: verifying during development that the UI actually renders as
+ * intended rather than merely compiling, and generating README screenshots reproducibly
+ * in Phase 19 instead of by hand.
+ */
+async function captureIfRequested(window: BrowserWindow): Promise<void> {
+  const target = process.env.KEYHOLD_SMOKE_SHOT;
+  if (target === undefined || target === '') return;
+  try {
+    const image = await window.capturePage();
+    await writeFile(target, image.toPNG());
+    process.stdout.write(`SMOKE-SHOT ${target}
+`);
+  } catch (error) {
+    process.stdout.write(`SMOKE-SHOT-FAILED ${String(error)}
+`);
+  }
 }
 
 function finish(ok: boolean, detail: string): void {
@@ -63,8 +85,9 @@ export function runSmokeCheck(window: BrowserWindow): void {
 
     window.webContents
       .executeJavaScript(probe, true)
-      .then((outcome: unknown) => {
+      .then(async (outcome: unknown) => {
         const report = outcome as { stage?: string; ok?: boolean; result?: unknown };
+        await captureIfRequested(window);
 
         if (report.stage === 'bridge') {
           finish(

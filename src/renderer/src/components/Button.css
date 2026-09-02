@@ -1,0 +1,100 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+.kh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--kh-space-2);
+  min-height: var(--kh-control-height);
+  padding: 0 var(--kh-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--kh-duration-fast) var(--kh-ease),
+    border-color var(--kh-duration-fast) var(--kh-ease),
+    color var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/*
+ * Primary uses accent-on, never text-inverse. The accent is user-selectable, so the label
+ * colour has to be the one derived alongside it — see @shared/theme/accent.ts.
+ */
+.kh-button--primary {
+  background: var(--kh-color-accent);
+  color: var(--kh-color-accent-on);
+}
+.kh-button--primary:hover:not(:disabled) {
+  background: var(--kh-color-accent-hover);
+}
+.kh-button--primary:active:not(:disabled) {
+  background: var(--kh-color-accent-active);
+}
+
+.kh-button--secondary {
+  background: var(--kh-color-surface-raised);
+  color: var(--kh-color-text);
+  border-color: var(--kh-color-border);
+}
+.kh-button--secondary:hover:not(:disabled) {
+  background: var(--kh-color-surface-hover);
+  border-color: var(--kh-color-border-strong);
+}
+
+.kh-button--ghost {
+  background: transparent;
+  color: var(--kh-color-text-muted);
+}
+.kh-button--ghost:hover:not(:disabled) {
+  background: var(--kh-color-surface-hover);
+  color: var(--kh-color-text);
+}
+
+.kh-button--danger {
+  background: var(--kh-color-danger);
+  color: var(--kh-color-text-inverse);
+}
+.kh-button--danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.kh-button--sm {
+  min-height: calc(var(--kh-control-height) - var(--kh-space-2));
+  padding: 0 var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+}
+
+/* An icon-only button stays square and keeps a usable target size. */
+.kh-button:not(:has(.kh-button__label)) {
+  padding: 0;
+  aspect-ratio: 1;
+}
+
+.kh-button__spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: var(--kh-radius-full);
+  animation: kh-spin calc(700ms * var(--kh-motion-scale)) linear infinite;
+}
+
+/*
+ * At --kh-motion-scale: 0 the duration is 0s, which in CSS means the animation never
+ * advances — the spinner freezes rather than spinning. That is the correct outcome for
+ * reduced motion: the busy state is still communicated by aria-busy and the disabled
+ * appearance, without anything moving.
+ */
+@keyframes kh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

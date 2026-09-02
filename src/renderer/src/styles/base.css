@@ -1,0 +1,264 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * Base layer: resets, the non-colour token scale, and the primitives every component
+ * builds on.
+ *
+ * COLOURS ARE NOT DEFINED HERE. Every `--kh-color-*` property is set on `:root` at runtime
+ * from `@shared/theme` — one source feeding the CSS, the contrast guard and the theme
+ * editor. Writing a literal colour anywhere in this codebase is a bug; the guard tests
+ * only cover the palettes, so the discipline is on us.
+ *
+ * The scales below are multiplied by `--kh-space-scale` and `--kh-font-scale`, which the
+ * density and font-size settings drive. That is why nothing here is an absolute pixel
+ * value: changing density has to move the whole system together, not just row heights.
+ */
+
+:root {
+  /* Fallbacks only. The real values arrive from applyAppearance() before first paint. */
+  --kh-space-scale: 1;
+  --kh-font-scale: 1;
+  --kh-motion-scale: 1;
+  --kh-row-height: 44px;
+  --kh-control-height: 36px;
+  --kh-font-body: system-ui, sans-serif;
+  --kh-font-secret: ui-monospace, monospace;
+
+  /* ── Space. A 4px base, scaled by density. ─────────────────────────────── */
+  --kh-space-1: calc(4px * var(--kh-space-scale));
+  --kh-space-2: calc(8px * var(--kh-space-scale));
+  --kh-space-3: calc(12px * var(--kh-space-scale));
+  --kh-space-4: calc(16px * var(--kh-space-scale));
+  --kh-space-5: calc(24px * var(--kh-space-scale));
+  --kh-space-6: calc(32px * var(--kh-space-scale));
+  --kh-space-7: calc(48px * var(--kh-space-scale));
+
+  /* ── Type. A modest scale, multiplied by the user's font-size setting. ─── */
+  --kh-text-xs: calc(11px * var(--kh-font-scale));
+  --kh-text-sm: calc(12px * var(--kh-font-scale));
+  --kh-text-base: calc(14px * var(--kh-font-scale));
+  --kh-text-md: calc(16px * var(--kh-font-scale));
+  --kh-text-lg: calc(20px * var(--kh-font-scale));
+  --kh-text-xl: calc(26px * var(--kh-font-scale));
+  --kh-text-2xl: calc(34px * var(--kh-font-scale));
+
+  --kh-leading-tight: 1.25;
+  --kh-leading-normal: 1.5;
+  --kh-leading-relaxed: 1.7;
+
+  --kh-weight-normal: 400;
+  --kh-weight-medium: 500;
+  --kh-weight-semibold: 600;
+
+  /* ── Radius ─────────────────────────────────────────────────────────────── */
+  --kh-radius-sm: 4px;
+  --kh-radius-md: 7px;
+  --kh-radius-lg: 11px;
+  --kh-radius-full: 999px;
+
+  /* ── Elevation. Deliberately restrained: this is a tool, not a showcase. ── */
+  --kh-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.08);
+  --kh-shadow-md: 0 4px 12px rgb(0 0 0 / 0.12);
+  --kh-shadow-lg: 0 12px 32px rgb(0 0 0 / 0.2);
+
+  /*
+   * ── Motion ───────────────────────────────────────────────────────────────
+   * Every duration is multiplied by --kh-motion-scale, which the reduced-motion
+   * setting drops to 0. One switch stops every transition in the app, rather than
+   * each component having to remember to check a media query.
+   */
+  --kh-duration-fast: calc(120ms * var(--kh-motion-scale));
+  --kh-duration-base: calc(180ms * var(--kh-motion-scale));
+  --kh-duration-slow: calc(280ms * var(--kh-motion-scale));
+  --kh-ease: cubic-bezier(0.2, 0, 0.13, 1);
+
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  --kh-sidebar-width: 240px;
+  --kh-list-width: 320px;
+  --kh-pane-min: 180px;
+
+  color-scheme: light dark;
+}
+
+/* Belt and braces: honoured even before the JS-driven scale is applied. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --kh-motion-scale: 0;
+  }
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--kh-font-body);
+  font-size: var(--kh-text-base);
+  line-height: var(--kh-leading-normal);
+  background: var(--kh-color-bg);
+  color: var(--kh-color-text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+
+  /*
+   * A desktop app, not a web page: the window itself must never scroll or rubber-band,
+   * and text selection is opt-in per element. Selecting the whole chrome by dragging is
+   * a browser behaviour that reads as broken inside an app window.
+   */
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Content that genuinely is text gets selection back. */
+input,
+textarea,
+[data-selectable='true'] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* ── Focus ─────────────────────────────────────────────────────────────────── */
+
+/*
+ * `:focus-visible`, not `:focus` — a visible ring on every mouse click is noise that
+ * trains people to ignore it, and the ring is the ONLY way a keyboard user knows where
+ * they are. It is the last thing that should ever be turned off.
+ */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--kh-radius-sm);
+}
+
+/* ── Scrollbars ────────────────────────────────────────────────────────────── */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--kh-color-border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--kh-color-border);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--kh-radius-full);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--kh-color-border-strong);
+  background-clip: content-box;
+}
+
+/* ── Utilities ─────────────────────────────────────────────────────────────── */
+
+/*
+ * Visible to screen readers, invisible on screen. Used for the skip link and for labels
+ * that would be redundant next to a clear icon but are essential without sight of it.
+ */
+.kh-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Becomes visible on focus — a keyboard user must be able to see where the skip link goes. */
+.kh-skip-link:focus-visible {
+  position: fixed;
+  top: var(--kh-space-3);
+  left: var(--kh-space-3);
+  z-index: 100;
+  width: auto;
+  height: auto;
+  padding: var(--kh-space-2) var(--kh-space-4);
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+  background: var(--kh-color-surface-raised);
+  color: var(--kh-color-text);
+  border-radius: var(--kh-radius-md);
+  box-shadow: var(--kh-shadow-lg);
+}
+
+/* Secrets and anything a user may retype by eye. */
+.kh-secret {
+  font-family: var(--kh-font-secret);
+  font-variant-ligatures: none;
+  letter-spacing: 0.02em;
+}
+
+/* Wide content scrolls inside its own container; the window never scrolls horizontally. */
+.kh-scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.kh-scroll-y {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}

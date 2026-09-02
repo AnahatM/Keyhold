@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { join } from 'node:path';
 import { BrowserWindow, shell } from 'electron';
+import { buildMenu, type MenuActions } from './menu.js';
 import { HARDENED_WEB_PREFERENCES, hardenWindow } from './security.js';
+import { readWindowState, trackWindowState, windowOptionsFromState } from './window-state.js';
 
 /** Below this the three-pane layout collapses to a single pane; smaller is unusable. */
 const MIN_WIDTH = 720;
 const MIN_HEIGHT = 520;
-
-const DEFAULT_WIDTH = 1180;
-const DEFAULT_HEIGHT = 760;
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -16,10 +15,11 @@ export function getMainWindow(): BrowserWindow | null {
   return mainWindow;
 }
 
-export function createMainWindow(): BrowserWindow {
+export function createMainWindow(menuActions?: MenuActions): BrowserWindow {
+  const state = readWindowState();
+
   const window = new BrowserWindow({
-    width: DEFAULT_WIDTH,
-    height: DEFAULT_HEIGHT,
+    ...windowOptionsFromState(state),
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
     // Shown only once the first paint has landed — an empty white flash on a
@@ -35,8 +35,13 @@ export function createMainWindow(): BrowserWindow {
   });
 
   hardenWindow(window);
+  trackWindowState(window);
+  if (menuActions !== undefined) buildMenu(window, menuActions);
 
   window.once('ready-to-show', () => {
+    // Maximise before showing, so the window does not visibly jump from its restored size
+    // to full screen on every launch.
+    if (state.maximised) window.maximize();
     window.show();
   });
 
