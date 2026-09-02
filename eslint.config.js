@@ -123,6 +123,10 @@ export default defineConfig([
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       'no-restricted-properties': 'off',
+      // Tests build "this field is missing" fixtures by deleting a computed key. That is
+      // the clearest way to express it, and the rule's concern (accidental deopt) does
+      // not apply to a fixture built once per assertion.
+      '@typescript-eslint/no-dynamic-delete': 'off',
     },
   },
 

@@ -1,0 +1,116 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+.kh-shell {
+  display: grid;
+  grid-template-columns: auto auto auto auto 1fr;
+  height: 100%;
+  background: var(--kh-color-bg);
+  color: var(--kh-color-text);
+}
+
+.kh-shell__sidebar {
+  width: var(--kh-shell-sidebar);
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--kh-color-surface);
+  border-right: 1px solid var(--kh-color-border);
+}
+
+.kh-shell__list {
+  width: var(--kh-shell-list);
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--kh-color-surface);
+  border-right: 1px solid var(--kh-color-border);
+}
+
+.kh-shell__detail {
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--kh-color-bg);
+}
+
+/*
+ * In a narrow window the list and the detail take turns, so whichever is showing gets the
+ * whole width rather than both being squeezed to unusable.
+ */
+.kh-shell[data-narrow] .kh-shell__list,
+.kh-shell[data-narrow] .kh-shell__detail {
+  width: auto;
+  grid-column: 1 / -1;
+}
+
+/* ── Dividers ──────────────────────────────────────────────────────────────── */
+
+.kh-shell__divider {
+  width: 5px;
+  margin: 0 -2px; /* A 5px hit area over a 1px visual line. */
+  cursor: col-resize;
+  background: transparent;
+  z-index: 1;
+  transition: background-color var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-shell__divider:hover,
+.kh-shell__divider:focus-visible {
+  background: var(--kh-color-accent);
+}
+
+.kh-shell__divider:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 0;
+}
+
+/* Held for the whole drag, so the cursor does not flicker as it crosses child elements. */
+body.kh-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.kh-resizing * {
+  pointer-events: none;
+}
+
+/* ── Narrow-window affordances ─────────────────────────────────────────────── */
+
+.kh-shell__back {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  width: 100%;
+  min-height: var(--kh-control-height);
+  padding: 0 var(--kh-space-4);
+  background: var(--kh-color-surface);
+  border: none;
+  border-bottom: 1px solid var(--kh-color-border);
+  color: var(--kh-color-accent);
+  font-size: var(--kh-text-base);
+  cursor: pointer;
+  text-align: left;
+}
+
+.kh-shell__back:hover {
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-shell__reveal {
+  position: absolute;
+  top: var(--kh-space-3);
+  left: 0;
+  width: var(--kh-space-5);
+  height: var(--kh-space-6);
+  background: var(--kh-color-surface-raised);
+  border: 1px solid var(--kh-color-border);
+  border-left: none;
+  border-radius: 0 var(--kh-radius-md) var(--kh-radius-md) 0;
+  color: var(--kh-color-text-muted);
+  cursor: pointer;
+}
+
+.kh-shell__reveal:hover {
+  background: var(--kh-color-surface-hover);
+  color: var(--kh-color-text);
+}
