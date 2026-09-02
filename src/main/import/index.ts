@@ -2,6 +2,7 @@
 import type { ImportFormatDescriptor } from '@shared/model/import.js';
 import { bitwardenCsvParser } from './bitwarden-csv.js';
 import { bitwardenJsonParser } from './bitwarden-json.js';
+import { keyholdJsonParser } from './keyhold-json.js';
 import { chromeCsvParser } from './chrome-csv.js';
 import { dashlaneCsvParser } from './dashlane-csv.js';
 import { firefoxCsvParser } from './firefox-csv.js';
@@ -31,7 +32,9 @@ import { describeParser, type ImportParser } from './types.js';
  */
 export const PARSERS: readonly ImportParser[] = [
   // JSON first: it is decided by content shape, not by a header row, so it can never be
-  // confused with a CSV.
+  // confused with a CSV. Keyhold's own format leads, because it is the only one whose
+  // marker is unambiguous — everything else is inferred from a column set.
+  keyholdJsonParser,
   bitwardenJsonParser,
 
   // CSVs with a column no other format has.

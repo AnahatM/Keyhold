@@ -9,3 +9,8 @@ LICENSE
 # reformatting them is still editing them. See docs/_INDEX.md rule 3.
 docs/superpowers/
 *.min.*
+
+# Import fixtures are byte-exact copies of what another app (or, for keyhold.json, this
+# one) actually writes. Reformatting them would make them stop being what they claim to be,
+# and a parser test against a prettified fixture proves nothing about a real export.
+tests/fixtures/

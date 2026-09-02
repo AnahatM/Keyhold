@@ -101,7 +101,16 @@ export interface AttachmentMeta {
 
 // ── History and the audit trail ──────────────────────────────────────────────
 
-export type HistoryAction = 'create' | 'update' | 'restore' | 'import' | 'merge';
+/**
+ * What a timeline entry *is*.
+ *
+ * A runtime array as well as a type, like `AUDIT_PRIVACY_LEVELS` and `CUSTOM_FIELD_TYPES`,
+ * because anything validating a value that came out of a file — an import parser, an export
+ * reader, an IPC payload — needs something to check against, and a hand-written list at
+ * each of those sites is three lists that disagree.
+ */
+export const HISTORY_ACTIONS = ['create', 'update', 'restore', 'import', 'merge'] as const;
+export type HistoryAction = (typeof HISTORY_ACTIONS)[number];
 
 /**
  * Where and by what a change was made.
@@ -331,8 +340,11 @@ export interface CredentialMeta {
   readonly createdOrigin: ChangeOrigin;
 }
 
+/** Same reasoning as `HISTORY_ACTIONS`: a parser reading an icon out of a file needs this. */
+export const ICON_KINDS = ['auto', 'letter', 'emoji', 'custom'] as const;
+
 export interface CredentialIcon {
-  readonly kind: 'auto' | 'letter' | 'emoji' | 'custom';
+  readonly kind: (typeof ICON_KINDS)[number];
   readonly value?: string;
 }
 

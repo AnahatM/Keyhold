@@ -1,0 +1,295 @@
+{
+  "format": "keyhold-export",
+  "formatVersion": 1,
+  "exportedAt": 1772452800000,
+  "documentVersion": 1,
+  "settings": {
+    "historyEnabledByDefault": true,
+    "historyMaxVersions": 50,
+    "auditPrivacyLevel": "device",
+    "passwordAgeWarningDays": 365,
+    "trashRetentionDays": 30
+  },
+  "folders": [
+    {
+      "id": "folder-root",
+      "name": "Personal",
+      "parentId": null,
+      "order": 0
+    },
+    {
+      "id": "folder-child",
+      "name": "Mail",
+      "parentId": "folder-root",
+      "order": 0
+    },
+    {
+      "id": "folder-empty",
+      "name": "Archive",
+      "parentId": null,
+      "order": 1
+    }
+  ],
+  "tags": [
+    {
+      "id": "tag-1",
+      "name": "work",
+      "colour": "accent-blue"
+    },
+    {
+      "id": "tag-2",
+      "name": "email",
+      "colour": "accent-green"
+    },
+    {
+      "id": "tag-3",
+      "name": "unused",
+      "colour": "accent-red"
+    }
+  ],
+  "records": [
+    {
+      "id": "rec-1",
+      "type": "login",
+      "title": "Example Mail",
+      "favorite": true,
+      "folderId": "folder-child",
+      "tags": [
+        "work",
+        "email"
+      ],
+      "icon": {
+        "kind": "emoji",
+        "value": "📮"
+      },
+      "fields": {
+        "username": "ada",
+        "email": "ada@example.com",
+        "password": "correct-horse-battery-staple",
+        "urls": [
+          "https://example.com/login",
+          "https://mail.example.com"
+        ],
+        "securityQuestions": [
+          {
+            "id": "q-1",
+            "question": "First pet’s name?",
+            "answer": "Byron"
+          },
+          {
+            "id": "q-2",
+            "question": "City of birth?",
+            "answer": "Basingstoke"
+          }
+        ],
+        "notes": "Recovery kit is in the safe, not the drawer",
+        "custom": [
+          {
+            "id": "cf-1",
+            "label": "Account number",
+            "type": "text",
+            "value": "4471-9902",
+            "hidden": false,
+            "order": 0
+          },
+          {
+            "id": "cf-2",
+            "label": "Recovery PIN",
+            "type": "pin",
+            "value": "9137",
+            "hidden": true,
+            "order": 1
+          },
+          {
+            "id": "cf-3",
+            "label": "Authenticator",
+            "type": "otp-secret",
+            "value": "otpauth://totp/Example:ada?secret=JBSWY3DPEHPK3PXP",
+            "hidden": false,
+            "order": 2
+          }
+        ]
+      },
+      "attachments": [
+        {
+          "id": "0123456789abcdef0123456789abcdef",
+          "name": "recovery-kit.pdf",
+          "mime": "application/pdf",
+          "size": 20480,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "addedAt": 1797408000000
+        }
+      ],
+      "meta": {
+        "createdAt": 1765440000000,
+        "updatedAt": 1799136000000,
+        "passwordUpdatedAt": 1799136000000,
+        "lastUsedAt": 1799913600000,
+        "useCount": 17,
+        "expiresAt": 1807776000000,
+        "rotationIntervalDays": 180,
+        "createdOrigin": {
+          "action": "create",
+          "deviceName": "DESKTOP-A",
+          "platform": "win32",
+          "appVersion": "0.1.0",
+          "osUser": "ada",
+          "networkName": "Home Wi-Fi",
+          "osRelease": "10.0.26200",
+          "localIp": "192.168.1.20"
+        }
+      },
+      "history": {
+        "enabled": true,
+        "maxVersions": 50,
+        "versions": [
+          {
+            "versionNumber": 1,
+            "savedAt": 1782720000000,
+            "changedFields": [
+              "password",
+              "title"
+            ],
+            "snapshot": {
+              "title": "Example Webmail",
+              "password": "hunter2"
+            },
+            "origin": {
+              "action": "update",
+              "deviceName": "LAPTOP-B",
+              "platform": "darwin"
+            }
+          },
+          {
+            "versionNumber": 2,
+            "savedAt": 1799136000000,
+            "changedFields": [
+              "custom",
+              "securityQuestions",
+              "tags",
+              "favorite",
+              "icon",
+              "folderId"
+            ],
+            "snapshot": {
+              "securityQuestions": [
+                {
+                  "id": "q-1",
+                  "question": "First pet’s name?",
+                  "answer": "Ludo"
+                }
+              ],
+              "custom": [
+                {
+                  "id": "cf-1",
+                  "label": "Account number",
+                  "type": "text",
+                  "value": "0000-0000",
+                  "hidden": false,
+                  "order": 0
+                }
+              ],
+              "tags": [
+                "work"
+              ],
+              "folderId": null,
+              "favorite": false,
+              "icon": {
+                "kind": "auto"
+              }
+            },
+            "origin": {
+              "action": "restore",
+              "deviceName": "DESKTOP-A",
+              "platform": "win32",
+              "appVersion": "0.1.0",
+              "osUser": "ada",
+              "networkName": "Office",
+              "osRelease": "10.0.26200",
+              "localIp": "10.0.0.4"
+            }
+          }
+        ]
+      },
+      "trashedAt": null
+    },
+    {
+      "id": "rec-bare",
+      "type": "login",
+      "title": "Bare",
+      "favorite": false,
+      "folderId": null,
+      "tags": [],
+      "icon": {
+        "kind": "auto"
+      },
+      "fields": {
+        "username": "",
+        "email": "",
+        "password": "",
+        "urls": [],
+        "securityQuestions": [],
+        "notes": "",
+        "custom": []
+      },
+      "attachments": [],
+      "meta": {
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000000,
+        "passwordUpdatedAt": 1800000000000,
+        "lastUsedAt": null,
+        "useCount": 0,
+        "expiresAt": null,
+        "rotationIntervalDays": null,
+        "createdOrigin": {
+          "action": "create"
+        }
+      },
+      "history": {
+        "enabled": false,
+        "maxVersions": null,
+        "versions": []
+      },
+      "trashedAt": null
+    },
+    {
+      "id": "rec-gone",
+      "type": "login",
+      "title": "Deleted",
+      "favorite": false,
+      "folderId": null,
+      "tags": [],
+      "icon": {
+        "kind": "auto"
+      },
+      "fields": {
+        "username": "",
+        "email": "",
+        "password": "",
+        "urls": [],
+        "securityQuestions": [],
+        "notes": "",
+        "custom": []
+      },
+      "attachments": [],
+      "meta": {
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000000,
+        "passwordUpdatedAt": 1800000000000,
+        "lastUsedAt": null,
+        "useCount": 0,
+        "expiresAt": null,
+        "rotationIntervalDays": null,
+        "createdOrigin": {
+          "action": "create"
+        }
+      },
+      "history": {
+        "enabled": false,
+        "maxVersions": null,
+        "versions": []
+      },
+      "trashedAt": 1772366400000
+    }
+  ]
+}

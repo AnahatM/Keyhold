@@ -6,5 +6,6 @@ Getting data in from other password managers, and out again.
 | ------------------------------------------------ | ----- | ----------------------------------------------------------------------------------------- |
 | [`00-Import-Formats.md`](./00-Import-Formats.md) | 10    | The eleven parsers, the full column→field mapping, and what each format drops and reports |
 
-**Still to come:** the import wizard and dedupe (Phase 10), export and the `.keepx`
-exchange parcel (11).
+| [`01-Export-Formats.md`](./01-Export-Formats.md) | 11 | The four ways out, what each loses, why a plaintext export is treated as dangerous, CSV injection, and the round trip |
+
+**Still to come:** the import wizard and dedupe (Phase 10), the export dialog and KDBX (11).

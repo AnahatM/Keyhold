@@ -49,11 +49,35 @@ const COMMA_VALUE: Readonly<Record<string, string>> = {
   'safari-csv': 'Backup codes: 1111, 2222, 3333',
   'chrome-csv': 'Shared with Bob, expires in June',
   'generic-csv': 'Billed annually, purchase order required',
+  'keyhold-json': 'Recovery kit is in the safe, not the drawer',
 };
+
+/**
+ * Formats this app wrote itself, which are read all-or-nothing.
+ *
+ * Every other parser is deliberately lenient: refusing a 3,000-row export over one bad line
+ * is how a user ends up retyping their vault by hand, so a malformed row becomes a warning.
+ *
+ * Keyhold's own format is the opposite case, and for a reason worth stating. A malformed
+ * record in a file *we* wrote does not mean one odd row — it means the file is damaged or
+ * was edited by hand, and importing the rest of it produces a silently incomplete vault
+ * that looks complete. The same reader also opens the encrypted `.keepx` parcel, where
+ * partial acceptance would be plainly wrong.
+ *
+ * So these parsers are permitted to throw a `VaultError` where the lenient ones must warn.
+ */
+const STRICT_PARSERS: ReadonlySet<string> = new Set(['keyhold-json']);
 
 /** The structurally-empty form of each format: a header with no rows, or an empty item list. */
 function emptyOf(parserId: string, fixture: string): string {
-  return parserId === 'bitwarden-json' ? '{"encrypted":false,"items":[]}' : headerOnly(fixture);
+  if (parserId === 'bitwarden-json') return '{"encrypted":false,"items":[]}';
+  if (parserId === 'keyhold-json') {
+    // Built from the fixture rather than hand-written, so the envelope this asserts against
+    // stays the envelope the exporter actually produces.
+    const envelope = JSON.parse(fixture) as Record<string, unknown>;
+    return JSON.stringify({ ...envelope, records: [], folders: [], tags: [] });
+  }
+  return headerOnly(fixture);
 }
 
 /** A row with the wrong number of cells, appended to the fixture. */
@@ -61,6 +85,9 @@ function withMalformedRow(parserId: string, fixture: string): string {
   if (parserId === 'bitwarden-json') {
     // The JSON analogue of a ragged row: an item that is not an object at all.
     return fixture.replace('"items": [', '"items": [\n    "not an item",');
+  }
+  if (parserId === 'keyhold-json') {
+    return fixture.replace('"records": [', '"records": [\n    "not a record",');
   }
   return `${fixture}one,two,three\n`;
 }
@@ -155,6 +182,15 @@ describe.each(PARSERS.map((parser) => [parser.id, parser] as const))(
 
     it('turns a malformed row into a warning rather than an exception', () => {
       const damaged = withMalformedRow(id, fixture);
+
+      if (STRICT_PARSERS.has(id)) {
+        // Permitted to refuse the file outright — see `STRICT_PARSERS`. What is *not*
+        // permitted is throwing something the IPC layer would scrub into "something went
+        // wrong": a `VaultError` carries a message written for a user.
+        expect(() => parser.parse(damaged)).toThrow(VaultError);
+        return;
+      }
+
       const result = parser.parse(damaged);
       // The good rows still arrive. Refusing a 3,000-row export over one bad line is the
       // outcome this whole engine exists to avoid.
@@ -167,7 +203,23 @@ describe.each(PARSERS.map((parser) => [parser.id, parser] as const))(
       expect(values.length, 'the fixture has no values worth checking').toBeGreaterThan(3);
 
       for (const source of [fixture, withMalformedRow(id, fixture), emptyOf(id, fixture)]) {
-        for (const warning of parser.parse(source).warnings) {
+        // A strict parser refuses the damaged form; its refusal message is checked for the
+        // same leak below, because an error is read in exactly the places a warning is.
+        let warnings;
+        try {
+          warnings = parser.parse(source).warnings;
+        } catch (error) {
+          expect(STRICT_PARSERS.has(id), `${id} threw on a source it should have warned on`).toBe(
+            true
+          );
+          const message = error instanceof Error ? error.message : String(error);
+          for (const value of values) {
+            expect(message, `an error leaked the value "${value}"`).not.toContain(value);
+          }
+          continue;
+        }
+
+        for (const warning of warnings) {
           for (const value of values) {
             expect(warning.message, `a warning leaked the value "${value}"`).not.toContain(value);
           }
