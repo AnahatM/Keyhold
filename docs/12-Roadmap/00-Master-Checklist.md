@@ -141,24 +141,33 @@ Tooltip/Menu/Modal/Toast (Phase 15, where the chrome systems live), the theme **
 tested; only the editing surface is outstanding), and the system tray (Phase 15, alongside
 the commands it would contain). A component with no caller is designed against a guess.
 
-## Phase 4 — Unlock, lock & session security
+## Phase 4 — Unlock, lock & session security ~ IN PROGRESS
 
 _Goal: you can create a vault, unlock it, and trust that it locks itself._
 
+**Main-process services — done and tested (29 tests):**
+
+- [x] **Argon2 on a worker thread** so the window never freezes during unlock. Argon2 is CPU-bound and synchronous inside the WASM module; running it on the main thread blocks the event loop for the whole derivation, and the OS marks the app "not responding" at exactly the moment it is doing its most important work. The renderer being a separate process does **not** solve this — it stays responsive but cannot paint anything main has not sent it
+- [x] Worker built as its own entry point; tested against the **built** file, since testing a source file the runtime never loads would not catch a build misconfiguration
+- [x] The gate now builds before testing, so those tests cannot silently skip
+- [x] One worker, one request at a time — concurrent Argon2 at 64 MiB each can genuinely exhaust a modest machine; lazily created, idle-disposed, `unref`ed so it never delays quit
+- [x] Clipboard service: single atomic write carrying the platform no-retain markers (Windows history + cloud clipboard, macOS `org.nspasteboard.ConcealedType`), auto-clear timer, and a **clear only if it is still our value** check so the user's own later copy is never wiped
+- [x] Unlock throttling: free attempts for typos, then exponential backoff, capped so a forgotten vault is never locked out for hours
+- [x] Auto-lock: OS-wide idle time (not in-app activity — locking while the user works two windows over is what trains people to disable it), sleep, screen-lock, optional minimise and blur
+- [x] Quick unlock via `safeStorage`, storing an **independent wrapping of the same DEK**; generation-checked so re-keying invalidates it
+- [x] **Honest capability reporting:** Touch ID on macOS is a real biometric gate; Windows `safeStorage` is DPAPI, bound to the Windows account but with **no biometric prompt**. The API and the UI copy say so rather than calling both "biometric" — overstating it would lead someone to enable it in a threat model where it does not hold. Windows Hello needs a native module (conflicts with D14) and is in the backlog
+
+**Outstanding — the UI and its wiring:**
+
 - [ ] Welcome screen — create vault / open vault / recent vaults
-- [ ] Create-vault flow: choose location, master password with live strength meter, explicit "there is no recovery" acknowledgement
-- [ ] Unlock screen with a progress indicator during Argon2 (it takes real time — never a frozen window)
-- [ ] Run Argon2 off the UI thread (utility process or worker) so the window stays responsive
-- [ ] Failed-attempt throttling with exponential backoff
-- [ ] Optional wipe-after-N-failures — off by default, loud type-to-confirm
-- [ ] Auto-lock: idle timeout · system sleep · OS screen lock · minimise (optional) · app close
-- [ ] Manual lock `Ctrl/Cmd+L`
-- [ ] Biometric quick-unlock — Windows Hello / Touch ID, DEK wrapped into `safeStorage`
-- [ ] Enrol / revoke biometric independently of the master password
-- [ ] Clipboard service: auto-clear countdown · exclude from Windows clipboard history and cloud clipboard · `org.nspasteboard.ConcealedType` on macOS · clear on lock · clear on exit
-- [ ] Change master password (rewrap DEK) · rotate DEK · change KDF parameters
-- [ ] **Tests:** lock zeroes every secret · biometric wrapping roundtrip · throttle timing · clipboard clear timer
+- [ ] Create-vault flow with a live strength meter and an explicit "there is no recovery" acknowledgement
+- [ ] Unlock screen with determinate progress during Argon2
+- [ ] Wire throttle, auto-lock, clipboard and quick-unlock into the vault IPC surface
+- [ ] Optional wipe-after-N-failures, off by default with a type-to-confirm
+- [ ] Change master password · rotate DEK · change KDF parameters (the service methods exist; the UI does not)
 - [ ] `docs/02-Security/` updated with the session model
+
+**Verified so far:** `npm run verify` green (1281 tests) · `npm run test:smoke` passes.
 
 ## Phase 5 — Credential CRUD & the field system
 
@@ -404,25 +413,25 @@ _Goal: the user, not us, decides their security/convenience trade-off._
 
 ## Progress
 
-| Phase                            | Status      |
-| -------------------------------- | ----------- |
-| 0 · Scaffold                     | ✅ **Done** |
-| 1 · Crypto & KEEP format         | ✅ **Done** |
-| 2 · Vault service & IPC          | ✅ **Done** |
-| 3 · Shell, design system, themes | ✅ **Done** |
-| 4 · Unlock, lock, session        | Not started |
-| 5 · CRUD & fields                | Not started |
-| 6 · History & audit trail        | Not started |
-| 7 · Organisation & search        | Not started |
-| 8 · Password generator           | Not started |
-| 9 · Attachments                  | Not started |
-| 10 · Import                      | Not started |
-| 11 · Export & transfer bundle    | Not started |
-| 12 · Sync & merge                | Not started |
-| 13 · Health dashboard            | Not started |
-| 14 · Settings                    | Not started |
-| 15 · Chrome & QoL                | Not started |
-| 16 · In-app content              | Not started |
-| 17 · Audits                      | Not started |
-| 18 · Packaging & CI              | Not started |
-| 19 · Docs & README               | Not started |
+| Phase                            | Status        |
+| -------------------------------- | ------------- |
+| 0 · Scaffold                     | ✅ **Done**   |
+| 1 · Crypto & KEEP format         | ✅ **Done**   |
+| 2 · Vault service & IPC          | ✅ **Done**   |
+| 3 · Shell, design system, themes | ✅ **Done**   |
+| 4 · Unlock, lock, session        | ~ In progress |
+| 5 · CRUD & fields                | Not started   |
+| 6 · History & audit trail        | Not started   |
+| 7 · Organisation & search        | Not started   |
+| 8 · Password generator           | Not started   |
+| 9 · Attachments                  | Not started   |
+| 10 · Import                      | Not started   |
+| 11 · Export & transfer bundle    | Not started   |
+| 12 · Sync & merge                | Not started   |
+| 13 · Health dashboard            | Not started   |
+| 14 · Settings                    | Not started   |
+| 15 · Chrome & QoL                | Not started   |
+| 16 · In-app content              | Not started   |
+| 17 · Audits                      | Not started   |
+| 18 · Packaging & CI              | Not started   |
+| 19 · Docs & README               | Not started   |

@@ -49,8 +49,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "verify": "npm run lint && npm run typecheck && npm test",
-    "test:smoke": "node tools/smoke.mjs"
+    "verify": "npm run lint && npm run build && npm test",
+    "test:smoke": "node tools/smoke.mjs",
+    "verify:full": "npm run verify && npm run test:smoke"
   },
   "dependencies": {
     "hash-wasm": "4.12.0",
