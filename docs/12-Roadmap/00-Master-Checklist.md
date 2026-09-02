@@ -498,25 +498,34 @@ produced and no workflow has ever run** — there is no remote yet. Full notes:
 
 ## Progress
 
-| Phase                            | Status         |
-| -------------------------------- | -------------- |
-| 0 · Scaffold                     | ✅ **Done**    |
-| 1 · Crypto & KEEP format         | ✅ **Done**    |
-| 2 · Vault service & IPC          | ✅ **Done**    |
-| 3 · Shell, design system, themes | ✅ **Done**    |
-| 4 · Unlock, lock, session        | ✅ **Done**    |
-| 5 · CRUD & fields                | ✅ **Done**    |
-| 6 · History & audit trail        | ~ Nearly done  |
-| 7 · Organisation & search        | ~ Search done  |
-| 8 · Password generator           | ~ Engine done  |
-| 9 · Attachments                  | ~ Engine done  |
-| 10 · Import                      | ~ Parsers done |
-| 11 · Export & transfer bundle    | ~ Engine done  |
-| 12 · Sync & merge                | Not started    |
-| 13 · Health dashboard            | ~ Rules done   |
-| 14 · Settings                    | ~ UI done      |
-| 15 · Chrome & QoL                | ~ Chrome done  |
-| 16 · In-app content              | Not started    |
-| 17 · Audits                      | ~ First pass   |
-| 18 · Packaging & CI              | ~ Configured   |
-| 19 · Docs & README               | Not started    |
+> **A note on "not mounted" and "needs IPC".** A large amount of this project is now
+> _built and tested but not reachable by a user._ Several screens are complete against a
+> gateway interface with an in-memory fake, because their IPC channels do not exist yet;
+> others are finished components that nothing renders. That is a deliberate consequence of
+> building engines before wiring — the engine is where correctness lives and the wiring is
+> mechanical — but it means the honest reading of this table is that the **remaining work is
+> mostly integration, not construction.** `MANUAL-BACKLOG.md` §M-IPC lists every channel
+> group still owed.
+
+| Phase                            | Status        |
+| -------------------------------- | ------------- |
+| 0 · Scaffold                     | ✅ **Done**   |
+| 1 · Crypto & KEEP format         | ✅ **Done**   |
+| 2 · Vault service & IPC          | ✅ **Done**   |
+| 3 · Shell, design system, themes | ✅ **Done**   |
+| 4 · Unlock, lock, session        | ✅ **Done**   |
+| 5 · CRUD & fields                | ✅ **Done**   |
+| 6 · History & audit trail        | ~ Nearly done |
+| 7 · Organisation & search        | ~ Not mounted |
+| 8 · Password generator           | ~ Not mounted |
+| 9 · Attachments                  | ~ Engine done |
+| 10 · Import                      | ~ Needs IPC   |
+| 11 · Export & transfer bundle    | ~ Needs IPC   |
+| 12 · Sync & merge                | ~ Engine done |
+| 13 · Health dashboard            | ~ Not mounted |
+| 14 · Settings                    | ~ Needs IPC   |
+| 15 · Chrome & QoL                | ~ Mostly done |
+| 16 · In-app content              | ~ Not mounted |
+| 17 · Audits                      | ~ First pass  |
+| 18 · Packaging & CI              | ~ Configured  |
+| 19 · Docs & README               | Not started   |
