@@ -4,6 +4,8 @@ import {
   CHANNELS,
   EVENTS,
   type ClipboardView,
+  type CredentialEdit,
+  type CredentialInput,
   type IpcResult,
   type KeyholdApi,
   type SessionStatusView,
@@ -119,6 +121,27 @@ const api: KeyholdApi = {
       >,
     deepSearch: (query: string) =>
       ipcRenderer.invoke(CHANNELS.credentialsDeepSearch, query) as Promise<IpcResult<string[]>>,
+
+    create: (input: CredentialInput) =>
+      ipcRenderer.invoke(CHANNELS.credentialsCreate, input) as Promise<
+        IpcResult<CredentialProjection>
+      >,
+    update: (credentialId: string, edit: CredentialEdit) =>
+      ipcRenderer.invoke(CHANNELS.credentialsUpdate, credentialId, edit) as Promise<
+        IpcResult<{ projection: CredentialProjection; changedFields: string[] } | null>
+      >,
+    duplicate: (credentialId: string) =>
+      ipcRenderer.invoke(CHANNELS.credentialsDuplicate, credentialId) as Promise<
+        IpcResult<CredentialProjection | null>
+      >,
+    trash: (credentialId: string) =>
+      ipcRenderer.invoke(CHANNELS.credentialsTrash, credentialId) as Promise<IpcResult<boolean>>,
+    restore: (credentialId: string) =>
+      ipcRenderer.invoke(CHANNELS.credentialsRestore, credentialId) as Promise<IpcResult<boolean>>,
+    purge: (credentialId: string) =>
+      ipcRenderer.invoke(CHANNELS.credentialsPurge, credentialId) as Promise<IpcResult<boolean>>,
+    markUsed: (credentialId: string) =>
+      ipcRenderer.invoke(CHANNELS.credentialsMarkUsed, credentialId) as Promise<IpcResult<null>>,
   },
 };
 

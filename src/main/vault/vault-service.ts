@@ -23,6 +23,22 @@ import { SecretBytes } from '../crypto/secret.js';
 import { readContainer, readPreamble, writeContainer } from '../format/container.js';
 import { newHeader } from '../format/header.js';
 import { findOrphanedTemp, readVaultFile, writeVaultFileAtomically } from './atomic-write.js';
+import {
+  addCredential,
+  applyPatch,
+  buildCredential,
+  duplicateCredential,
+  findCredential,
+  purgeCredential,
+  purgeExpiredTrash,
+  recordUse,
+  replaceCredential,
+  restoreCredential,
+  trashCredential,
+  type CredentialPatch,
+  type NewCredentialInput,
+  type OpsContext,
+} from './credential-ops.js';
 import { toProjection, toProjections } from './projection.js';
 import { SecretBroker } from './secret-broker.js';
 
@@ -286,7 +302,13 @@ export class VaultService {
   // ── Saving ─────────────────────────────────────────────────────────────────
 
   async save(): Promise<VaultSummary> {
-    const open = this.#requireOpen();
+    const opened = this.#requireOpen();
+
+    // Retention is enforced on save rather than on a timer, so a vault that is never opened
+    // never loses anything. Measuring against wall-clock time while the app was closed
+    // would mean reopening after a long break silently purges a trash the user never saw.
+    const document = purgeExpiredTrash(opened.document, Date.now());
+    const open = { ...opened, document };
 
     const header: KeepHeader = {
       ...open.header,
@@ -409,7 +431,122 @@ export class VaultService {
     return matches;
   }
 
-  /** Replaces the document wholesale. Phase 5 builds real CRUD on top of this. */
+  // ── CRUD ───────────────────────────────────────────────────────────────────
+
+  /**
+   * The context the pure operations need.
+   *
+   * Built fresh per call so `now` is the real current time, and so the vault's settings —
+   * which the user can change mid-session — are always the current ones.
+   */
+  #ops(): OpsContext {
+    return { newId: uuid, now: Date.now, settings: this.#requireOpen().document.settings };
+  }
+
+  createCredential(input: NewCredentialInput): CredentialProjection {
+    const open = this.#requireOpen();
+    const credential = buildCredential(input, this.#ops());
+    this.#open = { ...open, document: addCredential(open.document, credential), dirty: true };
+    return toProjection(credential);
+  }
+
+  /**
+   * Applies a patch and reports what changed.
+   *
+   * Returns `null` for an unknown id and an **empty `changedFields`** for a no-op patch, so
+   * the caller can skip the save. Without that, opening a record and closing it would bump
+   * `updatedAt`, create a history version, and dirty the vault for no user-visible change.
+   */
+  updateCredential(
+    credentialId: string,
+    patch: CredentialPatch
+  ): { projection: CredentialProjection; changedFields: readonly string[] } | null {
+    const open = this.#requireOpen();
+    const existing = findCredential(open.document, credentialId);
+    if (existing === null) return null;
+
+    const { credential, changedFields } = applyPatch(existing, patch, this.#ops());
+    if (changedFields.length > 0) {
+      this.#open = {
+        ...open,
+        document: replaceCredential(open.document, credential),
+        dirty: true,
+      };
+    }
+    return { projection: toProjection(credential), changedFields };
+  }
+
+  duplicateCredential(credentialId: string): CredentialProjection | null {
+    const open = this.#requireOpen();
+    const existing = findCredential(open.document, credentialId);
+    if (existing === null) return null;
+
+    const copy = duplicateCredential(existing, this.#ops());
+    this.#open = { ...open, document: addCredential(open.document, copy), dirty: true };
+    return toProjection(copy);
+  }
+
+  /** Soft delete. The record becomes a tombstone, restorable from Trash. */
+  trashCredential(credentialId: string): boolean {
+    const open = this.#requireOpen();
+    if (findCredential(open.document, credentialId) === null) return false;
+
+    this.#open = {
+      ...open,
+      document: trashCredential(open.document, credentialId, Date.now()),
+      dirty: true,
+    };
+    return true;
+  }
+
+  restoreCredential(credentialId: string): boolean {
+    const open = this.#requireOpen();
+    if (findCredential(open.document, credentialId) === null) return false;
+
+    this.#open = {
+      ...open,
+      document: restoreCredential(open.document, credentialId),
+      dirty: true,
+    };
+    return true;
+  }
+
+  /**
+   * Permanent deletion.
+   *
+   * The only operation that actually loses data, which is why it is a distinct method
+   * rather than a flag on `trashCredential`. Also drops any attachment chunks the record
+   * owned — otherwise they would linger in the file forever, unreferenced.
+   */
+  purgeCredential(credentialId: string): boolean {
+    const open = this.#requireOpen();
+    const existing = findCredential(open.document, credentialId);
+    if (existing === null) return false;
+
+    const orphaned = new Set(existing.attachments.map((attachment) => attachment.id));
+    this.#open = {
+      ...open,
+      document: purgeCredential(open.document, credentialId),
+      attachments: open.attachments.filter((chunk) => !orphaned.has(chunk.id)),
+      dirty: true,
+    };
+    return true;
+  }
+
+  /** Marks a record as used, for "recently used" and sort-by-frequency. */
+  markUsed(credentialId: string): void {
+    const open = this.#requireOpen();
+    const existing = findCredential(open.document, credentialId);
+    if (existing === null) return;
+
+    this.#open = {
+      ...open,
+      document: replaceCredential(open.document, recordUse(existing, Date.now())),
+      dirty: true,
+    };
+  }
+
+  /** Replaces the document wholesale. Used by import and by tests. */
   replaceDocument(document: VaultDocument): void {
     const open = this.#requireOpen();
     this.#open = { ...open, document, dirty: true };

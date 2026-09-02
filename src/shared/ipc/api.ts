@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import type { CredentialProjection, SecretRef } from '../model/credential.js';
+import type {
+  CredentialProjection,
+  CustomFieldType,
+  SecretRef,
+  SecurityQuestion,
+} from '../model/credential.js';
 import type { PasswordStrength } from '../model/strength.js';
 import type { VaultLockedInfo, VaultSummary } from '../model/vault-document.js';
 
@@ -149,6 +154,43 @@ export interface VaultApi {
   hasUnsavedChanges: () => Promise<IpcResult<boolean>>;
 }
 
+/**
+ * What the renderer may send when creating or editing a record.
+ *
+ * Secret values travel INBOUND here — that is unavoidable, since the user typed them — but
+ * they never travel back out except one at a time through `revealSecret`. The asymmetry is
+ * the point: writing a secret is an explicit user action, reading one in bulk is not.
+ */
+export interface CustomFieldInput {
+  readonly id: string;
+  readonly label: string;
+  readonly type: CustomFieldType;
+  readonly value: string;
+  readonly hidden: boolean;
+  readonly order: number;
+}
+
+export interface CredentialInput {
+  readonly title: string;
+  readonly username?: string;
+  readonly email?: string;
+  readonly password?: string;
+  readonly urls?: readonly string[];
+  readonly notes?: string;
+  readonly securityQuestions?: readonly SecurityQuestion[];
+  readonly custom?: readonly CustomFieldInput[];
+  readonly tags?: readonly string[];
+  readonly folderId?: string | null;
+  readonly favorite?: boolean;
+}
+
+export interface CredentialEdit extends Partial<CredentialInput> {
+  readonly icon?: { kind: 'auto' | 'letter' | 'emoji' | 'custom'; value?: string };
+  readonly expiresAt?: number | null;
+  readonly rotationIntervalDays?: number | null;
+  readonly historyEnabled?: boolean;
+}
+
 export interface CredentialsApi {
   /** Every record, as safe projections. Never contains secret material. */
   list: (options?: { includeTrashed?: boolean }) => Promise<IpcResult<CredentialProjection[]>>;
@@ -164,6 +206,20 @@ export interface CredentialsApi {
    * enough to render the results.
    */
   deepSearch: (query: string) => Promise<IpcResult<string[]>>;
+
+  create: (input: CredentialInput) => Promise<IpcResult<CredentialProjection>>;
+  /** Returns the projection and which fields actually changed; an empty list means no-op. */
+  update: (
+    credentialId: string,
+    edit: CredentialEdit
+  ) => Promise<IpcResult<{ projection: CredentialProjection; changedFields: string[] } | null>>;
+  duplicate: (credentialId: string) => Promise<IpcResult<CredentialProjection | null>>;
+  /** Soft delete — restorable from Trash, and a tombstone that sync will not resurrect. */
+  trash: (credentialId: string) => Promise<IpcResult<boolean>>;
+  restore: (credentialId: string) => Promise<IpcResult<boolean>>;
+  /** Permanent. The only call here that actually loses data. */
+  purge: (credentialId: string) => Promise<IpcResult<boolean>>;
+  markUsed: (credentialId: string) => Promise<IpcResult<null>>;
 }
 
 /**
@@ -208,6 +264,13 @@ export const CHANNELS = {
   credentialsGet: 'kh:credentials:get',
   credentialsRevealSecret: 'kh:credentials:reveal-secret',
   credentialsDeepSearch: 'kh:credentials:deep-search',
+  credentialsCreate: 'kh:credentials:create',
+  credentialsUpdate: 'kh:credentials:update',
+  credentialsDuplicate: 'kh:credentials:duplicate',
+  credentialsTrash: 'kh:credentials:trash',
+  credentialsRestore: 'kh:credentials:restore',
+  credentialsPurge: 'kh:credentials:purge',
+  credentialsMarkUsed: 'kh:credentials:mark-used',
 } as const;
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];

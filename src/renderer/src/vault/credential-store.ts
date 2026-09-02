@@ -1,0 +1,244 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+import { create } from 'zustand';
+import type { CredentialEdit, CredentialInput } from '@shared/ipc/api.js';
+import type { CredentialProjection, SecretRef } from '@shared/model/credential.js';
+import { unwrap, useSession } from './session-store.js';
+
+/**
+ * Credential list state, selection, and the destructive actions that need undo.
+ *
+ * Holds projections only — never a secret. A revealed value lives in the component that
+ * asked for it, for as long as it is on screen, and is dropped when the component
+ * unmounts. Caching reveals here would quietly rebuild the very bulk-secrets store that
+ * decision D13 exists to prevent.
+ */
+
+/**
+ * A destructive action that can be taken back.
+ *
+ * Every destructive action in Keyhold offers undo, which is only possible because the
+ * operations are non-destructive underneath: trashing sets a flag, so undo clears it.
+ * Purging is the one exception and is therefore the one action that asks first.
+ */
+export interface UndoableAction {
+  readonly label: string;
+  readonly undo: () => Promise<void>;
+  readonly at: number;
+}
+
+interface CredentialState {
+  readonly selectedId: string | null;
+  readonly editing: boolean;
+  readonly showTrash: boolean;
+  readonly query: string;
+  /** Ids matched by a deep search of secret material, which the renderer cannot search. */
+  readonly deepMatches: readonly string[] | null;
+  readonly busy: boolean;
+  readonly lastAction: UndoableAction | null;
+
+  select: (credentialId: string | null) => void;
+  setEditing: (editing: boolean) => void;
+  setShowTrash: (show: boolean) => void;
+  setQuery: (query: string) => Promise<void>;
+
+  create: (input: CredentialInput) => Promise<CredentialProjection | null>;
+  update: (credentialId: string, edit: CredentialEdit) => Promise<boolean>;
+  duplicate: (credentialId: string) => Promise<void>;
+  trash: (credentialId: string, title: string) => Promise<void>;
+  restore: (credentialId: string) => Promise<void>;
+  purge: (credentialId: string) => Promise<void>;
+
+  reveal: (ref: SecretRef) => Promise<string | null>;
+  copy: (ref: SecretRef, credentialId: string) => Promise<boolean>;
+
+  clearUndo: () => void;
+}
+
+/**
+ * Saves after every change.
+ *
+ * The alternative — an explicit Save button — means a crash or a forgotten click loses
+ * work, and in a password manager "I changed my password and it did not save" is the worst
+ * possible outcome: the old password is now wrong everywhere and the new one is nowhere.
+ * The atomic-write layer makes frequent saves cheap and safe.
+ */
+async function persist(): Promise<void> {
+  unwrap(await window.keyhold.vault.save());
+  await useSession.getState().refresh();
+}
+
+export const useCredentials = create<CredentialState>((set) => ({
+  selectedId: null,
+  editing: false,
+  showTrash: false,
+  query: '',
+  deepMatches: null,
+  busy: false,
+  lastAction: null,
+
+  select: (credentialId) => {
+    set({ selectedId: credentialId, editing: false });
+  },
+
+  setEditing: (editing) => {
+    set({ editing });
+  },
+
+  setShowTrash: (showTrash) => {
+    set({ showTrash, selectedId: null, editing: false });
+  },
+
+  setQuery: async (query) => {
+    set({ query });
+
+    // Deep search runs in the main process over notes, security answers and hidden custom
+    // values — data the renderer does not have. Only ids come back; the projections already
+    // held are enough to render the results.
+    if (query.trim().length < 2) {
+      set({ deepMatches: null });
+      return;
+    }
+    try {
+      set({ deepMatches: unwrap(await window.keyhold.credentials.deepSearch(query)) });
+    } catch {
+      // A failed deep search should never break the visible filtering, which still works
+      // on the projections.
+      set({ deepMatches: null });
+    }
+  },
+
+  create: async (input) => {
+    set({ busy: true });
+    try {
+      const projection = unwrap(await window.keyhold.credentials.create(input));
+      await persist();
+      set({ selectedId: projection.id, editing: false });
+      return projection;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  update: async (credentialId, edit) => {
+    set({ busy: true });
+    try {
+      const result = unwrap(await window.keyhold.credentials.update(credentialId, edit));
+      if (result === null) return false;
+
+      // A no-op edit does not touch the vault, so there is nothing to save. Saving anyway
+      // would bump the generation counter and dirty a file the user did not change.
+      if (result.changedFields.length > 0) await persist();
+      set({ editing: false });
+      return true;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  duplicate: async (credentialId) => {
+    set({ busy: true });
+    try {
+      const copy = unwrap(await window.keyhold.credentials.duplicate(credentialId));
+      if (copy === null) return;
+      await persist();
+      set({ selectedId: copy.id, editing: true });
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  trash: async (credentialId, title) => {
+    set({ busy: true });
+    try {
+      unwrap(await window.keyhold.credentials.trash(credentialId));
+      await persist();
+      set({
+        selectedId: null,
+        lastAction: {
+          label: `Moved “${title}” to Trash`,
+          at: Date.now(),
+          undo: async () => {
+            unwrap(await window.keyhold.credentials.restore(credentialId));
+            await persist();
+            set({ lastAction: null, selectedId: credentialId });
+          },
+        },
+      });
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  restore: async (credentialId) => {
+    set({ busy: true });
+    try {
+      unwrap(await window.keyhold.credentials.restore(credentialId));
+      await persist();
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  purge: async (credentialId) => {
+    // No undo offered, deliberately: this is the one operation that actually loses data, so
+    // the confirmation happens before rather than the regret after.
+    set({ busy: true });
+    try {
+      unwrap(await window.keyhold.credentials.purge(credentialId));
+      await persist();
+      set({ selectedId: null, lastAction: null });
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  reveal: async (ref) => unwrap(await window.keyhold.credentials.revealSecret(ref)),
+
+  copy: async (ref, credentialId) => {
+    const state = unwrap(await window.keyhold.session.copySecret(ref));
+    if (state === null) return false;
+
+    // Copying counts as using the record — it is what "recently used" and sort-by-frequency
+    // are actually measuring.
+    await window.keyhold.credentials.markUsed(credentialId);
+    await useSession.getState().refresh();
+    return true;
+  },
+
+  clearUndo: () => {
+    set({ lastAction: null });
+  },
+}));
+
+/**
+ * Filters and sorts the visible list.
+ *
+ * Runs on the safe projection, in the renderer, because that is where the list lives and a
+ * round trip per keystroke would make search feel broken. Deep matches from the main
+ * process are merged in — that is the only part the renderer cannot compute itself.
+ */
+export function visibleCredentials(
+  all: readonly CredentialProjection[],
+  options: { query: string; showTrash: boolean; deepMatches: readonly string[] | null }
+): CredentialProjection[] {
+  const needle = options.query.trim().toLowerCase();
+  const deep = new Set(options.deepMatches ?? []);
+
+  return all
+    .filter((credential) =>
+      options.showTrash ? credential.trashedAt !== null : credential.trashedAt === null
+    )
+    .filter((credential) => {
+      if (needle === '') return true;
+      if (deep.has(credential.id)) return true;
+
+      return (
+        credential.title.toLowerCase().includes(needle) ||
+        credential.username.toLowerCase().includes(needle) ||
+        credential.email.toLowerCase().includes(needle) ||
+        credential.tags.some((tag) => tag.toLowerCase().includes(needle)) ||
+        credential.urls.some((url) => url.toLowerCase().includes(needle))
+      );
+    })
+    .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+}
