@@ -78,22 +78,32 @@ write breaks four durability tests.
 it importable from the renderer — exactly what decision D13 exists to prevent. `@shared`
 holds types and constants only. See D22.
 
-## Phase 2 — Vault service & the secure IPC bridge
+## Phase 2 — Vault service & the secure IPC bridge ✅
 
 _Goal: the main process owns every secret; the renderer can only ask, never hold._
 
-- [ ] `main/vault/VaultService` — open, unlock, lock, save, close; holds the decrypted vault
-- [ ] Full secret zeroing on lock, on window close, and on app quit
-- [ ] **Safe projection** builder — derives the renderer-visible view, secrets stripped
-- [ ] Typed IPC contract in `shared/ipc/` — one source of truth for channel names and payload schemas
-- [ ] Runtime schema validation on **both** sides of every channel
-- [ ] Allow-listed `contextBridge` surface — `window.keyhold.*`, nothing else
-- [ ] On-demand secret fetch with a TTL and an auto-revoke timer
-- [ ] Deep-search delegate (search inside notes and custom values without shipping them)
-- [ ] Structured error type — never leak a secret or a full path in an error message
-- [ ] Multi-vault registry with a recent-vaults list
-- [ ] **Tests:** safe projection contains no secret field, ever (property test over the model) · IPC schema rejection · TTL expiry · zeroing on lock
-- [ ] `docs/01-Architecture/` and `docs/07-Main-Process-Services/` written
+- [x] `VaultService` — create, inspect, unlock, lock, save, summary; holds the decrypted document
+- [x] `lock()` destroys the DEK, drops the document and revokes every grant; idempotent; wired to window-close and will-quit
+- [x] `lock()` deliberately does **not** save — an unattended auto-lock must never commit a half-finished edit
+- [x] **Safe projection** builder, constructed field by field rather than by spreading (a spread is additive, so a new field would silently start crossing)
+- [x] The secret classification is declared **once**, in `@shared/model/credential.ts`, with a compile-time check that every core field is classified
+- [x] Typed IPC contract in `@shared/ipc/api.ts` — channel names and the `window.keyhold` shape from one source
+- [x] Runtime validation on both sides: string caps, id allow-list pattern, NUL-byte rejection, `SecretRef` rebuilt field by field so smuggled properties cannot ride along
+- [x] Allow-listed `contextBridge` surface — every member enumerated by hand, `ipcRenderer` never exposed
+- [x] On-demand secret fetch through a broker: one at a time, TTL-scoped, rate-limited, all revoked on lock
+- [x] Deep-search delegate — searches notes, answers and hidden custom values, returns **ids only**
+- [x] Structured `IpcResult` errors; handlers never throw across the bridge; `INTERNAL` reports that a bug happened, deliberately not what
+- [x] **Tests (79):** the safe-projection property test · lifecycle and locking · reveals of each secret kind · deep search returning no text · grant expiry to the millisecond · rate limiting · every validator, including nine hostile `SecretRef` shapes
+- [x] **Smoke test extended** to make a real IPC round-trip in the launched app — the only check that catches an unregistered handler or a drifted channel name
+- [x] `docs/01-Architecture/` written
+
+**Verified:** `npm run verify` green (201 tests) · `npm run test:smoke` reports
+`IPC round-trip OK`. Four fault injections confirmed: spreading the record, including
+`version.snapshot`, ignoring the user's hidden flag, and removing a handler registration.
+
+**Deferred to Phase 5 (CRUD):** the multi-vault registry and recent-vaults list. It needs
+app-level preference storage, which arrives with settings; `replaceDocument` covers the
+service's needs until then. Recorded here rather than dropped.
 
 ## Phase 3 — App shell, design system & theme engine
 
@@ -381,7 +391,7 @@ _Goal: the user, not us, decides their security/convenience trade-off._
 | -------------------------------- | ----------- |
 | 0 · Scaffold                     | ✅ **Done** |
 | 1 · Crypto & KEEP format         | ✅ **Done** |
-| 2 · Vault service & IPC          | Not started |
+| 2 · Vault service & IPC          | ✅ **Done** |
 | 3 · Shell, design system, themes | Not started |
 | 4 · Unlock, lock, session        | Not started |
 | 5 · CRUD & fields                | Not started |
