@@ -1,0 +1,587 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The health dashboard.
+ *
+ * Every colour is a `--kh-color-*` token — there is not a hex in this file, which is what
+ * lets the six themes and the WCAG contrast guard both keep applying. Foreground/background
+ * pairings are kept to combinations already declared in `CONTRAST_REQUIREMENTS`: body and
+ * muted text sit on `surface`, status text sits on its own `*-subtle` tint or on `surface`,
+ * and nothing coloured is placed on `surface-raised`, where only `info-text` is declared.
+ *
+ * Severity is carried by a word and a symbol as well as by colour (WCAG 1.4.1). The rules
+ * below add a left edge as a third, redundant signal — a shape, not a hue — so a section's
+ * weight is still legible in greyscale.
+ *
+ * Motion is expressed through `--kh-duration-*`, which `base.css` collapses to zero under
+ * `prefers-reduced-motion`. The one transition with its own explicit guard is the score
+ * dial, because an arc that sweeps is the kind of movement the setting exists for.
+ */
+
+.kh-health {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-5);
+  padding: var(--kh-space-5);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-color-surface);
+  color: var(--kh-color-text);
+}
+
+.kh-health--message {
+  /* Loading and error take the same frame as the loaded state, so nothing jumps when the
+     report lands. */
+  min-height: 12rem;
+  justify-content: center;
+}
+
+.kh-health__header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: var(--kh-space-2) var(--kh-space-3);
+}
+
+.kh-health__title {
+  grid-column: 1;
+  margin: 0;
+  font-size: var(--kh-text-lg);
+  font-weight: var(--kh-weight-semibold);
+  line-height: var(--kh-leading-tight);
+  color: var(--kh-color-text);
+}
+
+.kh-health__header > .kh-button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.kh-health__subtitle {
+  grid-column: 1;
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health__heading {
+  margin: 0;
+  font-size: var(--kh-text-xs);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health__hint {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health__stale {
+  margin: 0 0 var(--kh-space-3);
+  padding: var(--kh-space-3);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+  font-size: var(--kh-text-sm);
+}
+
+/* ── Score card ──────────────────────────────────────────────────────────── */
+
+.kh-health-score {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+}
+
+.kh-health-score__headline {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-5);
+  flex-wrap: wrap;
+}
+
+.kh-health-score__verdict {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--kh-space-2);
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+
+.kh-health-score__number {
+  margin: 0;
+  font-size: var(--kh-text-2xl);
+  line-height: 1;
+  color: var(--kh-color-text);
+}
+
+.kh-health-score__number strong {
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-health-score__outof {
+  font-size: var(--kh-text-md);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health-score__summary {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health-score__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2) var(--kh-space-5);
+  margin: 0;
+}
+
+.kh-health-score__facts div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kh-health-score__facts dt {
+  font-size: var(--kh-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health-score__facts dd {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text);
+}
+
+.kh-health-score__scale,
+.kh-health-score__generated {
+  margin: 0;
+  font-size: var(--kh-text-xs);
+  line-height: var(--kh-leading-normal);
+  /* `text-subtle` is held to 3:1 and is only ever used for incidental notes like these two —
+     never for anything a user has to read to understand a finding. */
+  color: var(--kh-color-text-subtle);
+}
+
+/* ── The dial ────────────────────────────────────────────────────────────── */
+
+.kh-health-dial {
+  width: 88px;
+  height: 88px;
+  flex: none;
+  /* Starts the arc at twelve o'clock instead of three, which is where people expect a gauge
+     to begin. */
+  transform: rotate(-90deg);
+}
+
+.kh-health-dial__track,
+.kh-health-dial__value {
+  fill: none;
+  stroke-width: 9;
+}
+
+.kh-health-dial__track {
+  stroke: var(--kh-color-border);
+}
+
+.kh-health-dial__value {
+  stroke-linecap: round;
+  transition: stroke-dasharray var(--kh-duration-base) var(--kh-ease);
+}
+
+/* Tone is redundant with the band word beside it, never the only signal. */
+.kh-health-dial--clear .kh-health-dial__value,
+.kh-health-dial--good .kh-health-dial__value {
+  stroke: var(--kh-color-success);
+}
+.kh-health-dial--mixed .kh-health-dial__value {
+  stroke: var(--kh-color-warning);
+}
+.kh-health-dial--poor .kh-health-dial__value {
+  stroke: var(--kh-color-danger);
+}
+.kh-health-dial--unmeasured .kh-health-dial__value {
+  stroke: var(--kh-color-border-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kh-health-dial__value {
+    transition: none;
+  }
+}
+
+/* ── The working ─────────────────────────────────────────────────────────── */
+
+.kh-health-working {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface-sunken);
+}
+
+.kh-health-working__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text);
+}
+
+.kh-health-working__caption {
+  margin-block-end: var(--kh-space-2);
+  text-align: start;
+  font-size: var(--kh-text-xs);
+  line-height: var(--kh-leading-normal);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health-working__table th,
+.kh-health-working__table td {
+  padding: var(--kh-space-1) var(--kh-space-2);
+  text-align: start;
+  font-weight: var(--kh-weight-normal);
+  vertical-align: top;
+}
+
+.kh-health-working__table thead th {
+  font-size: var(--kh-text-xs);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--kh-color-text-muted);
+  border-block-end: 1px solid var(--kh-color-border);
+}
+
+.kh-health-working__num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kh-health-working__none {
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health-working__table tfoot th,
+.kh-health-working__table tfoot td {
+  border-block-start: 1px solid var(--kh-color-border);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health-working__table tfoot .kh-health-working__result th,
+.kh-health-working__table tfoot .kh-health-working__result td {
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+  border-block-start-width: 2px;
+}
+
+.kh-health-working__check {
+  margin: 0;
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-success-text);
+}
+
+.kh-health-working__check--mismatch {
+  color: var(--kh-color-danger-text);
+  font-weight: var(--kh-weight-medium);
+}
+
+/* ── Findings ────────────────────────────────────────────────────────────── */
+
+.kh-health-findings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+}
+
+.kh-health-rule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  padding-inline-start: var(--kh-space-4);
+  border: 1px solid var(--kh-color-border);
+  /* The left edge is a third signal alongside the badge's word and symbol. A thickness, not
+     just a hue, so it survives greyscale and the high-contrast theme. */
+  border-inline-start-width: 4px;
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface);
+}
+
+.kh-health-rule--critical {
+  border-inline-start-color: var(--kh-color-danger);
+}
+.kh-health-rule--warning {
+  border-inline-start-color: var(--kh-color-warning);
+}
+.kh-health-rule--info {
+  border-inline-start-color: var(--kh-color-info);
+}
+
+.kh-health-rule__header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+}
+
+.kh-health-rule__title {
+  margin: 0;
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-health-rule__count,
+.kh-health-rule__weight {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health-rule__weight {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.kh-health-rule__description,
+.kh-health-rule__advice {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-health-rule__description {
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health-rule__advice {
+  color: var(--kh-color-text);
+}
+
+/* ── Clusters ────────────────────────────────────────────────────────────── */
+
+.kh-health-clusters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kh-health-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding: var(--kh-space-2) var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface-sunken);
+}
+
+.kh-health-cluster__title {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+  overflow-wrap: anywhere;
+}
+
+.kh-health-cluster__caption {
+  margin: 0;
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Record rows ─────────────────────────────────────────────────────────── */
+
+.kh-health-records {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kh-health-record {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  width: 100%;
+  min-height: var(--kh-control-height);
+  padding: var(--kh-space-1) var(--kh-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--kh-radius-sm);
+  background: none;
+  font: inherit;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text);
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background-color var(--kh-duration-fast) var(--kh-ease),
+    border-color var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-health-record:hover {
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-health-record:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.kh-health-record__label {
+  font-weight: var(--kh-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.kh-health-record__subtitle,
+.kh-health-record__note {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.kh-health-record__note {
+  margin-inline-start: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.kh-health-record__go {
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Checks ──────────────────────────────────────────────────────────────── */
+
+.kh-health-checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  padding-block-start: var(--kh-space-4);
+  border-block-start: 1px solid var(--kh-color-border);
+}
+
+.kh-health-checks__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-3);
+  min-height: var(--kh-control-height);
+}
+
+.kh-health-checks__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--kh-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kh-health-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--kh-space-2);
+  align-items: start;
+}
+
+.kh-health-check__input {
+  grid-column: 1;
+  grid-row: 1;
+  /* A 16px control is below the 24×24 minimum in WCAG 2.2 SC 2.5.8; the label is part of the
+     same target, and this keeps the box itself from being the smallest thing on screen. */
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--kh-color-accent);
+}
+
+.kh-health-check__input:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.kh-health-check__label {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  cursor: pointer;
+}
+
+.kh-health-check__name {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text);
+}
+
+.kh-health-check__meta {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health-check__description {
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0;
+  font-size: var(--kh-text-xs);
+  line-height: var(--kh-leading-normal);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-health-check__input:disabled + .kh-health-check__label {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+/* ── Limits ──────────────────────────────────────────────────────────────── */
+
+.kh-health-limits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding-block-start: var(--kh-space-4);
+  border-block-start: 1px solid var(--kh-color-border);
+}
+
+.kh-health-limits__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  margin: 0;
+  padding-inline-start: var(--kh-space-4);
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-health-limits__list strong {
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text);
+}
+
+.kh-health-limits__list code {
+  font-family: var(--kh-font-secret);
+  font-size: var(--kh-text-xs);
+  padding: 0 var(--kh-space-1);
+  border-radius: var(--kh-radius-sm);
+  background: var(--kh-color-surface-sunken);
+}

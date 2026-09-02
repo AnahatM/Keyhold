@@ -1,0 +1,241 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The command palette and the shortcuts sheet.
+ *
+ * Every colour is a `--kh-color-*` token — hard rule 4. There is not one literal colour in
+ * this file, including the highlight on the active row, which uses `accent-subtle` rather
+ * than an rgba() guess so it stays correct in a theme the user wrote themselves.
+ *
+ * Every duration goes through `--kh-duration-*`, which `base.css` multiplies by
+ * `--kh-motion-scale` — zero under `prefers-reduced-motion`. The explicit media query at
+ * the bottom is belt and braces for the one property that is not a duration.
+ */
+
+/* ── Palette ───────────────────────────────────────────────────────────────── */
+
+.kh-palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  min-height: 0;
+}
+
+/*
+ * `Modal` renders a fixed header with the dialog's accessible name in it. For the palette
+ * that name is doing real work — a dialog with no name is a dialog a screen-reader user
+ * cannot identify — but visually the input is the header, so the chrome above it is
+ * tightened rather than removed. Scoped through `:has()` so nothing else in the app moves.
+ */
+.kh-modal:has(.kh-palette) .kh-modal__header {
+  padding-bottom: 0;
+}
+
+.kh-modal:has(.kh-palette) .kh-modal__title {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.kh-palette__field .kh-field__input {
+  height: calc(var(--kh-control-height) * 1.25);
+  font-size: var(--kh-text-md);
+}
+
+.kh-palette__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: min(52vh, 460px);
+  padding: var(--kh-space-1);
+  overflow-y: auto;
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-palette__heading {
+  padding: var(--kh-space-2) var(--kh-space-2) var(--kh-space-1);
+  font-size: var(--kh-text-xs);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.kh-palette__row {
+  display: flex;
+  gap: var(--kh-space-3);
+  align-items: center;
+  padding: var(--kh-space-2) var(--kh-space-3);
+  border-radius: var(--kh-radius-sm);
+  transition: background-color var(--kh-duration-fast) var(--kh-ease);
+
+  /*
+   * The row is a `role="option"`, not a button, and must not be focusable — focus stays in
+   * the text field for `aria-activedescendant`. The pointer cursor is therefore the only
+   * affordance saying it can be clicked.
+   */
+  cursor: pointer;
+}
+
+.kh-palette__row:hover {
+  background: var(--kh-color-surface-hover);
+}
+
+/*
+ * The active row. Two signals, not one: a tinted background AND a solid accent rule down
+ * the leading edge. Anyone who cannot distinguish the tint — a colour-vision difference, a
+ * dim screen, a high-contrast mode that flattens backgrounds — still sees the bar, which is
+ * WCAG 1.4.1 applied to the one piece of state the whole keyboard interaction depends on.
+ */
+.kh-palette__row--active {
+  background: var(--kh-color-accent-subtle);
+  box-shadow: inset 3px 0 0 0 var(--kh-color-accent);
+}
+
+.kh-palette__row--active .kh-palette__title {
+  color: var(--kh-color-accent-subtle-text);
+}
+
+.kh-palette__kind {
+  flex: none;
+  width: 1.5em;
+  font-size: var(--kh-text-md);
+  text-align: center;
+}
+
+.kh-palette__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.kh-palette__title {
+  overflow: hidden;
+  font-size: var(--kh-text-base);
+  color: var(--kh-color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kh-palette__detail,
+.kh-palette__reason,
+.kh-palette__flag {
+  overflow: hidden;
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kh-palette__flag {
+  color: var(--kh-color-warning-text);
+}
+
+.kh-palette__empty {
+  padding: var(--kh-space-5) var(--kh-space-3);
+  margin: 0;
+  font-size: var(--kh-text-base);
+  color: var(--kh-color-text-muted);
+  text-align: center;
+}
+
+/* ── Key caps, shared by the palette rows and the help sheet ───────────────── */
+
+.kh-palette__combo,
+.kh-shortcuts__combo {
+  flex: none;
+  padding: 2px var(--kh-space-2);
+  font-family: var(--kh-font-body);
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+  white-space: nowrap;
+  background: var(--kh-color-surface-raised);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-sm);
+}
+
+/* ── Shortcuts sheet ───────────────────────────────────────────────────────── */
+
+.kh-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-5);
+  max-height: min(60vh, 560px);
+  overflow-y: auto;
+}
+
+.kh-shortcuts__heading {
+  margin: 0;
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-shortcuts__note {
+  margin: var(--kh-space-1) 0 var(--kh-space-3);
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-shortcuts__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+}
+
+.kh-shortcuts__row {
+  display: flex;
+  gap: var(--kh-space-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--kh-space-2) var(--kh-space-3);
+  border-radius: var(--kh-radius-sm);
+}
+
+/*
+ * Zebra striping rather than a rule between every row: a long two-column list is read
+ * across, and a stripe holds the eye on the line far better than a border does.
+ */
+.kh-shortcuts__row:nth-child(odd) {
+  background: var(--kh-color-surface-sunken);
+}
+
+.kh-shortcuts__description {
+  margin: 0;
+  font-size: var(--kh-text-base);
+  color: var(--kh-color-text);
+}
+
+.kh-shortcuts__flag {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-info-text);
+}
+
+.kh-shortcuts__keys {
+  margin: 0;
+}
+
+.kh-shortcuts__footnote {
+  margin: 0;
+  font-size: var(--kh-text-xs);
+  line-height: var(--kh-leading-relaxed);
+  color: var(--kh-color-text-subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+   * `--kh-motion-scale` already zeroes every duration token, so this is redundant for the
+   * transition above and deliberately stated anyway: the rule survives someone later
+   * writing a literal duration here, which is exactly when it would be needed.
+   */
+  .kh-palette__row {
+    transition: none;
+  }
+}
