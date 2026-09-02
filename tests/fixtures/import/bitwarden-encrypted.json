@@ -1,0 +1,12 @@
+{
+  "encrypted": true,
+  "passwordProtected": true,
+  "salt": "ZXhhbXBsZS1zYWx0LW5vdC1yZWFs",
+  "kdfType": 0,
+  "kdfIterations": 600000,
+  "kdfMemory": null,
+  "kdfParallelism": null,
+  "encKeyValidation_DO_NOT_EDIT": "2.AAAA|BBBB|CCCC",
+  "data": "2.DDDD|EEEE|FFFF",
+  "items": []
+}

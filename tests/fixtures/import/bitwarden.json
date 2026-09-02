@@ -1,0 +1,130 @@
+{
+  "encrypted": false,
+  "folders": [
+    { "id": "f1", "name": "Personal" },
+    { "id": "f2", "name": "Work/Clients" }
+  ],
+  "items": [
+    {
+      "id": "i1",
+      "organizationId": null,
+      "folderId": "f1",
+      "type": 1,
+      "reprompt": 0,
+      "name": "Example Mail",
+      "notes": "Recovery kit is in the safe, not the drawer",
+      "favorite": true,
+      "fields": [
+        { "name": "Account number", "value": "4471-9902", "type": 0, "linkedId": null },
+        { "name": "Support PIN", "value": "8891", "type": 1, "linkedId": null },
+        { "name": "Two-factor enabled", "value": "true", "type": 2, "linkedId": null },
+        { "name": "Linked username", "value": "", "type": 3, "linkedId": 100 }
+      ],
+      "login": {
+        "fido2Credentials": [],
+        "uris": [
+          { "match": null, "uri": "https://mail.example.com" },
+          { "match": null, "uri": "https://webmail.example.com" }
+        ],
+        "username": "ada@example.com",
+        "password": "hunter2",
+        "totp": "otpauth://totp/Example:ada@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example"
+      },
+      "collectionIds": null
+    },
+    {
+      "id": "i2",
+      "organizationId": null,
+      "folderId": "f2",
+      "type": 1,
+      "reprompt": 1,
+      "name": "Example Admin",
+      "notes": null,
+      "favorite": false,
+      "fields": [],
+      "login": {
+        "fido2Credentials": [{ "credentialId": "c1", "keyType": "public-key", "rpId": "admin.example.com" }],
+        "uris": [{ "match": null, "uri": "https://admin.example.com" }],
+        "username": "admin",
+        "password": "correct-horse-battery-staple",
+        "totp": null
+      },
+      "passwordHistory": [{ "lastUsedDate": "2025-01-02T03:04:05.000Z", "password": "hunter1" }],
+      "collectionIds": null
+    },
+    {
+      "id": "i3",
+      "organizationId": null,
+      "folderId": null,
+      "type": 2,
+      "reprompt": 0,
+      "name": "Wifi Passphrase",
+      "notes": "SSID: Hazelnut, channel 6",
+      "favorite": false,
+      "secureNote": { "type": 0 },
+      "collectionIds": null
+    },
+    {
+      "id": "i4",
+      "organizationId": null,
+      "folderId": "f1",
+      "type": 3,
+      "reprompt": 0,
+      "name": "Example Card",
+      "notes": null,
+      "favorite": false,
+      "card": {
+        "cardholderName": "Ada Lovelace",
+        "brand": "Visa",
+        "number": "4111111111111111",
+        "expMonth": "5",
+        "expYear": "2030",
+        "code": "123"
+      },
+      "collectionIds": null
+    },
+    {
+      "id": "i5",
+      "organizationId": null,
+      "folderId": "f2",
+      "type": 4,
+      "reprompt": 0,
+      "name": "Example Identity",
+      "notes": null,
+      "favorite": false,
+      "identity": {
+        "title": "Ms",
+        "firstName": "Ada",
+        "lastName": "Lovelace",
+        "address1": "12 High Street, Flat 4",
+        "city": "Springfield",
+        "postalCode": "12345",
+        "country": "United States",
+        "email": "ada@example.com",
+        "phone": "+1 555 0100",
+        "ssn": "000-00-0000",
+        "username": "ada"
+      },
+      "collectionIds": null
+    },
+    {
+      "id": "i6",
+      "organizationId": null,
+      "folderId": "f1",
+      "type": 1,
+      "reprompt": 0,
+      "name": "Deleted Login",
+      "notes": null,
+      "favorite": false,
+      "deletedDate": "2026-01-01T00:00:00.000Z",
+      "login": {
+        "fido2Credentials": [],
+        "uris": [],
+        "username": "gone",
+        "password": "hunter2",
+        "totp": null
+      },
+      "collectionIds": null
+    }
+  ]
+}

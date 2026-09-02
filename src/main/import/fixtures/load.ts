@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+/**
+ * Fixture loading, and the two transformations the fixtures deliberately do **not** contain.
+ *
+ * Test support only — nothing in `src/main` outside a test imports this.
+ *
+ * ## Why no fixture on disk has a BOM or CRLF line endings
+ *
+ * `.gitattributes` in this repo says `* text=auto eol=lf`. A fixture checked in with CRLF
+ * would be normalised to LF on the next checkout, and the test asserting CRLF handling would
+ * keep passing while testing nothing at all — a guard that silently stops guarding, which is
+ * the worst kind. So the line endings and the BOM are applied **in the test**, where git
+ * cannot reach them, and every fixture on disk is plain LF.
+ *
+ * Every value in every fixture is obviously fake: `example.com`, `hunter2`,
+ * `correct-horse-battery-staple`, `4111111111111111` (the standard Visa test number).
+ */
+
+/**
+ * Reads a fixture, verbatim.
+ *
+ * The data files live in `tests/fixtures/import/`, not beside this loader. That is a
+ * project rule rather than a preference: no `.csv`, `.json` export, `.kdbx` or `.keep`
+ * may be committed outside `tests/**\/fixtures`, so that "is this a real credential
+ * export somebody pasted in?" is answerable from a path alone. These are all obviously
+ * synthetic, and the rule is only worth anything if it holds when the file is harmless.
+ */
+export function loadFixture(name: string): string {
+  return readFileSync(
+    fileURLToPath(new URL(`../../../../tests/fixtures/import/${name}`, import.meta.url)),
+    'utf8'
+  );
+}
+
+/** Prepends a UTF-8 BOM, as a Windows export would have. */
+export function withBom(content: string): string {
+  return `\uFEFF${content}`;
+}
+
+/** Rewrites every line ending to CRLF, as a Windows export would have. */
+export function withCrlf(content: string): string {
+  return content.replace(/\r?\n/g, '\r\n');
+}
+
+/** Removes the trailing newline, which plenty of exporters do not write. */
+export function withoutTrailingNewline(content: string): string {
+  return content.replace(/\r?\n$/, '');
+}
+
+/** Just the header row of a CSV fixture — the "header only, no records" case. */
+export function headerOnly(content: string): string {
+  return `${content.split('\n')[0] ?? ''}\n`;
+}
+
+/** The fixture each registered parser is exercised against. Keyed by parser id. */
+export const FIXTURE_FOR_PARSER: Readonly<Record<string, string>> = {
+  'bitwarden-json': 'bitwarden.json',
+  'bitwarden-csv': 'bitwarden.csv',
+  'lastpass-csv': 'lastpass.csv',
+  'firefox-csv': 'firefox.csv',
+  'dashlane-csv': 'dashlane.csv',
+  'nordpass-csv': 'nordpass.csv',
+  'keepass-csv': 'keepass.csv',
+  'onepassword-csv': 'onepassword.csv',
+  'safari-csv': 'safari.csv',
+  'chrome-csv': 'chrome.csv',
+  'generic-csv': 'generic.csv',
+};
