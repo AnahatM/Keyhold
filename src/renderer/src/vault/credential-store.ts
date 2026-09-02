@@ -2,6 +2,13 @@
 import { create } from 'zustand';
 import type { CredentialEdit, CredentialInput } from '@shared/ipc/api.js';
 import type { CredentialProjection, SecretRef } from '@shared/model/credential.js';
+import {
+  parseQuery,
+  scoresById,
+  searchCredentials,
+  sortCredentials,
+  type SortOptions,
+} from '@shared/search/index.js';
 import { unwrap, useSession } from './session-store.js';
 
 /**
@@ -211,34 +218,47 @@ export const useCredentials = create<CredentialState>((set) => ({
 }));
 
 /**
- * Filters and sorts the visible list.
+ * Filters, ranks and sorts the visible list.
  *
  * Runs on the safe projection, in the renderer, because that is where the list lives and a
  * round trip per keystroke would make search feel broken. Deep matches from the main
- * process are merged in — that is the only part the renderer cannot compute itself.
+ * process are merged in — matching inside notes, security answers and hidden custom values
+ * is the only part the renderer genuinely cannot do, because it does not hold them.
+ *
+ * **All of the actual work is `@shared/search`.** This function used to reimplement it:
+ * `toLowerCase().includes()` over five fields, no diacritic folding, no ranking, a collator
+ * built per comparison, and no tiebreak — so "Item 10" sorted before "Item 9" and equal
+ * titles could reshuffle between renders. Two implementations of "what does this search
+ * find" would have disagreed within a month, and the one the user sees would have been the
+ * weaker.
  */
 export function visibleCredentials(
   all: readonly CredentialProjection[],
-  options: { query: string; showTrash: boolean; deepMatches: readonly string[] | null }
+  options: {
+    query: string;
+    showTrash: boolean;
+    deepMatches: readonly string[] | null;
+    sort?: SortOptions;
+  }
 ): CredentialProjection[] {
-  const needle = options.query.trim().toLowerCase();
-  const deep = new Set(options.deepMatches ?? []);
+  const parsed = parseQuery(options.query);
+  const results = searchCredentials(all, {
+    query: parsed,
+    trashedOnly: options.showTrash,
+    deepMatchIds: options.deepMatches === null ? undefined : new Set(options.deepMatches),
+  });
 
-  return all
-    .filter((credential) =>
-      options.showTrash ? credential.trashedAt !== null : credential.trashedAt === null
-    )
-    .filter((credential) => {
-      if (needle === '') return true;
-      if (deep.has(credential.id)) return true;
+  // Relevance only means something with a query behind it. On an empty box every record
+  // would score the same and the list would fall through to the id tiebreak, which reads as
+  // random ordering.
+  const sort = options.sort ?? {
+    key: parsed.isEmpty ? ('title' as const) : ('relevance' as const),
+  };
 
-      return (
-        credential.title.toLowerCase().includes(needle) ||
-        credential.username.toLowerCase().includes(needle) ||
-        credential.email.toLowerCase().includes(needle) ||
-        credential.tags.some((tag) => tag.toLowerCase().includes(needle)) ||
-        credential.urls.some((url) => url.toLowerCase().includes(needle))
-      );
-    })
-    .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+  return [
+    ...sortCredentials(
+      results.map((result) => result.record),
+      { ...sort, scores: scoresById(results) }
+    ),
+  ];
 }
