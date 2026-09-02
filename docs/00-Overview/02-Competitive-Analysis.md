@@ -122,7 +122,7 @@ that make it cannot back it up.
 | Advantage                                                                                                                | Against whom                                                                     |
 | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
 | **Security questions as a first-class repeatable field type**                                                            | Nearly everyone buries them in a free-text note                                  |
-| **Unlimited _typed_ custom fields** (14 types, reorderable, individually hidden)                                         | Most managers offer text-only custom fields, or a fixed set                      |
+| **Unlimited _typed_ custom fields** (13 types, reorderable, individually hidden)                                         | Most managers offer text-only custom fields, or a fixed set                      |
 | **Everything configurable** — security presets plus per-setting overrides for lock, clipboard, metadata capture, history | KeePassXC is configurable but hostile about it; hosted products decide for you   |
 | **Audit-metadata privacy levels** (`none` / `device` / `network` / `full`)                                               | Nobody else lets you dial _how much_ provenance is recorded — it is on or absent |
 | **Attachments and health reports free**                                                                                  | Both are premium in Bitwarden                                                    |

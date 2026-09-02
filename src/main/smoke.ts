@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { app, type BrowserWindow } from 'electron';
 import { notifySessionChanged } from './ipc/register.js';
 
@@ -48,6 +49,33 @@ export function isSmokeRun(): boolean {
  * intended rather than merely compiling, and generating README screenshots reproducibly
  * in Phase 19 instead of by hand.
  */
+/**
+ * Captures one named view into the directory given by `KEYHOLD_SMOKE_SHOTS`.
+ *
+ * Generated rather than hand-made, so a README screenshot cannot quietly stop matching the
+ * app it claims to show: regenerating them is one command, and the seeded vault the run
+ * builds is deterministic.
+ */
+async function captureNamedShot(window: BrowserWindow, name: string): Promise<void> {
+  const directory = process.env.KEYHOLD_SMOKE_SHOTS;
+  if (directory === undefined || directory === '') return;
+
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      const image = await window.capturePage();
+      if (!image.isEmpty()) {
+        await writeFile(join(directory, `${name}.png`), image.toPNG());
+        emit(`SMOKE-SHOT ${name}`);
+        return;
+      }
+    } catch {
+      // Same reasoning as `captureIfRequested`: the compositor may not have produced a
+      // frame yet, and retrying briefly is more honest than a sleep tuned to one machine.
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 200));
+  }
+}
+
 async function captureIfRequested(window: BrowserWindow): Promise<void> {
   const target = process.env.KEYHOLD_SMOKE_SHOT;
   if (target === undefined || target === '') return;
@@ -410,6 +438,13 @@ export function runSmokeCheck(window: BrowserWindow): void {
           showcaseId?: string | null;
         };
 
+        // ── README screenshots, captured from the real app ──────────────────
+        //
+        // `--shots <dir>` walks a few named views and captures each. Generated rather than
+        // hand-made, so a screenshot in the README can never quietly stop matching the app
+        // it claims to show — regenerating them is one command.
+        await captureNamedShot(window, 'Keyhold-Screenshot-01');
+
         // Open the record that has history, and expand its newest change — by clicking the
         // real controls rather than through a test-only hook on `window`. A backdoor would
         // be production code that exists for the harness, and it would not prove the list
@@ -425,6 +460,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 250));
+        await captureNamedShot(window, 'Keyhold-Screenshot-02');
         await window.webContents.executeJavaScript(
           `(() => {
             const button = [...document.querySelectorAll('.kh-timeline button')].find(
@@ -439,6 +475,16 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 250));
+        await captureNamedShot(window, 'Keyhold-Screenshot-03');
+
+        // The light theme, so the README does not imply the app is dark-only.
+        await window.webContents.executeJavaScript(
+          `document.documentElement.setAttribute('data-kh-theme', 'dawn')`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 200));
+        await captureNamedShot(window, 'Keyhold-Screenshot-04');
+
         await captureIfRequested(window);
 
         if (report.stage === 'bridge') {

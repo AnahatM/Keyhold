@@ -89,7 +89,7 @@ Use these terms consistently in code, comments, docs and UI copy.
 | **Vault**                   | One `.keep` file and everything inside it. A user may have several, switched between.          |
 | **Record** / **Credential** | One stored entry. Interchangeable; prefer _credential_ in UI copy, _record_ in code.           |
 | **Field**                   | One named value on a record. Core fields are fixed; custom fields are user-defined and typed.  |
-| **Custom field**            | A user-added, typed, reorderable, optionally-hidden field. 14 types in v1.                     |
+| **Custom field**            | A user-added, typed, reorderable, optionally-hidden field. 13 types in v1.                     |
 | **Attachment**              | A file stored inside the vault as its own encrypted chunk.                                     |
 | **Version**                 | One historical state of a record, holding only the fields that changed plus its origin.        |
 | **Origin**                  | The device, network, OS user, platform and app version recorded on a version. The audit trail. |

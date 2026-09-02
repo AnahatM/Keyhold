@@ -53,6 +53,11 @@ if (sourceTouched > buildTouched) {
 
 const electronBinary = require('electron');
 
+// `--shots <dir>` captures the named README views; `--shot <path>` captures one frame at
+// the end of the run.
+const shotsIndex = process.argv.indexOf('--shots');
+const shotsDir = shotsIndex === -1 ? undefined : process.argv[shotsIndex + 1];
+
 // `--shot <path>` captures the rendered window to a PNG.
 const shotIndex = process.argv.indexOf('--shot');
 const shotPath = shotIndex === -1 ? undefined : process.argv[shotIndex + 1];
@@ -67,6 +72,7 @@ const child = spawn(electronBinary, ['.'], {
     KEYHOLD_SMOKE: '1',
     ELECTRON_DISABLE_SECURITY_WARNINGS: '1',
     ...(shotPath === undefined ? {} : { KEYHOLD_SMOKE_SHOT: shotPath }),
+    ...(shotsDir === undefined ? {} : { KEYHOLD_SMOKE_SHOTS: shotsDir }),
     ...(vaultPath === undefined ? {} : { KEYHOLD_SMOKE_VAULT: vaultPath }),
   },
   stdio: ['ignore', 'pipe', 'pipe'],
