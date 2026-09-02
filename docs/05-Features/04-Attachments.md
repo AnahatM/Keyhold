@@ -121,14 +121,28 @@ it as redundant.
 
 ---
 
-## 7. Not built
+## 7. Wired into the vault, but not yet reachable
+
+`VaultService.save()` now prunes chunks nothing references, and `assertValidCredential`
+enforces attachment-id uniqueness — so a record arriving from an import or a merge is held
+to the rule as well as one built here.
+
+**Neither is tested at the vault layer, and that is deliberate rather than an oversight.**
+There is no public path to put a chunk into an open vault yet — that arrives with the
+`kh:attachments:*` channels. A test at this layer today could only assert that zero chunks
+prune to zero chunks, which is a guard that cannot fail, and this project treats those as
+worse than no guard at all. The pruning rule itself is covered by 80 tests in
+`src/main/attachments/`; the wiring gets its test when the channel that exercises it lands.
+
+---
+
+## 8. Not built
 
 - Reading a file from disk, the IPC channels, drag-and-drop, the save-to-disk flow and its
   plaintext warning, the preview components and the image lightbox.
 - `VaultSettings` does not yet carry the attachment caps, so the defaults are in force rather
   than the vault's own choice (hard rule 7 wants them travelling with the file).
-- Orphan cleanup on save, and digest verification on read, are implemented but not yet called
-  from the vault service.
+- **Digest verification on read** is implemented but not yet called from the vault service.
 - **Compression** — the KEEP spec says chunks are deliberately uncompressed.
 - Archive introspection to tell `.docx` from `.zip`: it would mean decompressing
   attacker-supplied data to answer a cosmetic question.

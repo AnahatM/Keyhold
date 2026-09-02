@@ -57,6 +57,7 @@ import {
   type NewCredentialInput,
   type OpsContext,
 } from './credential-ops.js';
+import { pruneUnreferencedChunks } from '../attachments/audit.js';
 import { chunkIdsOrphanedBy } from '../attachments/references.js';
 import { analyseVault } from '../health/rules.js';
 import { toDiffProjection } from '../history/diff-projection.js';
@@ -382,12 +383,18 @@ export class VaultService {
       generation: opened.header.generation + 1,
       deviceId: this.#deviceId,
       recordCount: document.records.length,
-      attachmentCount: opened.attachments.length,
+      attachmentCount: pruneUnreferencedChunks(document, opened.attachments).length,
     };
+
+    // Chunks nothing references are dropped here rather than accumulating forever. This is
+    // the *only* place data is removed without the user naming it, and it is safe precisely
+    // because the condition is "no record points at this" — a trashed record still points,
+    // so a chunk survives until its last referrer is permanently purged.
+    const attachments = pruneUnreferencedChunks(document, opened.attachments);
 
     const bytes = writeContainer(
       header,
-      { body: serialiseVaultDocument(document), attachments: opened.attachments },
+      { body: serialiseVaultDocument(document), attachments },
       opened.dek
     );
 
@@ -415,6 +422,9 @@ export class VaultService {
       ...current,
       header,
       document: untouched ? document : current.document,
+      // The pruned set is what was written, so keeping the unpruned one in memory would make
+      // the next save think chunks exist that no longer do.
+      attachments: untouched ? attachments : current.attachments,
       dirty: !untouched,
     };
     return this.summary();

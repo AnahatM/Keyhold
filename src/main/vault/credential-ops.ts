@@ -10,6 +10,7 @@ import {
   type SecurityQuestion,
 } from '@shared/model/credential.js';
 import type { VaultDocument, VaultSettings } from '@shared/model/vault-document.js';
+import { assertAttachmentIdsUnique } from '../attachments/store.js';
 import { malformed } from '../crypto/errors.js';
 
 /**
@@ -57,6 +58,13 @@ export function isCustomFieldType(value: unknown): value is CustomFieldType {
  * addresses fields *by id*, so a duplicate is a correctness bug with a security shape.
  */
 export function assertValidCredential(credential: Credential): void {
+  // Two attachments on one record cannot share a chunk id: `AttachmentMeta.id` *is* the
+  // chunk id, and reveal, download and remove all address by it — so a duplicate hands back
+  // the wrong file rather than failing. The same class of bug as a duplicate custom-field
+  // id, and it is enforced here so a record arriving from an import or a merge is held to
+  // the rule as well as one built by this module.
+  assertAttachmentIdsUnique(credential);
+
   requireLength(credential.title, MAX_TITLE_LENGTH, 'The title');
   requireLength(credential.fields.username, MAX_FIELD_LENGTH, 'The username');
   requireLength(credential.fields.email, MAX_FIELD_LENGTH, 'The email');
