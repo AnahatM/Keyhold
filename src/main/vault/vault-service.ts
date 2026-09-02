@@ -57,6 +57,7 @@ import {
   type NewCredentialInput,
   type OpsContext,
 } from './credential-ops.js';
+import { chunkIdsOrphanedBy } from '../attachments/references.js';
 import { analyseVault } from '../health/rules.js';
 import { toDiffProjection } from '../history/diff-projection.js';
 import { toProjection, toProjections } from './projection.js';
@@ -793,7 +794,12 @@ export class VaultService {
     const existing = findCredential(open.document, credentialId);
     if (existing === null) return false;
 
-    const orphaned = new Set(existing.attachments.map((attachment) => attachment.id));
+    // NOT "every chunk this record lists". Chunks are content-addressed and shared: two
+    // records attaching the same file point at one chunk, so dropping everything this
+    // record references would delete a file another record still displays. `existing` is
+    // read above only to confirm the record is there; the orphan set is computed from the
+    // whole document.
+    const orphaned = new Set(chunkIdsOrphanedBy(open.document, credentialId));
     this.#open = {
       ...open,
       document: purgeCredential(open.document, credentialId),
