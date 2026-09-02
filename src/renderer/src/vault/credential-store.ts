@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { create } from 'zustand';
 import type { CredentialEdit, CredentialInput } from '@shared/ipc/api.js';
-import type { CredentialProjection, SecretRef } from '@shared/model/credential.js';
+import type { CredentialProjection, SecretRef, VersionedField } from '@shared/model/credential.js';
+import type { FieldDiffProjection } from '@shared/model/history.js';
 import {
   parseQuery,
   scoresById,
@@ -57,6 +58,19 @@ interface CredentialState {
 
   reveal: (ref: SecretRef) => Promise<string | null>;
   copy: (ref: SecretRef, credentialId: string) => Promise<boolean>;
+
+  /**
+   * History. Reads are passthroughs; the two writes go through `persist` like every other
+   * mutation, so a restore cannot be the one change that does not reach the file.
+   */
+  historyDiff: (credentialId: string, versionNumber: number) => Promise<FieldDiffProjection[]>;
+  restoreVersion: (credentialId: string, versionNumber: number) => Promise<boolean>;
+  restoreField: (
+    credentialId: string,
+    versionNumber: number,
+    field: VersionedField
+  ) => Promise<boolean>;
+  clearHistory: (credentialId: string) => Promise<boolean>;
 
   clearUndo: () => void;
 }
@@ -210,6 +224,50 @@ export const useCredentials = create<CredentialState>((set) => ({
     await window.keyhold.credentials.markUsed(credentialId);
     await useSession.getState().refresh();
     return true;
+  },
+
+  historyDiff: async (credentialId, versionNumber) =>
+    unwrap(await window.keyhold.history.diff(credentialId, versionNumber)) ?? [],
+
+  restoreVersion: async (credentialId, versionNumber) => {
+    set({ busy: true });
+    try {
+      const result = unwrap(
+        await window.keyhold.history.restoreVersion(credentialId, versionNumber)
+      );
+      // A restore to the state the record is already in changes nothing, and must not write
+      // a file or claim in the UI that something happened.
+      if (result === null || result.changedFields.length === 0) return false;
+      await persist();
+      return true;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  restoreField: async (credentialId, versionNumber, field) => {
+    set({ busy: true });
+    try {
+      const result = unwrap(
+        await window.keyhold.history.restoreField(credentialId, versionNumber, field)
+      );
+      if (result === null || result.changedFields.length === 0) return false;
+      await persist();
+      return true;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  clearHistory: async (credentialId) => {
+    set({ busy: true });
+    try {
+      const cleared = unwrap(await window.keyhold.history.clear(credentialId));
+      if (cleared) await persist();
+      return cleared;
+    } finally {
+      set({ busy: false });
+    }
   },
 
   clearUndo: () => {

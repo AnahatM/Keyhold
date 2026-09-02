@@ -637,3 +637,32 @@
 .kh-undo > :first-child {
   flex: 1;
 }
+
+/*
+ * The heading row of a detail section, with an action on the right.
+ *
+ * Wraps rather than truncates: the "Clear history" confirmation replaces the button with a
+ * sentence, and a narrow pane must let that sentence take a second line rather than clip
+ * the warning it carries.
+ */
+.kh-detail__section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-2);
+}
+
+.kh-detail__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-detail__confirm-text {
+  font-size: var(--kh-text-sm);
+  /* The colour is a reinforcement, not the message: the sentence itself says the deletion
+     cannot be undone, so it still reads correctly with no colour at all. */
+  color: var(--kh-color-danger-text);
+}

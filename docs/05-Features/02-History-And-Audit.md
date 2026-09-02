@@ -1,10 +1,12 @@
 # History and the audit trail
 
 > What changed, when, and from which device and network. Keyhold's headline feature.
-> Current reference. Implemented by `src/main/history/` and `src/main/vault/vault-service.ts`.
+> Current reference. Implemented by `src/main/history/`, `src/main/vault/vault-service.ts`
+> and `src/renderer/src/history/`.
 >
-> **Status: the engine, the provenance capture and the service methods are built and
-> tested. The timeline UI and the IPC channels are not.** See §8.
+> **Status: built and in use end to end — engine, provenance capture, IPC and the timeline
+> UI. What remains is exporting one record's history, comparing two arbitrary points, and
+> the `merge` origin Phase 12 will write.** See §8.
 
 ---
 
@@ -190,20 +192,53 @@ the two broker tests that now cover it.
 
 ---
 
-## 8. Not built yet
+## 8. The timeline UI
 
-- **The IPC channels and the timeline UI** — the diff view, the two-point comparison, the
-  restore buttons, and revealing an old password under the clipboard rules.
+`src/renderer/src/history/`. Three rules it exists to honour, in the order they read badly
+when broken:
+
+**Each row is a state, and expanding it shows exactly what its button restores.** One
+function in the main process is behind both, so the component cannot invent a second idea
+of what a row means.
+
+**Old secrets are still secrets.** A password row shows a mask of the right width and a
+reveal button; the value goes through the broker, one at a time, under the same rate limit
+and clipboard rules as the live one. Only `password` and `notes` get that button — a
+historic security answer needs an id the diff row does not carry, and guessing one would
+fetch the _wrong_ secret rather than fail, so the button is absent rather than broken.
+
+**Provenance the user switched off is not mentioned.** `originSummary` returns an empty
+string rather than "Unknown device": a message like that on every row reads as a fault in
+the app rather than as the setting its owner chose, and would push people to turn
+provenance back on to make it go away. There is a test for exactly that.
+
+Smaller decisions worth recording:
+
+- **Before is struck through as well as dimmed.** Never colour alone — in the high-contrast
+  theme, or to a colour-blind reader, two identical-looking strings either side of an arrow
+  leave which-is-which a guess.
+- **Restore asks twice but does not open a dialog.** The restore is itself versioned and so
+  undoable from the same timeline; a modal would be ceremony over an action that cannot lose
+  anything. The second click stops a misclick, not a disaster.
+- **Clear history is the exception** — it genuinely loses data, so it says how many versions
+  and that it cannot be undone.
+- **One clock for the whole list.** `useNow` ticks once a minute; two rows each calling
+  `Date.now()` can disagree across a boundary, which looks like a bug in the ordering. The
+  timer is cleared on unmount, and `Date.now()` is never called during render — the rule
+  this codebase already had to learn once.
+- **The diff is fetched on the click, not from an effect** watching `expanded`. An effect
+  would call `setState` synchronously on every open, which cascades renders, and the fetch
+  is a response to a user action rather than a synchronisation with anything outside React.
+
+### Still to come
+
 - **Exporting a single credential's history** (roadmap Phase 6).
+- **Comparing two arbitrary points.** `history.compare` exists on the contract and in the
+  service; nothing in the UI calls it yet.
+- **Restoring a single field from the timeline.** `restoreField` exists end to end and is
+  tested; it needs a per-row control, which wants the diff rows to become interactive.
 - **`merge` origins.** `HistoryAction` includes `'merge'` for Phase 12's three-way merge;
-  nothing writes it yet.
-- **A UI for `clearHistory`.** The service method exists — the audit trail is the one
-  feature that can hold something a user wants gone, and a password manager that cannot
-  forget is not one people hand their whole life to. The clear is deliberately _not_
-  versioned: recording "history was cleared, from DESKTOP-A, at 14:02" would defeat the
-  point of the button.
-
----
+  nothing writes one yet.
 
 ## 9. Tests
 
