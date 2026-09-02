@@ -319,7 +319,10 @@ function parseHealthSettings(raw: unknown): VaultSettings['health'] {
       ])
     ) as VaultSettings['health']['enabledRules'],
     weakEntropyBits: requireNumber(source.weakEntropyBits, 'settings.health.weakEntropyBits'),
-    expiringWithinDays: requireNumber(source.expiringWithinDays, 'settings.health.expiringWithinDays'),
+    expiringWithinDays: requireNumber(
+      source.expiringWithinDays,
+      'settings.health.expiringWithinDays'
+    ),
   };
 }
 

@@ -383,7 +383,11 @@ export interface SettingsView {
   /** `null` when no vault is open — the machine half of the screen still works. */
   readonly vault: VaultSettings | null;
   readonly vaultPath: string | null;
-  readonly kdf: { readonly memoryKib: number; readonly iterations: number; readonly parallelism: number } | null;
+  readonly kdf: {
+    readonly memoryKib: number;
+    readonly iterations: number;
+    readonly parallelism: number;
+  } | null;
   /** Total stored versions across every record, so "clear all history" can state the cost. */
   readonly historyVersionCount: number;
 }
