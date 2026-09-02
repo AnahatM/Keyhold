@@ -34,6 +34,21 @@ export interface UnlockedVaultKeys {
   readonly dek: SecretBytes;
 }
 
+/**
+ * How a password becomes a KEK.
+ *
+ * Injectable so the caller decides *where* Argon2 runs. In the app it runs on a worker
+ * thread (`KdfRunner`), because it blocks whatever thread it is on for the full half
+ * second and blocking the main thread freezes the window. In tests it runs in-process,
+ * where a worker would only add setup cost.
+ *
+ * The default keeps every existing call site working and makes the in-process path the
+ * explicit fallback rather than an accident.
+ */
+export type DeriveKeyFn = (password: string, params: KdfParams) => Promise<SecretBytes>;
+
+const deriveInProcess: DeriveKeyFn = (password, params) => deriveKey({ password, params });
+
 /** A brand-new random data key, for a new vault or a rotation. */
 export function generateDek(): SecretBytes {
   return randomSecret(KEY_BYTES);
@@ -79,9 +94,10 @@ export function unwrapDek(kek: SecretBytes, wrapped: SealedBox): SecretBytes {
 export async function unlock(
   password: string,
   params: KdfParams,
-  wrappedDek: SealedBox
+  wrappedDek: SealedBox,
+  derive: DeriveKeyFn = deriveInProcess
 ): Promise<UnlockedVaultKeys> {
-  const kek = await deriveKey({ password, params });
+  const kek = await derive(password, params);
   try {
     return { dek: unwrapDek(kek, wrappedDek) };
   } finally {
@@ -97,9 +113,10 @@ export async function unlock(
  */
 export async function createVaultKeys(
   password: string,
-  params: KdfParams
+  params: KdfParams,
+  derive: DeriveKeyFn = deriveInProcess
 ): Promise<{ keys: UnlockedVaultKeys; wrappedDek: SealedBox }> {
-  const kek = await deriveKey({ password, params });
+  const kek = await derive(password, params);
   try {
     const dek = generateDek();
     return { keys: { dek }, wrappedDek: wrapDek(kek, dek) };
@@ -117,9 +134,10 @@ export async function createVaultKeys(
 export async function rewrapForNewPassword(
   dek: SecretBytes,
   newPassword: string,
-  newParams: KdfParams
+  newParams: KdfParams,
+  derive: DeriveKeyFn = deriveInProcess
 ): Promise<SealedBox> {
-  const kek = await deriveKey({ password: newPassword, params: newParams });
+  const kek = await derive(newPassword, newParams);
   try {
     return wrapDek(kek, dek);
   } finally {

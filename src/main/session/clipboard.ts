@@ -61,6 +61,13 @@ export interface ClipboardState {
   readonly hasSecret: boolean;
   /** Milliseconds until the clipboard clears, for the countdown in the UI. */
   readonly clearsInMs: number | null;
+  /**
+   * Absolute epoch-ms deadline, or `null` when nothing is pending.
+   *
+   * See the same note on `ThrottleState`: a duration goes stale crossing the bridge, a
+   * fixed point does not.
+   */
+  readonly clearsAt: number | null;
 }
 
 type Listener = (state: ClipboardState) => void;
@@ -163,6 +170,7 @@ export class SecretClipboard {
     return {
       hasSecret: this.#lastWritten !== null,
       clearsInMs: this.#clearsAt === null ? null : Math.max(0, this.#clearsAt - Date.now()),
+      clearsAt: this.#clearsAt,
     };
   }
 

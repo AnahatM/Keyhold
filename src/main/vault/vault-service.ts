@@ -16,10 +16,10 @@ import {
   type VaultSummary,
 } from '@shared/model/vault-document.js';
 import { malformed, VaultError } from '../crypto/errors.js';
-import { createVaultKeys, unlock as unlockKeys } from '../crypto/envelope.js';
+import { createVaultKeys, unlock as unlockKeys, type DeriveKeyFn } from '../crypto/envelope.js';
 import { calibrateKdf, newKdfParams } from '../crypto/kdf.js';
 import { uuid } from '../crypto/random.js';
-import type { SecretBytes } from '../crypto/secret.js';
+import { SecretBytes } from '../crypto/secret.js';
 import { readContainer, readPreamble, writeContainer } from '../format/container.js';
 import { newHeader } from '../format/header.js';
 import { findOrphanedTemp, readVaultFile, writeVaultFileAtomically } from './atomic-write.js';
@@ -72,6 +72,14 @@ export interface CreateVaultOptions {
    */
   readonly kdf?: Partial<Pick<KdfParams, 'memoryKib' | 'iterations' | 'parallelism'>>;
   readonly deviceId?: string;
+  /**
+   * Where Argon2 runs.
+   *
+   * Injected so this class stays testable without a worker, while the app routes it to a
+   * worker thread — Argon2 blocks whatever thread it is on for the full derivation, and
+   * blocking the main thread freezes the window at exactly the wrong moment.
+   */
+  readonly derive?: DeriveKeyFn;
 }
 
 export class VaultService {
@@ -134,7 +142,7 @@ export class VaultService {
       ...options.kdf,
     });
 
-    const { keys, wrappedDek } = await createVaultKeys(options.password, kdf);
+    const { keys, wrappedDek } = await createVaultKeys(options.password, kdf, options.derive);
     const header = newHeader({
       vaultId: uuid(),
       deviceId: options.deviceId ?? this.#deviceId,
@@ -162,14 +170,14 @@ export class VaultService {
    * damaged file — see `errors.ts` for why those are the same mechanism reported
    * differently, and why the distinction still matters to the person typing.
    */
-  async unlock(path: string, password: string): Promise<VaultSummary> {
+  async unlock(path: string, password: string, derive?: DeriveKeyFn): Promise<VaultSummary> {
     this.lock();
 
     const bytes = await readVaultFile(path);
     const { header } = readPreamble(bytes);
 
     // Throws WRONG_PASSWORD if the DEK will not unwrap.
-    const keys = await unlockKeys(password, header.kdf, header.wrappedDek);
+    const keys = await unlockKeys(password, header.kdf, header.wrappedDek, derive);
 
     let contents: VaultContents;
     try {
@@ -199,6 +207,57 @@ export class VaultService {
     };
 
     return this.summary();
+  }
+
+  /**
+   * Opens a vault with a data key recovered from the OS key store, skipping Argon2.
+   *
+   * There is no password check here, and there does not need to be: possession of the
+   * correct DEK **is** the proof. If the key is wrong the container's authentication tag
+   * fails and the vault does not open — the same guarantee the password path relies on,
+   * reached by a different route.
+   *
+   * Deliberately separate from `unlock` rather than an optional branch inside it. The two
+   * have genuinely different security stories, and a single method with a "or use this key
+   * instead" parameter is how a bypass gets added by accident later.
+   */
+  async unlockWithKey(path: string, dekBytes: Uint8Array): Promise<VaultSummary> {
+    this.lock();
+
+    const bytes = await readVaultFile(path);
+    const { header } = readPreamble(bytes);
+    const dek = SecretBytes.adopt(Uint8Array.from(dekBytes));
+
+    let contents: VaultContents;
+    try {
+      contents = readContainer(bytes, dek);
+    } catch (error) {
+      dek.destroy();
+      throw error;
+    }
+
+    let document: VaultDocument;
+    try {
+      document = parseVaultDocument(contents.body);
+    } catch (error) {
+      dek.destroy();
+      throw error;
+    }
+
+    this.#open = { path, header, dek, document, attachments: contents.attachments, dirty: false };
+    return this.summary();
+  }
+
+  /**
+   * Hands the raw data key to a callback, for quick-unlock enrolment.
+   *
+   * The only place key bytes leave `SecretBytes`, and shaped as a callback precisely so
+   * that is visible: there is no getter that quietly returns the key, and a reviewer
+   * scanning for `exportKeyForQuickUnlock` finds every such site.
+   */
+  exportKeyForQuickUnlock<T>(wrap: (dekBytes: Uint8Array) => T): T {
+    const open = this.#requireOpen();
+    return open.dek.use((bytes) => wrap(bytes));
   }
 
   // ── Locking ────────────────────────────────────────────────────────────────

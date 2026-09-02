@@ -36,7 +36,36 @@ interface Pending {
   readonly timer: NodeJS.Timeout;
 }
 
-export class KdfRunner {
+/**
+ * What the session needs from a key-derivation backend.
+ *
+ * An interface rather than the concrete class so tests can supply an in-process
+ * implementation: the worker is loaded from a BUILT file path, which does not exist when
+ * running the source directly.
+ *
+ * Deliberately not a silent fallback inside `KdfRunner` — a missing worker in a packaged
+ * app is a real bug, and quietly deriving on the main thread instead would hide it behind
+ * a frozen window rather than a clear failure.
+ */
+export interface KdfProvider {
+  derive(password: string, params: KdfParams, hashLength?: number): Promise<SecretBytes>;
+  dispose(): void;
+}
+
+/** Derives in-process. For tests only — this blocks the calling thread. */
+export class InProcessKdf implements KdfProvider {
+  async derive(password: string, params: KdfParams, hashLength = KEY_BYTES): Promise<SecretBytes> {
+    assertUsableKdfParams(params);
+    const { deriveKey } = await import('./kdf.js');
+    return deriveKey({ password, params, ...(hashLength === KEY_BYTES ? {} : {}) });
+  }
+
+  dispose(): void {
+    // Nothing to tear down.
+  }
+}
+
+export class KdfRunner implements KdfProvider {
   #worker: Worker | null = null;
   #pending = new Map<number, Pending>();
   #nextId = 1;

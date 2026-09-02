@@ -25,6 +25,17 @@ import { app, type BrowserWindow } from 'electron';
 
 const SMOKE_TIMEOUT_MS = 20_000;
 
+/**
+ * Writes one marker line to stdout.
+ *
+ * One helper rather than a `process.stdout.write` at each site: the CI job greps for these
+ * exact markers, and a missing newline silently merges two of them into one unmatchable
+ * line.
+ */
+function emit(line: string): void {
+  process.stdout.write(line + '\n');
+}
+
 export function isSmokeRun(): boolean {
   return process.env.KEYHOLD_SMOKE === '1';
 }
@@ -39,20 +50,30 @@ export function isSmokeRun(): boolean {
 async function captureIfRequested(window: BrowserWindow): Promise<void> {
   const target = process.env.KEYHOLD_SMOKE_SHOT;
   if (target === undefined || target === '') return;
-  try {
-    const image = await window.capturePage();
-    await writeFile(target, image.toPNG());
-    process.stdout.write(`SMOKE-SHOT ${target}
-`);
-  } catch (error) {
-    process.stdout.write(`SMOKE-SHOT-FAILED ${String(error)}
-`);
+
+  // `capturePage` fails with UnknownVizError if the compositor has not produced a frame
+  // yet, and "did-finish-load" fires before the first paint. Retrying briefly is more
+  // honest than a fixed sleep long enough to always work on the slowest machine.
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      const image = await window.capturePage();
+      if (!image.isEmpty()) {
+        await writeFile(target, image.toPNG());
+        emit(`SMOKE-SHOT ${target}`);
+        return;
+      }
+    } catch {
+      // Fall through to the wait and try again.
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 250));
   }
+
+  emit('SMOKE-SHOT-FAILED the window produced no frame to capture');
 }
 
 function finish(ok: boolean, detail: string): void {
   // Deliberately stdout, not a logger: the CI job greps for these exact markers.
-  process.stdout.write(`${ok ? 'SMOKE-PASS' : 'SMOKE-FAIL'} ${detail}\n`);
+  emit(`${ok ? 'SMOKE-PASS' : 'SMOKE-FAIL'} ${detail}`);
   app.exit(ok ? 0 : 1);
 }
 
@@ -73,20 +94,65 @@ export function runSmokeCheck(window: BrowserWindow): void {
 
   window.webContents.once('did-finish-load', () => {
     clearTimeout(timer);
-    // Probes the bridge, then makes a real call. `vault.summary()` is chosen because it
-    // is safe with nothing open — it must answer `{ ok: true, value: null }`.
-    const probe = `
+    // Probes the bridge, then makes a real call. `vault.summary()` is chosen because it is
+    // safe with nothing open — it must answer `{ ok: true, value: null }`.
+    //
+    // With KEYHOLD_SMOKE_VAULT set, it goes further and drives a full create → lock →
+    // unlock cycle against a real file. That is the only check that exercises the whole
+    // stack the way a user does: renderer → preload → IPC → session → Argon2 worker →
+    // container → disk, and back. Every layer is unit-tested; nothing but this proves they
+    // are wired to each other.
+    const vaultPath = process.env.KEYHOLD_SMOKE_VAULT;
+    const probe =
+      vaultPath === undefined || vaultPath === ''
+        ? `
       (async () => {
         if (typeof window.keyhold !== 'object') return { stage: 'bridge', ok: false };
         const result = await window.keyhold.vault.summary();
         return { stage: 'ipc', ok: result.ok === true && result.value === null, result };
+      })()
+    `
+        : `
+      (async () => {
+        if (typeof window.keyhold !== 'object') return { stage: 'bridge', ok: false };
+        const path = ${JSON.stringify(vaultPath)};
+        const password = 'a-smoke-test-master-passphrase';
+        const steps = [];
+
+        const created = await window.keyhold.vault.create(path, password);
+        steps.push(['create', created.ok]);
+        if (!created.ok) return { stage: 'cycle', ok: false, steps, detail: created.message };
+
+        const locked = await window.keyhold.vault.lock();
+        steps.push(['lock', locked.ok]);
+
+        const afterLock = await window.keyhold.vault.summary();
+        steps.push(['locked-summary-null', afterLock.ok === true && afterLock.value === null]);
+
+        const wrong = await window.keyhold.vault.unlock(path, 'not-the-password');
+        steps.push(['wrong-password-rejected', wrong.ok === false && wrong.code === 'WRONG_PASSWORD']);
+
+        const reopened = await window.keyhold.vault.unlock(path, password);
+        steps.push(['unlock', reopened.ok]);
+        if (!reopened.ok) return { stage: 'cycle', ok: false, steps, detail: reopened.message };
+
+        const list = await window.keyhold.credentials.list();
+        steps.push(['list', list.ok === true && Array.isArray(list.value)]);
+
+        return { stage: 'cycle', ok: steps.every((s) => s[1] === true), steps };
       })()
     `;
 
     window.webContents
       .executeJavaScript(probe, true)
       .then(async (outcome: unknown) => {
-        const report = outcome as { stage?: string; ok?: boolean; result?: unknown };
+        const report = outcome as {
+          stage?: string;
+          ok?: boolean;
+          result?: unknown;
+          steps?: unknown;
+          detail?: unknown;
+        };
         await captureIfRequested(window);
 
         if (report.stage === 'bridge') {
@@ -103,7 +169,11 @@ export function runSmokeCheck(window: BrowserWindow): void {
           );
           return;
         }
-        finish(true, 'window created, renderer loaded, preload bridge present, IPC round-trip OK');
+        const detail =
+          report.stage === 'cycle'
+            ? 'window, renderer, bridge, and a full create -> lock -> unlock cycle against a real vault file'
+            : 'window created, renderer loaded, preload bridge present, IPC round-trip OK';
+        finish(true, detail);
       })
       .catch((error: unknown) => {
         finish(false, `smoke probe threw: ${String(error)}`);

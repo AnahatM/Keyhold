@@ -1,22 +1,26 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { app, BrowserWindow } from 'electron';
-import { registerIpcHandlers, unregisterIpcHandlers } from './ipc/register.js';
+import {
+  notifySessionChanged,
+  registerIpcHandlers,
+  unregisterIpcHandlers,
+} from './ipc/register.js';
 import { applySessionHardening, applyWebContentsHardening } from './security.js';
 import { isSmokeRun, runSmokeCheck } from './smoke.js';
-import { VaultService } from './vault/vault-service.js';
+import { SessionController } from './session/session-controller.js';
 import { createMainWindow, focusMainWindow } from './window.js';
 
 /** Baked in at build time by electron-vite. */
 declare const APP_VERSION: string;
 
 /**
- * The single vault instance for this process.
+ * The single session for this process.
  *
- * One per process, not one per window: two services could hold the same file open and
- * race each other's atomic writes, which is the data-loss bug the single-instance lock
+ * One per process, not one per window: two vault services could hold the same file open
+ * and race each other's atomic writes, which is the data-loss bug the single-instance lock
  * below also guards against from the other direction.
  */
-const vault = new VaultService();
+const session = new SessionController();
 
 /**
  * Keyhold main process entry point.
@@ -50,16 +54,22 @@ if (!gotTheLock) {
 
   void app.whenReady().then(() => {
     applySessionHardening();
-    registerIpcHandlers({ vault, appVersion: APP_VERSION });
+    let mainWindow: BrowserWindow | null = null;
+    registerIpcHandlers({
+      session,
+      appVersion: APP_VERSION,
+      getWindow: () => mainWindow,
+    });
 
     const window = createMainWindow({
       onLockVault: () => {
-        vault.lock();
+        session.lock('manual');
+        notifySessionChanged(mainWindow);
       },
       onSaveVault: () => {
         // Menu items cannot await, and a failed save must not become an unhandled
         // rejection that takes the process down. The renderer is told either way.
-        void vault.save().catch((error: unknown) => {
+        void session.save().catch((error: unknown) => {
           console.error('[menu] save failed:', error);
         });
       },
@@ -67,7 +77,15 @@ if (!gotTheLock) {
         // Wired to the settings route in Phase 14; the accelerator exists now so the
         // shortcut does not have to be re-taught later.
       },
-      isVaultUnlocked: () => vault.state === 'unlocked',
+      isVaultUnlocked: () => session.vault.state === 'unlocked',
+    });
+    mainWindow = window;
+
+    // The controller needs the window for window-scoped auto-lock triggers, and needs a
+    // way to tell the renderer that an auto-lock happened — otherwise the UI keeps
+    // rendering a vault that is no longer open.
+    session.attachWindow(window, () => {
+      notifySessionChanged(mainWindow);
     });
 
     // Only ever active under KEYHOLD_SMOKE=1; see src/main/smoke.ts.
@@ -83,7 +101,7 @@ if (!gotTheLock) {
   // vault still unlocked would leave the DEK and every decrypted record live in a process
   // the user believes they have finished with.
   app.on('window-all-closed', () => {
-    vault.lock();
+    session.lock('manual');
     // On macOS an app conventionally stays alive with no windows; everywhere else closing
     // the last window means quit. For a password manager quitting is also the safest
     // default, because it guarantees the keys are gone.
@@ -93,7 +111,7 @@ if (!gotTheLock) {
   // Last line of defence. `lock()` is idempotent, so it is safe for this to fire after
   // window-all-closed has already run.
   app.on('will-quit', () => {
-    vault.lock();
+    session.dispose();
     unregisterIpcHandlers();
   });
 }
