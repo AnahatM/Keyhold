@@ -79,7 +79,7 @@ failure would be silent. This makes it a compile error.
 
 ## 3. Custom fields
 
-Fourteen types: `text`, `password`, `email`, `url`, `number`, `date`, `datetime`,
+Thirteen types: `text`, `password`, `email`, `url`, `number`, `date`, `datetime`,
 `boolean`, `multiline`, `phone`, `pin`, `otp-secret`, `address`.
 
 Stored in display order with `order` renumbered contiguously on every write, so a later

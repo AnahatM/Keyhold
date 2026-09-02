@@ -180,7 +180,7 @@ _Goal: full create/read/update/delete over every field discussed._
 - [x] Detail view, edit view, create flow
 - [x] Core fields: title, username, email, password, **multiple URLs**, notes
 - [x] Security questions as repeatable first-class `{question, answer}` pairs — the prompt is not secret, the answer is treated as a password
-- [x] Custom fields — unlimited, 14 types, reorderable, individually hidden
+- [x] Custom fields — unlimited, 13 types, reorderable, individually hidden
 - [x] Per-field reveal / copy / hide, with `aria-live` announcements (a copy's visible feedback is invisible to a screen reader)
 - [x] Icons: letter and emoji. **No favicon fetching** — it would tell a server which accounts exist
 - [x] Duplicate a credential, regenerating **every** id, without history or attachments

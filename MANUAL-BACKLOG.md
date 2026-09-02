@@ -109,3 +109,31 @@ Only worth doing once there is something to show.
 ## Done
 
 _(nothing yet)_
+
+---
+
+## M-README · Regenerate the README screenshots
+
+**Unblocks:** the README's Screenshots section, which currently explains how they are made
+rather than showing them.
+
+The capture is automated — it just needs a tree that builds. Run:
+
+```bash
+npm run build
+node tools/smoke.mjs --shots docs/images
+```
+
+That writes `docs/images/Keyhold-Screenshot-0{1..4}.png`: the populated list and detail pane,
+the history timeline, the timeline with a diff expanded, and the same view in the light
+theme. Then replace the note in the README's Screenshots section with the 2×2 image table
+(the markup is in this file's history, or follow `docs/06-UI-Design-System/`).
+
+**Why it is not done:** the capture refuses to run against a stale build, and the build was
+failing on another in-flight change at the time. Not a defect — the guard doing its job.
+
+## M-ICON · An application icon
+
+`build/icon.png` (512×512 or larger, with an `.ico` and `.icns` derived from it) does not
+exist. `electron-builder.yml` and the README's header both want one. Until then the README
+uses an emoji and the packaged app gets Electron's default icon.
