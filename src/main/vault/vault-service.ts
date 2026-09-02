@@ -3,9 +3,13 @@ import { basename } from 'node:path';
 import type { KdfParams, KeepHeader, VaultContents } from '@shared/format/types.js';
 import {
   isCustomFieldValueSecret,
+  type AuditPrivacyLevel,
+  type ChangeOrigin,
   type Credential,
   type CredentialProjection,
+  type HistoryAction,
   type SecretRef,
+  type VersionedField,
 } from '@shared/model/credential.js';
 import {
   emptyVaultDocument,
@@ -22,6 +26,18 @@ import { uuid } from '../crypto/random.js';
 import { SecretBytes } from '../crypto/secret.js';
 import { readContainer, readPreamble, writeContainer } from '../format/container.js';
 import { newHeader } from '../format/header.js';
+import {
+  appendVersion,
+  assertValidHistory,
+  comparePoints,
+  diffVersion,
+  resolveState,
+  restoreField,
+  restoreVersion,
+  type FieldDiff,
+  type HistoryPoint,
+  type RestoreResult,
+} from '../history/versioning.js';
 import { findOrphanedTemp, readVaultFile, writeVaultFileAtomically } from './atomic-write.js';
 import {
   addCredential,
@@ -98,13 +114,34 @@ export interface CreateVaultOptions {
   readonly derive?: DeriveKeyFn;
 }
 
+/**
+ * Supplies the provenance recorded against a change.
+ *
+ * An interface rather than the concrete `OriginCapture` so this class never reaches for
+ * the machine directly, and so no test spawns `netsh` in order to save a credential.
+ */
+export interface OriginSource {
+  capture(action: HistoryAction, level: AuditPrivacyLevel): ChangeOrigin;
+}
+
+/**
+ * The default: the verb, and nothing about the machine.
+ *
+ * A service constructed without an origin source records *less* than the user asked for,
+ * never more. The opposite default — reaching for the hostname whenever nobody said not
+ * to — is how a privacy setting quietly stops meaning anything.
+ */
+const NO_ORIGIN: OriginSource = { capture: (action) => ({ action }) };
+
 export class VaultService {
   #open: OpenVault | null = null;
   #broker = new SecretBroker();
   readonly #deviceId: string;
+  readonly #origin: OriginSource;
 
-  constructor(deviceId: string = uuid()) {
+  constructor(deviceId: string = uuid(), origin: OriginSource = NO_ORIGIN) {
     this.#deviceId = deviceId;
+    this.#origin = origin;
   }
 
   get state(): VaultState {
@@ -399,6 +436,32 @@ export class VaultService {
         // one here is either redundant or a probe. Either way there is nothing to add.
         return isCustomFieldValueSecret(field) ? field.value : field.value;
       }
+
+      // Historic reveals resolve the *state at that point*, not the raw snapshot. A version
+      // stores only what changed, so a version that did not touch the password still has a
+      // password that was current when it was written — and `resolveState` is what knows it.
+      // Reading `snapshot.password` directly would return nothing and the UI would show
+      // "empty", which is a lie about the record's past.
+      case 'historic-password': {
+        const state = resolveState(record, ref.versionNumber);
+        return state === null ? null : state.password;
+      }
+      case 'historic-notes': {
+        const state = resolveState(record, ref.versionNumber);
+        return state === null ? null : state.notes;
+      }
+      case 'historic-answer': {
+        const state = resolveState(record, ref.versionNumber);
+        if (state === null) return null;
+        const question = state.securityQuestions.find((q) => q.id === ref.questionId);
+        return question?.answer ?? null;
+      }
+      case 'historic-custom': {
+        const state = resolveState(record, ref.versionNumber);
+        if (state === null) return null;
+        const field = state.custom.find((f) => f.id === ref.fieldId);
+        return field?.value ?? null;
+      }
     }
   }
 
@@ -440,7 +503,18 @@ export class VaultService {
    * which the user can change mid-session — are always the current ones.
    */
   #ops(): OpsContext {
-    return { newId: uuid, now: Date.now, settings: this.#requireOpen().document.settings };
+    const settings = this.#requireOpen().document.settings;
+    return {
+      newId: uuid,
+      now: Date.now,
+      settings,
+      captureOrigin: (action) => this.#origin.capture(action, settings.auditPrivacyLevel),
+    };
+  }
+
+  /** The provenance for one change, at the vault's current privacy level. */
+  #captureOrigin(action: HistoryAction): ChangeOrigin {
+    return this.#origin.capture(action, this.#requireOpen().document.settings.auditPrivacyLevel);
   }
 
   createCredential(input: NewCredentialInput): CredentialProjection {
@@ -466,14 +540,110 @@ export class VaultService {
     if (existing === null) return null;
 
     const { credential, changedFields } = applyPatch(existing, patch, this.#ops());
-    if (changedFields.length > 0) {
+    if (changedFields.length === 0) {
+      return { projection: toProjection(credential), changedFields };
+    }
+
+    // The version is appended here rather than inside `applyPatch` because provenance is
+    // an I/O concern — it reads the machine — and `credential-ops` is pure by design.
+    const versioned = appendVersion(
+      credential,
+      existing,
+      changedFields,
+      this.#captureOrigin('update')
+    );
+    this.#open = { ...open, document: replaceCredential(open.document, versioned), dirty: true };
+    return { projection: toProjection(versioned), changedFields };
+  }
+
+  // ── History ──────────────────────────────────────────────────────────────────
+
+  /**
+   * What one edit changed, as a field-level diff.
+   *
+   * Returns `null` for an unknown record or an unknown version — pruned, or never there.
+   * The diff carries the *values*, including secret ones, so it never crosses IPC as it
+   * stands; the renderer gets `VersionProjection` and asks for old secrets one at a time.
+   */
+  diffVersion(credentialId: string, versionNumber: number): FieldDiff[] | null {
+    this.#requireOpen();
+    const record = this.#findRecord(credentialId);
+    return record === null ? null : diffVersion(record, versionNumber);
+  }
+
+  /** The difference between any two points in a record's timeline. */
+  compareVersions(credentialId: string, from: HistoryPoint, to: HistoryPoint): FieldDiff[] | null {
+    this.#requireOpen();
+    const record = this.#findRecord(credentialId);
+    return record === null ? null : comparePoints(record, from, to);
+  }
+
+  /**
+   * Puts a record back to the state before `versionNumber`, recording the restore.
+   *
+   * A restore is a change like any other: it bumps `updatedAt`, appends a version with
+   * `action: 'restore'`, and can itself be undone from the timeline. Anything else would
+   * make the one operation that rewrites a record the one the audit trail cannot see.
+   */
+  restoreVersion(
+    credentialId: string,
+    versionNumber: number
+  ): { projection: CredentialProjection; changedFields: readonly string[] } | null {
+    const record = this.#findRecord(credentialId);
+    if (record === null) return null;
+    return this.#commitRestore(
+      restoreVersion(record, versionNumber, this.#captureOrigin('restore'), this.#ops())
+    );
+  }
+
+  /** Restores one field from one version, leaving the rest of the record alone. */
+  restoreField(
+    credentialId: string,
+    versionNumber: number,
+    field: VersionedField
+  ): { projection: CredentialProjection; changedFields: readonly string[] } | null {
+    const record = this.#findRecord(credentialId);
+    if (record === null) return null;
+    return this.#commitRestore(
+      restoreField(record, versionNumber, field, this.#captureOrigin('restore'), this.#ops())
+    );
+  }
+
+  #commitRestore(
+    result: RestoreResult | null
+  ): { projection: CredentialProjection; changedFields: readonly string[] } | null {
+    if (result === null) return null;
+
+    // A restore to the state the record is already in changes nothing, and must not dirty
+    // the vault or add a version saying so.
+    if (result.changedFields.length > 0) {
+      const open = this.#requireOpen();
       this.#open = {
         ...open,
-        document: replaceCredential(open.document, credential),
+        document: replaceCredential(open.document, result.credential),
         dirty: true,
       };
     }
-    return { projection: toProjection(credential), changedFields };
+    return { projection: toProjection(result.credential), changedFields: result.changedFields };
+  }
+
+  /**
+   * Clears a record's history.
+   *
+   * Offered because the audit trail is the one feature that can hold something a user
+   * wants gone — an old password they now consider burned, a device name from a job they
+   * have left. A password manager that cannot forget is not one people will hand their
+   * whole life to. The clear is deliberately *not* versioned: recording “history was
+   * cleared, from DESKTOP-A, at 14:02” would defeat the point of the button.
+   */
+  clearHistory(credentialId: string): boolean {
+    const open = this.#requireOpen();
+    const record = this.#findRecord(credentialId);
+    if (record === null || record.history.versions.length === 0) return false;
+
+    const cleared: Credential = { ...record, history: { ...record.history, versions: [] } };
+    this.#open = { ...open, document: replaceCredential(open.document, cleared), dirty: true };
+    return true;
   }
 
   duplicateCredential(credentialId: string): CredentialProjection | null {
@@ -608,9 +778,40 @@ export function parseVaultDocument(body: Uint8Array): VaultDocument {
 
   return {
     documentVersion: candidate.documentVersion,
-    records: candidate.records,
+    records: candidate.records.map(normaliseRecord),
     folders: candidate.folders ?? [],
     tags: candidate.tags ?? [],
     settings: candidate.settings ?? emptyVaultDocument().settings,
   };
+}
+
+/**
+ * Brings one stored record up to the current model, and refuses one that cannot be.
+ *
+ * `createdOrigin` post-dates the first records this app ever wrote, so a vault from before
+ * it simply does not have one. It is filled with the verb alone rather than with anything
+ * about *this* machine — the record was not created here, and inventing a plausible origin
+ * would put a false entry in the one part of the app whose entire value is being
+ * trustworthy about provenance.
+ *
+ * History is validated rather than repaired. A malformed version array means the file is
+ * corrupt, was merged wrongly, or was written by a build with a bug — and silently
+ * "fixing" it would destroy the evidence of which.
+ */
+function normaliseRecord(record: Credential): Credential {
+  // Typed as a partial view because this record came out of `JSON.parse`, not out of the
+  // model. The declared type says `createdOrigin` is always there; the file on disk is
+  // under no such obligation.
+  const stored = record as { meta?: Partial<Credential['meta']> };
+  const normalised =
+    stored.meta?.createdOrigin === undefined
+      ? { ...record, meta: { ...record.meta, createdOrigin: { action: 'create' as const } } }
+      : record;
+
+  try {
+    assertValidHistory(normalised);
+  } catch (error) {
+    throw malformed(error instanceof Error ? error.message : 'a record has invalid history');
+  }
+  return normalised;
 }

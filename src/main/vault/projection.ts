@@ -5,6 +5,7 @@ import {
   type CredentialProjection,
   type CustomFieldProjection,
   type SecurityQuestionProjection,
+  type VersionedField,
   type VersionProjection,
 } from '@shared/model/credential.js';
 
@@ -58,14 +59,50 @@ function projectSecurityQuestion(
   };
 }
 
+/**
+ * The old values of one version, split the same way the live record is.
+ *
+ * `password` and `notes` cross only as a length; `securityQuestions` and `custom` cross
+ * through the same per-entry projectors as the live record, so an old security answer and
+ * an old hidden custom value are stripped by exactly the code that strips the current
+ * ones. Everything else is non-secret by the classification in `@shared/model/credential`
+ * and crosses verbatim, which is what lets a timeline render `"Gmail" → "Google"` without
+ * a round trip.
+ */
 function projectVersion(version: Credential['history']['versions'][number]): VersionProjection {
-  // `snapshot` is deliberately dropped: it holds the *previous values* of changed fields,
-  // which for a password change is an old password. History in the renderer is a timeline
-  // of what changed and from where, never of what it used to be.
+  const snapshot: Record<string, unknown> = {};
+  const secretFields: VersionedField[] = [];
+
+  for (const field of version.changedFields) {
+    const value = version.snapshot[field];
+    if (value === undefined) continue;
+
+    if (field === 'password' || field === 'notes') {
+      snapshot[field === 'password' ? 'passwordLength' : 'notesLength'] =
+        typeof value === 'string' ? value.length : 0;
+      secretFields.push(field);
+    } else if (field === 'securityQuestions') {
+      snapshot.securityQuestions = (value as Credential['fields']['securityQuestions']).map(
+        projectSecurityQuestion
+      );
+      secretFields.push(field);
+    } else if (field === 'custom') {
+      // Whether an individual old value is secret depends on the field, and each projected
+      // entry already says so. Marking the group keeps the reveal affordance available
+      // without the renderer re-deriving the rule.
+      snapshot.custom = (value as Credential['fields']['custom']).map(projectCustomField);
+      secretFields.push(field);
+    } else {
+      snapshot[field] = value;
+    }
+  }
+
   return {
     versionNumber: version.versionNumber,
     savedAt: version.savedAt,
     changedFields: version.changedFields,
+    snapshot,
+    secretFields,
     origin: version.origin,
   };
 }

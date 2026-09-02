@@ -111,6 +111,7 @@ function record(input: RecordInput): Credential {
       useCount: 0,
       expiresAt: input.expiresAt ?? null,
       rotationIntervalDays: input.rotationIntervalDays ?? null,
+      createdOrigin: { action: 'create' as const },
     },
     history: { enabled: true, maxVersions: 50, versions: [] },
     trashedAt: input.trashedAt ?? null,

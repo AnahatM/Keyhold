@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import {
   CUSTOM_FIELD_TYPES,
+  type ChangeOrigin,
   type Credential,
   type CredentialFields,
   type CustomField,
   type CustomFieldType,
+  type HistoryAction,
   type SecurityQuestion,
 } from '@shared/model/credential.js';
 import type { VaultDocument, VaultSettings } from '@shared/model/vault-document.js';
@@ -111,6 +113,8 @@ export function assertValidCredential(credential: Credential): void {
  */
 export interface NewCredentialInput {
   readonly title: string;
+  /** How this record came to exist. `'import'` for importer output; `'create'` otherwise. */
+  readonly action?: HistoryAction | undefined;
   readonly username?: string | undefined;
   readonly email?: string | undefined;
   readonly password?: string | undefined;
@@ -128,6 +132,23 @@ export interface OpsContext {
   readonly newId: () => string;
   readonly now: () => number;
   readonly settings: VaultSettings;
+  /**
+   * Captures the device and network provenance for a change.
+   *
+   * A function rather than a value so nothing is read from the machine unless a record is
+   * actually created, and so the privacy level in `settings` is honoured at the moment of
+   * capture rather than whenever the context happened to be built.
+   *
+   * Defaults to recording the verb and nothing else. That default is deliberate: an
+   * embedding that forgets to wire the real capture records *less* than it could, never
+   * more than the user asked for.
+   */
+  readonly captureOrigin?: ((action: HistoryAction) => ChangeOrigin) | undefined;
+}
+
+/** The origin for `action`, or the verb alone when no capture is wired in. */
+export function originFor(context: OpsContext, action: HistoryAction): ChangeOrigin {
+  return context.captureOrigin?.(action) ?? { action };
 }
 
 export function buildCredential(input: NewCredentialInput, context: OpsContext): Credential {
@@ -159,6 +180,7 @@ export function buildCredential(input: NewCredentialInput, context: OpsContext):
       useCount: 0,
       expiresAt: null,
       rotationIntervalDays: null,
+      createdOrigin: originFor(context, input.action ?? 'create'),
     },
     history: {
       // The per-credential checkbox, defaulting from vault settings. Recorded on the record
@@ -267,7 +289,7 @@ export function applyPatch(
     patch.history?.maxVersions === undefined
       ? credential.history.maxVersions
       : patch.history.maxVersions;
-  if (historyEnabled !== credential.history.enabled) changed.push('history.enabled');
+  if (historyEnabled !== credential.history.enabled) changed.push('historyEnabled');
 
   const expiresAt =
     patch.meta?.expiresAt === undefined ? credential.meta.expiresAt : patch.meta.expiresAt;
@@ -275,9 +297,9 @@ export function applyPatch(
     patch.meta?.rotationIntervalDays === undefined
       ? credential.meta.rotationIntervalDays
       : patch.meta.rotationIntervalDays;
-  if (expiresAt !== credential.meta.expiresAt) changed.push('meta.expiresAt');
+  if (expiresAt !== credential.meta.expiresAt) changed.push('expiresAt');
   if (rotationIntervalDays !== credential.meta.rotationIntervalDays) {
-    changed.push('meta.rotationIntervalDays');
+    changed.push('rotationIntervalDays');
   }
 
   if (changed.length === 0) {
@@ -443,7 +465,15 @@ export function duplicateCredential(credential: Credential, context: OpsContext)
     // Attachments are not copied: the chunks belong to the original, and duplicating a
     // 20 MB PDF because someone wanted a second login is not what they asked for.
     attachments: [],
-    meta: { ...credential.meta, createdAt: now, updatedAt: now, lastUsedAt: null, useCount: 0 },
+    meta: {
+      ...credential.meta,
+      createdAt: now,
+      updatedAt: now,
+      lastUsedAt: null,
+      useCount: 0,
+      // Captured fresh: the copy was created here and now, not wherever the original was.
+      createdOrigin: originFor(context, 'create'),
+    },
     history: { ...credential.history, versions: [] },
     trashedAt: null,
   };

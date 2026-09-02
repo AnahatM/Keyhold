@@ -150,14 +150,106 @@ export const AUDIT_LEVEL_FIELDS: Record<AuditPrivacyLevel, readonly (keyof Chang
 };
 
 /**
- * One historical state. Stores only the fields that changed, not a full copy — history on
- * a frequently-edited record would otherwise grow without bound.
+ * The previous values a version can carry.
+ *
+ * Keyed by exactly the strings `applyPatch` reports in `changedFields`, which is what lets
+ * the invariant `Object.keys(snapshot) ⊆ changedFields` be asserted rather than hoped for.
+ * A nested shape (`meta.expiresAt`) would have made that comparison a string-parsing
+ * exercise, and the two would have drifted apart the first time a field moved.
+ */
+export interface VersionedValues {
+  readonly username?: string;
+  readonly email?: string;
+  readonly password?: string;
+  readonly urls?: readonly string[];
+  readonly securityQuestions?: readonly SecurityQuestion[];
+  readonly notes?: string;
+  readonly custom?: readonly CustomField[];
+  readonly title?: string;
+  readonly favorite?: boolean;
+  readonly folderId?: string | null;
+  readonly tags?: readonly string[];
+  readonly icon?: CredentialIcon;
+  readonly expiresAt?: number | null;
+  readonly rotationIntervalDays?: number | null;
+}
+
+export type VersionedField = keyof VersionedValues;
+
+/**
+ * The fields history records, in the order a diff should present them.
+ *
+ * `historyEnabled` is deliberately absent. Turning history on or off is a change to the
+ * record, so it must dirty the vault and bump `updatedAt` — but recording a *version* for
+ * it would put an entry in the timeline that has nothing to show, and turning history on
+ * would immediately create a version documenting that history was turned on.
+ */
+export const VERSIONED_FIELDS = [
+  'title',
+  'username',
+  'email',
+  'password',
+  'urls',
+  'securityQuestions',
+  'notes',
+  'custom',
+  'tags',
+  'folderId',
+  'favorite',
+  'icon',
+  'expiresAt',
+  'rotationIntervalDays',
+] as const satisfies readonly VersionedField[];
+
+/**
+ * Compile-time check that every versioned value is listed in `VERSIONED_FIELDS`.
+ *
+ * Without it, adding a field to `VersionedValues` and forgetting the array would silently
+ * mean that field is changed, saved, and never recorded in history — a data-loss bug with
+ * no failing test and no error message.
+ */
+type _AllVersionedFieldsListed = VersionedField extends (typeof VERSIONED_FIELDS)[number]
+  ? true
+  : ['Unlisted field in VersionedValues — add it to VERSIONED_FIELDS'];
+export const _allVersionedFieldsListed: _AllVersionedFieldsListed = true;
+
+/** The versioned fields whose old values are secret, and so are fetched one at a time. */
+export const SECRET_VERSIONED_FIELDS = [
+  'password',
+  'notes',
+  'securityQuestions',
+  'custom',
+] as const satisfies readonly VersionedField[];
+
+/**
+ * One historical state — **the values that were replaced**, not the values that replaced
+ * them.
+ *
+ * ## Why the delta points backwards
+ *
+ * Each version stores what the record held *before* the change it describes, so the state
+ * as of any version is reconstructed by starting from the current record and walking
+ * backwards. That direction is not arbitrary:
+ *
+ *  - **Pruning stays lossless for what remains.** Retention drops the *oldest* versions.
+ *    With backward deltas the retained versions are exactly the ones still reachable from
+ *    the present, so every version you can see, you can restore. Forward deltas would need
+ *    the pruned base to reconstruct anything at all, so pruning would silently break the
+ *    entries it left behind.
+ *  - **The current record is always intact.** There is no replay to get to "now", which is
+ *    the state that actually matters, and no way for a corrupt version to make the live
+ *    record unreadable.
+ *
+ * Only the changed fields are stored. A full copy per edit would grow without bound on a
+ * frequently-edited record, and would duplicate every unchanged secret once per save.
  */
 export interface CredentialVersion {
   readonly versionNumber: number;
+  /** When the change this version describes was made. */
   readonly savedAt: number;
-  readonly changedFields: readonly string[];
-  readonly snapshot: Partial<CredentialFields>;
+  readonly changedFields: readonly VersionedField[];
+  /** The previous values of `changedFields`. Keys are a subset of `changedFields`. */
+  readonly snapshot: VersionedValues;
   readonly origin: ChangeOrigin;
 }
 
@@ -166,6 +258,10 @@ export interface HistorySettings {
   readonly enabled: boolean;
   /** Oldest versions are pruned beyond this. `null` means unlimited. */
   readonly maxVersions: number | null;
+  /**
+   * Newest last, `versionNumber` strictly ascending and contiguous within the array.
+   * Numbers are never reused after pruning, so an exported timeline keeps its identifiers.
+   */
   readonly versions: readonly CredentialVersion[];
 }
 
@@ -224,6 +320,15 @@ export interface CredentialMeta {
   readonly useCount: number;
   readonly expiresAt: number | null;
   readonly rotationIntervalDays: number | null;
+  /**
+   * Where the record was created.
+   *
+   * On the record rather than in the version array, because creation has no *previous*
+   * state to snapshot — a version describing it would be an entry the timeline could not
+   * diff and the restore button could not act on. It is captured once and never changes,
+   * which is also what makes it the one origin that survives history being turned off.
+   */
+  readonly createdOrigin: ChangeOrigin;
 }
 
 export interface CredentialIcon {
@@ -270,11 +375,48 @@ export interface SecurityQuestionProjection {
   readonly hasAnswer: boolean;
 }
 
-/** One history entry as the renderer sees it: what and where, never the old values. */
+/**
+ * The previous values of one version, as the renderer is allowed to see them.
+ *
+ * Mirrors `CredentialProjection`'s rule exactly: the non-secret old values are present so
+ * a timeline can show `"Gmail" → "Google"` without a round trip, and the secret ones are
+ * present only as facts *about* themselves (`passwordLength`) so a mask renders at the
+ * right width. The old password itself is fetched one at a time through the broker, under
+ * the same rate limit and clipboard rules as the current one.
+ */
+export interface VersionedValuesProjection {
+  readonly title?: string;
+  readonly username?: string;
+  readonly email?: string;
+  readonly urls?: readonly string[];
+  readonly tags?: readonly string[];
+  readonly folderId?: string | null;
+  readonly favorite?: boolean;
+  readonly icon?: CredentialIcon;
+  readonly expiresAt?: number | null;
+  readonly rotationIntervalDays?: number | null;
+  /** Prompts only. The old answers are secret and are fetched by ref. */
+  readonly securityQuestions?: readonly SecurityQuestionProjection[];
+  /** Labels, types and non-secret values only. */
+  readonly custom?: readonly CustomFieldProjection[];
+  /** Present when the password changed. The length of the *old* password, never its value. */
+  readonly passwordLength?: number;
+  /** Present when the notes changed. The length of the *old* notes, never their text. */
+  readonly notesLength?: number;
+}
+
+/** One history entry as the renderer sees it: what changed, from where, and the safe half of it. */
 export interface VersionProjection {
   readonly versionNumber: number;
   readonly savedAt: number;
-  readonly changedFields: readonly string[];
+  readonly changedFields: readonly VersionedField[];
+  readonly snapshot: VersionedValuesProjection;
+  /**
+   * The changed fields whose previous value is secret, so the UI knows which rows get a
+   * reveal button rather than a value. Derived here rather than in the renderer, so the
+   * classification lives in one place (`SECRET_VERSIONED_FIELDS`).
+   */
+  readonly secretFields: readonly VersionedField[];
   readonly origin: ChangeOrigin;
 }
 
@@ -329,6 +471,48 @@ export type SecretRef =
   | { readonly kind: 'password'; readonly credentialId: string }
   | { readonly kind: 'notes'; readonly credentialId: string }
   | { readonly kind: 'security-answer'; readonly credentialId: string; readonly questionId: string }
-  | { readonly kind: 'custom-value'; readonly credentialId: string; readonly fieldId: string };
+  | { readonly kind: 'custom-value'; readonly credentialId: string; readonly fieldId: string }
+  | {
+      readonly kind: 'historic-password';
+      readonly credentialId: string;
+      readonly versionNumber: number;
+    }
+  | {
+      readonly kind: 'historic-notes';
+      readonly credentialId: string;
+      readonly versionNumber: number;
+    }
+  | {
+      readonly kind: 'historic-answer';
+      readonly credentialId: string;
+      readonly versionNumber: number;
+      readonly questionId: string;
+    }
+  | {
+      readonly kind: 'historic-custom';
+      readonly credentialId: string;
+      readonly versionNumber: number;
+      readonly fieldId: string;
+    };
 
-export const SECRET_REF_KINDS = ['password', 'notes', 'security-answer', 'custom-value'] as const;
+/**
+ * The four `historic-*` kinds mirror the four live ones exactly, one for one.
+ *
+ * They are separate kinds rather than an optional `versionNumber` on the live refs because
+ * an optional field would make "reveal the current password" and "reveal a password from
+ * two years ago" the same request with a property missing — and a dropped property is the
+ * kind of mistake that produces the *wrong* secret rather than an error.
+ *
+ * A historic reveal goes through the same broker, the same rate limit and the same
+ * clipboard rules as a live one. An old password is still a password.
+ */
+export const SECRET_REF_KINDS = [
+  'password',
+  'notes',
+  'security-answer',
+  'custom-value',
+  'historic-password',
+  'historic-notes',
+  'historic-answer',
+  'historic-custom',
+] as const;

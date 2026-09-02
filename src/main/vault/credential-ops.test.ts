@@ -192,9 +192,9 @@ describe('applying a patch', () => {
         'securityQuestions',
         { fields: { securityQuestions: [{ id: 'q1', question: 'Pet?', answer: 'Rex' }] } },
       ],
-      ['history.enabled', { history: { enabled: !credential.history.enabled } }],
-      ['meta.expiresAt', { meta: { expiresAt: 123 } }],
-      ['meta.rotationIntervalDays', { meta: { rotationIntervalDays: 90 } }],
+      ['historyEnabled', { history: { enabled: !credential.history.enabled } }],
+      ['expiresAt', { meta: { expiresAt: 123 } }],
+      ['rotationIntervalDays', { meta: { rotationIntervalDays: 90 } }],
     ];
 
     for (const [name, patch] of cases) {
@@ -248,7 +248,7 @@ describe('duplicating', () => {
           {
             versionNumber: 1,
             savedAt: 1,
-            changedFields: ['password'],
+            changedFields: ['password' as const],
             snapshot: { password: 'old' },
             origin: { action: 'update' as const },
           },

@@ -98,6 +98,9 @@ export function requireSecretRef(channel: string, value: unknown): SecretRef {
   }
 
   const credentialId = requireId(channel, value.credentialId, 'ref.credentialId');
+  // Read lazily: the live kinds carry no version number, and demanding one up front would
+  // reject every ordinary reveal.
+  const version = (): number => requireVersionNumber(channel, value.versionNumber);
 
   switch (kind as SecretRef['kind']) {
     case 'password':
@@ -116,7 +119,40 @@ export function requireSecretRef(channel: string, value: unknown): SecretRef {
         credentialId,
         fieldId: requireId(channel, value.fieldId, 'ref.fieldId'),
       };
+    case 'historic-password':
+      return { kind: 'historic-password', credentialId, versionNumber: version() };
+    case 'historic-notes':
+      return { kind: 'historic-notes', credentialId, versionNumber: version() };
+    case 'historic-answer':
+      return {
+        kind: 'historic-answer',
+        credentialId,
+        versionNumber: version(),
+        questionId: requireId(channel, value.questionId, 'ref.questionId'),
+      };
+    case 'historic-custom':
+      return {
+        kind: 'historic-custom',
+        credentialId,
+        versionNumber: version(),
+        fieldId: requireId(channel, value.fieldId, 'ref.fieldId'),
+      };
   }
+}
+
+/**
+ * Version numbers are positive integers, and nothing else.
+ *
+ * A float, a negative or a `NaN` would sail through a `typeof value === 'number'` check
+ * and then be compared against real version numbers, matching nothing — which looks like
+ * "that version was pruned" rather than "the renderer sent something malformed". They are
+ * different bugs and should not present identically.
+ */
+function requireVersionNumber(channel: string, value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw new IpcValidationError(channel, 'ref.versionNumber must be a positive integer');
+  }
+  return value;
 }
 
 export interface ListOptions {
