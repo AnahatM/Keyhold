@@ -6,7 +6,8 @@ import { CreateVaultScreen } from './vault/CreateVaultScreen.js';
 import { UnlockScreen } from './vault/UnlockScreen.js';
 import { VaultScreen } from './vault/VaultScreen.js';
 import { WelcomeScreen } from './vault/WelcomeScreen.js';
-import { useSession, watchSession } from './vault/session-store.js';
+import { ClearToastsOnLock } from './vault/ClearToastsOnLock.js';
+import { useSession, watchSession, type Screen } from './vault/session-store.js';
 import './App.css';
 
 /**
@@ -68,6 +69,17 @@ export function App(): React.JSX.Element {
     );
   }
 
+  return (
+    <>
+      {/* Mounted outside the switch, so it is watching across every screen change — a lock
+          is precisely the moment one screen is being replaced by another. */}
+      <ClearToastsOnLock />
+      <ScreenView screen={screen} />
+    </>
+  );
+}
+
+function ScreenView({ screen }: { readonly screen: Screen }): React.JSX.Element {
   switch (screen) {
     case 'create':
       return <CreateVaultScreen />;

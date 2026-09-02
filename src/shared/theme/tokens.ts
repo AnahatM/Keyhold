@@ -210,8 +210,26 @@ export const CONTRAST_REQUIREMENTS: readonly ContrastRequirement[] = [
     note: 'informational message',
   },
   { foreground: 'info-text', background: 'surface', minimum: 4.5, note: 'info text on a panel' },
+  {
+    foreground: 'info-text',
+    background: 'surface-raised',
+    minimum: 4.5,
+    note: 'the "this is taking a while" note inside a modal',
+  },
+  {
+    foreground: 'success',
+    background: 'surface',
+    minimum: 3,
+    note: 'the all-clear icon on an empty state — an icon, so SC 1.4.11 applies',
+  },
 
   // ── Non-text contrast, WCAG 2.2 SC 1.4.11 ──────────────────────────────────
+  {
+    foreground: 'border-strong',
+    background: 'surface-raised',
+    minimum: 3,
+    note: 'a tooltip or popover outline drawn over a card',
+  },
   {
     foreground: 'border-strong',
     background: 'bg',

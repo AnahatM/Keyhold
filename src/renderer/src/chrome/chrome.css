@@ -1,0 +1,404 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The app chrome: toasts, modals, tooltips, progress, empty states.
+ *
+ * Every colour is a `--kh-color-*` token — hard rule 4. Nothing here declares a literal
+ * colour, including the scrim, which uses the `overlay` token rather than an rgba() guess
+ * so it stays correct in a user's custom theme.
+ *
+ * Every duration is multiplied by `--kh-motion-scale`, which the reduced-motion setting
+ * drops to zero. Where a frozen animation would remove information rather than just
+ * decoration — the indeterminate progress bar — there is an explicit
+ * `prefers-reduced-motion` fallback rather than a faster animation.
+ */
+
+/* ── Toasts ────────────────────────────────────────────────────────────────── */
+
+.kh-toasts {
+  position: fixed;
+  right: var(--kh-space-4);
+  bottom: var(--kh-space-4);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  align-items: flex-end;
+  max-width: min(420px, calc(100vw - var(--kh-space-6)));
+
+  /*
+   * Transparent to the pointer, so the corner of the app stays clickable when the stack is
+   * empty — and, more importantly, when it is not: an invisible container stretched over a
+   * pane would swallow clicks a user cannot see are being intercepted. The toasts
+   * themselves take pointer events back.
+   */
+  pointer-events: none;
+}
+
+.kh-toasts__region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  pointer-events: none;
+}
+
+/* An empty live region must not add a gap; it is present in the DOM at all times so that
+   assistive tech is already watching it when the first message lands. */
+.kh-toasts__region:empty {
+  display: none;
+}
+
+.kh-toasts__queued {
+  padding-right: var(--kh-space-1);
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-toast {
+  display: flex;
+  gap: var(--kh-space-3);
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--kh-space-3) var(--kh-space-3) var(--kh-space-3) var(--kh-space-4);
+  background: var(--kh-color-surface-raised);
+  color: var(--kh-color-text);
+  border: 1px solid var(--kh-color-border);
+  border-left: 3px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-md);
+  box-shadow: var(--kh-shadow-lg);
+  pointer-events: auto;
+  animation: kh-toast-in var(--kh-duration-base) var(--kh-ease);
+}
+
+/*
+ * At --kh-motion-scale: 0 the duration becomes 0s and the toast simply appears at its final
+ * position. That is the correct reduced-motion outcome: no movement, no information lost,
+ * because a toast's meaning is in its text and never in how it arrived.
+ */
+@keyframes kh-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--kh-space-3));
+  }
+}
+
+.kh-toast__symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.25em;
+  height: 1.25em;
+  margin-top: 0.1em;
+  font-weight: var(--kh-weight-semibold);
+  border-radius: var(--kh-radius-full);
+}
+
+.kh-toast__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.kh-toast__title {
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.kh-toast__count {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-normal);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-toast__description {
+  margin-top: var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.kh-toast__action {
+  flex: none;
+  align-self: center;
+}
+
+/* Colour is not restated here: `.kh-button--ghost` already owns it. */
+.kh-toast__dismiss {
+  flex: none;
+}
+
+/*
+ * Tone is carried by the left rule and the symbol's tint. The symbol glyph itself is the
+ * non-colour signal (WCAG 1.4.1) — the colour only reinforces what the shape already says.
+ */
+.kh-toast--success {
+  border-left-color: var(--kh-color-success);
+}
+.kh-toast--success .kh-toast__symbol {
+  background: var(--kh-color-success-subtle);
+  color: var(--kh-color-success-text);
+}
+
+.kh-toast--info {
+  border-left-color: var(--kh-color-info);
+}
+.kh-toast--info .kh-toast__symbol {
+  background: var(--kh-color-info-subtle);
+  color: var(--kh-color-info-text);
+}
+
+.kh-toast--warning {
+  border-left-color: var(--kh-color-warning);
+}
+.kh-toast--warning .kh-toast__symbol {
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+}
+
+.kh-toast--error {
+  border-left-color: var(--kh-color-danger);
+}
+.kh-toast--error .kh-toast__symbol {
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+}
+
+/* ── Modal ─────────────────────────────────────────────────────────────────── */
+
+.kh-modal {
+  width: min(560px, calc(100vw - var(--kh-space-7)));
+  max-height: calc(100vh - var(--kh-space-7));
+  padding: 0;
+  overflow: hidden;
+  background: var(--kh-color-surface-raised);
+  color: var(--kh-color-text);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  box-shadow: var(--kh-shadow-lg);
+}
+
+.kh-modal--sm {
+  width: min(420px, calc(100vw - var(--kh-space-7)));
+}
+.kh-modal--lg {
+  width: min(820px, calc(100vw - var(--kh-space-7)));
+}
+
+/*
+ * The scrim. `overlay` is a real palette token rather than a hardcoded rgba(), so every
+ * theme — including a user's own — gets a scrim its author chose. The token is opaque by
+ * design (it is a colour, not a colour-with-an-alpha), so the translucency lives here as
+ * `opacity`, which keeps the palette free of baked-in compositing decisions.
+ */
+.kh-modal::backdrop {
+  background: var(--kh-color-overlay);
+  opacity: 0.62;
+}
+
+.kh-modal__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  max-height: inherit;
+  padding: var(--kh-space-5);
+}
+
+.kh-modal__header {
+  display: flex;
+  gap: var(--kh-space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.kh-modal__title {
+  font-size: var(--kh-text-lg);
+  font-weight: var(--kh-weight-semibold);
+  line-height: var(--kh-leading-tight);
+}
+
+.kh-modal__close {
+  flex: none;
+  margin: calc(-1 * var(--kh-space-1)) calc(-1 * var(--kh-space-2)) 0 0;
+}
+
+.kh-modal__description {
+  font-size: var(--kh-text-base);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-modal__content {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.kh-modal__footer {
+  display: flex;
+  gap: var(--kh-space-2);
+  justify-content: flex-end;
+  margin-top: var(--kh-space-2);
+}
+
+/* ── Confirm ───────────────────────────────────────────────────────────────── */
+
+.kh-confirm__consequence {
+  display: flex;
+  gap: var(--kh-space-2);
+  align-items: flex-start;
+  padding: var(--kh-space-3);
+  font-size: var(--kh-text-base);
+  background: var(--kh-color-surface-sunken);
+  color: var(--kh-color-text);
+  border-radius: var(--kh-radius-md);
+}
+
+/* The tint reinforces the sentence; it never replaces it. */
+.kh-confirm__consequence--destructive {
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+}
+
+.kh-confirm__symbol {
+  flex: none;
+  font-weight: var(--kh-weight-semibold);
+}
+
+/* ── Tooltip ───────────────────────────────────────────────────────────────── */
+
+/*
+ * `display: contents` would be tidier — the wrapper would add no box at all — but it
+ * removes the element from the layout tree, and with it the pointer events this component
+ * depends on. An inline-flex wrapper is the smallest thing that still receives them.
+ */
+.kh-tooltip__anchor {
+  display: inline-flex;
+}
+
+.kh-tooltip {
+  position: fixed;
+  z-index: 60;
+  max-width: 32ch;
+  padding: var(--kh-space-1) var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+  background: var(--kh-color-surface-raised);
+  color: var(--kh-color-text);
+  border: 1px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-sm);
+  box-shadow: var(--kh-shadow-md);
+
+  /* The pointer can rest on it (SC 1.4.13 "hoverable") but it never intercepts a click
+     meant for what is underneath. */
+  pointer-events: auto;
+}
+
+/* ── Progress ──────────────────────────────────────────────────────────────── */
+
+.kh-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-progress__label {
+  display: flex;
+  gap: var(--kh-space-3);
+  justify-content: space-between;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-progress__value {
+  font-variant-numeric: tabular-nums;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-progress__track {
+  position: relative;
+  height: var(--kh-space-2);
+  overflow: hidden;
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-full);
+}
+
+.kh-progress__fill {
+  height: 100%;
+  background: var(--kh-color-accent);
+  border-radius: inherit;
+  transition: width var(--kh-duration-base) var(--kh-ease);
+}
+
+.kh-progress__track--success .kh-progress__fill {
+  background: var(--kh-color-success);
+}
+.kh-progress__track--warning .kh-progress__fill {
+  background: var(--kh-color-warning);
+}
+.kh-progress__track--danger .kh-progress__fill {
+  background: var(--kh-color-danger);
+}
+
+/*
+ * The indeterminate sweep: a short band travelling across a full-width fill.
+ * `--kh-motion-scale` scales the duration, which at zero freezes it — see the
+ * reduced-motion block below, which is why that freeze does not leave a blank bar.
+ */
+.kh-progress__fill--indeterminate {
+  background: linear-gradient(
+    90deg,
+    var(--kh-color-surface-sunken) 0%,
+    var(--kh-color-accent) 50%,
+    var(--kh-color-surface-sunken) 100%
+  );
+  background-size: 250% 100%;
+  transition: none;
+  animation: kh-progress-sweep calc(1400ms * var(--kh-motion-scale)) linear infinite;
+}
+
+@keyframes kh-progress-sweep {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/*
+ * Reduced motion is not "the same animation, faster" — it is no animation. But an
+ * indeterminate bar with a frozen sweep is a bar that looks broken, which is the exact
+ * impression this component exists to prevent. So the sweep is replaced with a steady
+ * partial fill: still visible, still obviously a progress bar, and the label and
+ * `aria-busy` carry the rest.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .kh-progress__fill--indeterminate {
+    background: var(--kh-color-accent);
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.kh-progress__note {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-progress__note--slow {
+  color: var(--kh-color-info-text);
+}
+
+/* ── Empty states ──────────────────────────────────────────────────────────── */
+
+.kh-empty-state {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The one empty state that is good news gets to say so. */
+.kh-empty-state--success .kh-empty__icon {
+  color: var(--kh-color-success);
+}
