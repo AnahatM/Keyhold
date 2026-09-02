@@ -309,3 +309,331 @@
   content: '· ';
   color: var(--kh-color-text-subtle);
 }
+
+/* ── Credential list (Phase 5) ─────────────────────────────────────────────── */
+
+.kh-list__search {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-2) var(--kh-space-3);
+  border-bottom: 1px solid var(--kh-color-border);
+}
+
+.kh-list__search > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.kh-list__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.kh-list__toggle input {
+  accent-color: var(--kh-color-accent);
+  cursor: pointer;
+}
+
+/* The virtualised viewport. Only the rows in view are mounted; the spacer inside keeps
+   the scrollbar honest about the full list length. */
+.kh-rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.kh-row {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-3);
+  width: 100%;
+  padding: 0 var(--kh-space-3);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--kh-color-border);
+  color: var(--kh-color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.kh-row:hover {
+  background: var(--kh-color-surface-hover);
+}
+
+/* Selection is a fill AND a left bar, never colour alone. */
+.kh-row[aria-selected='true'] {
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+  box-shadow: inset 3px 0 0 var(--kh-color-accent);
+}
+
+.kh-row__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-row__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.kh-row__title {
+  overflow: hidden;
+  font-weight: var(--kh-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kh-row__subtitle {
+  overflow: hidden;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kh-row__flag {
+  color: var(--kh-color-warning);
+  flex-shrink: 0;
+}
+
+/* ── Detail pane ───────────────────────────────────────────────────────────── */
+
+.kh-detail {
+  max-width: 46rem;
+  padding: var(--kh-space-5);
+}
+
+.kh-detail__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kh-space-3);
+}
+
+.kh-detail__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  font-size: var(--kh-text-lg);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-detail__heading {
+  min-width: 0;
+}
+
+.kh-detail__title {
+  font-size: var(--kh-text-xl);
+  font-weight: var(--kh-weight-semibold);
+  letter-spacing: -0.01em;
+  word-break: break-word;
+}
+
+.kh-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-1);
+  margin-top: var(--kh-space-1);
+}
+
+.kh-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-4) 0;
+}
+
+.kh-detail__warning {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-danger-text);
+}
+
+.kh-detail__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-4) 0;
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-detail__heading {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-detail__hint {
+  max-width: 62ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-detail__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--kh-space-3);
+}
+
+.kh-detail__meta dt {
+  font-size: var(--kh-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-detail__meta dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Fields ────────────────────────────────────────────────────────────────── */
+
+.kh-secret-field {
+  display: grid;
+  grid-template-columns: 9rem 1fr auto;
+  align-items: center;
+  gap: var(--kh-space-2);
+  min-height: var(--kh-control-height);
+}
+
+.kh-secret-field--multiline {
+  grid-template-columns: 9rem 1fr auto;
+  align-items: start;
+}
+
+.kh-secret-field__label {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  overflow-wrap: break-word;
+}
+
+.kh-secret-field__value {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.kh-secret-field__mask {
+  color: var(--kh-color-text-subtle);
+  letter-spacing: 0.1em;
+}
+
+.kh-secret-field__revealed {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.kh-secret-field__empty {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+  font-style: italic;
+}
+
+.kh-secret-field__actions {
+  display: flex;
+  gap: 2px;
+}
+
+.kh-secret-field__error {
+  grid-column: 1 / -1;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-danger-text);
+}
+
+/* ── Editor ────────────────────────────────────────────────────────────────── */
+
+.kh-editor {
+  gap: var(--kh-space-3);
+}
+
+.kh-editor__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--kh-space-2);
+}
+
+.kh-editor__row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.kh-editor__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-editor__type select {
+  min-height: var(--kh-control-height);
+  padding: 0 var(--kh-space-2);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  color: var(--kh-color-text);
+}
+
+.kh-textarea {
+  width: 100%;
+  padding: var(--kh-space-2) var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  color: var(--kh-color-text);
+  font-family: var(--kh-font-secret);
+  font-size: var(--kh-text-base);
+  resize: vertical;
+}
+
+.kh-textarea:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 1px;
+  border-color: var(--kh-color-accent);
+}
+
+/* ── Undo ──────────────────────────────────────────────────────────────────── */
+
+.kh-undo {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  margin: var(--kh-space-4) var(--kh-space-5) 0;
+  padding: var(--kh-space-2) var(--kh-space-3);
+  background: var(--kh-color-info-subtle);
+  color: var(--kh-color-info-text);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-undo > :first-child {
+  flex: 1;
+}

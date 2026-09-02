@@ -137,7 +137,68 @@ export function runSmokeCheck(window: BrowserWindow): void {
         if (!reopened.ok) return { stage: 'cycle', ok: false, steps, detail: reopened.message };
 
         const list = await window.keyhold.credentials.list();
-        steps.push(['list', list.ok === true && Array.isArray(list.value)]);
+        steps.push(['list-empty', list.ok === true && list.value.length === 0]);
+
+        // Full CRUD against a real vault: create, read back a secret, edit, duplicate,
+        // trash, restore, purge. Every layer is unit-tested; only this proves they are
+        // wired to each other through the bridge.
+        const made = await window.keyhold.credentials.create({
+          title: 'Smoke Test Account',
+          username: 'someone',
+          email: 'someone@example.com',
+          password: 'a-secret-value-9182',
+          urls: ['https://example.com'],
+          notes: 'a note that must never appear in a projection',
+          tags: ['smoke', 'test'],
+        });
+        steps.push(['create-record', made.ok]);
+        if (!made.ok) return { stage: 'cycle', ok: false, steps, detail: made.message };
+
+        const id = made.value.id;
+
+        // THE boundary check, made against the live IPC surface rather than a unit test:
+        // nothing the list returns may contain the password or the note.
+        const after = await window.keyhold.credentials.list();
+        const serialised = JSON.stringify(after);
+        steps.push(['projection-has-no-password', !serialised.includes('a-secret-value-9182')]);
+        steps.push(['projection-has-no-notes', !serialised.includes('must never appear')]);
+        steps.push(['projection-has-title', serialised.includes('Smoke Test Account')]);
+
+        const revealed = await window.keyhold.credentials.revealSecret({
+          kind: 'password',
+          credentialId: id,
+        });
+        steps.push(['reveal-password', revealed.ok === true && revealed.value === 'a-secret-value-9182']);
+
+        const deep = await window.keyhold.credentials.deepSearch('must never appear');
+        steps.push(['deep-search-finds-note', deep.ok === true && deep.value.includes(id)]);
+        steps.push(['deep-search-returns-ids-only', deep.ok === true && !JSON.stringify(deep.value).includes('must never')]);
+
+        const edited = await window.keyhold.credentials.update(id, { title: 'Renamed' });
+        steps.push(['update', edited.ok === true && edited.value !== null && edited.value.changedFields.includes('title')]);
+
+        const noop = await window.keyhold.credentials.update(id, { title: 'Renamed' });
+        steps.push(['noop-update-reports-no-change', noop.ok === true && noop.value !== null && noop.value.changedFields.length === 0]);
+
+        const copied = await window.keyhold.credentials.duplicate(id);
+        steps.push(['duplicate', copied.ok === true && copied.value !== null && copied.value.id !== id]);
+
+        const trashed = await window.keyhold.credentials.trash(id);
+        steps.push(['trash', trashed.ok === true && trashed.value === true]);
+
+        const live = await window.keyhold.credentials.list();
+        steps.push(['trashed-hidden-by-default', live.ok === true && !live.value.some((c) => c.id === id)]);
+
+        const withTrash = await window.keyhold.credentials.list({ includeTrashed: true });
+        steps.push(['trashed-visible-on-request', withTrash.ok === true && withTrash.value.some((c) => c.id === id)]);
+
+        const restored = await window.keyhold.credentials.restore(id);
+        steps.push(['restore', restored.ok === true && restored.value === true]);
+
+        const purged = await window.keyhold.credentials.purge(id);
+        steps.push(['purge', purged.ok === true && purged.value === true]);
+
+        await window.keyhold.vault.save();
 
         return { stage: 'cycle', ok: steps.every((s) => s[1] === true), steps };
       })()
@@ -163,15 +224,23 @@ export function runSmokeCheck(window: BrowserWindow): void {
           return;
         }
         if (report.ok !== true) {
+          // Name the checks that actually failed. A guard reporting "something went wrong"
+          // costs as much time as no guard — the point of running twenty is knowing which
+          // one broke.
+          const steps = Array.isArray(report.steps) ? (report.steps as [string, boolean][]) : [];
+          const failed = steps.filter(([, ok]) => !ok).map(([name]) => name);
+
           finish(
             false,
-            `IPC round-trip returned an unexpected result: ${JSON.stringify(report.result)}`
+            failed.length > 0
+              ? `failed checks: ${failed.join(', ')}`
+              : `stage "${String(report.stage)}": ${JSON.stringify(report.detail ?? report.result)}`
           );
           return;
         }
         const detail =
           report.stage === 'cycle'
-            ? 'window, renderer, bridge, and a full create -> lock -> unlock cycle against a real vault file'
+            ? `window, renderer, bridge, and ${String((report.steps as unknown[] | undefined)?.length ?? 0)} checks covering create -> lock -> unlock and full CRUD against a real vault file`
             : 'window created, renderer loaded, preload bridge present, IPC round-trip OK';
         finish(true, detail);
       })

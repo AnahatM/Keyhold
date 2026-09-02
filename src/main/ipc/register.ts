@@ -9,6 +9,10 @@ import {
 } from 'electron';
 import { CHANNELS, EVENTS, type IpcResult } from '@shared/ipc/api.js';
 import {
+  requireCredentialEdit,
+  requireCredentialInput,
+} from '@shared/ipc/credential-validation.js';
+import {
   IpcValidationError,
   requireId,
   requireListOptions,
@@ -219,6 +223,73 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.credentialsDeepSearch, (query) =>
     vault.deepSearch(requireNonEmptyString(CHANNELS.credentialsDeepSearch, query, 'query'))
   );
+
+  handle(CHANNELS.credentialsCreate, (input) =>
+    vault.createCredential(requireCredentialInput(CHANNELS.credentialsCreate, input))
+  );
+
+  handle(CHANNELS.credentialsUpdate, (credentialId, edit) => {
+    const id = requireId(CHANNELS.credentialsUpdate, credentialId, 'credentialId');
+    const parsed = requireCredentialEdit(CHANNELS.credentialsUpdate, edit);
+
+    // The IPC shape is flat because it is easier to send; the ops layer takes a nested
+    // patch because that is the shape of the record. Translating here keeps the awkwardness
+    // in one place rather than in every caller.
+    const result = vault.updateCredential(id, {
+      ...(parsed.title === undefined ? {} : { title: parsed.title }),
+      ...(parsed.favorite === undefined ? {} : { favorite: parsed.favorite }),
+      ...(parsed.folderId === undefined ? {} : { folderId: parsed.folderId }),
+      ...(parsed.tags === undefined ? {} : { tags: parsed.tags }),
+      ...(parsed.icon === undefined ? {} : { icon: parsed.icon }),
+      fields: {
+        ...(parsed.username === undefined ? {} : { username: parsed.username }),
+        ...(parsed.email === undefined ? {} : { email: parsed.email }),
+        ...(parsed.password === undefined ? {} : { password: parsed.password }),
+        ...(parsed.urls === undefined ? {} : { urls: parsed.urls }),
+        ...(parsed.notes === undefined ? {} : { notes: parsed.notes }),
+        ...(parsed.securityQuestions === undefined
+          ? {}
+          : { securityQuestions: parsed.securityQuestions }),
+        ...(parsed.custom === undefined ? {} : { custom: parsed.custom }),
+      },
+      meta: {
+        ...(parsed.expiresAt === undefined ? {} : { expiresAt: parsed.expiresAt }),
+        ...(parsed.rotationIntervalDays === undefined
+          ? {}
+          : { rotationIntervalDays: parsed.rotationIntervalDays }),
+      },
+      ...(parsed.historyEnabled === undefined
+        ? {}
+        : { history: { enabled: parsed.historyEnabled } }),
+    });
+
+    return result === null
+      ? null
+      : { projection: result.projection, changedFields: [...result.changedFields] };
+  });
+
+  handle(CHANNELS.credentialsDuplicate, (credentialId) =>
+    vault.duplicateCredential(
+      requireId(CHANNELS.credentialsDuplicate, credentialId, 'credentialId')
+    )
+  );
+
+  handle(CHANNELS.credentialsTrash, (credentialId) =>
+    vault.trashCredential(requireId(CHANNELS.credentialsTrash, credentialId, 'credentialId'))
+  );
+
+  handle(CHANNELS.credentialsRestore, (credentialId) =>
+    vault.restoreCredential(requireId(CHANNELS.credentialsRestore, credentialId, 'credentialId'))
+  );
+
+  handle(CHANNELS.credentialsPurge, (credentialId) =>
+    vault.purgeCredential(requireId(CHANNELS.credentialsPurge, credentialId, 'credentialId'))
+  );
+
+  handle(CHANNELS.credentialsMarkUsed, (credentialId) => {
+    vault.markUsed(requireId(CHANNELS.credentialsMarkUsed, credentialId, 'credentialId'));
+    return null;
+  });
 }
 
 /**

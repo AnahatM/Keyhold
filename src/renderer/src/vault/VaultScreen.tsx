@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useEffect, useState, type ReactNode } from 'react';
-import { Badge, EmptyState } from '../components/Feedback.js';
 import { Button } from '../components/Button.js';
 import { AppShell } from '../shell/AppShell.js';
+import { CredentialDetail, NoSelection } from './CredentialDetail.js';
+import { CredentialEditor } from './CredentialEditor.js';
+import { CredentialList } from './CredentialList.js';
+import { useCredentials } from './credential-store.js';
 import { useSession } from './session-store.js';
 import './vault-screens.css';
 
@@ -20,10 +23,11 @@ export function VaultScreen({
   readonly appearancePanel: ReactNode;
 }): React.JSX.Element {
   const { status, credentials, lock } = useSession();
+  const { selectedId, editing, select, setShowTrash, showTrash } = useCredentials();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const selected = credentials.find((credential) => credential.id === selectedId);
   const vault = status?.vault ?? null;
-  const quickUnlock = status?.quickUnlock;
 
   return (
     <AppShell
@@ -57,17 +61,29 @@ export function VaultScreen({
 
           <nav className="kh-sidebar__nav">
             <div className="kh-sidebar__group">Vault</div>
-            {[
-              { label: 'All items', count: vault?.recordCount ?? 0 },
-              { label: 'Favourites', count: 0 },
-              { label: 'Trash', count: vault?.trashedCount ?? 0 },
-            ].map((item) => (
-              <button key={item.label} type="button" className="kh-sidebar__item" disabled>
-                <span>{item.label}</span>
-                <span className="kh-sidebar__count">{item.count}</span>
-              </button>
-            ))}
-            <p className="kh-sidebar__note">Folders and tags arrive in Phase 7.</p>
+            <button
+              type="button"
+              className="kh-sidebar__item"
+              aria-current={!showTrash}
+              onClick={() => {
+                setShowTrash(false);
+              }}
+            >
+              <span>All items</span>
+              <span className="kh-sidebar__count">{vault?.recordCount ?? 0}</span>
+            </button>
+            <button
+              type="button"
+              className="kh-sidebar__item"
+              aria-current={showTrash}
+              onClick={() => {
+                setShowTrash(true);
+              }}
+            >
+              <span>Trash</span>
+              <span className="kh-sidebar__count">{vault?.trashedCount ?? 0}</span>
+            </button>
+            <p className="kh-sidebar__note">Folders, tags and favourites arrive in Phase 7.</p>
           </nav>
 
           <div className="kh-sidebar__footer">
@@ -84,84 +100,25 @@ export function VaultScreen({
           </div>
         </div>
       }
-      list={
-        <div className="kh-list">
-          <header className="kh-list__header">
-            <h1 className="kh-list__title">Credentials</h1>
-            <Badge tone="info" symbol="●">
-              Phase 4
-            </Badge>
-          </header>
-
-          {credentials.length === 0 ? (
-            <EmptyState
-              icon="🗝"
-              title="This vault is empty"
-              description="Adding, editing and deleting credentials arrives in Phase 5. The vault itself is real — it is encrypted on disk and it just opened."
-            />
-          ) : (
-            <ul className="kh-credential-list">
-              {credentials.map((credential) => (
-                <li key={credential.id} className="kh-credential-list__item">
-                  <span className="kh-credential-list__title">{credential.title}</span>
-                  <span className="kh-credential-list__subtitle">
-                    {credential.username || credential.email || '—'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      }
+      hasSelection={selectedId !== null || editing}
+      onBack={() => {
+        select(null);
+      }}
+      list={<CredentialList />}
       detail={
         <div className="kh-detail-stack">
-          {vault !== null && (
-            <section className="kh-panel">
-              <header className="kh-panel__header">
-                <h2 className="kh-panel__title">{vault.displayName}</h2>
-                <p className="kh-panel__subtitle">
-                  <code className="kh-path">{vault.path}</code>
-                </p>
-              </header>
-
-              <dl className="kh-vault-facts">
-                <div>
-                  <dt>Items</dt>
-                  <dd>{vault.recordCount}</dd>
-                </div>
-                <div>
-                  <dt>In trash</dt>
-                  <dd>{vault.trashedCount}</dd>
-                </div>
-                <div>
-                  <dt>Attachments</dt>
-                  <dd>{vault.attachmentCount}</dd>
-                </div>
-                <div>
-                  <dt>Saves</dt>
-                  <dd>{vault.generation}</dd>
-                </div>
-                <div>
-                  <dt>Created</dt>
-                  <dd>{new Date(vault.createdAt).toLocaleDateString()}</dd>
-                </div>
-                <div>
-                  <dt>Last saved</dt>
-                  <dd>{new Date(vault.modifiedAt).toLocaleString()}</dd>
-                </div>
-              </dl>
-
-              {quickUnlock !== undefined && quickUnlock.available && (
-                <QuickUnlockCard
-                  description={quickUnlock.description}
-                  enrolled={quickUnlock.enrolledForThisVault}
-                  promptsForBiometrics={quickUnlock.promptsForBiometrics}
-                />
-              )}
-            </section>
+          <UndoBar />
+          {editing ? (
+            <CredentialEditor credential={selected ?? null} />
+          ) : selected !== undefined ? (
+            <CredentialDetail credential={selected} />
+          ) : (
+            <>
+              <NoSelection />
+              <VaultOverview />
+              {appearancePanel}
+            </>
           )}
-
-          {appearancePanel}
         </div>
       }
     />
@@ -265,5 +222,96 @@ function ClipboardIndicator(): React.JSX.Element | null {
     <p className="kh-clipboard" aria-live="polite">
       <span aria-hidden="true">📋</span> Clipboard clears in {Math.ceil(remaining / 1000)}s
     </p>
+  );
+}
+
+/**
+ * Vault-level facts and the quick-unlock offer.
+ *
+ * Shown when nothing is selected rather than always: with a record open, the record is
+ * what the user came for, and a panel of vault statistics above it is noise.
+ */
+function VaultOverview(): React.JSX.Element | null {
+  const { status } = useSession();
+  const vault = status?.vault ?? null;
+  const quickUnlock = status?.quickUnlock;
+
+  if (vault === null) return null;
+
+  return (
+    <section className="kh-panel">
+      <header className="kh-panel__header">
+        <h2 className="kh-panel__title">{vault.displayName}</h2>
+        <p className="kh-panel__subtitle">
+          <code className="kh-path">{vault.path}</code>
+        </p>
+      </header>
+
+      <dl className="kh-vault-facts">
+        <div>
+          <dt>Items</dt>
+          <dd>{vault.recordCount}</dd>
+        </div>
+        <div>
+          <dt>In trash</dt>
+          <dd>{vault.trashedCount}</dd>
+        </div>
+        <div>
+          <dt>Attachments</dt>
+          <dd>{vault.attachmentCount}</dd>
+        </div>
+        <div>
+          <dt>Saves</dt>
+          <dd>{vault.generation}</dd>
+        </div>
+        <div>
+          <dt>Created</dt>
+          <dd>{new Date(vault.createdAt).toLocaleDateString()}</dd>
+        </div>
+        <div>
+          <dt>Last saved</dt>
+          <dd>{new Date(vault.modifiedAt).toLocaleString()}</dd>
+        </div>
+      </dl>
+
+      {quickUnlock !== undefined && quickUnlock.available && (
+        <QuickUnlockCard
+          description={quickUnlock.description}
+          enrolled={quickUnlock.enrolledForThisVault}
+          promptsForBiometrics={quickUnlock.promptsForBiometrics}
+        />
+      )}
+    </section>
+  );
+}
+
+/**
+ * The undo affordance for a destructive action.
+ *
+ * Every destructive action here offers undo, which is only possible because the operations
+ * are non-destructive underneath — trashing sets a flag, so undo clears it. Permanent
+ * deletion is the one exception, and is therefore the one action that asks first instead.
+ */
+function UndoBar(): React.JSX.Element | null {
+  const { lastAction, clearUndo, busy } = useCredentials();
+  if (lastAction === null) return null;
+
+  return (
+    <div className="kh-undo" role="status">
+      <span>{lastAction.label}</span>
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={busy}
+        onClick={() => {
+          void lastAction.undo();
+        }}
+      >
+        Undo
+      </Button>
+      <Button variant="ghost" size="sm" iconOnlyLabel="Dismiss" onClick={clearUndo}>
+        ✕
+      </Button>
+    </div>
   );
 }
