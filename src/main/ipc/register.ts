@@ -7,12 +7,16 @@ import {
   type OpenDialogOptions,
   type SaveDialogOptions,
 } from 'electron';
-import { CHANNELS, EVENTS, type IpcResult } from '@shared/ipc/api.js';
+import { CHANNELS, EVENTS, type IpcResult, type SettingsView } from '@shared/ipc/api.js';
 import {
   requireCredentialEdit,
   requireCredentialInput,
 } from '@shared/ipc/credential-validation.js';
 import { requireGeneratorOptions } from '@shared/ipc/generator-validation.js';
+import {
+  requireMachineSettingsPatch,
+  requireVaultSettingsPatch,
+} from '@shared/ipc/settings-validation.js';
 import {
   IpcValidationError,
   requireHealthOptions,
@@ -23,6 +27,9 @@ import {
   requireSecretRef,
   requireString,
   requireVaultPath,
+  requireFolderDeletePolicy,
+  requireIndex,
+  requireNullableId,
   requireVersionedField,
   requireVersionNumber,
 } from '@shared/ipc/validation.js';
@@ -35,6 +42,7 @@ import {
   GeneratorConfigurationError,
 } from '../generator/generator.js';
 import type { OriginCapture } from '../history/origin.js';
+import { OrganisationError } from '../organisation/errors.js';
 import { RateLimitExceededError } from '../vault/secret-broker.js';
 import type { SessionController } from '../session/session-controller.js';
 
@@ -75,6 +83,12 @@ function toFailure(error: unknown): IpcResult<never> {
   // back — so it is safe to surface verbatim, and useless if it is not.
   if (error instanceof GeneratorConfigurationError) {
     return { ok: false, code: 'INVALID_REQUEST', message: error.message, recoverable: true };
+  }
+  // A folder or tag operation the user can simply retry differently: a name that is only
+  // whitespace, a move that would nest a folder inside itself, a depth limit. Its message
+  // names the rule, never the user's text, so it is safe to surface and useless if it is not.
+  if (error instanceof OrganisationError) {
+    return { ok: false, code: error.code, message: error.message, recoverable: true };
   }
 
   // Anything else is a bug. Report that it happened, and deliberately NOT what it was: an
@@ -393,6 +407,120 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.historyClear, (credentialId) =>
     vault.clearHistory(requireId(CHANNELS.historyClear, credentialId, 'credentialId'))
   );
+
+  // ── settings ───────────────────────────────────────────────────────────────
+  //
+  // Two scopes, and keeping them apart is the whole point. Machine settings live in app
+  // preferences and stay on this computer; vault settings live inside the encrypted body and
+  // travel with the file. Mixing them would mean copying a vault to a second machine either
+  // silently changed that machine's behaviour or silently failed to carry a choice the user
+  // thought they had made.
+
+  const settingsView = (): SettingsView => {
+    const status = session.status();
+    const open = status.state === 'unlocked';
+    return {
+      machine: session.machineSettings(),
+      vault: open ? vault.settings() : null,
+      vaultPath: status.vault?.path ?? null,
+      kdf: open ? vault.kdfParams() : null,
+      historyVersionCount: open ? vault.historyVersionCount() : 0,
+    };
+  };
+
+  handle(CHANNELS.settingsRead, () => settingsView());
+
+  handle(CHANNELS.settingsUpdateMachine, (patch) => {
+    session.updateMachineSettings(
+      requireMachineSettingsPatch(CHANNELS.settingsUpdateMachine, patch)
+    );
+    return settingsView();
+  });
+
+  handle(CHANNELS.settingsUpdateVault, (patch) => {
+    vault.updateSettings(requireVaultSettingsPatch(CHANNELS.settingsUpdateVault, patch));
+    return settingsView();
+  });
+
+  /**
+   * Clears every record's history at once.
+   *
+   * Returns the count so the UI can say what it cost. Deliberately **not** itself versioned,
+   * for the same reason the per-record version is not: recording "all history was cleared,
+   * from DESKTOP-A, at 14:02" would defeat the point of the button.
+   */
+  handle(CHANNELS.settingsClearAllHistory, () => vault.clearAllHistory());
+
+  // ── folders and tags ───────────────────────────────────────────────────────
+  //
+  // Every operation answers with the whole snapshot rather than a patch. Folders are a tree
+  // with sibling ordering and a tag rename rewrites every record carrying it, so a partial
+  // reply would leave the renderer reconstructing state this process already computed — and
+  // the two would drift. These lists are small; the round trip is not the cost to optimise.
+
+  handle(CHANNELS.organisationList, () => vault.organisation());
+
+  handle(CHANNELS.foldersCreate, (name, parentId) => {
+    vault.createFolder({
+      name: requireNonEmptyString(CHANNELS.foldersCreate, name, 'name'),
+      parentId: requireNullableId(CHANNELS.foldersCreate, parentId, 'parentId'),
+    });
+    return vault.organisation();
+  });
+
+  handle(CHANNELS.foldersRename, (folderId, name) => {
+    vault.renameFolder(
+      requireId(CHANNELS.foldersRename, folderId, 'folderId'),
+      requireNonEmptyString(CHANNELS.foldersRename, name, 'name')
+    );
+    return vault.organisation();
+  });
+
+  handle(CHANNELS.foldersMove, (folderId, parentId, index) => {
+    vault.moveFolder(
+      requireId(CHANNELS.foldersMove, folderId, 'folderId'),
+      requireNullableId(CHANNELS.foldersMove, parentId, 'parentId'),
+      index === undefined ? undefined : requireIndex(CHANNELS.foldersMove, index, 'index')
+    );
+    return vault.organisation();
+  });
+
+  handle(CHANNELS.foldersDelete, (folderId, policy) => {
+    const { movedRecords } = vault.deleteFolder(
+      requireId(CHANNELS.foldersDelete, folderId, 'folderId'),
+      requireFolderDeletePolicy(CHANNELS.foldersDelete, policy)
+    );
+    return { snapshot: vault.organisation(), affectedRecords: movedRecords };
+  });
+
+  handle(CHANNELS.tagsCreate, (name, colour) => {
+    vault.createTag({
+      name: requireNonEmptyString(CHANNELS.tagsCreate, name, 'name'),
+      colour: requireString(CHANNELS.tagsCreate, colour, 'colour'),
+    });
+    return vault.organisation();
+  });
+
+  handle(CHANNELS.tagsRename, (tagId, name) => {
+    const { updatedRecords } = vault.renameTag(
+      requireId(CHANNELS.tagsRename, tagId, 'tagId'),
+      requireNonEmptyString(CHANNELS.tagsRename, name, 'name')
+    );
+    return { snapshot: vault.organisation(), affectedRecords: updatedRecords };
+  });
+
+  handle(CHANNELS.tagsSetColour, (tagId, colour) => {
+    vault.setTagColour(
+      requireId(CHANNELS.tagsSetColour, tagId, 'tagId'),
+      requireString(CHANNELS.tagsSetColour, colour, 'colour')
+    );
+    return vault.organisation();
+  });
+
+  handle(CHANNELS.tagsDelete, (tagId) => {
+    const { updatedRecords } = vault.deleteTag(requireId(CHANNELS.tagsDelete, tagId, 'tagId'));
+    return { snapshot: vault.organisation(), affectedRecords: updatedRecords };
+  });
 
   /**
    * What network the app thinks it is on.

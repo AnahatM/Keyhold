@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { HEALTH_RULE_IDS } from '@shared/model/health.js';
+import { DEFAULT_VAULT_HEALTH_SETTINGS } from '@shared/model/vault-document.js';
 import { AUDIT_PRIVACY_LEVELS, type Credential } from '@shared/model/credential.js';
 import type { ExportFormatId } from '@shared/model/export.js';
 import {
@@ -162,6 +164,16 @@ function serialiseSettings(settings: VaultSettings): Record<string, unknown> {
     auditPrivacyLevel: settings.auditPrivacyLevel,
     passwordAgeWarningDays: settings.passwordAgeWarningDays,
     trashRetentionDays: settings.trashRetentionDays,
+    // Written key-by-key like everything else in this file, and in `HEALTH_RULE_IDS` order,
+    // so the output is deterministic and a rule added to the engine cannot silently start
+    // or stop being exported depending on object insertion order.
+    health: {
+      enabledRules: Object.fromEntries(
+        HEALTH_RULE_IDS.map((rule) => [rule, settings.health.enabledRules[rule]])
+      ),
+      weakEntropyBits: settings.health.weakEntropyBits,
+      expiringWithinDays: settings.health.expiringWithinDays,
+    },
   };
 }
 
@@ -289,9 +301,32 @@ export function parseKeyholdJson(source: string | Uint8Array): KeyholdJsonDocume
   };
 }
 
+function parseHealthSettings(raw: unknown): VaultSettings['health'] {
+  // Absent means "written before this field existed", which is a real and expected file.
+  // Present-but-wrong means a hand-edited or corrupt one, and is refused by the readers
+  // below rather than repaired into something plausible.
+  if (raw === undefined) return DEFAULT_VAULT_HEALTH_SETTINGS;
+
+  const source = requireObject(raw, 'settings.health');
+  const rules = requireObject(source.enabledRules, 'settings.health.enabledRules');
+  return {
+    enabledRules: Object.fromEntries(
+      HEALTH_RULE_IDS.map((rule) => [
+        rule,
+        rules[rule] === undefined
+          ? DEFAULT_VAULT_HEALTH_SETTINGS.enabledRules[rule]
+          : requireBoolean(rules[rule], `settings.health.enabledRules.${rule}`),
+      ])
+    ) as VaultSettings['health']['enabledRules'],
+    weakEntropyBits: requireNumber(source.weakEntropyBits, 'settings.health.weakEntropyBits'),
+    expiringWithinDays: requireNumber(source.expiringWithinDays, 'settings.health.expiringWithinDays'),
+  };
+}
+
 function parseSettings(raw: unknown): VaultSettings {
   const source = requireObject(raw, 'settings');
   return {
+    health: parseHealthSettings(source.health),
     historyEnabledByDefault: requireBoolean(
       source.historyEnabledByDefault,
       'settings.historyEnabledByDefault'

@@ -6,8 +6,12 @@ import {
   type ClipboardView,
   type CredentialEdit,
   type CredentialInput,
+  type FolderDeletePolicyName,
   type GeneratorLimitsView,
   type IpcResult,
+  type OrganisationDeleteResult,
+  type OrganisationSnapshot,
+  type SettingsView,
   type KeyholdApi,
   type SessionStatusView,
 } from '@shared/ipc/api.js';
@@ -191,6 +195,55 @@ const api: KeyholdApi = {
       ipcRenderer.invoke(CHANNELS.historyClear, credentialId) as Promise<IpcResult<boolean>>,
     networkName: () =>
       ipcRenderer.invoke(CHANNELS.historyNetworkName) as Promise<IpcResult<string | null>>,
+  },
+
+  organisation: {
+    list: () =>
+      ipcRenderer.invoke(CHANNELS.organisationList) as Promise<IpcResult<OrganisationSnapshot>>,
+
+    createFolder: (name: string, parentId: string | null) =>
+      ipcRenderer.invoke(CHANNELS.foldersCreate, name, parentId) as Promise<
+        IpcResult<OrganisationSnapshot>
+      >,
+    renameFolder: (folderId: string, name: string) =>
+      ipcRenderer.invoke(CHANNELS.foldersRename, folderId, name) as Promise<
+        IpcResult<OrganisationSnapshot>
+      >,
+    moveFolder: (folderId: string, parentId: string | null, index?: number) =>
+      ipcRenderer.invoke(CHANNELS.foldersMove, folderId, parentId, index) as Promise<
+        IpcResult<OrganisationSnapshot>
+      >,
+    deleteFolder: (folderId: string, policy: FolderDeletePolicyName) =>
+      ipcRenderer.invoke(CHANNELS.foldersDelete, folderId, policy) as Promise<
+        IpcResult<OrganisationDeleteResult>
+      >,
+
+    createTag: (name: string, colour: string) =>
+      ipcRenderer.invoke(CHANNELS.tagsCreate, name, colour) as Promise<
+        IpcResult<OrganisationSnapshot>
+      >,
+    renameTag: (tagId: string, name: string) =>
+      ipcRenderer.invoke(CHANNELS.tagsRename, tagId, name) as Promise<
+        IpcResult<OrganisationDeleteResult>
+      >,
+    setTagColour: (tagId: string, colour: string) =>
+      ipcRenderer.invoke(CHANNELS.tagsSetColour, tagId, colour) as Promise<
+        IpcResult<OrganisationSnapshot>
+      >,
+    deleteTag: (tagId: string) =>
+      ipcRenderer.invoke(CHANNELS.tagsDelete, tagId) as Promise<
+        IpcResult<OrganisationDeleteResult>
+      >,
+  },
+
+  settings: {
+    read: () => ipcRenderer.invoke(CHANNELS.settingsRead) as Promise<IpcResult<SettingsView>>,
+    updateMachine: (patch: Record<string, unknown>) =>
+      ipcRenderer.invoke(CHANNELS.settingsUpdateMachine, patch) as Promise<IpcResult<SettingsView>>,
+    updateVault: (patch: Record<string, unknown>) =>
+      ipcRenderer.invoke(CHANNELS.settingsUpdateVault, patch) as Promise<IpcResult<SettingsView>>,
+    clearAllHistory: () =>
+      ipcRenderer.invoke(CHANNELS.settingsClearAllHistory) as Promise<IpcResult<number>>,
   },
 };
 

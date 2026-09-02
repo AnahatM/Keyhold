@@ -38,8 +38,21 @@ function emit(line: string): void {
   process.stdout.write(line + '\n');
 }
 
+/**
+ * Whether this launch is a smoke run.
+ *
+ * Two conditions, not one. The environment variable is the request; `!app.isPackaged` is
+ * what stops a shipped binary from honouring it. A dev affordance that survives into a
+ * release is a lever, and this particular lever is loaded: with `KEYHOLD_SMOKE_VAULT` also
+ * set, the run calls `vault.create` against that path under a passphrase printed in this
+ * file's own source — so anyone who can set an environment variable for the Keyhold process
+ * could rotate a real vault into `.bak.1` and replace it with an empty one they know the
+ * password to. Goal G1 says never lose a credential; this is the cheapest place to honour it.
+ *
+ * Costs nothing: `tools/smoke.mjs` launches `electron .`, where `isPackaged` is false.
+ */
 export function isSmokeRun(): boolean {
-  return process.env.KEYHOLD_SMOKE === '1';
+  return !app.isPackaged && process.env.KEYHOLD_SMOKE === '1';
 }
 
 /**
@@ -341,6 +354,137 @@ export function runSmokeCheck(window: BrowserWindow): void {
           'generator-limits-cross-the-contract',
           bounds.ok === true && bounds.value.limits.randomLength.min === 8,
         ]);
+
+        // ── settings ───────────────────────────────────────────────────────
+
+        const settings = await window.keyhold.settings.read();
+        steps.push([
+          'settings-read',
+          settings.ok === true && settings.value.vault !== null,
+        ]);
+        steps.push([
+          'settings-separates-machine-from-vault',
+          settings.ok === true && settings.value.machine.autoLock !== undefined,
+        ]);
+
+        // A patch is a patch: sending one field must not reset the rest. This is the bug
+        // that presents as the app forgetting your choices, and it is silent.
+        const before = settings.ok ? settings.value.vault : null;
+        const patched = await window.keyhold.settings.updateVault({ trashRetentionDays: 90 });
+        steps.push([
+          'settings-patch-applies-the-field-it-names',
+          patched.ok === true && patched.value.vault?.trashRetentionDays === 90,
+        ]);
+        steps.push([
+          'settings-patch-leaves-every-other-field-alone',
+          patched.ok === true &&
+            before !== null &&
+            patched.value.vault?.auditPrivacyLevel === before.auditPrivacyLevel &&
+            patched.value.vault?.historyMaxVersions === before.historyMaxVersions,
+        ]);
+
+        // Rejected rather than clamped: a clamp turns "the renderer sent nonsense" into "the
+        // setting quietly became something the user did not choose".
+        const outOfRange = await window.keyhold.settings.updateVault({ trashRetentionDays: 99999 });
+        steps.push([
+          'settings-refuses-an-out-of-range-value',
+          outOfRange.ok === false && outOfRange.code === 'INVALID_REQUEST',
+        ]);
+
+        const badLevel = await window.keyhold.settings.updateVault({ auditPrivacyLevel: 'evil' });
+        steps.push([
+          'settings-refuses-an-unknown-audit-privacy-level',
+          badLevel.ok === false,
+        ]);
+
+        // ── folders and tags ───────────────────────────────────────────────
+
+        const emptyOrg = await window.keyhold.organisation.list();
+        steps.push([
+          'organisation-starts-empty',
+          emptyOrg.ok === true && emptyOrg.value.folders.length === 0,
+        ]);
+
+        const parent = await window.keyhold.organisation.createFolder('Work', null);
+        steps.push([
+          'folder-create',
+          parent.ok === true && parent.value.folders.some((f) => f.name === 'Work'),
+        ]);
+
+        const parentId = parent.ok
+          ? (parent.value.folders.find((f) => f.name === 'Work')?.id ?? '')
+          : '';
+        const child = await window.keyhold.organisation.createFolder('Clients', parentId);
+        steps.push(['folder-create-nested', child.ok === true && child.value.folders.length === 2]);
+
+        const childId = child.ok
+          ? (child.value.folders.find((f) => f.name === 'Clients')?.id ?? '')
+          : '';
+
+        // The guard that matters: a move that would nest a folder inside its own descendant
+        // must be refused, not silently ignored. A drag that appears to do nothing is a bug
+        // report nobody can write.
+        const cycle = await window.keyhold.organisation.moveFolder(parentId, childId);
+        steps.push([
+          'folder-move-refuses-a-cycle',
+          cycle.ok === false && cycle.recoverable === true,
+        ]);
+        steps.push([
+          'folder-cycle-error-names-the-rule-not-the-name',
+          cycle.ok === true || !cycle.message.includes('Work'),
+        ]);
+
+        const renamedFolder = await window.keyhold.organisation.renameFolder(childId, 'Customers');
+        steps.push([
+          'folder-rename',
+          renamedFolder.ok === true &&
+            renamedFolder.value.folders.some((f) => f.name === 'Customers'),
+        ]);
+
+        const tagged = await window.keyhold.organisation.createTag('urgent', 'accent');
+        steps.push(['tag-create', tagged.ok === true && tagged.value.tags.length === 1]);
+
+        const tagId = tagged.ok ? (tagged.value.tags[0]?.id ?? '') : '';
+
+        // Put the tag on a record, then rename it. The rewrite of every record carrying the
+        // tag is the half of a tag rename that classically gets missed.
+        const taggedRecord = await window.keyhold.credentials.create({
+          title: 'Tagged',
+          tags: ['urgent'],
+        });
+        const renamedTag = await window.keyhold.organisation.renameTag(tagId, 'critical');
+        steps.push([
+          'tag-rename',
+          renamedTag.ok === true && renamedTag.value.snapshot.tags[0]?.name === 'critical',
+        ]);
+
+        const afterRename = taggedRecord.ok
+          ? await window.keyhold.credentials.get(taggedRecord.value.id)
+          : null;
+        steps.push([
+          'tag-rename-rewrites-the-records-carrying-it',
+          afterRename !== null &&
+            afterRename.ok === true &&
+            afterRename.value !== null &&
+            afterRename.value.tags.includes('critical'),
+        ]);
+
+        const badColour = await window.keyhold.organisation.setTagColour(tagId, '#ff0000');
+        steps.push([
+          'tag-colour-refuses-a-raw-colour',
+          badColour.ok === false,
+        ]);
+
+        const deletedFolder = await window.keyhold.organisation.deleteFolder(parentId, 'unfile');
+        steps.push(['folder-delete', deletedFolder.ok === true]);
+
+        const deletedTag = await window.keyhold.organisation.deleteTag(tagId);
+        steps.push([
+          'tag-delete-reports-the-records-it-touched',
+          deletedTag.ok === true && deletedTag.value.affectedRecords === 1,
+        ]);
+
+        if (taggedRecord.ok) await window.keyhold.credentials.purge(taggedRecord.value.id);
 
         // ── health ─────────────────────────────────────────────────────────
 

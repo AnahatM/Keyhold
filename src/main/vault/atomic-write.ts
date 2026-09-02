@@ -31,6 +31,16 @@ import { basename, dirname, join } from 'node:path';
 export const TEMP_SUFFIX = '.tmp';
 export const BACKUP_INFIX = '.bak';
 
+/**
+ * The infix `quarantineOrphanedTemp` renames an orphaned temp aside with.
+ *
+ * Exported because this file is the authority on what a vault's neighbouring files are
+ * called, and `src/main/recovery/survey.ts` has to recognise them to classify a directory
+ * listing. It used to restate `.recovered-` as a private constant with a guard test pinning
+ * the two together; one export removes both the copy and the guard (hard rule 8).
+ */
+export const QUARANTINE_INFIX = '.recovered-';
+
 export interface WriteOptions {
   /** How many rolling backups to keep. 0 disables backups entirely. */
   readonly backupCount?: number;
@@ -190,13 +200,63 @@ export async function quarantineOrphanedTemp(vaultPath: string): Promise<string 
   if (orphan === null) return null;
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const destination = `${vaultPath}.recovered-${stamp}`;
+  const destination = `${vaultPath}${QUARANTINE_INFIX}${stamp}`;
   await rename(orphan.tempPath, destination);
   return destination;
 }
 
 export async function readVaultFile(vaultPath: string): Promise<Uint8Array> {
   return new Uint8Array(await readFile(vaultPath));
+}
+
+/**
+ * Every file in the vault's folder that is, or may be, a copy of that vault.
+ *
+ * The vault itself, an orphaned `.tmp`, every `.bak.N`, and every `.recovered-<stamp>`
+ * quarantine. Written here rather than at the call site because this file is the authority
+ * on what those files are called — all four names are derived from the exported constants
+ * above, so there is no second list to drift.
+ *
+ * Its one caller is the failed-attempt wipe, and the reason it exists is that the wipe used
+ * to remove the vault and ten backup slots by name and nothing else. `.tmp` and
+ * `.recovered-*` can each be a complete, openable vault; leaving one behind made a feature
+ * whose entire purpose is destruction into theatre. Returns paths, not a promise to delete
+ * them — deciding to delete is the caller's, and nothing else in this file removes a copy.
+ *
+ * An unreadable directory yields `[]` rather than throwing: the caller is mid-wipe and has
+ * no better answer available.
+ */
+export async function listVaultCopyPaths(vaultPath: string): Promise<string[]> {
+  const directory = dirname(vaultPath);
+  const vaultName = basename(vaultPath).toLowerCase();
+
+  let entries: string[];
+  try {
+    entries = await readdir(directory);
+  } catch {
+    return [];
+  }
+
+  const matches: string[] = [];
+  for (const entry of entries) {
+    // Case-insensitive, because NTFS and the default APFS configuration both are — matching
+    // case-sensitively here would silently skip `Vault.keep.bak.1` on exactly the platforms
+    // these files live on.
+    const lower = entry.toLowerCase();
+
+    const isVault = lower === vaultName;
+    const isTemp = lower === `${vaultName}${TEMP_SUFFIX}`;
+    const isQuarantine = lower.startsWith(`${vaultName}${QUARANTINE_INFIX}`);
+    const backupPrefix = `${vaultName}${BACKUP_INFIX}.`;
+    const backupIndex = lower.startsWith(backupPrefix)
+      ? Number.parseInt(lower.slice(backupPrefix.length), 10)
+      : Number.NaN;
+    const isBackup = Number.isInteger(backupIndex) && backupIndex >= 1;
+
+    if (isVault || isTemp || isQuarantine || isBackup) matches.push(join(directory, entry));
+  }
+
+  return matches;
 }
 
 export interface BackupInfo {

@@ -16,7 +16,14 @@ import type {
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '../model/health.js';
 import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
 import type { PasswordStrength } from '../model/strength.js';
-import type { VaultLockedInfo, VaultSummary } from '../model/vault-document.js';
+import type {
+  Folder,
+  Tag,
+  VaultLockedInfo,
+  VaultSettings,
+  VaultSummary,
+} from '../model/vault-document.js';
+import type { MachineSettings } from '../model/settings-plan.js';
 
 /**
  * The IPC contract — one source of truth for what the renderer can ask the main process
@@ -305,6 +312,82 @@ export interface HistoryApi {
   networkName: () => Promise<IpcResult<string | null>>;
 }
 
+/**
+ * Folders and tags.
+ *
+ * Every operation returns the whole snapshot rather than a patch. Folders are a tree with
+ * sibling ordering, and tags are renumbered and re-keyed across records — so a partial
+ * update would leave the renderer reconstructing state the main process already computed,
+ * and the two would eventually disagree. A vault's folder and tag lists are small; the
+ * round trip is not the cost worth optimising.
+ */
+export interface OrganisationApi {
+  list: () => Promise<IpcResult<OrganisationSnapshot>>;
+
+  createFolder: (name: string, parentId: string | null) => Promise<IpcResult<OrganisationSnapshot>>;
+  renameFolder: (folderId: string, name: string) => Promise<IpcResult<OrganisationSnapshot>>;
+  /** `parentId: null` is the top level. Refused if it would create a cycle. */
+  moveFolder: (
+    folderId: string,
+    parentId: string | null,
+    index?: number
+  ) => Promise<IpcResult<OrganisationSnapshot>>;
+  /** The caller chooses what happens to the records; there is no "delete the contents". */
+  deleteFolder: (
+    folderId: string,
+    policy: FolderDeletePolicyName
+  ) => Promise<IpcResult<OrganisationDeleteResult>>;
+
+  createTag: (name: string, colour: string) => Promise<IpcResult<OrganisationSnapshot>>;
+  /** Renames the tag and every record carrying it. */
+  renameTag: (tagId: string, name: string) => Promise<IpcResult<OrganisationDeleteResult>>;
+  setTagColour: (tagId: string, colour: string) => Promise<IpcResult<OrganisationSnapshot>>;
+  deleteTag: (tagId: string) => Promise<IpcResult<OrganisationDeleteResult>>;
+}
+
+export interface OrganisationSnapshot {
+  readonly folders: readonly Folder[];
+  readonly tags: readonly Tag[];
+}
+
+/** A snapshot plus how many records the operation touched, so the UI can say so. */
+export interface OrganisationDeleteResult {
+  readonly snapshot: OrganisationSnapshot;
+  readonly affectedRecords: number;
+}
+
+export type FolderDeletePolicyName = 'reparent' | 'unfile';
+
+/**
+ * Settings.
+ *
+ * Two scopes, and the split is the whole point: `machine` settings live in app preferences
+ * and stay on this computer, `vault` settings live inside the encrypted body and travel with
+ * the file. A user who cannot tell which is which will be surprised by a security setting,
+ * and being surprised by a security setting is the problem this screen exists to remove.
+ *
+ * Both updates are **merges**, so a caller sending one field cannot silently reset the rest
+ * to whatever its own defaults happened to be.
+ */
+export interface SettingsApi {
+  read: () => Promise<IpcResult<SettingsView>>;
+  updateMachine: (patch: Record<string, unknown>) => Promise<IpcResult<SettingsView>>;
+  updateVault: (patch: Record<string, unknown>) => Promise<IpcResult<SettingsView>>;
+  /** Returns how many versions were removed, so the UI can say what it cost. */
+  clearAllHistory: () => Promise<IpcResult<number>>;
+}
+
+/** Everything the settings screen renders in one read. Contains no secret material. */
+export interface SettingsView {
+  readonly machine: MachineSettings;
+  /** `null` when no vault is open — the machine half of the screen still works. */
+  readonly vault: VaultSettings | null;
+  readonly vaultPath: string | null;
+  readonly kdf: { readonly memoryKib: number; readonly iterations: number; readonly parallelism: number } | null;
+  /** Total stored versions across every record, so "clear all history" can state the cost. */
+  readonly historyVersionCount: number;
+}
+
 export interface KeyholdApi {
   app: AppApi;
   session: SessionApi;
@@ -313,6 +396,8 @@ export interface KeyholdApi {
   generator: GeneratorApi;
   health: HealthApi;
   history: HistoryApi;
+  organisation: OrganisationApi;
+  settings: SettingsApi;
 }
 
 /** IPC channel names. Never build one by string concatenation at a call site. */
@@ -363,6 +448,21 @@ export const CHANNELS = {
   historyRestoreField: 'kh:history:restore-field',
   historyClear: 'kh:history:clear',
   historyNetworkName: 'kh:history:network-name',
+
+  organisationList: 'kh:organisation:list',
+  foldersCreate: 'kh:folders:create',
+  foldersRename: 'kh:folders:rename',
+  foldersMove: 'kh:folders:move',
+  foldersDelete: 'kh:folders:delete',
+  tagsCreate: 'kh:tags:create',
+  tagsRename: 'kh:tags:rename',
+  tagsSetColour: 'kh:tags:set-colour',
+  tagsDelete: 'kh:tags:delete',
+
+  settingsRead: 'kh:settings:read',
+  settingsUpdateMachine: 'kh:settings:update-machine',
+  settingsUpdateVault: 'kh:settings:update-vault',
+  settingsClearAllHistory: 'kh:settings:clear-all-history',
 } as const;
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];

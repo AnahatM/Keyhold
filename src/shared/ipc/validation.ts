@@ -302,3 +302,33 @@ export function requireHealthOptions(
 
   return options;
 }
+
+// ── Folders and tags ─────────────────────────────────────────────────────────
+
+/** An id, or `null` for "the top level" / "no folder". Both are meaningful, `undefined` is not. */
+export function requireNullableId(channel: string, value: unknown, name: string): string | null {
+  if (value === null) return null;
+  return requireId(channel, value, name);
+}
+
+/** A position among siblings. Bounded because it indexes an array the caller supplies. */
+export function requireIndex(channel: string, value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 10_000) {
+    throw new IpcValidationError(channel, `${name} is not a valid position`);
+  }
+  return value;
+}
+
+/**
+ * What happens to a deleted folder's contents.
+ *
+ * Rejected rather than defaulted, deliberately. The two policies move a user's records to
+ * different places, and guessing which one they meant is a data-placement decision made on
+ * their behalf — the one thing this operation exists to ask them.
+ */
+export function requireFolderDeletePolicy(channel: string, value: unknown): 'reparent' | 'unfile' {
+  if (value !== 'reparent' && value !== 'unfile') {
+    throw new IpcValidationError(channel, 'policy must be "reparent" or "unfile"');
+  }
+  return value;
+}
