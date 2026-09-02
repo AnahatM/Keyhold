@@ -29,7 +29,15 @@ export default defineConfig({
       // Default; stated explicitly so an upstream default change cannot silently
       // start inlining node_modules into the main bundle.
       externalizeDeps: true,
-      rollupOptions: { input: { index: resolve('src/main/index.ts') } },
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.ts'),
+          // A second entry, not a chunk: it is loaded by `new Worker(<path>)` at runtime,
+          // so it must exist as its own file at a predictable name. Argon2 runs here to
+          // keep the main thread — and therefore the window — responsive during unlock.
+          'kdf-worker': resolve('src/main/crypto/kdf-worker.ts'),
+        },
+      },
     },
   },
   preload: {
