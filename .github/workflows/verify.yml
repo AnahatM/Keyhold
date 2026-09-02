@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The gate. Everything that must be true before a change lands on main.
+#
+# Actions are pinned to a full commit SHA, not a tag. A tag is a mutable pointer that the
+# action's owner can move; for a password manager, "the CI that builds our binaries runs
+# whatever that repo points v7 at today" is not an acceptable supply-chain position. The
+# `# vX.Y.Z` comments are what Dependabot reads to bump these safely.
+
+name: Verify
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+# Read-only by default. No job here needs to write to the repository, publish a package,
+# or mint an id-token; anything that does must widen this at the job level and say why.
+permissions:
+  contents: read
+
+# A superseded run on the same branch is wasted money on a private repo, where Actions
+# minutes are metered.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Gate (Windows)
+    # Windows only, deliberately.
+    #
+    # On a PRIVATE repository GitHub bills Actions minutes with a platform multiplier:
+    # Linux 1x, Windows 2x, macOS 10x. A macOS job in the PR gate would burn the entire
+    # free allowance in a few dozen pull requests, and Keyhold's owner pays for nothing
+    # (decision D11). macOS is therefore exercised on release tags only — see
+    # release.yml — plus the manual pass in MANUAL-BACKLOG M2.
+    #
+    # This is a real gap, not a solved problem: a macOS-only regression can reach a tag.
+    # The moment the repository goes public (MANUAL-BACKLOG M5) standard runners are free
+    # and this should become a matrix over windows-latest and macos-latest.
+    #
+    # Linux is not built or shipped at all (backlog F1), so it is absent for a different
+    # reason than macOS.
+    runs-on: windows-latest
+    # An Electron window that never reports back would otherwise sit here until GitHub's
+    # 6-hour ceiling, metered at 2x the whole way.
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing in this workflow talks to git after the checkout, so leaving a
+          # credential in .git/config would be handing a token to every npm lifecycle
+          # script that runs afterwards.
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # `engines.node` in package.json is the floor (>=22). CI deliberately pins one
+          # line rather than tracking that range, so an upstream Node release cannot turn
+          # a green branch red overnight. Raise both together.
+          node-version: 22
+          # Keyed on package-lock.json by the action itself; a lockfile change invalidates
+          # it, nothing else does.
+          cache: npm
+
+      - name: Install
+        # `npm ci` — not `npm install`. It installs exactly the lockfile and fails if
+        # package.json and package-lock.json disagree, which is the only install mode
+        # worth having in CI for a project where a swapped dependency is a supply-chain
+        # compromise.
+        run: npm ci
+
+      - name: Check formatting
+        # Not part of `npm run verify`, so it is its own step. Prettier is the formatting
+        # authority for this repo (CONTRIBUTING.md); CI enforcing it means nobody has to
+        # mention whitespace in a review again.
+        run: npm run format:check
+
+      - name: Verify
+        # One step, on purpose. `verify:full` is the project's own gate — lint, typecheck,
+        # build, unit tests, then the launch smoke test — defined once in package.json.
+        # Expanding it into five workflow steps would create a second copy of the gate
+        # that drifts the first time someone adds a check to package.json and forgets
+        # this file.
+        #
+        # The smoke test is the tail of that chain, and it launches a real Electron
+        # window. That works on GitHub's Windows runners without a virtual display: the
+        # runner has an interactive desktop session, and Chromium falls back to software
+        # rendering when no GPU is present. It is NOT skipped, conditioned, or allowed to
+        # fail — a smoke test that CI skips is a smoke test that does not exist.
+        #
+        # (For reference, if a Linux job is ever added: there it genuinely needs
+        # `xvfb-run --auto-servernum npm run test:smoke`, because ubuntu runners have no
+        # display server at all. Windows and macOS runners do.)
+        env:
+          # Chromium's own logging, so that if the window does fail to come up on a runner
+          # the log says why instead of just "timed out".
+          ELECTRON_ENABLE_LOGGING: '1'
+        run: npm run verify:full

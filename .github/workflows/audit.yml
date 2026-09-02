@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Weekly dependency audit.
+#
+# Keyhold's whole claim is that your passwords sit in a file only you can open. A
+# compromised transitive dependency is the most plausible route to breaking that, and it
+# is the one route that can appear without anybody touching this repository. So it gets a
+# clock rather than waiting for someone to remember.
+#
+# `actions/dependency-review-action` would be the natural companion to this on pull
+# requests, but it requires the dependency graph, which GitHub only provides for private
+# repositories under Advanced Security. Add it the day the repo goes public
+# (MANUAL-BACKLOG M5) — see docs/13-Packaging/00-Building-And-Releasing.md.
+
+name: Audit
+
+on:
+  schedule:
+    # Monday morning UTC, at an offset minute rather than on the hour: GitHub queues
+    # scheduled runs and the top of the hour is heavily oversubscribed.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: npm audit
+    # Linux: this job never launches Electron, and on a private repo Linux minutes bill at
+    # 1x against Windows' 2x and macOS' 10x.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        # `--ignore-scripts` skips Electron's ~100 MB postinstall download, which this job
+        # has no use for. It also means no dependency's install hook runs on a machine
+        # whose whole purpose is to look at those dependencies suspiciously.
+        run: npm ci --ignore-scripts
+
+      - name: Runtime dependencies
+        # Fails the job. These are the packages that end up inside the shipped app —
+        # hash-wasm, zxcvbn, React — where a vulnerability is a vulnerability in Keyhold.
+        # `moderate` rather than `high` because the blast radius here is a password
+        # manager, and a weekly false alarm costs less than a missed real one.
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: Build-time dependencies
+        # Informational. A vulnerable dev dependency is a supply-chain concern for the
+        # machine that builds releases, not for the user's install, and the ESLint/Vite/
+        # electron-builder tree throws advisories often enough that failing on them would
+        # train everyone to ignore this workflow.
+        continue-on-error: true
+        run: npm audit

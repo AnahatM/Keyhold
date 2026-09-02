@@ -1,0 +1,207 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# electron-builder configuration for Keyhold.
+#
+# Read alongside docs/13-Packaging/00-Building-And-Releasing.md, which explains the
+# unsigned-binary reality, the checksum story and the release checklist. Everything
+# here that is not obvious carries a comment saying WHY, because packaging config is
+# the part of a project nobody re-derives from first principles two years later.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Identity
+# ─────────────────────────────────────────────────────────────────────────────
+
+# FROZEN. Changing appId after a release orphans user state: on macOS the Keychain
+# items written through Electron's safeStorage are scoped to the bundle id, so a
+# rename silently destroys every enrolled quick-unlock. On Windows it changes the
+# per-user install key and the file-association registration. Treat this string the
+# way you would treat a database primary key.
+appId: io.github.anahatm.keyhold
+productName: Keyhold
+copyright: Copyright © 2026 Anahat Mudgal. Licensed GPL-3.0-or-later.
+
+# No auto-updater exists, and one that is on by default would break hard rule 5
+# (zero network). `null` stops electron-builder emitting latest.yml / latest-mac.yml
+# update manifests that nothing consumes and that imply an update channel we do not run.
+publish: null
+
+directories:
+  # `release/` is already gitignored, so build output can never be committed by accident.
+  output: release
+  # Icons, installer artwork and the (currently unused) entitlements plist.
+  # NOTE: `build/` is presently listed in .gitignore — see docs/13-Packaging for the
+  # one-line fix that must be applied before CI can produce a branded build.
+  buildResources: build
+
+# ─────────────────────────────────────────────────────────────────────────────
+# What ships
+# ─────────────────────────────────────────────────────────────────────────────
+
+# An allow-list, not a deny-list. Only the electron-vite output and package.json are
+# named, so src/, tests/, tests/fixtures/, tools/, docs/ and every tsconfig are excluded
+# by construction rather than by remembering to exclude them.
+#
+# Production dependencies are collected separately by electron-builder and are unaffected
+# by this list — hash-wasm and @zxcvbn-ts are required at runtime because the main bundle
+# externalises node_modules (see electron.vite.config.ts).
+files:
+  - out/**/*
+  # Source maps are off in production, but a map shipped beside a password manager is a
+  # free map of its internals. Excluded explicitly so flipping `build.sourcemap` on for a
+  # debugging session cannot leak one into a release.
+  - '!out/**/*.map'
+  - package.json
+
+# GPL-3.0-or-later requires the licence text to travel with the binary. `extraResources`
+# puts it at `resources/LICENSE` inside the installation, where a person can actually find
+# and read it — inside the asar archive it would technically be present and practically
+# invisible.
+extraResources:
+  - LICENSE
+
+# The Argon2 worker is loaded with `new Worker(<path>)` at runtime (src/main/crypto/
+# kdf-runner.ts), not imported. Loading a worker entry point from inside an asar archive
+# relies on Electron's fs shim and is the single most fragile path in the packaged app —
+# if it fails, the app builds, launches, and then cannot unlock anything. Unpacking it
+# puts a real file on disk under app.asar.unpacked, which is the well-trodden mechanism.
+# This must still be verified once by unlocking a vault in a packaged build.
+asar: true
+asarUnpack:
+  - out/main/kdf-worker.js
+
+# There is no native code anywhere in Keyhold: Argon2 is pure WebAssembly by decision D14,
+# precisely so no per-platform binary has to be compiled. Rebuilding is a no-op that costs
+# a minute of CI per run.
+npmRebuild: false
+
+# Predictable, sortable, shell-safe filenames — the checksum file and the README's
+# download instructions both name these, so they must not drift. `-${arch}` is removed
+# automatically when a target produces a single multi-architecture artifact.
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# File associations
+# ─────────────────────────────────────────────────────────────────────────────
+
+# `.keepbak` is deliberately absent. A rolling backup that opens on double-click invites
+# a user to work inside a file the app is going to overwrite.
+#
+# These only take effect through the NSIS installer and the macOS bundle. The Windows
+# portable build registers nothing at all, which is the point of a portable build.
+#
+# Handling the path once the OS hands it over is main-process work that this file cannot
+# do — see docs/13-Packaging/00-Building-And-Releasing.md, "Opening a file from the shell".
+fileAssociations:
+  - ext: keep
+    name: Keyhold Vault
+    description: Keyhold encrypted vault
+    role: Editor
+    rank: Owner
+  - ext: keepx
+    name: Keyhold Exchange Package
+    description: Keyhold encrypted transfer package
+    role: Editor
+    rank: Owner
+  - ext: keeptheme
+    name: Keyhold Theme
+    description: Keyhold colour theme
+    # Viewer, not Editor: a theme is imported and read. Keyhold never writes back to the
+    # file it was handed.
+    role: Viewer
+    rank: Owner
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Windows
+# ─────────────────────────────────────────────────────────────────────────────
+
+win:
+  # An installer for people who want Start-menu entries and file associations, and a
+  # single portable .exe for people who want a password manager that touches nothing —
+  # which for this audience is a genuine use case, not a nicety.
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+    - target: portable
+      arch:
+        - x64
+        - arm64
+  # No `icon:` key. electron-builder discovers build/icon.ico when it exists and falls
+  # back to the stock Electron icon when it does not; naming a missing file is a hard
+  # error, so the branded build is opt-in rather than a permanent broken reference.
+
+nsis:
+  # A wizard, not a one-click install. A tool that silently installs itself and launches
+  # is exactly the shape of the thing this app asks users to distrust.
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  # Hard rule 6, never lose data. This is already the default; it is stated explicitly so
+  # that no future edit and no upstream default change can quietly start deleting the
+  # user's settings and window state on uninstall. Vault files live wherever the user put
+  # them and are never touched either way.
+  deleteAppDataOnUninstall: false
+  shortcutName: Keyhold
+  uninstallDisplayName: Keyhold ${version}
+  # A build that emitted an NSIS warning and shipped anyway is a build nobody read the log
+  # of. Default is already true; restated because it is a policy, not an incidental.
+  warningsAsErrors: true
+  artifactName: ${productName}-${version}-${os}-${arch}-setup.${ext}
+
+portable:
+  # No elevation prompt. A portable build that asks for admin has misunderstood itself.
+  requestExecutionLevel: user
+  artifactName: ${productName}-${version}-${os}-${arch}-portable.${ext}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# macOS
+# ─────────────────────────────────────────────────────────────────────────────
+
+mac:
+  category: public.app-category.utilities
+  # One universal binary rather than two downloads. Keyhold contains no native code, so
+  # the lipo step has nothing arch-specific to reconcile; if a future dependency changes
+  # that, the fallback is `arch: [x64, arm64]` here and two artifacts instead of one.
+  target:
+    - target: dmg
+      arch:
+        - universal
+    - target: zip
+      arch:
+        - universal
+  # Ad-hoc signature ("-"), NOT unsigned. This distinction matters: on Apple Silicon a
+  # genuinely unsigned binary will not launch at all — macOS reports it as damaged. An
+  # ad-hoc signature costs nothing, requires no Apple Developer account, and gets the app
+  # to the ordinary Gatekeeper prompt that the README documents a way past.
+  # `identity: null` would disable signing entirely and produce that unlaunchable build.
+  identity: '-'
+  # Hardened runtime buys nothing without notarisation, and combined with an ad-hoc
+  # signature it needs com.apple.security.cs.disable-library-validation or the app fails
+  # to launch. Off until there is a Developer ID certificate to pair it with; see
+  # build/entitlements.mac.plist and MANUAL-BACKLOG M4.
+  hardenedRuntime: false
+  notarize: false
+  # Verifying our own unsigned build against Gatekeeper would fail by definition and abort
+  # the build.
+  gatekeeperAssess: false
+  # The app ships light and dark themes; without this the system draws it in permanent
+  # light appearance regardless.
+  darkModeSupport: true
+  # English only. The other ~50 Electron locale bundles are dead weight in a DMG for an
+  # app with no translations.
+  electronLanguages:
+    - en
+  # No `minimumSystemVersion`. Electron's own Info.plist already states the floor for the
+  # pinned Electron version, and restating it here would be a second list that drifts on
+  # the next Electron upgrade.
+  extendInfo:
+    NSHumanReadableCopyright: Copyright © 2026 Anahat Mudgal. Licensed GPL-3.0-or-later.
+
+dmg:
+  # No update metadata for an app with no updater.
+  writeUpdateInfo: false
+  title: ${productName} ${version}

@@ -8,7 +8,10 @@ dist/
 dist-electron/
 out/
 release/
-build/
+# NOT build/ — that folder holds electron-builder's INPUTS (icons, entitlements), not
+# output. electron-vite writes out/ and electron-builder writes release/, both ignored
+# below. Ignoring build/ meant it never reached a CI checkout, so every automated build
+# would have been unbranded.
 *.tsbuildinfo
 
 # Packaging artefacts

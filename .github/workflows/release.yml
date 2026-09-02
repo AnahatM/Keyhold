@@ -1,0 +1,245 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Tag -> draft GitHub Release with Windows and macOS artifacts and their SHA-256 sums.
+#
+# The release is created as a DRAFT and is never published automatically. Someone has to
+# read the artifact list, check the checksums against the job summary, and press publish.
+# For an unsigned binary that is the only human step standing between a compromised CI run
+# and users installing it.
+#
+# There is no third-party release action here. Uploading is done with `gh`, which is
+# preinstalled on every GitHub-hosted runner and authenticated with the run's own scoped
+# token — one less repository whose maintainer can push code into our release pipeline.
+
+name: Release
+
+on:
+  push:
+    tags:
+      # Tag-triggered only. There is no workflow_dispatch: a manual run would have no tag
+      # to build from, and "release whatever is on this branch right now" is precisely the
+      # accident this workflow should make impossible.
+      - v*
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  # Never cancel a release mid-upload; a half-uploaded draft is worse than a slow one.
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  prepare:
+    name: Draft the release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Creating the draft release. Narrower than the workflow default would allow, and
+      # scoped to this job rather than granted to the build matrix by inheritance.
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Tag must match package.json
+        # A tag that disagrees with `version` produces artifacts named after one number
+        # and a release named after another, and the checksums then belong to neither.
+        # Cheap guard, catches a mistake that is very annoying to unwind after publish.
+        run: |
+          declared="v$(node -p "require('./package.json').version")"
+          if [ "$declared" != "$TAG" ]; then
+            echo "Tag $TAG does not match package.json version $declared." >&2
+            echo "Fix package.json, or delete and re-cut the tag." >&2
+            exit 1
+          fi
+          echo "Tag and package.json agree on $TAG."
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Idempotent: a re-run of a failed release must not fall over because the draft
+        # already exists.
+        #
+        # The notes are written here rather than kept in a file because they are the
+        # install instructions for an UNSIGNED binary, and those have to travel with the
+        # download. A user who lands on the release page and hits SmartScreen with no
+        # explanation in front of them concludes the app is malware, and they are not
+        # being unreasonable.
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Draft $TAG already exists; leaving it alone."
+            exit 0
+          fi
+
+          cat > "$RUNNER_TEMP/notes.md" <<'NOTES'
+          ## Downloads
+
+          | Platform            | File                                    |
+          | ------------------- | --------------------------------------- |
+          | Windows — installer | `Keyhold-<version>-win-setup.exe`       |
+          | Windows — portable  | `Keyhold-<version>-win-portable.exe`    |
+          | macOS — disk image  | `Keyhold-<version>-mac-universal.dmg`   |
+          | macOS — zip         | `Keyhold-<version>-mac-universal.zip`   |
+
+          The macOS build is universal: one download runs natively on both Apple Silicon
+          and Intel.
+
+          ## These builds are not code-signed
+
+          Keyhold is free, and a code-signing certificate is not (Windows OV/EV: roughly
+          $200–400 a year; Apple Developer Program: $99 a year). So your operating system
+          will warn you. The warning is accurate — it says the publisher is unverified,
+          which is true. Here is how to get past it deliberately rather than by reflex.
+
+          **Windows.** SmartScreen shows "Windows protected your PC". Click **More info**,
+          then **Run anyway**. If the download itself was blocked, right-click the file →
+          **Properties** → tick **Unblock** → **OK** first.
+
+          **macOS.** Gatekeeper refuses the first launch. Open **System Settings** →
+          **Privacy & Security**, scroll to the bottom, and click **Open Anyway** next to
+          the message about Keyhold, then confirm. (The older right-click → **Open** route
+          no longer works on current macOS versions.)
+
+          **Check the hash before you do either.** For an unsigned build it is the only
+          integrity check there is. Download `SHA256SUMS-windows.txt` or
+          `SHA256SUMS-macos.txt`, put it beside the file you downloaded, and run:
+
+          ```bash
+          # macOS
+          shasum -a 256 -c SHA256SUMS-macos.txt
+          ```
+
+          ```powershell
+          # Windows PowerShell — compare the output against the line in the sums file
+          Get-FileHash -Algorithm SHA256 .\Keyhold-*.exe
+          ```
+
+          The same hashes are printed in this release's build job summary on the Actions
+          tab. That is a second, independent record: a release page can be edited by
+          anyone with write access to the repository, a finished workflow run cannot. If
+          the two ever disagree, do not install the file.
+          NOTES
+
+          gh release create "$TAG" \
+            --draft \
+            --verify-tag \
+            --title "Keyhold $TAG" \
+            --notes-file "$RUNNER_TEMP/notes.md"
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      # Uploading assets onto the draft.
+      contents: write
+    defaults:
+      run:
+        # One shell for both platforms, so the checksum and upload steps are written once
+        # instead of once per OS. Git Bash is present on GitHub's Windows runners.
+        shell: bash
+    strategy:
+      # A Windows failure must not cost us the macOS artifacts, and vice versa. Each half
+      # of the release is independently useful.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            package: npm run package:win
+            # Globs, not filenames: the exact names come from `artifactName` in
+            # electron-builder.yml, and naming them twice is a list that drifts.
+            artifacts: release/Keyhold-*.exe
+            sums: SHA256SUMS-windows.txt
+          - os: macos-latest
+            package: npm run package:mac
+            artifacts: release/Keyhold-*.dmg release/Keyhold-*.zip
+            sums: SHA256SUMS-macos.txt
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        # The full gate already ran on main; this is the narrower "do not ship a binary
+        # whose unit tests fail" check, and on macOS it is the only automated test run
+        # this project gets at all, because the PR gate is Windows-only for cost reasons.
+        run: npm test
+
+      - name: Package
+        run: ${{ matrix.package }}
+
+      - name: Launch smoke test
+        # Runs against out/, which `npm run package:*` has just rebuilt — so this proves
+        # the code in the artifact starts, creates a window, brings up the preload bridge
+        # and completes a real vault cycle. On macOS that is the ONLY automated evidence
+        # this project has that the app runs on macOS at all.
+        #
+        # It does NOT test the packaged artifact itself. Nothing here does: the asar
+        # archive, the ad-hoc signature, and the unpacked Argon2 worker are only exercised
+        # by launching the installed app by hand. That is a release-checklist item, not a
+        # CI one — see docs/13-Packaging/00-Building-And-Releasing.md.
+        env:
+          ELECTRON_ENABLE_LOGGING: '1'
+        run: npm run test:smoke
+
+      - name: Checksums
+        # For an unsigned binary this file is the entire integrity story, so it is
+        # generated from the artifacts on the runner that produced them, in the exact
+        # format `sha256sum -c` and `shasum -a 256 -c` both accept.
+        #
+        # macOS has shasum but not sha256sum; Git Bash on Windows has sha256sum. Probe
+        # rather than branch on the matrix, so the two paths cannot drift.
+        run: |
+          cd release
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256() { sha256sum "$@"; }
+          else
+            sha256() { shasum -a 256 "$@"; }
+          fi
+          shopt -s nullglob
+          files=(Keyhold-*.exe Keyhold-*.dmg Keyhold-*.zip)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "electron-builder produced no artifacts matching Keyhold-*" >&2
+            ls -la >&2
+            exit 1
+          fi
+          sha256 "${files[@]}" > "${{ matrix.sums }}"
+          cat "${{ matrix.sums }}"
+
+      - name: Record the checksums in the job summary
+        # A second, independent place. The release page can be edited by anyone with write
+        # access; a completed Actions run's summary cannot. That is the whole argument for
+        # publishing a hash twice, and it costs three lines.
+        run: |
+          {
+            echo "### SHA-256 — ${{ matrix.os }}"
+            echo
+            echo '```'
+            cat "release/${{ matrix.sums }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # --clobber so a re-run after a half-failed release replaces assets instead of
+        # erroring on every one that already uploaded.
+        run: gh release upload "$TAG" ${{ matrix.artifacts }} "release/${{ matrix.sums }}" --clobber
