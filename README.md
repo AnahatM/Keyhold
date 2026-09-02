@@ -48,9 +48,9 @@ It is free, GPL-3.0, and there is nothing to pay for and nothing to host.
 
 - **Export you can actually leave with** — lossless Keyhold JSON, a flat CSV, Bitwarden's exact column set for moving to another manager, and an encrypted `.keepx` parcel for sending. Spreadsheet formula injection is neutralised, and the cost of doing so is reported rather than hidden.
 
-- **An offline health check** — reuse (with the cluster, so you know *which* records), weak, old, expiring, insecure `http://` URLs, likely duplicates. Scored with weights that are written down and arguable rather than opaque, and the report can never contain a password.
+- **An offline health check** — reuse (with the cluster, so you know _which_ records), weak, old, expiring, insecure `http://` URLs, likely duplicates. Scored with weights that are written down and arguable rather than opaque, and the report can never contain a password.
 
-- **A password generator with honest entropy** — random, passphrase over the real EFF wordlist, pronounceable and PIN. The entropy reported is computed from the alphabet that remains after your exclusions, and it is *charged* for guaranteeing one character of each class rather than overstating it.
+- **A password generator with honest entropy** — random, passphrase over the real EFF wordlist, pronounceable and PIN. The entropy reported is computed from the alphabet that remains after your exclusions, and it is _charged_ for guaranteeing one character of each class rather than overstating it.
 
 - **Search that ranks** — field prefixes, quoted phrases, `is:` and `has:` flags, negation, diacritic-insensitive matching, and a total, stable sort. Notes and security answers are searched in the main process, which returns only matching ids.
 
@@ -71,13 +71,13 @@ It is free, GPL-3.0, and there is nothing to pay for and nothing to host.
 
 ## How it is built
 
-| Layer | What it owns |
-| ----- | ------------ |
+| Layer            | What it owns                                                                                                                                             |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Main process** | Every secret — the key-encryption key, the data key, the decrypted vault. Crypto, the KEEP container, atomic writes, history, health, import and export. |
-| **Preload** | The only bridge. Every member enumerated by hand; no generic `invoke`, no state, no listener on a channel the renderer chose. |
-| **Renderer** | The safe projection and nothing more. Sandboxed, context-isolated, `default-src 'none'`, and it throws rather than starting without context isolation. |
+| **Preload**      | The only bridge. Every member enumerated by hand; no generic `invoke`, no state, no listener on a channel the renderer chose.                            |
+| **Renderer**     | The safe projection and nothing more. Sandboxed, context-isolated, `default-src 'none'`, and it throws rather than starting without context isolation.   |
 
-The vault file is a **KEEP** container — *Keyhold Encrypted Entry Package*: a magic string, a version, a plaintext JSON header used as the AEAD's additional authenticated data, a sealed body, and length-prefixed attachment chunks each bound to its own id. The format is documented in full at [`docs/04-Vault-Format/`](docs/04-Vault-Format/) so anyone can write a reader.
+The vault file is a **KEEP** container — _Keyhold Encrypted Entry Package_: a magic string, a version, a plaintext JSON header used as the AEAD's additional authenticated data, a sealed body, and length-prefixed attachment chunks each bound to its own id. The format is documented in full at [`docs/04-Vault-Format/`](docs/04-Vault-Format/) so anyone can write a reader.
 
 ## Built With
 
@@ -112,17 +112,17 @@ npm run test:smoke   # launch the real app and drive it end to end
 
 The full documentation tree is in [`docs/`](docs/_INDEX.md), and it is written to be read rather than generated:
 
-| Folder | Covers |
-| ------ | ------ |
-| [`00-Overview`](docs/00-Overview/) | What Keyhold is, the naming and glossary, the competitive analysis, the threat model |
-| [`01-Architecture`](docs/01-Architecture/) | The process model, the safe projection, the IPC surface |
-| [`02-Security`](docs/02-Security/) | Cryptography, process hardening, the session and lock model |
-| [`03-Data-Model`](docs/03-Data-Model/) | The record schema and what counts as secret |
-| [`04-Vault-Format`](docs/04-Vault-Format/) | The KEEP container specification |
-| [`05-Features`](docs/05-Features/) | Generator, health rules, history and audit, search |
-| [`06-UI-Design-System`](docs/06-UI-Design-System/) | Tokens, themes, layout, app chrome |
-| [`09-Import-Export`](docs/09-Import-Export/) | Every format, with per-format field mapping |
-| [`12-Roadmap`](docs/12-Roadmap/) | The master checklist, the feature backlog, the decision log |
+| Folder                                             | Covers                                                                               |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [`00-Overview`](docs/00-Overview/)                 | What Keyhold is, the naming and glossary, the competitive analysis, the threat model |
+| [`01-Architecture`](docs/01-Architecture/)         | The process model, the safe projection, the IPC surface                              |
+| [`02-Security`](docs/02-Security/)                 | Cryptography, process hardening, the session and lock model                          |
+| [`03-Data-Model`](docs/03-Data-Model/)             | The record schema and what counts as secret                                          |
+| [`04-Vault-Format`](docs/04-Vault-Format/)         | The KEEP container specification                                                     |
+| [`05-Features`](docs/05-Features/)                 | Generator, health rules, history and audit, search                                   |
+| [`06-UI-Design-System`](docs/06-UI-Design-System/) | Tokens, themes, layout, app chrome                                                   |
+| [`09-Import-Export`](docs/09-Import-Export/)       | Every format, with per-format field mapping                                          |
+| [`12-Roadmap`](docs/12-Roadmap/)                   | The master checklist, the feature backlog, the decision log                          |
 
 </details>
 

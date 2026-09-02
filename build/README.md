@@ -18,16 +18,16 @@ it is not. Its contents are never copied into the packaged app.
 
 ## What is here
 
-| File                     | Status                | Purpose                                                                    |
-| ------------------------ | --------------------- | -------------------------------------------------------------------------- |
-| `entitlements.mac.plist` | Present, **inert**    | macOS hardened-runtime entitlements, for the day a signing certificate exists |
-| `icon.ico`               | **Missing**           | Windows application and installer icon                                     |
-| `icon.icns`              | **Missing**           | macOS application icon                                                     |
-| `icon.png`               | **Missing**           | Source icon; electron-builder can derive the others from it                |
-| `installerHeader.bmp`    | Missing, optional     | NSIS wizard header strip                                                   |
-| `installerSidebar.bmp`   | Missing, optional     | NSIS welcome/finish page sidebar                                           |
-| `background.png`         | Missing, optional     | DMG window background                                                      |
-| `license_en.txt`         | Missing, optional     | Plain-text licence page in the NSIS wizard                                 |
+| File                     | Status             | Purpose                                                                       |
+| ------------------------ | ------------------ | ----------------------------------------------------------------------------- |
+| `entitlements.mac.plist` | Present, **inert** | macOS hardened-runtime entitlements, for the day a signing certificate exists |
+| `icon.ico`               | **Missing**        | Windows application and installer icon                                        |
+| `icon.icns`              | **Missing**        | macOS application icon                                                        |
+| `icon.png`               | **Missing**        | Source icon; electron-builder can derive the others from it                   |
+| `installerHeader.bmp`    | Missing, optional  | NSIS wizard header strip                                                      |
+| `installerSidebar.bmp`   | Missing, optional  | NSIS welcome/finish page sidebar                                              |
+| `background.png`         | Missing, optional  | DMG window background                                                         |
+| `license_en.txt`         | Missing, optional  | Plain-text licence page in the NSIS wizard                                    |
 
 A build with no icons **succeeds**. It ships the stock Electron icon, which looks like an
 unfinished app — fine for a development build, not for a release.
