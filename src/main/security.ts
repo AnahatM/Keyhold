@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { app, session, shell, type BrowserWindow, type WebContents } from 'electron';
 
 /**
@@ -60,7 +62,12 @@ export const HARDENED_WEB_PREFERENCES = {
   devTools: !app.isPackaged,
 } as const;
 
-function isAllowedNavigation(rawUrl: string): boolean {
+/** Where the packaged renderer lives on disk. Nothing outside it is "us". */
+function rendererRoot(): string {
+  return resolve(join(import.meta.dirname, '../renderer'));
+}
+
+export function isAllowedNavigation(rawUrl: string): boolean {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -68,13 +75,50 @@ function isAllowedNavigation(rawUrl: string): boolean {
     return false;
   }
 
-  // In dev the renderer is served over http from the vite server; in production it
-  // is loaded from disk. Both are "us"; nothing else is.
-  if (url.protocol === 'file:') return true;
+  // In dev the renderer is served over http from the vite server; in production it is
+  // loaded from disk. Both are "us"; nothing else is.
+  if (url.protocol === 'file:') {
+    // NOT "every file: URL is us". `file://attacker-host/share/page.html` parses with
+    // protocol `file:` and a non-empty hostname, and an unqualified check would let a
+    // renderer with script execution navigate the main window to a page of the attacker's
+    // authorship — which the preload is then injected into, handing them the whole
+    // `window.keyhold` bridge. A transient injection becomes a persistent one.
+    if (url.hostname !== '') return false;
+    try {
+      const target = resolve(fileURLToPath(url));
+      const root = rendererRoot();
+      return target === root || target.startsWith(root + sep);
+    } catch {
+      return false;
+    }
+  }
+
   if (!app.isPackaged && (url.hostname === 'localhost' || url.hostname === '127.0.0.1')) {
     return true;
   }
   return ALLOWED_REMOTE_HOSTS.includes(url.host);
+}
+
+/**
+ * Hands a URL to the user's browser — and **only** if it is one a browser should get.
+ *
+ * One function for both the `will-navigate` fallback and the window-open handler, because
+ * the two had drifted: the handler checked the scheme and the navigation path did not, so
+ * `location.href = 'ms-msdt:…'` reached `shell.openExternal` with a fully attacker-chosen
+ * URI while `window.open` of the same string was refused. Passing a renderer-controlled URL
+ * to the shell unfiltered is the canonical Electron renderer-compromise-to-code-execution
+ * step; `http:` and `https:` are the only schemes a link in this app can legitimately need.
+ */
+export function openExternally(rawUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+  void shell.openExternal(url.toString());
+  return true;
 }
 
 /**
@@ -87,15 +131,17 @@ function isAllowedNavigation(rawUrl: string): boolean {
 export function applyWebContentsHardening(contents: WebContents): void {
   contents.on('will-navigate', (event, url) => {
     if (!isAllowedNavigation(url)) {
+      // Cancelled unconditionally. Whether it is then offered to the browser is a separate
+      // question, and `openExternally` is the only place that answers it.
       event.preventDefault();
-      void shell.openExternal(url);
+      openExternally(url);
     }
   });
 
   contents.setWindowOpenHandler(({ url }) => {
-    // Never let the renderer spawn a window we did not configure — a window without
-    // our hardened webPreferences would be a hole straight through this whole file.
-    if (/^https?:$/.test(new URL(url).protocol)) void shell.openExternal(url);
+    // Never let the renderer spawn a window we did not configure — a window without our
+    // hardened webPreferences would be a hole straight through this whole file.
+    openExternally(url);
     return { action: 'deny' };
   });
 

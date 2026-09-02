@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { join } from 'node:path';
-import { BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { buildMenu, type MenuActions } from './menu.js';
 import { HARDENED_WEB_PREFERENCES, hardenWindow } from './security.js';
 import { readWindowState, trackWindowState, windowOptionsFromState } from './window-state.js';
@@ -49,13 +49,17 @@ export function createMainWindow(menuActions?: MenuActions): BrowserWindow {
     mainWindow = null;
   });
 
-  // Anchor links inside the app open in the user's real browser, never in-app.
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
-    return { action: 'deny' };
-  });
+  // No window-open handler here, deliberately. `hardenWindow` above already installs one,
+  // and `setWindowOpenHandler` keeps a single handler per WebContents — so the copy that
+  // used to live here silently replaced the hardened one and dropped its scheme check,
+  // meaning `window.open('ms-msdt:…')` reached `shell.openExternal` unfiltered. Two copies
+  // of one policy, with the weaker copy in force: exactly what hard rule 8 is about.
 
-  const devServerUrl = process.env.ELECTRON_RENDERER_URL;
+  // The dev server is honoured ONLY in development. In a packaged build this would let
+  // anyone who can set an environment variable choose what the main window loads — with the
+  // preload bridge attached, so scripts from that origin could call `vault.unlock` and
+  // `credentials.revealSecret`. Same `!app.isPackaged` idiom as `devTools` in security.ts.
+  const devServerUrl = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL;
   if (devServerUrl !== undefined && devServerUrl !== '') {
     void window.loadURL(devServerUrl);
   } else {

@@ -139,6 +139,8 @@ const NO_ORIGIN: OriginSource = { capture: (action) => ({ action }) };
 
 export class VaultService {
   #open: OpenVault | null = null;
+  /** The save queue. See `save()` — two writers on one temp path is data loss, not a race to tune. */
+  #saving: Promise<void> = Promise.resolve();
   #broker = new SecretBroker();
   readonly #deviceId: string;
   readonly #origin: OriginSource;
@@ -342,33 +344,78 @@ export class VaultService {
 
   // ── Saving ─────────────────────────────────────────────────────────────────
 
+  /**
+   * Saves the vault. **Serialised**, and it must stay that way.
+   *
+   * Two concurrent saves would both call `writeVaultFileAtomically` on the same
+   * `<vault>.keep.tmp` path: both open it for writing, one truncates the other's bytes, and
+   * the loser's rename either clobbers the winner or fails into the cleanup that removes the
+   * temp file. Every mutator here is synchronous, so the only way two saves overlap is
+   * through this `await` — which is exactly what the queue closes.
+   */
   async save(): Promise<VaultSummary> {
+    // The chain absorbs a rejection so one failed save does not poison every save after it,
+    // while the returned promise still rejects for the caller that asked for this one.
+    const run = this.#saving.then(
+      () => this.#saveOnce(),
+      () => this.#saveOnce()
+    );
+    this.#saving = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  }
+
+  async #saveOnce(): Promise<VaultSummary> {
     const opened = this.#requireOpen();
 
     // Retention is enforced on save rather than on a timer, so a vault that is never opened
     // never loses anything. Measuring against wall-clock time while the app was closed
     // would mean reopening after a long break silently purges a trash the user never saw.
     const document = purgeExpiredTrash(opened.document, Date.now());
-    const open = { ...opened, document };
 
     const header: KeepHeader = {
-      ...open.header,
+      ...opened.header,
       modifiedAt: Date.now(),
-      generation: open.header.generation + 1,
+      generation: opened.header.generation + 1,
       deviceId: this.#deviceId,
-      recordCount: open.document.records.length,
-      attachmentCount: open.attachments.length,
+      recordCount: document.records.length,
+      attachmentCount: opened.attachments.length,
     };
 
     const bytes = writeContainer(
       header,
-      { body: serialiseVaultDocument(open.document), attachments: open.attachments },
-      open.dek
+      { body: serialiseVaultDocument(document), attachments: opened.attachments },
+      opened.dek
     );
 
-    await writeVaultFileAtomically(open.path, bytes);
+    await writeVaultFileAtomically(opened.path, bytes);
 
-    this.#open = { ...open, header, dirty: false };
+    // ── Writing back, without discarding whatever happened during the await ──
+    //
+    // The naive form — `this.#open = { ...opened, header, dirty: false }` — restores a
+    // snapshot taken before the write and clears the dirty flag. A mutation that landed
+    // while the file was being written is then gone from memory *and* marked as saved, so
+    // nothing will ever write it again: the record simply vanishes on the next refresh,
+    // with no error. That is the worst failure this class can have.
+    //
+    // So only the fields this save actually owns are written back, and the dirty flag is
+    // cleared only when the document is still the one that was serialised.
+    const current = this.#open;
+    if (current?.path !== opened.path) {
+      // Locked, closed, or a different vault opened while we were writing. The bytes on
+      // disk are correct; there is no in-memory state left that they belong to.
+      return this.#summaryFrom(opened, header);
+    }
+
+    const untouched = current.document === opened.document;
+    this.#open = {
+      ...current,
+      header,
+      document: untouched ? document : current.document,
+      dirty: !untouched,
+    };
     return this.summary();
   }
 
@@ -376,13 +423,24 @@ export class VaultService {
 
   summary(): VaultSummary {
     const open = this.#requireOpen();
+    return this.#summaryFrom(open, open.header);
+  }
+
+  /**
+   * A summary of a specific snapshot, rather than of whatever is open now.
+   *
+   * `save()` needs this for the case where the vault was locked or replaced during the file
+   * write: the bytes on disk are correct and the caller is owed an accurate answer about
+   * them, but there is no live state left to read it from.
+   */
+  #summaryFrom(open: OpenVault, header: KeepHeader): VaultSummary {
     return {
-      vaultId: open.header.vaultId,
+      vaultId: header.vaultId,
       path: open.path,
       displayName: basename(open.path).replace(/\.keep$/i, ''),
-      createdAt: open.header.createdAt,
-      modifiedAt: open.header.modifiedAt,
-      generation: open.header.generation,
+      createdAt: header.createdAt,
+      modifiedAt: header.modifiedAt,
+      generation: header.generation,
       recordCount: open.document.records.filter((r) => r.trashedAt === null).length,
       attachmentCount: open.attachments.length,
       trashedCount: open.document.records.filter((r) => r.trashedAt !== null).length,

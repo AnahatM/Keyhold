@@ -342,3 +342,57 @@ describe('document parsing', () => {
     expect(document.settings.auditPrivacyLevel).toBe('device');
   });
 });
+
+/**
+ * Saving while a save is in flight.
+ *
+ * An audit found `save()` was a read-modify-write across an `await`: it snapshotted the open
+ * vault, awaited the file write, then reassigned `this.#open` from that stale snapshot with
+ * `dirty: false`. Anything that changed during the write was reverted in memory *and* marked
+ * as saved — so it would never be written again. The record simply disappeared on the next
+ * refresh, with no error anywhere.
+ *
+ * Every mutator here is synchronous, so the only window is that `await`. These two tests
+ * are the whole reason the save queue exists; deleting either of them makes the queue look
+ * like unnecessary machinery.
+ */
+describe('saving while a save is in flight', () => {
+  it('does not discard a change that lands during the write', async () => {
+    await create();
+    service.createCredential({ title: 'Before' });
+
+    // Start a save and let it reach its `await` before mutating, so the change genuinely
+    // lands *inside* the file write. Mutating synchronously after `save()` would not test
+    // this at all — the queue defers the first save by a microtask, so such a change is
+    // simply included in it.
+    const saving = service.save();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    service.createCredential({ title: 'Landed mid-write' });
+    await saving;
+
+    const titles = service.listProjections().map((record) => record.title);
+    expect(titles).toContain('Landed mid-write');
+
+    // And it must still be marked unsaved, or nothing will ever write it.
+    expect(service.hasUnsavedChanges).toBe(true);
+
+    await service.save();
+    service.lock();
+    await service.unlock(vaultPath, PASSWORD);
+    expect(service.listProjections().map((r) => r.title)).toContain('Landed mid-write');
+  });
+
+  it('serialises two overlapping saves rather than racing on one temp file', async () => {
+    await create();
+    service.createCredential({ title: 'A' });
+
+    // Both writers would otherwise open the same `<vault>.keep.tmp`, so one truncates the
+    // other's bytes and the loser's rename clobbers the winner or fails into the cleanup.
+    const [first, second] = await Promise.all([service.save(), service.save()]);
+    expect(second.generation).toBeGreaterThan(first.generation);
+
+    service.lock();
+    await service.unlock(vaultPath, PASSWORD);
+    expect(service.listProjections()).toHaveLength(1);
+  });
+});

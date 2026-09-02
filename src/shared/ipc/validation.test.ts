@@ -130,6 +130,32 @@ describe('vault paths', () => {
   it('rejects an empty path', () => {
     expect(() => requireVaultPath(CHANNEL, '')).toThrow(IpcValidationError);
   });
+
+  /**
+   * This validator's own doc calls itself defence in depth "where a compromised renderer
+   * replays a channel directly" — and an audit found it did not defend that case. It took
+   * any non-empty string, so `kh:vault:create` reached `writeVaultFileAtomically`, whose
+   * first act is `mkdir(directory, { recursive: true })`. A replayed channel could create
+   * arbitrary directory trees and drop a file anywhere the user can write.
+   */
+  it('rejects a relative path', () => {
+    expect(() => requireVaultPath(CHANNEL, 'vault.keep')).toThrow(/absolute/);
+    expect(() => requireVaultPath(CHANNEL, '../../../vault.keep')).toThrow(/absolute/);
+    expect(() => requireVaultPath(CHANNEL, './sub/vault.keep')).toThrow(/absolute/);
+  });
+
+  it('rejects a path that does not name a vault', () => {
+    // The realistic targets: a Startup shortcut, a shell profile, a config file.
+    expect(() => requireVaultPath(CHANNEL, 'C:/Users/a/Start Menu/Programs/Startup/x.lnk')).toThrow(
+      /\.keep/
+    );
+    expect(() => requireVaultPath(CHANNEL, '/home/a/.bashrc')).toThrow(/\.keep/);
+  });
+
+  it('accepts a UNC share and is case-insensitive about the extension', () => {
+    expect(() => requireVaultPath(CHANNEL, '//server/share/vault.KEEP')).not.toThrow();
+    expect(() => requireVaultPath(CHANNEL, '\\\\server\\share\\vault.keep')).not.toThrow();
+  });
 });
 
 describe('secret references — the most security-sensitive payload in the contract', () => {

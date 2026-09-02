@@ -171,6 +171,10 @@ export function requireListOptions(channel: string, value: unknown): ListOptions
   };
 }
 
+/** A Windows drive path, a UNC share, or a POSIX root. Anything else is relative. */
+const ABSOLUTE_PATH = /^(?:[A-Za-z]:[\\/]|\\\\|\/)/;
+const VAULT_EXTENSION = /\.keep$/i;
+
 /**
  * Validates a filesystem path arriving from the renderer.
  *
@@ -184,6 +188,25 @@ export function requireVaultPath(channel: string, value: unknown): string {
     // A NUL byte truncates the path in some native calls — a classic way to make a
     // validated string mean something different by the time it reaches the filesystem.
     throw new IpcValidationError(channel, 'path contains a null byte');
+  }
+
+  // Absolute, and named like a vault.
+  //
+  // Without these, this validator did not defend the case its own comment names.
+  // `kh:vault:create` passes the path straight to `writeVaultFileAtomically`, whose
+  // first act is `mkdir(directory, { recursive: true })` — so a compromised renderer
+  // replaying the channel could create arbitrary directory trees and drop a file
+  // anywhere the user can write: a Startup folder, a dotfile, a config path. The dialog
+  // handler already produces absolute `.keep` paths, so this costs the real flow nothing.
+  //
+  // Checked with a regex rather than `node:path`, because this module is compiled into
+  // the renderer's project too and must stay free of Node built-ins. Windows drive
+  // letters, UNC shares and POSIX roots all count as absolute.
+  if (!ABSOLUTE_PATH.test(path)) {
+    throw new IpcValidationError(channel, 'path must be absolute');
+  }
+  if (!VAULT_EXTENSION.test(path)) {
+    throw new IpcValidationError(channel, 'path must name a .keep vault file');
   }
   return path;
 }
