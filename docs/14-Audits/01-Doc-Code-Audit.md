@@ -72,11 +72,11 @@ landed phase, and delete the Notes block.
 Absence claims are the most dangerous kind of documentation because nothing fails when they
 go stale. All three of these were verified in both directions.
 
-| Doc says not built                                                   | Code                                                                                                                                                                                                                            |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/05-Features/00-Password-Generator.md:106` "The IPC channel and the generator UI" | `src/main/ipc/register.ts:330,340,350` register `generatorGenerate`, `generatorEstimate`, `generatorLimits`; `src/preload/index.ts:151-160` exposes all three; `src/renderer/src/generator/` holds a full panel, form, slider, entropy readout and secret-history list |
-| `docs/05-Features/00-Password-Generator.md:108-111` "`GENERATOR_LIMITS` … when the UI lands it must read them across the IPC contract" | That channel exists and `register.ts:344-353` documents it as the fix for exactly this problem. The instruction has been carried out; the paragraph still reads as future work                                                    |
-| `docs/05-Features/01-Health-Rules.md:126` "The IPC channel, the dashboard view, and per-rule settings persistence" | `register.ts:357` registers `healthAnalyse`; `preload/index.ts:162-168` exposes it; `src/renderer/src/health/` holds `HealthDashboard.tsx`, `HealthScoreCard.tsx`, `HealthRuleSection.tsx`, `HealthRuleToggles.tsx` and a no-secrets guard test |
+| Doc says not built                                                                                                                     | Code                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/05-Features/00-Password-Generator.md:106` "The IPC channel and the generator UI"                                                 | `src/main/ipc/register.ts:330,340,350` register `generatorGenerate`, `generatorEstimate`, `generatorLimits`; `src/preload/index.ts:151-160` exposes all three; `src/renderer/src/generator/` holds a full panel, form, slider, entropy readout and secret-history list |
+| `docs/05-Features/00-Password-Generator.md:108-111` "`GENERATOR_LIMITS` … when the UI lands it must read them across the IPC contract" | That channel exists and `register.ts:344-353` documents it as the fix for exactly this problem. The instruction has been carried out; the paragraph still reads as future work                                                                                         |
+| `docs/05-Features/01-Health-Rules.md:126` "The IPC channel, the dashboard view, and per-rule settings persistence"                     | `register.ts:357` registers `healthAnalyse`; `preload/index.ts:162-168` exposes it; `src/renderer/src/health/` holds `HealthDashboard.tsx`, `HealthScoreCard.tsx`, `HealthRuleSection.tsx`, `HealthRuleToggles.tsx` and a no-secrets guard test                        |
 
 Per-rule settings persistence may genuinely still be absent — these renderer modules
 appeared and grew during this audit and are in-flight work — but the IPC channels and the
@@ -96,8 +96,8 @@ the generator and health rows to `docs/01-Architecture/01-IPC-Surface.md`'s chan
 
 The safe-projection table's last history row reads:
 
-| Crosses | Never crosses |
-| --- | --- |
+| Crosses                                                             | Never crosses                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------- |
 | history: version number, timestamp, changed-field names, **origin** | version `snapshot` — those are previous passwords |
 
 A projected snapshot **does** cross, and by design: `VersionProjection.snapshot` is a
@@ -164,7 +164,7 @@ colour flashed before the first paint, it is hard-coded to a dark value, and a u
 light theme sees a dark flash on every launch.
 
 Judgement call, recorded so it is not re-raised: the `rgb(0 0 0 / …)` values in
-`src/renderer/src/styles/base.css:60-62` are *definitions* of `--kh-shadow-*` tokens, i.e.
+`src/renderer/src/styles/base.css:60-62` are _definitions_ of `--kh-shadow-*` tokens, i.e.
 the source of truth, and are not a violation.
 
 **Fix.** Either derive the window background from the persisted appearance preference, or
@@ -177,13 +177,13 @@ cover.
 
 Each was counted directly.
 
-| Claim                                                                          | Code                                                                                                                          |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/03-Data-Model/00-Credential-Model.md:82` "Fourteen types"                | `CUSTOM_FIELD_TYPES` (`credential.ts:27-41`) has **13** — and the doc's own list on the next line has 13                        |
-| `docs/05-Features/_INDEX.md:8` "The eight offline rules"                       | `HEALTH_RULE_IDS` (`health.ts:40-50`) has **9**; the rules page's own table lists all nine                                      |
-| `docs/09-Import-Export/_INDEX.md:7` and `00-Import-Formats.md:3` "eleven parsers" | `PARSERS` (`import/index.ts:32-55`) has **12**                                                                                 |
-| `docs/11-Development/01-Testing-Policy.md:23` "Eighteen formats is eighteen chances" | **12** parsers exist; 18 appears to be a roadmap aspiration                                                                    |
-| `docs/12-Roadmap/_INDEX.md:10` "all 17 founding decisions"                      | The log holds **D1–D22**. D18–D22 were added after the founding set, so "17 founding" is defensible — but the index reads as a description of the file's contents, and undercounts them by five |
+| Claim                                                                                | Code                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/03-Data-Model/00-Credential-Model.md:82` "Fourteen types"                      | `CUSTOM_FIELD_TYPES` (`credential.ts:27-41`) has **13** — and the doc's own list on the next line has 13                                                                                        |
+| `docs/05-Features/_INDEX.md:8` "The eight offline rules"                             | `HEALTH_RULE_IDS` (`health.ts:40-50`) has **9**; the rules page's own table lists all nine                                                                                                      |
+| `docs/09-Import-Export/_INDEX.md:7` and `00-Import-Formats.md:3` "eleven parsers"    | `PARSERS` (`import/index.ts:32-55`) has **12**                                                                                                                                                  |
+| `docs/11-Development/01-Testing-Policy.md:23` "Eighteen formats is eighteen chances" | **12** parsers exist; 18 appears to be a roadmap aspiration                                                                                                                                     |
+| `docs/12-Roadmap/_INDEX.md:10` "all 17 founding decisions"                           | The log holds **D1–D22**. D18–D22 were added after the founding set, so "17 founding" is defensible — but the index reads as a description of the file's contents, and undercounts them by five |
 
 `00-Import-Formats.md` has a second, worse form of the same defect: its §3 column-mapping
 table has eleven rows and **omits `keyholdJsonParser` entirely** — the twelfth parser, and
@@ -207,13 +207,13 @@ already documents that pattern for a different number, so the technique is in th
 > Settings → Privacy.
 
 There is no consent screen and no kill-switch. The HIBP feature itself began landing
-*during* this audit — `src/main/breach/` now holds the k-anonymity client, the range parser
+_during_ this audit — `src/main/breach/` now holds the k-anonymity client, the range parser
 and an isolated HTTPS transport — but nothing outside that folder imports it, no
 `kh:breach:*` channel is registered, and no setting exists to turn it on or off. So the
 sentence describes a control the user cannot find, guarding a feature they cannot reach.
 
 The settings half is in motion rather than absent: `src/renderer/src/settings/` grew from one
-file to ten *during this audit* (an appearance panel plus vault, security/session,
+file to ten _during this audit_ (an appearance panel plus vault, security/session,
 history/audit and health-rule sections, a gateway and a `use-settings` hook), so the audit
 privacy level is close to being user-changeable. But `src/renderer/src/App.tsx:4` still
 imports only `AppearancePanel`, so no settings screen is reachable yet, and "Settings →
@@ -305,13 +305,13 @@ the "deliberate oddities" register) or whether it should be folded in.
 The map lists `shared/`, `main/crypto/`, `main/format/`, `main/vault/`, `main/ipc/`,
 `security.ts`, `window.ts`, `index.ts`, `smoke.ts`, `preload/`, `renderer/`. Absent:
 `main/history/` (versioning, origin capture, the network probe, the diff projection —
-including the codebase's *second* security boundary), `main/health/`, `main/generator/`,
+including the codebase's _second_ security boundary), `main/health/`, `main/generator/`,
 `main/import/`, `main/export/`, `main/session/` (the whole session model: auto-lock,
 clipboard, quick unlock, preferences, throttle, strength), plus `main/menu.ts` and
 `main/window-state.ts`.
 
 `01-IPC-Surface.md` and `02-Session-Model.md` document those areas well; the problem is that
-the page presenting itself as *the* module map now shows less than half the tree, and
+the page presenting itself as _the_ module map now shows less than half the tree, and
 `diff-projection.ts` — which the same document elsewhere calls the second projection
 boundary — does not appear on it at all.
 
@@ -411,7 +411,7 @@ export const MIN_KDF_PARAMS = {
 } as const;
 ```
 
-The floor **is** OWASP's, exactly. It is the *default* (64 MiB, t=3, p=4) that is well above
+The floor **is** OWASP's, exactly. It is the _default_ (64 MiB, t=3, p=4) that is well above
 it, and the paragraph is describing the default while sitting above the minimum. The
 published spec and the cryptography doc both get this right — `00-Cryptography.md:74-78`
 explains the floor and the ceiling as serving different purposes, and the spec's table is
@@ -444,7 +444,7 @@ clean-room implementer reading it may conclude they should emit a `.keepbak`.
 `docs/09-Import-Export/_INDEX.md:7-9`
 
 In each, a blank line separates the last row from the ones above it, so the final entry
-(`01-IPC-Surface.md`, `02-App-Chrome.md`, `01-Export-Formats.md`) renders as a *separate*
+(`01-IPC-Surface.md`, `02-App-Chrome.md`, `01-Export-Formats.md`) renders as a _separate_
 one-row table with the row itself promoted to a header. Purely presentational, and trivially
 fixable by deleting the blank line.
 
@@ -466,7 +466,7 @@ Two ways this is not what happens. `src/main/window.ts:53` installs a **second**
 hardened one and has no scheme test, so any URI at all is passed to `shell.openExternal`.
 And the `will-navigate` bullet three lines above ("anything outside the app's own pages is
 cancelled and handed to the user's real browser") describes `security.ts:88-93` accurately —
-which is itself the problem, because that path hands *every* scheme to the OS, not only
+which is itself the problem, because that path hands _every_ scheme to the OS, not only
 `http(s)`.
 
 The rest of §4 is correct: `will-attach-webview` is prevented, both permission handlers deny
@@ -487,23 +487,23 @@ Recorded so nobody re-verifies these, and so nobody "corrects" one of them.
 
 **Every guarded number checked out.**
 
-| Claim                                                                  | Verified against                                                         |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Argon2: default 64 MiB / t=3 / p=4, floor 19 MiB / 2 / 1, ceiling 2 GiB / 32 / 16, 16-byte salt, 32-byte output | `src/shared/format/types.ts:72-95`, in both `00-Cryptography.md:67-72` and the spec's `§4` table |
-| Nonce 12 bytes, tag 16, key 32, chunk id 16, magic `4B 45 59 48 4F 4C 44 00` | `types.ts:16-42`; byte layout in spec `§2` matches `container.ts` exactly |
-| Decompression bounded at 256 MiB                                       | `MAX_BODY_BYTES` = 268 435 456, passed as `maxOutputLength`               |
-| Grant TTL 30 s, 60 grants per 60 s window                              | `secret-broker.ts:27-38`; `00-Process-Model.md:121-124`                   |
-| Throttle: 3 free attempts, 2 s base, doubling, 5-minute cap            | `unlock-throttle.ts:21-23`; `02-Session-Model.md:80-88`                   |
-| Idle 10 min, sleep on, screen-lock on, minimise off, blur off          | `auto-lock.ts:31-37`; `02-Session-Model.md:94-100`                        |
-| Eight built-in themes                                                  | `src/shared/theme/themes.ts` — dawn, midnight, slate, nord, solarized-light, solarized-dark, rose, high-contrast |
-| "77 tests" across crypto and container                                 | 46 + 31 = 77                                                              |
-| "adds 19 covering durability"                                          | `atomic-write.test.ts` — 19                                               |
-| "62 tests" for app chrome                                              | seven chrome test files — 62                                              |
-| "40 checks" in the launch smoke test                                   | `smoke.ts` — 40 `steps.push(...)`                                          |
-| 20 phases in the master checklist                                      | Phase 0 through Phase 19                                                  |
-| Clipboard markers, one atomic item, per platform                       | `clipboard.ts:43-53,78-87`; `02-Session-Model.md:119-126`                 |
-| Quick-unlock platform table (Touch ID / DPAPI / keyring, and which prompts) | `quick-unlock.ts:52-94`; `02-Session-Model.md:144-154`                    |
-| Symbol set excludes space, backslash, backtick and both quotes         | generator charsets                                                        |
+| Claim                                                                                                           | Verified against                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Argon2: default 64 MiB / t=3 / p=4, floor 19 MiB / 2 / 1, ceiling 2 GiB / 32 / 16, 16-byte salt, 32-byte output | `src/shared/format/types.ts:72-95`, in both `00-Cryptography.md:67-72` and the spec's `§4` table                 |
+| Nonce 12 bytes, tag 16, key 32, chunk id 16, magic `4B 45 59 48 4F 4C 44 00`                                    | `types.ts:16-42`; byte layout in spec `§2` matches `container.ts` exactly                                        |
+| Decompression bounded at 256 MiB                                                                                | `MAX_BODY_BYTES` = 268 435 456, passed as `maxOutputLength`                                                      |
+| Grant TTL 30 s, 60 grants per 60 s window                                                                       | `secret-broker.ts:27-38`; `00-Process-Model.md:121-124`                                                          |
+| Throttle: 3 free attempts, 2 s base, doubling, 5-minute cap                                                     | `unlock-throttle.ts:21-23`; `02-Session-Model.md:80-88`                                                          |
+| Idle 10 min, sleep on, screen-lock on, minimise off, blur off                                                   | `auto-lock.ts:31-37`; `02-Session-Model.md:94-100`                                                               |
+| Eight built-in themes                                                                                           | `src/shared/theme/themes.ts` — dawn, midnight, slate, nord, solarized-light, solarized-dark, rose, high-contrast |
+| "77 tests" across crypto and container                                                                          | 46 + 31 = 77                                                                                                     |
+| "adds 19 covering durability"                                                                                   | `atomic-write.test.ts` — 19                                                                                      |
+| "62 tests" for app chrome                                                                                       | seven chrome test files — 62                                                                                     |
+| "40 checks" in the launch smoke test                                                                            | `smoke.ts` — 40 `steps.push(...)`                                                                                |
+| 20 phases in the master checklist                                                                               | Phase 0 through Phase 19                                                                                         |
+| Clipboard markers, one atomic item, per platform                                                                | `clipboard.ts:43-53,78-87`; `02-Session-Model.md:119-126`                                                        |
+| Quick-unlock platform table (Touch ID / DPAPI / keyring, and which prompts)                                     | `quick-unlock.ts:52-94`; `02-Session-Model.md:144-154`                                                           |
+| Symbol set excludes space, backslash, backtick and both quotes                                                  | generator charsets                                                                                               |
 
 **Absence claims that were verified and hold.**
 

@@ -87,7 +87,7 @@ and once from `hardenWindow` — so removing the duplicate loses nothing and res
 check. Then add a guard test that opens a `WebContents`, invokes the registered handler with
 `ms-settings:`, `file:///`, and a malformed string, and asserts `shell.openExternal` was not
 called. This is precisely the defect class that `security.test.ts` cannot see today, because
-it asserts the *configuration object* and never the *installed handlers*.
+it asserts the _configuration object_ and never the _installed handlers_.
 
 ---
 
@@ -105,7 +105,7 @@ contents.on('will-navigate', (event, url) => {
 ```
 
 Same class as S1, and independent of it: this path has never had a scheme check. Anything
-that is not `file:` (or localhost in development) is cancelled *and then handed to the OS*.
+that is not `file:` (or localhost in development) is cancelled _and then handed to the OS_.
 A compromised renderer setting `location.href = '<scheme>:<payload>'` reaches
 `shell.openExternal` with a fully attacker-chosen URI. The Electron guidance on this is
 explicit — validate the scheme before `openExternal`, never pass through what you just
@@ -138,7 +138,7 @@ Keyhold process — a tampered shortcut, a user-level persistence mechanism, a p
 a poisoned `.desktop`/launch agent — chooses what the main window loads, in a window that
 has the preload bridge attached. `isAllowedNavigation` does not help: it guards
 `will-navigate`, not the initial `loadURL`. The CSP is applied to the response, but
-`script-src 'self'` resolves against *that* origin, so scripts served by the attacker's own
+`script-src 'self'` resolves against _that_ origin, so scripts served by the attacker's own
 host run and can call every method on `window.keyhold` — including `vault.unlock` and
 `credentials.revealSecret`.
 
@@ -276,7 +276,7 @@ in the `handle` wrapper — one place, all channels.
 
 `kh:history:networkName` calls `refreshNetwork()`, which deliberately bypasses the 60-second
 cache because a user watching a spinner asked for a fresh answer. `#refresh` de-duplicates
-*concurrent* calls but not sequential ones, so a renderer looping on this channel keeps a
+_concurrent_ calls but not sequential ones, so a renderer looping on this channel keeps a
 `netsh` or `system_profiler` process running back to back for as long as it likes. Each is
 bounded at 2 seconds and 512 KiB, so this is a nuisance rather than an outage — but it is
 the only channel in the app that can start a process, and it is the only one with no
@@ -385,7 +385,9 @@ the real limit and the ops cap would never fire.
 `src/renderer/src/vault/SecretField.tsx:197`, against `src/main/security.ts:131-135`
 
 ```ts
-void navigator.clipboard.writeText(value).then(() => { setCopied(true); });
+void navigator.clipboard.writeText(value).then(() => {
+  setCopied(true);
+});
 ```
 
 `applySessionHardening` denies **every** permission unconditionally, including the
