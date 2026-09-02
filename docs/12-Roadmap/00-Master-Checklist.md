@@ -270,17 +270,30 @@ _Full notes: `docs/05-Features/00-Password-Generator.md`._
 - [ ] Session generation history, per-site rule memory, generate-and-replace (auto-versioning the old password)
 - [x] `docs/05-Features/00-Password-Generator.md` written
 
-## Phase 9 — Encrypted attachments
+## Phase 9 — Encrypted attachments ~ ENGINE DONE
 
-- [ ] Attach a file → its own encrypted chunk in the same `.keep`
-- [ ] SHA-256 integrity verification on read
-- [ ] In-app preview: images, PDF, plain text; a lightbox for images
-- [ ] Export to disk with a plaintext warning
-- [ ] Warn above 5 MB; configurable hard cap, default 25 MB per file
-- [ ] Attachment totals in vault stats; orphan-chunk cleanup on save
-- [ ] Drag-and-drop to attach
-- [ ] **Tests:** chunk roundtrip · integrity failure detected · orphan cleanup · size-cap enforcement
-- [ ] `docs/05-Features/attachments.md` written
+_The engine is built and tested; reading files, IPC, previews and drag-and-drop are not.
+Full notes: `docs/05-Features/04-Attachments.md`._
+
+- [x] Attach a file → its own encrypted chunk, **content-addressed and shared** between
+      records that attach the same file
+- [x] **The chunk id stays random rather than becoming the digest** — ids are plaintext in the
+      container, so a content-derived id would fingerprint every attachment to anyone holding
+      the locked file
+- [x] Reference counting, with trashed records still counting as referrers
+- [x] SHA-256 integrity verification, and orphan detection in both directions — reported, never
+      silently repaired
+- [x] Size limits derived from how the container is actually read (peak resident is ~3× the
+      total), validated against the container's own ceiling
+- [x] MIME sniffed rather than trusted; the **detected** type is stored, because it picks the
+      viewer; filenames sanitised, `evil.pdf.exe` flagged rather than renamed
+- [x] **Fixed a latent data loss in `purgeCredential`** — it deleted every chunk the record
+      listed, which with shared chunks deletes files other records still display
+- [ ] Reading a file from disk, IPC channels, drag-and-drop, export to disk with its warning
+- [ ] In-app preview: images, PDF, plain text; a lightbox
+- [ ] `VaultSettings` carrying the caps, so they travel with the vault
+- [x] **Tests (80)** and nine fault injections, all caught
+- [x] `docs/05-Features/04-Attachments.md` written
 
 ## Phase 10 — Import ~ PARSERS DONE
 
@@ -364,19 +377,20 @@ opt-in HIBP check are not. Full notes: `docs/05-Features/01-Health-Rules.md`._
 - [ ] `missing-2FA` — needs a model decision, since there is no 2FA field to key it off
 - [x] `docs/05-Features/01-Health-Rules.md` written
 
-## Phase 14 — Settings & configurability
+## Phase 14 — Settings & configurability ~ UI DONE
 
-_Goal: the user, not us, decides their security/convenience trade-off._
+_The screen is built and tested against a gateway interface; the IPC channel for changing
+`VaultSettings` does not exist yet._
 
-- [ ] Settings shell: Vault · Security · Privacy · Appearance · Behaviour · Import/Export · Sync · Advanced · About
-- [ ] **Security presets** — Relaxed / Balanced / Strict / Paranoid — each a named bundle of the individual settings
-- [ ] Every individual setting independently overridable, with a visible "modified from preset" marker
-- [ ] Settings search
-- [ ] Reset-to-default per setting and per section
-- [ ] Settings export/import (never includes secrets)
-- [ ] Advanced: KDF parameters, retention counts, cache sizes, the network kill-switch, a debug-log toggle (off by default)
-- [ ] **Tests:** every preset resolves to a complete, valid settings object · migration of a settings file from an older shape
-- [ ] `docs/05-Features/settings.md` written
+- [x] Appearance (mounting the existing panel), security and session, history and audit,
+      health rules, vault, danger zone
+- [x] **Machine settings and vault settings are visibly different** — one follows the file to
+      another device, the other does not
+- [x] The four audit privacy levels rendered from `AUDIT_LEVEL_FIELDS`, and health rules from
+      `HEALTH_RULE_IDS` — never a hand-written list
+- [x] Every default is the safe one, and reset restores exactly that
+- [ ] The `kh:settings:*` IPC channels, and the master-password change flow
+- [x] **Tests (32)**
 
 ## Phase 15 — Chrome & quality of life ~ CHROME DONE
 
@@ -409,27 +423,51 @@ Full notes: `docs/06-UI-Design-System/02-App-Chrome.md`._
 - [ ] First-run onboarding tour, skippable and re-runnable
 - [ ] **Guard test:** the licence list is generated from `package.json`, not hand-written
 
-## Phase 17 — Accessibility, performance & quality audits
+## Phase 17 — Accessibility, performance & quality audits ~ FIRST PASS DONE
 
-- [ ] **Accessibility sweep (WCAG 2.2 AA):** contrast in every theme · full keyboard route with no traps · visible focus everywhere · labels on every input · ARIA only where native will not do · `prefers-reduced-motion` · minimum 44×44 px targets · `lang` attribute · screen-reader pass on the primary flows
-- [ ] **Performance sweep:** startup time budget · unlock time (Argon2, off-thread) · list render with 10 000 records · search latency · memory after unlock · lazy-load `kdbxweb`, `zxcvbn` and the PDF preview
-- [ ] **Responsive sweep:** every view at the minimum window size and at five widths; nothing overflows outside a designated scroll container
-- [ ] **Refactoring sweep:** oversized files split, duplicates folded, dead code removed
-- [ ] **Stale-docs sweep:** every number, path and claim in `docs/` verified against the code
-- [ ] Dependency audit — `npm audit`, licence compatibility with GPL-3.0
-- [ ] Write each audit's findings to `docs/13-Appendix/`, including an explicit "checked and fine" list
+_Two written audits plus an adversarially-verified review workflow.
+Reports: `docs/14-Audits/`._
 
-## Phase 18 — Packaging, CI & release
+- [x] Security audit: 15 findings (2 high, 3 medium, 6 low, 4 informational), no critical.
+      **The secret boundary swept end to end and clean** — projection, diff projection, every
+      IPC handler, the preload, the renderer's persistence. `npm audit --omit=dev`: 0
+      vulnerabilities
+- [x] Docs-vs-code audit: 20 findings. Every _guarded_ number verified correct; it was the
+      unguarded prose counts that had rotted
+- [x] An eight-dimension review workflow with three-vote adversarial verification per finding
+- [x] **Five findings fixed**, each with a fault-injected guard: the `save()` read-modify-write
+      that lost data silently, two independent `shell.openExternal` paths taking any URI scheme,
+      `file:` URLs all counting as "us", `ELECTRON_RENDERER_URL` honoured when packaged, and a
+      vault path validator that permitted any path
+- [ ] Fix the remaining audit findings, notably the CHANGELOG and the stale "not built yet"
+      sections
+- [ ] Audit the nine subsystems that landed _after_ the sweep — `activity`, `attachments`,
+      `breach`, `organisation`, `recovery`, `shell`, `sync`, `theme`, `totp`. **`breach/` is the
+      project's first network code and needs its own pass before it ships**
+- [x] `docs/14-Audits/` written
 
-- [ ] `electron-builder` config — NSIS installer + portable (Windows), DMG + zip (macOS, x64 + arm64)
-- [ ] App icons and installer artwork for both platforms
-- [ ] GitHub Actions: lint + typecheck + test on push and PR
-- [ ] GitHub Actions: tagged release → build matrix → draft Release with artefacts and SHA-256 checksums
-- [ ] Reproducible-ish build notes so a third party can verify a binary
-- [ ] Document the **unsigned-build** experience: exact SmartScreen and Gatekeeper steps for users
-- [ ] Dependabot config; issue and PR templates
-- [ ] Verify a clean install on Windows; **[!] a real macOS machine is needed — see MANUAL-BACKLOG**
-- [ ] Tag `v1.0.0`
+## Phase 18 — Packaging, CI & release ~ CONFIGURED, NEVER RUN
+
+_Config and workflows are written and schema-valid. **No packaged build has ever been
+produced and no workflow has ever run** — there is no remote yet. Full notes:
+`docs/13-Packaging/00-Building-And-Releasing.md`._
+
+- [x] `electron-builder.yml`: NSIS + portable (Windows), universal DMG + zip (macOS), asar on,
+      an allow-list `files` block so no source, test, fixture or source map ships
+- [x] `.keep` / `.keepx` / `.keeptheme` file associations
+- [x] **Unsigned, and honest about it** — what SmartScreen and Gatekeeper actually show, and
+      the way through, written down rather than glossed. macOS is **ad-hoc** signed, because a
+      genuinely unsigned binary will not launch at all on Apple Silicon
+- [x] Verify workflow on push/PR; release workflow on a tag with **SHA-256 checksums**, which
+      for an unsigned binary is the only integrity story there is
+- [x] Action versions pinned by SHA — a floating tag on a password manager's release pipeline
+      is a supply-chain surface
+- [x] `asarUnpack` for the Argon2 worker: it is started from a runtime path, so inside an asar
+      it would build, launch, show the unlock screen and never derive a key — and nothing in
+      build, test or test:smoke would notice
+- [ ] Produce a real build on each platform and confirm a vault unlocks in it (MANUAL-BACKLOG)
+- [ ] App icons (MANUAL-BACKLOG M-ICON)
+- [x] `docs/13-Packaging/` written
 
 ## Phase 19 — Documentation & README
 
@@ -470,14 +508,14 @@ Full notes: `docs/06-UI-Design-System/02-App-Chrome.md`._
 | 6 · History & audit trail        | ~ Nearly done  |
 | 7 · Organisation & search        | ~ Search done  |
 | 8 · Password generator           | ~ Engine done  |
-| 9 · Attachments                  | Not started    |
+| 9 · Attachments                  | ~ Engine done  |
 | 10 · Import                      | ~ Parsers done |
 | 11 · Export & transfer bundle    | ~ Engine done  |
 | 12 · Sync & merge                | Not started    |
 | 13 · Health dashboard            | ~ Rules done   |
-| 14 · Settings                    | Not started    |
+| 14 · Settings                    | ~ UI done      |
 | 15 · Chrome & QoL                | ~ Chrome done  |
 | 16 · In-app content              | Not started    |
-| 17 · Audits                      | Not started    |
-| 18 · Packaging & CI              | Not started    |
+| 17 · Audits                      | ~ First pass   |
+| 18 · Packaging & CI              | ~ Configured   |
 | 19 · Docs & README               | Not started    |
