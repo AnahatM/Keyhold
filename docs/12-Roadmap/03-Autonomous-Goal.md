@@ -46,23 +46,23 @@ REPORT once at the end, not throughout: what shipped, what is verified with the 
 
 ## What each clause defends against
 
-| Clause | The failure it prevents |
-|---|---|
-| *Decide rather than asking; do not stop* | The session halting overnight on a question nobody is awake to answer |
-| **Work queue points at files, not a list** | The goal going stale after the first slice. The session re-reads live state every loop |
-| *Keep the files current as you go* | The next run redoing work the last one finished |
-| *Blocked → build around it, log it, keep going* | One macOS-only item stalling nineteen phases of buildable work |
-| **Renderer never holds secrets** | The single most likely architectural regression — it is easier to ship a feature by putting the password in the renderer, and that quietly destroys the project's main security claim |
-| **CSPRNG only / never invent crypto** | The two ways password managers actually get broken |
-| **Never commit a `.keep`** | A real vault reaching a public repo when it is flipped public |
-| **Never spend money** | Decision D11 being violated at 3am by "just buy the certificate" |
-| **Subagents forbidden `git`** | Agents tidy. A tidying agent runs `git clean` and deletes uncommitted work |
-| **Gate command before every commit** | One enormous unverified diff at the end instead of continuous verified progress |
-| *Commit by explicit path, never `git add -A`* | Scratch files and subagent output being swept into commits |
-| **Fault-inject the guard** | A test that has never been seen to fail being trusted as coverage |
-| *`docs/superpowers/specs/` is history* | The frozen design record being "corrected" into a duplicate of the current docs |
-| **Never idle, with a ranking rule and a ceiling** | Either stopping early, or picking something enormous and half-finishing it |
-| *Report once at the end* | Six progress pings instead of one useful summary |
+| Clause                                            | The failure it prevents                                                                                                                                                               |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| _Decide rather than asking; do not stop_          | The session halting overnight on a question nobody is awake to answer                                                                                                                 |
+| **Work queue points at files, not a list**        | The goal going stale after the first slice. The session re-reads live state every loop                                                                                                |
+| _Keep the files current as you go_                | The next run redoing work the last one finished                                                                                                                                       |
+| _Blocked → build around it, log it, keep going_   | One macOS-only item stalling nineteen phases of buildable work                                                                                                                        |
+| **Renderer never holds secrets**                  | The single most likely architectural regression — it is easier to ship a feature by putting the password in the renderer, and that quietly destroys the project's main security claim |
+| **CSPRNG only / never invent crypto**             | The two ways password managers actually get broken                                                                                                                                    |
+| **Never commit a `.keep`**                        | A real vault reaching a public repo when it is flipped public                                                                                                                         |
+| **Never spend money**                             | Decision D11 being violated at 3am by "just buy the certificate"                                                                                                                      |
+| **Subagents forbidden `git`**                     | Agents tidy. A tidying agent runs `git clean` and deletes uncommitted work                                                                                                            |
+| **Gate command before every commit**              | One enormous unverified diff at the end instead of continuous verified progress                                                                                                       |
+| _Commit by explicit path, never `git add -A`_     | Scratch files and subagent output being swept into commits                                                                                                                            |
+| **Fault-inject the guard**                        | A test that has never been seen to fail being trusted as coverage                                                                                                                     |
+| _`docs/superpowers/specs/` is history_            | The frozen design record being "corrected" into a duplicate of the current docs                                                                                                       |
+| **Never idle, with a ranking rule and a ceiling** | Either stopping early, or picking something enormous and half-finishing it                                                                                                            |
+| _Report once at the end_                          | Six progress pings instead of one useful summary                                                                                                                                      |
 
 ---
 

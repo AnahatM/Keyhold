@@ -1,0 +1,11 @@
+out/
+dist/
+release/
+coverage/
+node_modules/
+LICENSE
+
+# Frozen point-in-time design records. These are history, not current reference —
+# reformatting them is still editing them. See docs/_INDEX.md rule 3.
+docs/superpowers/
+*.min.*
