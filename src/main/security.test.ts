@@ -102,3 +102,67 @@ describe('content security policy', () => {
     expect(directive(CONTENT_SECURITY_POLICY, 'script-src')).toBe("script-src 'self'");
   });
 });
+
+/**
+ * Navigation and external-link hardening.
+ *
+ * These exist because an audit found the two paths had **drifted apart**: the window-open
+ * handler checked a URL's scheme before handing it to `shell.openExternal`, and the
+ * `will-navigate` fallback twenty lines above it did not. So `window.open('ms-msdt:...')`
+ * was refused while `location.href = 'ms-msdt:...'` reached the OS with a fully
+ * attacker-chosen URI — the canonical Electron step from a compromised renderer to code
+ * execution. Two copies of one policy, and the weaker copy was the one in force.
+ *
+ * Both now go through `openExternally`. These tests are what stops them separating again.
+ */
+describe('handing a URL to the browser', () => {
+  it('accepts http and https', async () => {
+    const { openExternally } = await loadSecurity();
+    expect(openExternally('https://example.com/docs')).toBe(true);
+    expect(openExternally('http://example.com')).toBe(true);
+  });
+
+  it.each([
+    'file:///C:/Windows/System32/calc.exe',
+    'file://///attacker-host/share/payload.exe',
+    'ms-msdt:-id PCWDiagnostic',
+    'search-ms:query=x',
+    'smb://attacker/share',
+    'ms-officecmd:%7B%22id%22:3%7D',
+    'javascript:alert(1)',
+    'vbscript:msgbox',
+    'not a url at all',
+  ])('refuses %s rather than handing it to the OS', async (url) => {
+    const { openExternally } = await loadSecurity();
+    expect(openExternally(url)).toBe(false);
+  });
+});
+
+describe('navigation allow-list', () => {
+  it('refuses a file URL carrying a hostname', async () => {
+    // `file://attacker-host/share/page.html` parses with protocol `file:`. Treating every
+    // `file:` URL as "us" would let a renderer navigate the main window to a page of the
+    // attacker's authorship — into which the preload is then injected, handing them the
+    // whole `window.keyhold` bridge. A transient injection becomes a persistent one.
+    const { isAllowedNavigation } = await loadSecurity();
+    expect(isAllowedNavigation('file://attacker-host/share/page.html')).toBe(false);
+  });
+
+  it('refuses a file URL outside the renderer directory', async () => {
+    const { isAllowedNavigation } = await loadSecurity();
+    expect(isAllowedNavigation('file:///C:/Users/someone/evil.html')).toBe(false);
+    expect(isAllowedNavigation('file:///etc/passwd')).toBe(false);
+  });
+
+  it('refuses a traversal that resolves outside the renderer directory', async () => {
+    const { isAllowedNavigation } = await loadSecurity();
+    const escaped = new URL('../../../evil.html', import.meta.url).toString();
+    expect(isAllowedNavigation(escaped)).toBe(false);
+  });
+
+  it('refuses an arbitrary remote host, and anything that is not a URL', async () => {
+    const { isAllowedNavigation } = await loadSecurity();
+    expect(isAllowedNavigation('https://evil.example/page')).toBe(false);
+    expect(isAllowedNavigation('')).toBe(false);
+  });
+});
