@@ -1,0 +1,360 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The first-run flow.
+ *
+ * Every colour here is a `--kh-color-*` token — a literal hex anywhere in this codebase is
+ * a defect, and two guard tests exist to catch it (every token resolves in every theme, and
+ * every declared foreground/background pair passes WCAG AA). Sizes go through the space and
+ * type scales so density and font-size settings move this screen with everything else.
+ *
+ * The panel is wider than `.kh-screen__panel` (30rem) on purpose: this flow shows lists,
+ * cards and a form with guidance beside it, and squeezing that into the width of an unlock
+ * box would make every step scroll.
+ *
+ * TWO PAIRS USED HERE ARE NOT YET IN `CONTRAST_REQUIREMENTS`: `text-muted` on
+ * `surface-sunken` and `text-subtle` on `surface-sunken`. Both were measured against every
+ * shipped palette before being used — the worst cases are 5.61 (solarizedLight, against a
+ * 4.5 bar) and 3.69 (dawn, against the 3.0 bar `text-subtle` is held to) — but a measured
+ * pair is not a guarded pair. Adding them to `src/shared/theme/tokens.ts` means editing a
+ * file this work does not own, so the exact entries are in the handover instead.
+ */
+
+.kh-onb {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: 100%;
+  padding: var(--kh-space-5);
+  overflow-y: auto;
+  background: var(--kh-color-bg);
+}
+
+.kh-onb__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+  width: 100%;
+  max-width: 40rem;
+  margin: auto;
+  padding: var(--kh-space-6);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  box-shadow: var(--kh-shadow-md);
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+
+.kh-onb__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+}
+
+.kh-onb__kicker {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-onb__title {
+  font-size: var(--kh-text-xl);
+  font-weight: var(--kh-weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--kh-color-text);
+}
+
+/*
+ * The heading receives focus on every step change. Without this it would be focused
+ * invisibly — a keyboard user would be somewhere they cannot see, which is the exact
+ * failure the focus ring exists to prevent.
+ */
+.kh-onb__title:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 4px;
+  border-radius: var(--kh-radius-sm);
+}
+
+/* ── Step indicator ────────────────────────────────────────────────────────── */
+
+.kh-onb__steps-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-1) var(--kh-space-3);
+  align-items: center;
+  padding-bottom: var(--kh-space-3);
+  border-bottom: 1px solid var(--kh-color-border);
+}
+
+.kh-onb__step {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-onb__step-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-full);
+  font-size: var(--kh-text-xs);
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color var(--kh-duration-base) var(--kh-ease),
+    color var(--kh-duration-base) var(--kh-ease);
+}
+
+/*
+ * State is a fill AND a weight AND (for a finished step) a tick, never colour alone —
+ * WCAG 1.4.1. The visually hidden text in the markup says "done" and "optional" outright,
+ * so nothing here is the only carrier of meaning.
+ */
+.kh-onb__step--current {
+  color: var(--kh-color-text);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-onb__step--current .kh-onb__step-mark {
+  background: var(--kh-color-accent);
+  border-color: var(--kh-color-accent);
+  color: var(--kh-color-accent-on);
+}
+
+.kh-onb__step--done {
+  color: var(--kh-color-text-muted);
+}
+
+.kh-onb__step--done .kh-onb__step-mark {
+  background: var(--kh-color-accent-subtle);
+  border-color: var(--kh-color-accent);
+  color: var(--kh-color-accent-subtle-text);
+}
+
+/* ── Step body ─────────────────────────────────────────────────────────────── */
+
+.kh-onb__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+}
+
+.kh-onb__lead {
+  max-width: 62ch;
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-relaxed);
+}
+
+.kh-onb__note {
+  max-width: 62ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-onb__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding-top: var(--kh-space-1);
+}
+
+/* The "why is this button unavailable" line. Muted, not an error — nothing has gone wrong
+   yet; the user simply has not finished. */
+.kh-onb__blocker {
+  flex-basis: 100%;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Fact lists ────────────────────────────────────────────────────────────── */
+
+.kh-onb__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+}
+
+.kh-onb__facts > li {
+  display: flex;
+  gap: var(--kh-space-3);
+  align-items: flex-start;
+  max-width: 62ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-relaxed);
+}
+
+.kh-onb__facts strong {
+  color: var(--kh-color-text);
+}
+
+.kh-onb__fact-mark {
+  flex-shrink: 0;
+  width: 1.5em;
+  font-size: var(--kh-text-md);
+  line-height: var(--kh-leading-normal);
+  text-align: center;
+}
+
+/* ── The vault path ────────────────────────────────────────────────────────── */
+
+.kh-onb__path {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-onb__path-label {
+  font-size: var(--kh-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+/* ── Passphrase guidance ───────────────────────────────────────────────────── */
+
+.kh-onb__help {
+  padding: var(--kh-space-2) var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-onb__help > summary {
+  color: var(--kh-color-text);
+  cursor: pointer;
+}
+
+.kh-onb__help-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-2) 0;
+  line-height: var(--kh-leading-relaxed);
+}
+
+.kh-onb__help-list strong {
+  color: var(--kh-color-text);
+}
+
+.kh-onb__help-list li::before {
+  content: '· ';
+  color: var(--kh-color-text-subtle);
+}
+
+/* ── The acknowledgement ───────────────────────────────────────────────────── */
+
+/*
+ * Built on `.kh-ack` from `vault-screens.css` so it is visibly the same control as the one
+ * on the create screen. The only addition is the confirming sentence, which is set apart
+ * and heavier because it is the line the user is actually agreeing to.
+ */
+.kh-onb__ack {
+  border: 1px solid var(--kh-color-warning);
+}
+
+.kh-onb__ack-confirm {
+  display: block;
+  margin-top: var(--kh-space-2);
+  color: var(--kh-color-warning-text);
+  font-weight: var(--kh-weight-semibold);
+}
+
+/* ── What-next cards ───────────────────────────────────────────────────────── */
+
+.kh-onb__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-onb__card {
+  display: flex;
+  gap: var(--kh-space-3);
+  align-items: flex-start;
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-onb__card-icon {
+  flex-shrink: 0;
+  width: 1.5em;
+  font-size: var(--kh-text-md);
+  text-align: center;
+}
+
+.kh-onb__card-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--kh-space-2);
+  min-width: 0;
+}
+
+.kh-onb__card-title {
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-onb__card-body {
+  max-width: 62ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-relaxed);
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────────── */
+
+/*
+ * Skip lives here rather than inside a step, so it is in the same place on every screen and
+ * cannot be forgotten by a step written later. It is a plain, always-present control — no
+ * fading, no hiding until hover, no confirmation question.
+ */
+.kh-onb__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding-top: var(--kh-space-3);
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-onb__footer-spacer {
+  flex: 1;
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────────── */
+
+/*
+ * `--kh-motion-scale` already collapses every duration above to 0s, which is the app-wide
+ * switch. This block is the belt-and-braces case: it is honoured before the JS-driven scale
+ * lands, and it covers anything a future edit adds here without remembering the token.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .kh-onb *,
+  .kh-onb *::before,
+  .kh-onb *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

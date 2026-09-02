@@ -1,0 +1,507 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The theme studio.
+ *
+ * Every colour here is a `--kh-color-*` token — hard rule 4 — and every foreground/background
+ * pair used below is one already declared in `CONTRAST_REQUIREMENTS`, so the guard test that
+ * grades the built-in themes is also grading this screen. No literal colour appears in this
+ * file, and none may be added: a hardcoded value here would be a colour the theme the user is
+ * editing has no way to change, on the one screen where that would be most absurd.
+ *
+ * ## The preview is the exception that proves the rule
+ *
+ * `.kh-studio-preview` receives the *draft* palette as inline custom properties from
+ * `ThemePreview.tsx`. Everything inside it therefore resolves `--kh-color-*` against the
+ * theme being edited, while the studio around it stays on the theme currently applied. That
+ * is deliberate and it is a safety property, not a nicety: it is what keeps the contrast
+ * report, the token fields and the way out readable while somebody drags `text` into `bg`.
+ * Nothing in this file may set a `--kh-color-*` property outside that subtree.
+ *
+ * ## Wide things scroll inside themselves
+ *
+ * The token grid and the contrast table are both wider than a narrow window. Each scrolls in
+ * its own `overflow-x` container so the panel never grows a horizontal scrollbar of its own
+ * and pushes the Apply button off screen.
+ */
+
+.kh-studio {
+  min-width: 0;
+}
+
+/* ── Identity ──────────────────────────────────────────────────────────────── */
+
+.kh-studio-identity {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--kh-space-3);
+  align-items: end;
+}
+
+.kh-studio-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  min-width: 0;
+}
+
+.kh-studio-field__label {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-studio-field__input {
+  min-width: 0;
+  padding: var(--kh-space-2);
+  font: inherit;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-studio-field__input:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* ── Derive from an accent ─────────────────────────────────────────────────── */
+
+.kh-studio-accent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-studio-accent__input {
+  flex: 0 1 12rem;
+  font-family: var(--kh-font-secret);
+}
+
+/* ── Import notices ────────────────────────────────────────────────────────── */
+
+.kh-studio-notices {
+  margin-top: var(--kh-space-2);
+  padding: var(--kh-space-2) var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-info-text);
+  background: var(--kh-color-info-subtle);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-studio-notices summary {
+  cursor: pointer;
+  font-weight: var(--kh-weight-medium);
+}
+
+.kh-studio-notices ul {
+  margin: var(--kh-space-2) 0 0;
+  padding-left: var(--kh-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+}
+
+/* ── Workspace: editor on the left, preview and report on the right ────────── */
+
+.kh-studio-workspace {
+  display: grid;
+  /* One column until there is genuinely room for two. A 40-row token grid squeezed beside a
+     preview is worse than either of them full width. */
+  grid-template-columns: 1fr;
+  gap: var(--kh-space-4);
+  min-width: 0;
+}
+
+@media (min-width: 60rem) {
+  .kh-studio-workspace {
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.kh-studio-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+  min-width: 0;
+}
+
+/* ── The token editor ──────────────────────────────────────────────────────── */
+
+.kh-studio-tokens {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+  min-width: 0;
+}
+
+.kh-studio-group {
+  margin: 0;
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  min-width: 0;
+}
+
+.kh-studio-group__legend {
+  padding: 0 var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-studio-group__description {
+  margin: 0 0 var(--kh-space-3);
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-studio-token {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(6rem, 8rem);
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-1) 0;
+}
+
+.kh-studio-token__name {
+  min-width: 0;
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.kh-studio-token__name code {
+  font-family: var(--kh-font-secret);
+}
+
+/*
+ * `appearance: none` plus an explicit size: the native colour well is enormous on Windows
+ * and lays out differently on macOS, and a forty-row grid amplifies both. The swatch is a
+ * real `input[type=color]` underneath, so the OS picker and its keyboard handling are intact.
+ */
+.kh-studio-token__swatch {
+  appearance: none;
+  inline-size: 2rem;
+  block-size: 1.75rem;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-sm);
+  cursor: pointer;
+}
+
+.kh-studio-token__swatch::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.kh-studio-token__swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: calc(var(--kh-radius-sm) - 1px);
+}
+
+.kh-studio-token__swatch:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.kh-studio-token__text {
+  min-width: 0;
+  padding: var(--kh-space-1) var(--kh-space-2);
+  font: inherit;
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-studio-token__text:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.kh-studio-token__text[aria-invalid='true'] {
+  border-color: var(--kh-color-danger);
+}
+
+/* Spans the row so the message sits under the field it belongs to rather than beside it. */
+.kh-studio-token__error {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-danger-text);
+}
+
+/* ── The preview ───────────────────────────────────────────────────────────── */
+
+/*
+ * The only element in this file that is drawn with the DRAFT palette. Its custom properties
+ * arrive inline from `ThemePreview.tsx`; everything below inherits them, which is why the
+ * preview's own children reference the same token names as the real app.
+ */
+.kh-studio-preview {
+  padding: var(--kh-space-3);
+  color: var(--kh-color-text);
+  background: var(--kh-color-bg);
+  border: 1px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-md);
+  overflow: hidden;
+}
+
+.kh-studio-preview__chrome {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--kh-space-3);
+  min-width: 0;
+}
+
+@media (min-width: 48rem) {
+  .kh-studio-preview__chrome {
+    grid-template-columns: minmax(0, 7rem) minmax(0, 11rem) minmax(0, 1fr);
+  }
+}
+
+.kh-studio-preview__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding: var(--kh-space-2);
+  background: var(--kh-color-surface);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-studio-preview__brand {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-studio-preview__nav {
+  padding: var(--kh-space-1) var(--kh-space-2);
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-studio-preview__nav--selected {
+  color: var(--kh-color-accent-subtle-text);
+  background: var(--kh-color-accent-subtle);
+}
+
+.kh-studio-preview__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding: var(--kh-space-2);
+  background: var(--kh-color-surface);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-studio-preview__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--kh-space-1) var(--kh-space-2);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-studio-preview__row--selected {
+  background: var(--kh-color-accent-subtle);
+}
+
+/* A hover state that is always on, because a preview nobody can hover still has to show it. */
+.kh-studio-preview__row--hover {
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-studio-preview__title {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text);
+}
+
+.kh-studio-preview__row--selected .kh-studio-preview__title,
+.kh-studio-preview__row--selected .kh-studio-preview__meta {
+  color: var(--kh-color-accent-subtle-text);
+}
+
+.kh-studio-preview__meta {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-studio-preview__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface);
+  border-radius: var(--kh-radius-sm);
+  min-width: 0;
+}
+
+.kh-studio-preview__buttons,
+.kh-studio-preview__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+}
+
+.kh-studio-preview__note {
+  margin: 0;
+  padding: var(--kh-space-1) var(--kh-space-2);
+  font-size: var(--kh-text-xs);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-studio-preview__note--success {
+  color: var(--kh-color-success-text);
+  background: var(--kh-color-success-subtle);
+}
+
+.kh-studio-preview__note--warning {
+  color: var(--kh-color-warning-text);
+  background: var(--kh-color-warning-subtle);
+}
+
+.kh-studio-preview__note--danger {
+  color: var(--kh-color-danger-text);
+  background: var(--kh-color-danger-subtle);
+}
+
+.kh-studio-preview__note--info {
+  color: var(--kh-color-info-text);
+  background: var(--kh-color-info-subtle);
+}
+
+.kh-studio-preview__card {
+  padding: var(--kh-space-2);
+  background: var(--kh-color-surface-raised);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-sm);
+}
+
+/* ── The contrast report ───────────────────────────────────────────────────── */
+
+.kh-studio-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  min-width: 0;
+}
+
+.kh-studio-report__summary {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-studio-report__summary strong {
+  color: var(--kh-color-text);
+}
+
+.kh-studio-report__floor {
+  margin: 0;
+  padding: var(--kh-space-2) var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-danger-text);
+  background: var(--kh-color-danger-subtle);
+  border-radius: var(--kh-radius-sm);
+}
+
+/* Scrolls itself rather than widening the panel. `tabindex` is not needed: a scroll
+   container that contains focusable content is reachable, and this one contains none —
+   so the surrounding panel scrolls with the keyboard instead. */
+.kh-studio-report__scroll {
+  overflow-x: auto;
+  max-height: 26rem;
+  overflow-y: auto;
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-studio-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text);
+}
+
+.kh-studio-table th,
+.kh-studio-table td {
+  padding: var(--kh-space-1) var(--kh-space-2);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--kh-color-border);
+}
+
+.kh-studio-table thead th {
+  position: sticky;
+  top: 0;
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text-muted);
+  background: var(--kh-color-surface);
+}
+
+.kh-studio-table tbody th {
+  font-weight: var(--kh-weight-normal);
+  white-space: nowrap;
+}
+
+.kh-studio-table code {
+  font-family: var(--kh-font-secret);
+}
+
+.kh-studio-table__on {
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-studio-table__number {
+  font-family: var(--kh-font-secret);
+  white-space: nowrap;
+}
+
+/*
+ * A tint, not the signal. The row already carries the word "Fail" and a symbol in its Badge;
+ * WCAG 1.4.1 would be broken by colour alone, and breaking it inside the contrast report
+ * would be the least defensible place in the app to do it.
+ */
+.kh-studio-table__row--fail {
+  background: var(--kh-color-danger-subtle);
+}
+
+.kh-studio-table__row--fail th,
+.kh-studio-table__row--fail td {
+  color: var(--kh-color-danger-text);
+}
+
+.kh-studio-table__blocking {
+  font-weight: var(--kh-weight-semibold);
+}
+
+/* ── The gate ──────────────────────────────────────────────────────────────── */
+
+.kh-studio-gate {
+  margin: 0 0 var(--kh-space-3);
+  padding: var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-studio-gate p {
+  margin: 0 0 var(--kh-space-2);
+}
+
+.kh-studio-gate--danger {
+  color: var(--kh-color-danger-text);
+  background: var(--kh-color-danger-subtle);
+}
+
+.kh-studio-gate--warning {
+  color: var(--kh-color-warning-text);
+  background: var(--kh-color-warning-subtle);
+}
