@@ -218,7 +218,11 @@ timeline UI and its IPC channels are not. Full notes: `docs/05-Features/02-Histo
 - [x] Reveal an old password — four `historic-*` secret refs, the version number in the broker key
 - [x] `clearHistory`, because an audit trail is the one feature that can hold something a user
       wants gone
-- [ ] History timeline UI on the detail pane, and its IPC channels
+- [x] History timeline UI on the detail pane, and its IPC channels — entries newest first,
+      an expandable diff per entry, restore, and a clear-history action that asks twice
+- [x] Old secrets revealed through the broker under the same rules as live ones
+- [ ] Comparing two arbitrary points (`history.compare` exists end to end; nothing calls it)
+- [ ] Restoring a single field from a timeline row (`restoreField` exists end to end)
 - [ ] Export a single credential's history
 - [x] **Tests (70):** versioning on change only · retention pruning and its direction ·
       reconstruction across a prune · diff correctness · restore and un-restore · the privacy
@@ -298,18 +302,32 @@ undo — is not. Full notes: `docs/09-Import-Export/00-Import-Formats.md`._
 - [x] **Tests (264)** and six fault injections, two of which found real holes
 - [x] `docs/09-Import-Export/00-Import-Formats.md` written
 
-## Phase 11 — Export engine & the transfer bundle
+## Phase 11 — Export & the transfer parcel ~ ENGINE DONE
 
-- [ ] `.keep` export (encrypted, native)
-- [ ] **`.keepx` transfer bundle** — selective record choice, its own passphrase, optional advisory expiry
-- [ ] **KDBX 4 export** — the anti-lock-in guarantee; verified to open in KeePassXC
-- [ ] Bitwarden JSON export
-- [ ] Full-fidelity JSON export including history
-- [ ] Encrypted JSON export
-- [ ] CSV export
-- [ ] Type-to-confirm dialog on any unencrypted export, restrictive file permissions, shred reminder
-- [ ] **Tests:** roundtrip through every own-format · KDBX export re-imports losslessly · unencrypted export is gated
-- [ ] `docs/09-Import-Export/` updated
+_The serialisers are built and tested, and Keyhold's own JSON export re-imports. The IPC
+channel and the export dialog are not. Full notes: `docs/09-Import-Export/01-Export-Formats.md`._
+
+- [x] Lossless Keyhold JSON — every field, folders, tags, settings, **and history with its
+      origins**; deterministic, field-by-field, never `JSON.stringify(record)`
+- [x] Flat Keyhold CSV, and a **compatible CSV in Bitwarden's exact eleven columns**, proven
+      by running Keyhold's own Bitwarden parser over the output
+- [x] Encrypted `.keepx` parcel, composing the existing envelope/container/header — no second
+      AEAD, and deliberately non-deterministic bytes, because determinism here means nonce reuse
+- [x] **CSV injection neutralised**, with the cost reported: a neutralised value is no longer
+      byte-identical to the vault, so every rewritten cell is counted per column and named
+- [x] A UTF-8 BOM by default, so Excel does not open the file as the ANSI code page
+- [x] Every plaintext result carries a mandatory warning, in the type, and the engine writes
+      no files at all
+- [x] Trashed records excluded unless explicitly asked for, in all four formats, with the
+      exclusion itself reported
+- [x] Subset exports prune folders and tags to what the selection references
+- [x] **The round trip closes** — `keyhold-json` is a registered importer, and the one strict
+      parser
+- [ ] IPC channel, export dialog, type-to-confirm, restrictive file permissions, shred reminder
+- [ ] KDBX 4 export; Bitwarden JSON export
+- [x] **Tests (89 + 13)** and sixteen fault injections, one of which found a guard that was
+      not the one doing the work
+- [x] `docs/09-Import-Export/01-Export-Formats.md` written
 
 ## Phase 12 — Sync & merge
 
@@ -360,21 +378,26 @@ _Goal: the user, not us, decides their security/convenience trade-off._
 - [ ] **Tests:** every preset resolves to a complete, valid settings object · migration of a settings file from an older shape
 - [ ] `docs/05-Features/settings.md` written
 
-## Phase 15 — App chrome & quality-of-life systems
+## Phase 15 — Chrome & quality of life ~ CHROME DONE
 
-- [ ] **Route/view table** — one source of truth every other system reads from (build this first; the palette, menus and shortcuts all consume it)
-- [ ] Command palette `Ctrl/Cmd+K` — jump to credential, run actions, switch theme, lock, generate
-- [ ] Toast system, with Undo affordances
-- [ ] Modal/dialog system — focus-trapped, ESC to close, `aria-modal`, restores focus on close
-- [ ] Tooltip system
-- [ ] Determinate progress bar for Argon2, import, export and merge
-- [ ] Attachment/image lightbox
-- [ ] Deliberate empty, loading and error states on every single view
-- [ ] Full keyboard operation; shortcut cheat-sheet `Ctrl/Cmd+/`; remappable bindings
-- [ ] `.keep` file association — double-clicking a vault opens Keyhold
-- [ ] Optional launch-at-login; start-minimised-to-tray option
-- [ ] Opt-in update check against GitHub Releases, **off by default**
-- [ ] **Guard test:** every view in the route table is reachable from the command palette
+_The notification, dialog, tooltip, progress and empty-state layer is built and mounted. The
+shortcut table, the command palette and the lightbox are not.
+Full notes: `docs/06-UI-Design-System/02-App-Chrome.md`._
+
+- [x] Toasts, with a queue that coalesces then caps then bounds, and **undo and error toasts
+      that never dismiss themselves**
+- [x] Two live regions, so an error interrupts and "Copied" does not
+- [x] Pause on hover **and focus**, resuming with the remaining time (WCAG 2.2)
+- [x] Toasts cleared on lock, because one can name a record
+- [x] Modal and confirm dialog on the native `<dialog>` — real inertness, not a Tab-only trap
+- [x] Tooltips: 500 ms on hover, **0 on focus**, never closing on a timer
+- [x] Progress that is honest about a slow unlock, with a reduced-motion fallback that is a
+      steady fill rather than a frozen sweep
+- [x] Empty states with real copy, rendered through the existing primitive
+- [ ] Global shortcut table and the command palette (Ctrl/Cmd+K)
+- [ ] Image lightbox — wants attachments (Phase 9) first
+- [x] **Tests (62)** and six fault injections, all caught
+- [x] `docs/06-UI-Design-System/02-App-Chrome.md` written
 
 ## Phase 16 — In-app content pages
 
@@ -444,16 +467,16 @@ _Goal: the user, not us, decides their security/convenience trade-off._
 | 3 · Shell, design system, themes | ✅ **Done**    |
 | 4 · Unlock, lock, session        | ✅ **Done**    |
 | 5 · CRUD & fields                | ✅ **Done**    |
-| 6 · History & audit trail        | ~ Engine done  |
+| 6 · History & audit trail        | ~ Nearly done  |
 | 7 · Organisation & search        | ~ Search done  |
 | 8 · Password generator           | ~ Engine done  |
 | 9 · Attachments                  | Not started    |
 | 10 · Import                      | ~ Parsers done |
-| 11 · Export & transfer bundle    | Not started    |
+| 11 · Export & transfer bundle    | ~ Engine done  |
 | 12 · Sync & merge                | Not started    |
 | 13 · Health dashboard            | ~ Rules done   |
 | 14 · Settings                    | Not started    |
-| 15 · Chrome & QoL                | Not started    |
+| 15 · Chrome & QoL                | ~ Chrome done  |
 | 16 · In-app content              | Not started    |
 | 17 · Audits                      | Not started    |
 | 18 · Packaging & CI              | Not started    |
