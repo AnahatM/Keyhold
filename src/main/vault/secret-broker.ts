@@ -70,6 +70,16 @@ export function refKey(ref: SecretRef): string {
       return `${ref.kind}:${ref.credentialId}:${ref.questionId}`;
     case 'custom-value':
       return `${ref.kind}:${ref.credentialId}:${ref.fieldId}`;
+    // The version number is part of the key, so revealing v3's password and then v7's
+    // costs two grants against the rate limit rather than one. Walking a record's whole
+    // password history is exactly the automated harvesting the limit exists to notice.
+    case 'historic-password':
+    case 'historic-notes':
+      return `${ref.kind}:${ref.credentialId}:${ref.versionNumber}`;
+    case 'historic-answer':
+      return `${ref.kind}:${ref.credentialId}:${ref.versionNumber}:${ref.questionId}`;
+    case 'historic-custom':
+      return `${ref.kind}:${ref.credentialId}:${ref.versionNumber}:${ref.fieldId}`;
   }
 }
 

@@ -102,6 +102,7 @@ function credentialWithSecretsEverywhere(
       useCount: 12,
       expiresAt: null,
       rotationIntervalDays: 90,
+      createdOrigin: { action: 'create' as const },
     },
     history: {
       enabled: true,
@@ -163,12 +164,26 @@ describe('the safe projection never carries secret material', () => {
     expect(JSON.stringify(toProjections(many))).not.toContain(SECRET_MARKER);
   });
 
-  it('never carries a history snapshot — those are previous passwords', () => {
+  it('never carries an old secret value in a history snapshot', () => {
+    // A version's snapshot holds the values that were *replaced*, so for a password change
+    // it is an old password. The projection carries the non-secret half verbatim and the
+    // secret half only as a length, exactly as it does for the live record.
     const projection = toProjection(credentialWithSecretsEverywhere());
+
     for (const version of projection.history) {
-      expect(version).not.toHaveProperty('snapshot');
+      expect(version.snapshot).not.toHaveProperty('password');
+      expect(version.snapshot).not.toHaveProperty('notes');
     }
     expect(JSON.stringify(projection.history)).not.toContain('history-old-password');
+    expect(JSON.stringify(projection.history)).not.toContain('history-old-notes');
+  });
+
+  it('describes an old secret by length so a mask renders at the right width', () => {
+    const projection = toProjection(credentialWithSecretsEverywhere());
+    const passwordChange = projection.history.find((v) => v.changedFields.includes('password'));
+
+    expect(passwordChange?.snapshot.passwordLength).toBe(marker('history-old-password').length);
+    expect(passwordChange?.secretFields).toContain('password');
   });
 
   it('never carries a security answer', () => {

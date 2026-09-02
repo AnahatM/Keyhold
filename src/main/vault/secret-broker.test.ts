@@ -160,8 +160,38 @@ describe('reference keys', () => {
       refKey({ kind: 'security-answer', credentialId: 'a', questionId: 'q1' }),
       refKey({ kind: 'security-answer', credentialId: 'a', questionId: 'q2' }),
       refKey({ kind: 'custom-value', credentialId: 'a', fieldId: 'f1' }),
+      refKey({ kind: 'historic-password', credentialId: 'a', versionNumber: 1 }),
+      refKey({ kind: 'historic-notes', credentialId: 'a', versionNumber: 1 }),
+      refKey({ kind: 'historic-answer', credentialId: 'a', versionNumber: 1, questionId: 'q1' }),
+      refKey({ kind: 'historic-custom', credentialId: 'a', versionNumber: 1, fieldId: 'f1' }),
     ]);
-    expect(keys.size).toBe(5);
+    expect(keys.size).toBe(9);
+  });
+
+  it('gives each version of a historic secret its own key', () => {
+    // Load-bearing for the rate limit, not cosmetic. Sharing a key across versions would
+    // let a renderer walk a record's entire password history for the price of one grant —
+    // which is exactly the automated harvesting the limit exists to notice.
+    const at = (versionNumber: number): SecretRef => ({
+      kind: 'historic-password',
+      credentialId: 'a',
+      versionNumber,
+    });
+    expect(refKey(at(1))).not.toBe(refKey(at(2)));
+
+    const broker = new SecretBroker({ maxGrantsPerWindow: 2 });
+    broker.grant(at(1));
+    broker.grant(at(2));
+    expect(() => broker.grant(at(3))).toThrow(RateLimitExceededError);
+  });
+
+  it('never confuses a live secret with a historic one', () => {
+    // An optional `versionNumber` on the live kinds would have made a dropped property
+    // mean "the current password" — a mistake that returns the *wrong* secret rather than
+    // an error. Separate kinds make that impossible.
+    expect(refKey({ kind: 'password', credentialId: 'a' })).not.toBe(
+      refKey({ kind: 'historic-password', credentialId: 'a', versionNumber: 1 })
+    );
   });
 
   it('does not collide across credentials', () => {

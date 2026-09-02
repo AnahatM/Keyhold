@@ -74,6 +74,7 @@ function record(id: string, overrides: Partial<Credential> = {}): Credential {
       useCount: 0,
       expiresAt: null,
       rotationIntervalDays: null,
+      createdOrigin: { action: 'create' as const },
     },
     history: { enabled: true, maxVersions: 10, versions: [] },
     trashedAt: null,
