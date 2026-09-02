@@ -4,6 +4,7 @@ import type { CredentialProjection } from '@shared/model/credential.js';
 import { Badge, EmptyState } from '../components/Feedback.js';
 import { Button } from '../components/Button.js';
 import { useCredentials } from './credential-store.js';
+import { HistoryTimeline } from '../history/HistoryTimeline.js';
 import { PlainField, SecretField } from './SecretField.js';
 
 /**
@@ -260,12 +261,81 @@ export function CredentialDetail({
             </dd>
           </div>
         </dl>
-        <p className="kh-detail__hint">
-          The full edit timeline — what changed, when, and from which device and network — arrives
-          in Phase 6.
-        </p>
+      </section>
+
+      <section className="kh-detail__section">
+        <div className="kh-detail__section-head">
+          <h3 className="kh-detail__heading">History</h3>
+          {credential.historyCount > 0 && (
+            <ClearHistoryButton credentialId={credential.id} count={credential.historyCount} />
+          )}
+        </div>
+        <HistoryTimeline credential={credential} />
       </section>
     </article>
+  );
+}
+
+/**
+ * Clearing a record's history.
+ *
+ * The one action in the timeline that genuinely loses data, so it is the one that asks
+ * twice and says what it costs. It exists because an audit trail is the only feature here
+ * that can hold something a user wants gone — an old password they now consider burned, a
+ * device name from a job they have left. A password manager that cannot forget is not one
+ * people hand their whole life to.
+ */
+function ClearHistoryButton({
+  credentialId,
+  count,
+}: {
+  readonly credentialId: string;
+  readonly count: number;
+}): React.JSX.Element {
+  const { clearHistory, busy } = useCredentials();
+  const [confirming, setConfirming] = useState(false);
+
+  if (!confirming) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          setConfirming(true);
+        }}
+      >
+        Clear history
+      </Button>
+    );
+  }
+
+  return (
+    <span className="kh-detail__confirm">
+      <span className="kh-detail__confirm-text">
+        Delete {count} recorded version{count === 1 ? '' : 's'}? This cannot be undone.
+      </span>
+      <Button
+        variant="danger"
+        size="sm"
+        disabled={busy}
+        onClick={() => {
+          void clearHistory(credentialId).finally(() => {
+            setConfirming(false);
+          });
+        }}
+      >
+        Delete history
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          setConfirming(false);
+        }}
+      >
+        Keep it
+      </Button>
+    </span>
   );
 }
 

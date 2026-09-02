@@ -364,9 +364,29 @@ export function runSmokeCheck(window: BrowserWindow): void {
           });
         }
 
+        // Give one seeded record a real edit history, and select it — so a screenshot taken
+        // after this run shows the timeline rather than an empty state, and so the audit
+        // trail's own rendering is exercised rather than only its data path.
+        const seeded = await window.keyhold.credentials.list();
+        const showcase = seeded.ok ? seeded.value.find((c) => c.title === 'GitHub') : undefined;
+        if (showcase !== undefined) {
+          await window.keyhold.credentials.update(showcase.id, { password: 'first-rotation' });
+          await window.keyhold.credentials.update(showcase.id, {
+            username: 'anahat-mudgal',
+            email: 'a@example.com',
+          });
+          await window.keyhold.credentials.update(showcase.id, { password: 'second-rotation' });
+          await window.keyhold.credentials.update(showcase.id, { tags: ['dev', 'work'] });
+        }
+
         await window.keyhold.vault.save();
 
-        return { stage: 'cycle', ok: steps.every((s) => s[1] === true), steps };
+        return {
+          stage: 'cycle',
+          ok: steps.every((s) => s[1] === true),
+          steps,
+          showcaseId: showcase?.id ?? null,
+        };
       })()
     `;
 
@@ -387,7 +407,38 @@ export function runSmokeCheck(window: BrowserWindow): void {
           result?: unknown;
           steps?: unknown;
           detail?: unknown;
+          showcaseId?: string | null;
         };
+
+        // Open the record that has history, and expand its newest change — by clicking the
+        // real controls rather than through a test-only hook on `window`. A backdoor would
+        // be production code that exists for the harness, and it would not prove the list
+        // row and the disclosure button work.
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const row = [...document.querySelectorAll('.kh-row')].find((element) =>
+              element.textContent?.includes('GitHub')
+            );
+            row?.click();
+            return row !== undefined;
+          })()`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 250));
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const button = [...document.querySelectorAll('.kh-timeline button')].find(
+              (element) => element.textContent === 'Show changes'
+            );
+            button?.click();
+            // Bring the timeline into view. A screenshot of a feature that is below the
+            // fold proves the page rendered, not that the feature did.
+            document.querySelector('.kh-timeline')?.scrollIntoView({ block: 'center' });
+            return button !== undefined;
+          })()`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 250));
         await captureIfRequested(window);
 
         if (report.stage === 'bridge') {

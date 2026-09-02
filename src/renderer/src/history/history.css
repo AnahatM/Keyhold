@@ -1,0 +1,196 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The edit timeline.
+ *
+ * A vertical rail with one marker per entry. The rail is drawn on the list rather than on
+ * each row so it does not break at the gaps, and it is `aria-hidden` decoration — the
+ * ordered list is what carries the structure to a screen reader.
+ *
+ * Every colour is a token. Nothing here hardcodes a hex, so the six themes and the contrast
+ * guard in the test suite both keep applying.
+ */
+
+.kh-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+  margin: 0;
+  padding: 0 0 0 var(--kh-space-5);
+  list-style: none;
+}
+
+/* The rail. Stops at the last marker rather than running to the bottom of the list. */
+.kh-timeline::before {
+  content: '';
+  position: absolute;
+  inset-block: 0.6em 0.6em;
+  inset-inline-start: 4px;
+  width: 2px;
+  background: var(--kh-color-border);
+}
+
+.kh-timeline__entry {
+  position: relative;
+  display: flex;
+  gap: var(--kh-space-3);
+}
+
+.kh-timeline__marker {
+  position: absolute;
+  inset-inline-start: calc(var(--kh-space-5) * -1);
+  inset-block-start: 0.45em;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--kh-radius-full);
+  background: var(--kh-color-accent);
+  /* A ring in the page background so the marker reads as sitting on the rail rather than
+     being cut by it. */
+  box-shadow: 0 0 0 3px var(--kh-color-surface);
+}
+
+/* The creation entry is the origin of the record, not a change to it. Hollow, so the
+   difference is visible without relying on colour alone — the label says "Created" too. */
+.kh-timeline__entry--origin .kh-timeline__marker {
+  background: var(--kh-color-surface);
+  border: 2px solid var(--kh-color-border-strong, var(--kh-color-border));
+}
+
+.kh-timeline__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.kh-timeline__headline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text);
+}
+
+.kh-timeline__headline time {
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-xs);
+}
+
+.kh-timeline__summary {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text);
+}
+
+.kh-timeline__where {
+  margin: 0;
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-timeline__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+  margin-block-start: var(--kh-space-1);
+}
+
+.kh-timeline__confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-timeline__diff {
+  margin-block-start: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface-sunken);
+}
+
+.kh-timeline__status {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-timeline__status--error {
+  color: var(--kh-color-danger-text);
+}
+
+/* ── The diff table ──────────────────────────────────────────────────────── */
+
+.kh-diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  margin: 0;
+}
+
+.kh-diff__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+}
+
+.kh-diff__field {
+  font-size: var(--kh-text-xs);
+  font-weight: 600;
+  color: var(--kh-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kh-diff__values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  /* Long URLs and pasted notes must not push the pane wider than the window. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The old value is struck through as well as dimmed.
+ *
+ * Never colour alone: on a monochrome display, at low vision, or in the high-contrast
+ * theme, "before" and "after" would otherwise be two identical-looking strings with an
+ * arrow between them, and which one is which would be a guess.
+ */
+.kh-diff__before {
+  color: var(--kh-color-text-subtle);
+  text-decoration: line-through;
+}
+
+.kh-diff__arrow {
+  color: var(--kh-color-text-muted);
+}
+
+.kh-diff__after {
+  color: var(--kh-color-text);
+  font-weight: 500;
+}
+
+.kh-diff__secret {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+  width: 100%;
+}
+
+.kh-diff__secret .kh-secret {
+  font-family: var(--kh-font-secret);
+  padding: 0 var(--kh-space-1);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface);
+  overflow-wrap: anywhere;
+}
