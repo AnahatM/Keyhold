@@ -477,12 +477,23 @@ export function runSmokeCheck(window: BrowserWindow): void {
         await new Promise<void>((resolve) => setTimeout(resolve, 250));
         await captureNamedShot(window, 'Keyhold-Screenshot-03');
 
-        // The light theme, so the README does not imply the app is dark-only.
+        // The editor, which is the screen the custom-field system actually shows.
+        //
+        // NOT a theme switch: appearance is applied as CSS custom properties on the root
+        // element rather than through a `data-theme` selector, so setting an attribute here
+        // changed nothing and produced a byte-identical duplicate of the shot above — a
+        // screenshot claiming to be something it was not.
         await window.webContents.executeJavaScript(
-          `document.documentElement.setAttribute('data-kh-theme', 'dawn')`,
+          `(() => {
+            const edit = [...document.querySelectorAll('.kh-detail button')].find(
+              (element) => element.textContent === 'Edit'
+            );
+            edit?.click();
+            return edit !== undefined;
+          })()`,
           true
         );
-        await new Promise<void>((resolve) => setTimeout(resolve, 200));
+        await new Promise<void>((resolve) => setTimeout(resolve, 350));
         await captureNamedShot(window, 'Keyhold-Screenshot-04');
 
         await captureIfRequested(window);

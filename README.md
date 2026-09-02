@@ -60,12 +60,16 @@ It is free, GPL-3.0, and there is nothing to pay for and nothing to host.
 
 ## Screenshots
 
-> Generated from the real app, not hand-made:
+| ![The vault](docs/images/Keyhold-Screenshot-01.png) | ![The timeline](docs/images/Keyhold-Screenshot-02.png) |
+| --------------------------------------------------- | ------------------------------------------------------ |
+| ![A diff](docs/images/Keyhold-Screenshot-03.png)    | ![The editor](docs/images/Keyhold-Screenshot-04.png)   |
+
+> Generated from the real app rather than hand-made:
 > `npm run build && node tools/smoke.mjs --shots docs/images`
 >
-> The smoke run seeds a deterministic vault, drives the UI through it, and captures four
-> named views — so a screenshot here cannot quietly stop matching the app it claims to show.
-> Regenerating them is one command.
+> The smoke run seeds a deterministic vault, drives the UI through it by clicking real
+> controls, and captures four named views — so a screenshot here cannot quietly stop
+> matching the app it claims to show. Regenerating them is one command.
 
 ---
 

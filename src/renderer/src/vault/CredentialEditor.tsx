@@ -270,7 +270,7 @@ export function CredentialEditor({
             setPassword(event.target.value);
             touch();
           }}
-          hint="Shown rather than masked while editing — you cannot check a value you cannot see. The generator arrives in Phase 8."
+          hint="Shown rather than masked while editing — you cannot check a value you cannot see."
         />
       </section>
 

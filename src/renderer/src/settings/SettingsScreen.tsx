@@ -4,6 +4,7 @@ import type { SettingsGateway } from '@shared/model/settings-plan.js';
 import { Button } from '../components/Button.js';
 import { ErrorState, LoadingState } from '../components/Feedback.js';
 import { ConfirmDialog } from '../chrome/index.js';
+import { ThemeStudio } from '../theme-studio/index.js';
 import { AppearancePanel } from './AppearancePanel.js';
 import { DangerZoneSection } from './DangerZoneSection.js';
 import { HealthRulesSection } from './HealthRulesSection.js';
@@ -71,6 +72,7 @@ export function SettingsScreen({ gateway }: SettingsScreenProps): React.JSX.Elem
   const sections: readonly NavEntry[] = useMemo(() => {
     const entries: NavEntry[] = [
       { id: 'kh-settings-appearance', label: 'Appearance' },
+      { id: 'kh-settings-theme-studio', label: 'Theme studio' },
       { id: 'kh-settings-security', label: 'Security & session' },
     ];
     if (snapshot?.vault != null) {
@@ -170,6 +172,10 @@ export function SettingsScreen({ gateway }: SettingsScreenProps): React.JSX.Elem
       <div className="kh-settings__body">
         <div id="kh-settings-appearance" tabIndex={-1}>
           <AppearancePanel />
+        </div>
+
+        <div id="kh-settings-theme-studio" tabIndex={-1}>
+          <ThemeStudio />
         </div>
 
         <SecuritySessionSection

@@ -9,6 +9,7 @@ import { OriginCapture } from './history/origin.js';
 import { SystemNetworkProbe } from './history/network-name.js';
 import { applySessionHardening, applyWebContentsHardening } from './security.js';
 import { isSmokeRun, runSmokeCheck } from './smoke.js';
+import { installOpenFileHandler, NativeShell, type MenuCommandId } from './shell/index.js';
 import { SessionController } from './session/session-controller.js';
 import { VaultService } from './vault/vault-service.js';
 import { createMainWindow, focusMainWindow } from './window.js';
@@ -36,6 +37,63 @@ const originCapture = new OriginCapture({
 });
 
 const session = new SessionController(new VaultService(undefined, originCapture));
+
+/**
+ * The shell, once the app is ready. Held at module scope so `before-quit` and `will-quit`
+ * can reach it — without `prepareToQuit` a close-to-tray build cannot be quit at all.
+ */
+let shell: NativeShell | null = null;
+
+/**
+ * The main window.
+ *
+ * At module scope rather than inside `whenReady`, because the menu handler, the tray and
+ * the `activate` handler all act on it and all outlive that closure.
+ */
+let mainWindow: BrowserWindow | null = null;
+
+/**
+ * The menu commands this build can actually perform.
+ *
+ * Deliberately small. Every other command in the catalogue renders **disabled**, which is
+ * honest, rather than enabled and silently doing nothing — the failure a user cannot
+ * report. It grows as each surface becomes reachable from the main process.
+ */
+const AVAILABLE_MENU_COMMANDS: ReadonlySet<MenuCommandId> = new Set([
+  'vault.save',
+  'vault.lock',
+  'app.quit',
+  'window.show',
+  'window.hide',
+]);
+
+function runMenuCommand(command: MenuCommandId): void {
+  // Not an exhaustive switch, deliberately: the catalogue has twenty-five commands and this
+  // build can perform five. Listing the other twenty as empty cases would say nothing that
+  // `AVAILABLE_MENU_COMMANDS` does not already say, and would have to be edited twice every
+  // time a surface lands. The default below is the honest handler for the rest.
+  // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- see above
+  switch (command) {
+    case 'vault.lock':
+      session.lock('manual');
+      notifySessionChanged(mainWindow);
+      return;
+    case 'vault.save':
+      // A menu item cannot await, and a failed save must not become an unhandled rejection
+      // that takes the process down. The renderer is told either way.
+      void session.save().catch((error: unknown) => {
+        console.error('[menu] save failed:', error);
+      });
+      return;
+    case 'app.quit':
+      app.quit();
+      return;
+    default:
+      // Everything else is disabled in `AVAILABLE_MENU_COMMANDS`, so reaching here means a
+      // command was enabled without being wired. Say so rather than failing silently.
+      console.warn('[menu] no handler for enabled command:', command);
+  }
+}
 
 /**
  * Keyhold main process entry point.
@@ -67,9 +125,19 @@ if (!gotTheLock) {
     applyWebContentsHardening(contents);
   });
 
+  // Before `whenReady`, deliberately: macOS delivers `open-file` for a double-clicked
+  // document *before* the app is ready, and Electron only queues it if something is
+  // already listening. A handler registered inside `whenReady` misses the launch that
+  // started the app.
+  installOpenFileHandler({
+    platform: process.platform,
+    onOpenFile: () => {
+      // Same as above: validated, and not yet acted on.
+    },
+  });
+
   void app.whenReady().then(() => {
     applySessionHardening();
-    let mainWindow: BrowserWindow | null = null;
     registerIpcHandlers({
       session,
       appVersion: APP_VERSION,
@@ -77,25 +145,50 @@ if (!gotTheLock) {
       getWindow: () => mainWindow,
     });
 
-    const window = createMainWindow({
-      onLockVault: () => {
-        session.lock('manual');
-        notifySessionChanged(mainWindow);
-      },
-      onSaveVault: () => {
-        // Menu items cannot await, and a failed save must not become an unhandled
-        // rejection that takes the process down. The renderer is told either way.
-        void session.save().catch((error: unknown) => {
-          console.error('[menu] save failed:', error);
-        });
-      },
-      onOpenPreferences: () => {
-        // Wired to the settings route in Phase 14; the accelerator exists now so the
-        // shortcut does not have to be re-taught later.
-      },
-      isVaultUnlocked: () => session.vault.state === 'unlocked',
-    });
+    const window = createMainWindow();
     mainWindow = window;
+
+    // ── The native shell: menus, tray, and window behaviour ──────────────────
+    //
+    // Replaces the hand-written menu that used to live in `window.ts`. That was a second
+    // copy of the enable/disable rules, and the weaker copy would have been the one in
+    // force — the duplicate-list failure hard rule 8 exists to prevent.
+    shell = new NativeShell({
+      host: {
+        appName: app.name,
+        platform: process.platform,
+        isPackaged: app.isPackaged,
+        getWindow: () => mainWindow,
+        isVaultUnlocked: () => session.status().state === 'unlocked',
+        getThemeMode: () => 'system',
+        // Only the commands the app can actually run right now. Everything else renders
+        // disabled rather than silently doing nothing, which is the honest failure.
+        getAvailableCommands: () => AVAILABLE_MENU_COMMANDS,
+        onCommand: (command) => {
+          runMenuCommand(command);
+        },
+        onHiddenToTray: () => {
+          // A hidden window fires neither `minimize` nor `blur`, so auto-lock cannot see
+          // it. This is the one shell gesture with a security consequence, which is why
+          // the shell reports it separately rather than as an ordinary command.
+          session.lock('manual');
+          notifySessionChanged(mainWindow);
+        },
+        onPowerEvent: () => {
+          // Locking on sleep is `auto-lock.ts`'s job and is deliberately not duplicated
+          // here; this only refreshes state that went stale while the machine was asleep.
+          notifySessionChanged(mainWindow);
+        },
+        onOpenFile: () => {
+          // Accepted and validated, but nothing opens it yet: the vault-open path takes a
+          // path from a dialog the main process owned, and routing an OS-supplied one
+          // through it is its own slice. Deliberately silent rather than logging a path.
+        },
+      },
+    });
+    shell.start();
+    shell.attachWindow(window);
+    shell.handleArgv(process.argv);
 
     // The controller needs the window for window-scoped auto-lock triggers, and needs a
     // way to tell the renderer that an auto-lock happened — otherwise the UI keeps
@@ -109,7 +202,12 @@ if (!gotTheLock) {
 
     // macOS convention: clicking the dock icon with no windows open reopens one.
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+      if (BrowserWindow.getAllWindows().length !== 0) return;
+      const reopened = createMainWindow();
+      mainWindow = reopened;
+      // The shell must follow a recreated window, or the tray and the menu act on a window
+      // that no longer exists.
+      shell?.attachWindow(reopened);
     });
   });
 
