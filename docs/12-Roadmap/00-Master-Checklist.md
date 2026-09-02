@@ -198,42 +198,58 @@ visually checked (which caught a leftover duplicate the CRUD cycle was not clean
 drag machinery that arrives with Phase 7's organisation work, and building them twice would
 be worse than building them once.
 
-## Phase 6 — History, versioning & the audit trail _(headline feature)_
+## Phase 6 — History, versioning & the audit trail _(headline feature)_ ~ ENGINE DONE
 
-_Goal: "what changed, when, and from which device and network?" is always answerable._
+_The engine, the provenance capture and the service methods are built and tested. The
+timeline UI and its IPC channels are not. Full notes: `docs/05-Features/02-History-And-Audit.md`._
 
-- [ ] Version model — changed-field list plus a partial snapshot (never a full copy)
-- [ ] **Per-credential "keep past versions" checkbox**, with a global default and per-record override
-- [ ] Configurable retention cap, with oldest-first pruning
-- [ ] Origin capture in the main process: device name, OS user, platform, OS release, app version
-- [ ] Network name — `netsh wlan show interfaces` (Windows) / `system_profiler SPAirPortDataType` (macOS), falling back to the active interface name; **must never block a save**
-- [ ] Optional local IP capture
-- [ ] **Privacy levels:** `none` / `device` (default) / `network` / `full`
-- [ ] History timeline UI on the detail pane
-- [ ] Field-level diff between any two versions
-- [ ] Restore an entire version, or a single field from one
-- [ ] Reveal an old password under the same clipboard rules
+- [x] Version model — changed-field list plus a partial snapshot, with **backward deltas**, so
+      that pruning the oldest versions leaves every surviving entry restorable
+- [x] **Per-credential "keep past versions" checkbox**, with a global default and per-record override
+- [x] Configurable retention cap, with oldest-first pruning and no renumbering
+- [x] Origin capture in the main process: device name, OS user, platform, OS release, app version
+- [x] Network name — `netsh wlan show interfaces` / `system_profiler SPAirPortDataType`, falling
+      back to the active interface name; **cached and asynchronous, so it can never block a save**
+- [x] Optional local IP capture
+- [x] **Privacy levels:** `none` / `device` (default) / `network` / `full`, enforced at capture
+- [x] `meta.createdOrigin` — creation has no previous state, so it lives on the record
+- [x] Restore an entire version, or a single field from one; a restore is itself versioned
+- [x] Field-level diff between any two points in the timeline
+- [x] Reveal an old password — four `historic-*` secret refs, the version number in the broker key
+- [x] `clearHistory`, because an audit trail is the one feature that can hold something a user
+      wants gone
+- [ ] History timeline UI on the detail pane, and its IPC channels
 - [ ] Export a single credential's history
-- [ ] **Tests:** versioning on change only · retention pruning · restore correctness · diff correctness · privacy levels capture exactly what they claim and nothing more
-- [ ] `docs/05-Features/history-and-audit.md` written
+- [x] **Tests (70):** versioning on change only · retention pruning and its direction ·
+      reconstruction across a prune · diff correctness · restore and un-restore · the privacy
+      sweep asserting each level captures exactly what it declares · capture under a hung probe
+- [x] `docs/05-Features/02-History-And-Audit.md` written
 
-## Phase 7 — Organisation, search, sort & filter
+**Seven fault injections, all now caught.** The seventh found a genuine gap rather than
+confirming a guard: no broker test covered historic refs, so dropping the version number from
+the key — which would let a renderer walk a record's whole password history for one grant —
+passed silently. Two tests added; the re-injection then failed.
 
-_Goal: finding one credential among thousands takes under two seconds._
+## Phase 7 — Organisation, search, sort & filter ~ SEARCH DONE
 
-- [ ] Nested folders — tree, create/rename/move/delete, drag-and-drop
-- [ ] Tags — flat, multi-assign, colour-coded, rename cascades
-- [ ] Favourites
-- [ ] Saved smart views (rule-based, e.g. "weak AND untagged")
-- [ ] Fuzzy search over the safe projection, debounced
-- [ ] Deep search via the main-process delegate (notes, custom values)
-- [ ] Search operators: `tag:`, `folder:`, `url:`, `has:`, `is:`, `created:`, `updated:`
-- [ ] Sort by title, created, updated, password age, use count, strength, folder
-- [ ] Filter chips with a visible active-filter state and a clear-all
-- [ ] Empty / loading / no-results states for every list
-- [ ] Decide indexed vs linear deep search by measuring against a 10 000-record synthetic vault; record the result in `docs/13-Appendix/`
-- [ ] **Tests:** search operator parser · filter composition · sort stability
-- [ ] `docs/05-Features/organisation-and-search.md` written
+_The query, ranking and sort engine is built, tested, and wired into the list. Folders, tags
+and the query-bar UI are not. Full notes: `docs/05-Features/03-Search-Sort-Filter.md`._
+
+- [x] Query language: field prefixes, quoted phrases, `is:`/`has:` flags, negation
+- [x] Case- and diacritic-insensitive matching, with ranked results and per-field match info
+- [x] Deep matches from the main process merged in by id — the renderer never receives the
+      note text, security answer or hidden value that matched
+- [x] Sort by title, username, created, updated, password age, last used, use count, relevance —
+      **total and stable**, with `Intl.Collator({ numeric: true })` built once
+- [x] Trashed records excluded by default; `is:trashed` lifts it, `-is:trashed` does not
+- [x] Folder-descendant filtering with a cycle guard
+- [x] **The renderer's second, weaker implementation folded into this one**
+- [ ] Folder tree and tag sidebar, drag-to-file, favourites
+- [ ] Query-bar UI: prefix autocomplete from `QUERY_FIELDS`, the diagnostics line, saved searches
+- [ ] A user-facing sort control
+- [x] **Tests (79)** and nine fault injections, two of which exposed guards weaker than they
+      looked
+- [x] `docs/05-Features/03-Search-Sort-Filter.md` written
 
 ## Phase 8 — Password generator & strength ~ ENGINE DONE
 
@@ -262,33 +278,25 @@ _Full notes: `docs/05-Features/00-Password-Generator.md`._
 - [ ] **Tests:** chunk roundtrip · integrity failure detected · orphan cleanup · size-cap enforcement
 - [ ] `docs/05-Features/attachments.md` written
 
-## Phase 10 — Import engine
+## Phase 10 — Import ~ PARSERS DONE
 
-_Goal: nobody has to retype anything, from any manager._
+_Eleven parsers are built and tested. The commit half — IPC, the wizard, dedupe, dry-run,
+undo — is not. Full notes: `docs/09-Import-Export/00-Import-Formats.md`._
 
-- [ ] Parser interface + shared normalisation pipeline
-- [ ] **Generic CSV with a column-mapping UI** — the catch-all that makes everything else possible
-- [ ] KeePass KDBX 3 and 4 (`kdbxweb` + our WASM Argon2)
-- [ ] KeePass XML
-- [ ] Bitwarden JSON (encrypted and plain) and CSV
-- [ ] 1Password 1PUX and CSV
-- [ ] LastPass CSV
-- [ ] Chrome / Edge / Brave CSV
-- [ ] Firefox CSV
-- [ ] Safari / Apple Passwords CSV
-- [ ] Dashlane CSV and JSON
-- [ ] Proton Pass JSON and CSV
-- [ ] Enpass JSON
-- [ ] NordPass CSV
-- [ ] Keeper CSV and JSON
-- [ ] RoboForm CSV
-- [ ] Native `.keep` and `.keepx`
-- [ ] Import wizard: parse → preview table → map columns → target folder/tags → dedupe strategy (skip / overwrite / keep both / merge fields) → **dry-run report** → commit
-- [ ] One-click undo of an entire import
-- [ ] Preserve source history where the source has it (KDBX, Bitwarden)
-- [ ] Import report saved into the vault's activity log
-- [ ] **Tests:** one fixture file per format → expected normalised records; malformed-input handling for each
-- [ ] `docs/09-Import-Export/` written, with a per-format field-mapping table
+- [x] Bitwarden CSV and unencrypted JSON (encrypted exports refused with a reason)
+- [x] LastPass, Chromium (Chrome/Edge/Brave), Firefox, Safari/Apple, 1Password 8, Dashlane,
+      NordPass, KeePassXC and the older KeePass CSV
+- [x] Generic CSV with inferred mapping, and an explicit mapping for the wizard to supply
+- [x] Hand-written RFC 4180 reader: BOM, quoted newlines, mixed line endings, ragged rows
+- [x] Strict detection — an unfamiliar variant falls through to the generic mapper rather than
+      being parsed by the wrong parser
+- [x] Nothing dropped silently; **no warning may quote a value**
+- [x] Fixtures in `tests/fixtures/import/`, never beside the parsers
+- [ ] IPC, the mapping wizard, dedupe against the existing vault, dry-run, undo, activity log
+- [ ] KDBX 3/4, KeePass XML, 1PUX, Proton Pass, Enpass, Keeper, RoboForm, Dashlane JSON, and
+      Keyhold's own `.keep`/`.keepx`
+- [x] **Tests (264)** and six fault injections, two of which found real holes
+- [x] `docs/09-Import-Export/00-Import-Formats.md` written
 
 ## Phase 11 — Export engine & the transfer bundle
 
@@ -428,25 +436,25 @@ _Goal: the user, not us, decides their security/convenience trade-off._
 
 ## Progress
 
-| Phase                            | Status        |
-| -------------------------------- | ------------- |
-| 0 · Scaffold                     | ✅ **Done**   |
-| 1 · Crypto & KEEP format         | ✅ **Done**   |
-| 2 · Vault service & IPC          | ✅ **Done**   |
-| 3 · Shell, design system, themes | ✅ **Done**   |
-| 4 · Unlock, lock, session        | ✅ **Done**   |
-| 5 · CRUD & fields                | ✅ **Done**   |
-| 6 · History & audit trail        | Not started   |
-| 7 · Organisation & search        | Not started   |
-| 8 · Password generator           | ~ Engine done |
-| 9 · Attachments                  | Not started   |
-| 10 · Import                      | Not started   |
-| 11 · Export & transfer bundle    | Not started   |
-| 12 · Sync & merge                | Not started   |
-| 13 · Health dashboard            | ~ Rules done  |
-| 14 · Settings                    | Not started   |
-| 15 · Chrome & QoL                | Not started   |
-| 16 · In-app content              | Not started   |
-| 17 · Audits                      | Not started   |
-| 18 · Packaging & CI              | Not started   |
-| 19 · Docs & README               | Not started   |
+| Phase                            | Status         |
+| -------------------------------- | -------------- |
+| 0 · Scaffold                     | ✅ **Done**    |
+| 1 · Crypto & KEEP format         | ✅ **Done**    |
+| 2 · Vault service & IPC          | ✅ **Done**    |
+| 3 · Shell, design system, themes | ✅ **Done**    |
+| 4 · Unlock, lock, session        | ✅ **Done**    |
+| 5 · CRUD & fields                | ✅ **Done**    |
+| 6 · History & audit trail        | ~ Engine done  |
+| 7 · Organisation & search        | ~ Search done  |
+| 8 · Password generator           | ~ Engine done  |
+| 9 · Attachments                  | Not started    |
+| 10 · Import                      | ~ Parsers done |
+| 11 · Export & transfer bundle    | Not started    |
+| 12 · Sync & merge                | Not started    |
+| 13 · Health dashboard            | ~ Rules done   |
+| 14 · Settings                    | Not started    |
+| 15 · Chrome & QoL                | Not started    |
+| 16 · In-app content              | Not started    |
+| 17 · Audits                      | Not started    |
+| 18 · Packaging & CI              | Not started    |
+| 19 · Docs & README               | Not started    |
