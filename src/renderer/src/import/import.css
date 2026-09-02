@@ -1,0 +1,625 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The import wizard.
+ *
+ * Every colour is a `--kh-color-*` token — decision D8, and the contrast guard in
+ * `themes.test.ts` checks the pairs used here (text/surface, warning-text/warning-subtle,
+ * danger-text/danger-subtle, info-text/info-subtle, border-strong/surface). No literal
+ * colour appears in this file, and none may be added.
+ *
+ * Every wide surface scrolls inside its own container rather than widening the dialog: a
+ * fourteen-column mapping table that pushed the modal out would take the footer buttons off
+ * the screen with it.
+ */
+
+.kh-import {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+  min-width: 0;
+}
+
+.kh-import__heading {
+  font-size: var(--kh-text-md);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+/* Focused programmatically on each step change. The ring must be visible: it is the only
+   signal a sighted keyboard user gets that the wizard moved them. */
+.kh-import__heading:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 4px;
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-import__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding-top: var(--kh-space-3);
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-import__spacer {
+  flex: 1;
+}
+
+.kh-import-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+  min-width: 0;
+}
+
+/* ── The step indicator ────────────────────────────────────────────────────── */
+
+.kh-import-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2) var(--kh-space-4);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.kh-import-steps__item {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-import-steps__marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-full);
+  font-size: var(--kh-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.kh-import-steps__item--done .kh-import-steps__marker {
+  background: var(--kh-color-success-subtle);
+  color: var(--kh-color-success-text);
+  border-color: var(--kh-color-success);
+}
+
+.kh-import-steps__item--current {
+  color: var(--kh-color-text);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-import-steps__item--current .kh-import-steps__marker {
+  background: var(--kh-color-accent);
+  color: var(--kh-color-accent-on);
+  border-color: var(--kh-color-accent);
+}
+
+/* ── Notes, errors and issues ──────────────────────────────────────────────── */
+
+.kh-import-note,
+.kh-import-error {
+  display: block;
+  padding: var(--kh-space-2) var(--kh-space-3);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-import-note {
+  background: var(--kh-color-surface-sunken);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-import-note--warning {
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+}
+
+.kh-import-note--danger,
+.kh-import-error {
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+}
+
+.kh-import-issues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.kh-import-issue {
+  display: flex;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-2) var(--kh-space-3);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-import-issue--error {
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+}
+
+.kh-import-issue--warning {
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+}
+
+/* ── Facts, headline and sections ──────────────────────────────────────────── */
+
+.kh-import-headline {
+  padding: var(--kh-space-3) var(--kh-space-4);
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-md);
+}
+
+.kh-import-headline__number {
+  font-size: var(--kh-text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.kh-import-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-3);
+  margin: 0;
+  background: var(--kh-color-surface-sunken);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-import-facts dt {
+  font-size: var(--kh-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-import-facts dd {
+  margin: 0;
+  font-size: var(--kh-text-md);
+  font-variant-numeric: tabular-nums;
+  color: var(--kh-color-text);
+}
+
+.kh-import-facts__name {
+  font-family: var(--kh-font-secret);
+  font-size: var(--kh-text-base);
+  word-break: break-all;
+}
+
+.kh-import-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-import-section__heading {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-import-section__lead {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-import-filename {
+  font-family: var(--kh-font-secret);
+  word-break: break-all;
+}
+
+.kh-import-empty-note {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Choices ───────────────────────────────────────────────────────────────── */
+
+.kh-import-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.kh-import-fieldset--inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.kh-import-choice {
+  display: flex;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-2) var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  cursor: pointer;
+}
+
+.kh-import-choice:hover {
+  background: var(--kh-color-surface-hover);
+  border-color: var(--kh-color-border-strong);
+}
+
+.kh-import-choice:focus-within {
+  border-color: var(--kh-color-accent);
+}
+
+.kh-import-choice--compact {
+  flex: 1 1 12rem;
+}
+
+.kh-import-choice__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.kh-import-choice__label {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text);
+}
+
+.kh-import-choice__help {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-import-choice__tag {
+  padding: 0 var(--kh-space-2);
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+  border-radius: var(--kh-radius-full);
+  font-size: var(--kh-text-xs);
+  font-weight: var(--kh-weight-normal);
+}
+
+/* ── Tables ────────────────────────────────────────────────────────────────── */
+
+.kh-import-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--kh-text-sm);
+}
+
+.kh-import-table__caption {
+  padding: var(--kh-space-2) var(--kh-space-3);
+  color: var(--kh-color-text-muted);
+  text-align: left;
+  font-size: var(--kh-text-sm);
+}
+
+.kh-import-table th,
+.kh-import-table td {
+  padding: var(--kh-space-2) var(--kh-space-3);
+  border-top: 1px solid var(--kh-color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.kh-import-table thead th {
+  background: var(--kh-color-surface-sunken);
+  color: var(--kh-color-text-subtle);
+  font-size: var(--kh-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.kh-import-table__title {
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text);
+}
+
+.kh-import-table__flag {
+  margin-left: var(--kh-space-1);
+  color: var(--kh-color-warning-text);
+}
+
+.kh-import-table__url {
+  max-width: 16rem;
+  overflow-wrap: anywhere;
+}
+
+.kh-import-map__column {
+  font-family: var(--kh-font-secret);
+  white-space: nowrap;
+}
+
+.kh-import-map__row--error {
+  background: var(--kh-color-danger-subtle);
+}
+
+.kh-import-map__custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+}
+
+/* ── Masks and chips ───────────────────────────────────────────────────────── */
+
+.kh-import-mask {
+  font-family: var(--kh-font-secret);
+  letter-spacing: 0.12em;
+  color: var(--kh-color-text-muted);
+}
+
+.kh-import-mask--empty {
+  letter-spacing: normal;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-import-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-1);
+}
+
+/*
+ * Chips stay neutral on purpose. Green, amber and red are the health signals in this app,
+ * and a row of coloured tags beside a warning list would make the warnings stop reading
+ * as warnings.
+ */
+.kh-import-chip {
+  padding: 0 var(--kh-space-2);
+  background: var(--kh-color-surface-sunken);
+  color: var(--kh-color-text-muted);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-full);
+  font-size: var(--kh-text-xs);
+  white-space: nowrap;
+}
+
+/* ── Folders ───────────────────────────────────────────────────────────────── */
+
+.kh-import-folders {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.kh-import-folders__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-1) var(--kh-space-2);
+  background: var(--kh-color-surface-sunken);
+  border-radius: var(--kh-radius-sm);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-import-folders__path {
+  flex: 1;
+  font-family: var(--kh-font-secret);
+  color: var(--kh-color-text);
+  overflow-wrap: anywhere;
+}
+
+.kh-import-folders__state,
+.kh-import-folders__count {
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-xs);
+  white-space: nowrap;
+}
+
+/* ── Duplicate groups ──────────────────────────────────────────────────────── */
+
+.kh-import-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-import-bulk__label {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-import-bulk__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-1);
+}
+
+.kh-import-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.kh-import-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface-raised);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-import-group__header {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  flex-wrap: wrap;
+}
+
+.kh-import-group__title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+  overflow-wrap: anywhere;
+}
+
+.kh-import-group__match {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-4);
+  margin: 0;
+  font-size: var(--kh-text-sm);
+}
+
+.kh-import-group__match dt {
+  font-size: var(--kh-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-import-group__match dd {
+  margin: 0;
+  color: var(--kh-color-text);
+  overflow-wrap: anywhere;
+}
+
+.kh-import-group__existing {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-import-group__existing-meta {
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-import-merge {
+  padding: var(--kh-space-2) var(--kh-space-3);
+  background: var(--kh-color-info-subtle);
+  color: var(--kh-color-info-text);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-import-merge--danger {
+  background: var(--kh-color-danger-subtle);
+  color: var(--kh-color-danger-text);
+}
+
+.kh-import-merge__items {
+  padding-left: var(--kh-space-4);
+  margin: var(--kh-space-1) 0 0;
+}
+
+/* ── Warnings ──────────────────────────────────────────────────────────────── */
+
+.kh-import-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-import-warning-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-import-warning {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface);
+}
+
+.kh-import-warning--loss {
+  border-color: var(--kh-color-warning);
+}
+
+.kh-import-warning__header {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  flex-wrap: wrap;
+}
+
+.kh-import-warning__title {
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-import-warning__count {
+  font-variant-numeric: tabular-nums;
+  color: var(--kh-color-text-muted);
+  font-weight: var(--kh-weight-normal);
+}
+
+.kh-import-warning__description {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-import-warning__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding-left: var(--kh-space-4);
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text);
+}
+
+.kh-import-warning__where {
+  margin-left: var(--kh-space-2);
+  color: var(--kh-color-text-subtle);
+  font-size: var(--kh-text-xs);
+}
+
+/* ── Undo ──────────────────────────────────────────────────────────────────── */
+
+.kh-import-undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-import-undo__lead {
+  flex: 1;
+  min-width: 12rem;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
