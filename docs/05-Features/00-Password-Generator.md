@@ -3,7 +3,8 @@
 > Four generation modes and the entropy maths behind them.
 > Current reference. Implemented by `src/main/generator/`.
 >
-> **Status: the engine is built and tested; the IPC channel and the UI are not.** See §7.
+> **Status: engine, IPC and the panel are all built. What remains is session generation
+> history persistence and per-site rule memory.** See §7.
 
 ---
 
@@ -104,13 +105,11 @@ break shells, CSV exports and login forms — leaving 28 symbols.
 
 ## 7. Not built yet
 
-- The IPC channel and the generator UI.
 - Session generation history, per-site rule memory, and generate-and-replace inside a
   credential (which must auto-version the previous password).
-- `GENERATOR_LIMITS` and `GENERATOR_DEFAULTS` currently live in
-  `src/main/generator/generator.ts`. When the UI lands it must read them across the IPC
-  contract rather than restating them — otherwise the "no second list" rule is broken the
-  moment someone types `min={8}` into a slider.
+- `GENERATOR_LIMITS` and `GENERATOR_DEFAULTS` live in `src/main/generator/generator.ts` and
+  are read across the contract through `kh:generator:limits`, which is what that channel is
+  for — a slider with `min={8}` typed into it is the second list this avoids.
 - `GeneratedPassword.password` is a plain string. The field name and its doc comment flag it
   as secret material; whether it becomes a `SecretString` is a decision for whoever wires the
   IPC path.

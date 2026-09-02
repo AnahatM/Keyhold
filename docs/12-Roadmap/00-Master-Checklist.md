@@ -473,7 +473,8 @@ produced and no workflow has ever run** — there is no remote yet. Full notes:
 
 - [ ] Complete the numbered `docs/` tree using the **`comprehensive-documentation`** skill
 - [ ] `_INDEX.md` in every folder plus the top-level `docs/_INDEX.md`
-- [ ] `docs/13-Appendix/03-Doc-Audit-Findings.md` — known code/doc mismatches and deliberate oddities
+- [x] Doc/code mismatches and deliberate oddities — now `docs/14-Audits/01-Doc-Code-Audit.md`,
+      because `13-` was taken by packaging by the time it was written
 - [ ] Publish the KEEP format spec as a standalone, implementable document
 - [ ] **`README.md` using the `anahat-readme` skill** — never freehanded
 - [ ] README must include: the three-line pitch, the honest comparison table (including where competitors win), screenshots, the threat model summary, install instructions with the unsigned-build steps, and the "how to leave" export story

@@ -27,7 +27,8 @@ exist yet; the phase that creates them is named.
 | `10-Sync-And-Transfer/`                                   | Portable file · `.keepx` bundles · the merge engine and conflict matrix       | _Planned — Phase 12_ |
 | [`11-Development/`](./11-Development/_INDEX.md)           | Setup, scripts, conventions, testing policy, toolchain decisions              | **Written**          |
 | [`12-Roadmap/`](./12-Roadmap/_INDEX.md)                   | Master checklist · feature backlog · decision log                             | **Written**          |
-| `13-Appendix/`                                            | Audit findings, benchmarks, doc-audit findings, deliberate oddities           | _Planned — Phase 17_ |
+| [`13-Packaging/`](./13-Packaging/_INDEX.md)               | Building, the unsigned-binary reality, the release checklist and CI           | **Written**          |
+| [`14-Audits/`](./14-Audits/_INDEX.md)                     | The security audit and the docs-vs-code audit, with anchored findings         | **Written**          |
 | [`superpowers/specs/`](./superpowers/specs/)              | Point-in-time design specs. **History, not current reference**                | **Written**          |
 
 ---
