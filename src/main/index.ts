@@ -1,8 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { app, BrowserWindow } from 'electron';
+import { registerIpcHandlers, unregisterIpcHandlers } from './ipc/register.js';
 import { applySessionHardening, applyWebContentsHardening } from './security.js';
-import { createMainWindow, focusMainWindow } from './window.js';
 import { isSmokeRun, runSmokeCheck } from './smoke.js';
+import { VaultService } from './vault/vault-service.js';
+import { createMainWindow, focusMainWindow } from './window.js';
+
+/** Baked in at build time by electron-vite. */
+declare const APP_VERSION: string;
+
+/**
+ * The single vault instance for this process.
+ *
+ * One per process, not one per window: two services could hold the same file open and
+ * race each other's atomic writes, which is the data-loss bug the single-instance lock
+ * below also guards against from the other direction.
+ */
+const vault = new VaultService();
 
 /**
  * Keyhold main process entry point.
@@ -36,6 +50,7 @@ if (!gotTheLock) {
 
   void app.whenReady().then(() => {
     applySessionHardening();
+    registerIpcHandlers({ vault, appVersion: APP_VERSION });
     const window = createMainWindow();
 
     // Only ever active under KEYHOLD_SMOKE=1; see src/main/smoke.ts.
@@ -47,10 +62,21 @@ if (!gotTheLock) {
     });
   });
 
-  // On macOS an app conventionally stays alive with no windows; everywhere else
-  // closing the last window means quit. For a password manager, quitting is also
-  // the safest default because it guarantees keys are gone from memory.
+  // Locking on window close is not politeness, it is the point: a window closed with the
+  // vault still unlocked would leave the DEK and every decrypted record live in a process
+  // the user believes they have finished with.
   app.on('window-all-closed', () => {
+    vault.lock();
+    // On macOS an app conventionally stays alive with no windows; everywhere else closing
+    // the last window means quit. For a password manager quitting is also the safest
+    // default, because it guarantees the keys are gone.
     if (process.platform !== 'darwin') app.quit();
+  });
+
+  // Last line of defence. `lock()` is idempotent, so it is safe for this to fire after
+  // window-all-closed has already run.
+  app.on('will-quit', () => {
+    vault.lock();
+    unregisterIpcHandlers();
   });
 }

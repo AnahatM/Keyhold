@@ -15,7 +15,7 @@ exist yet; the phase that creates them is named.
 | Folder                                            | Contents                                                                                      | Status                   |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------ |
 | [`00-Overview/`](./00-Overview/_INDEX.md)         | What Keyhold is · naming & glossary · competitive analysis · threat model                     | **Written**              |
-| `01-Architecture/`                                | Process model, module map, data flow, IPC contract                                            | _Planned — Phase 2_      |
+| [`01-Architecture/`](./01-Architecture/_INDEX.md) | Process model, module map, the safe projection, the IPC contract                              | **Written**              |
 | [`02-Security/`](./02-Security/_INDEX.md)         | Crypto design, key hierarchy, process hardening, the safe-projection boundary                 | **Written**              |
 | `03-Data-Model/`                                  | The record schema, field types, history model, tombstones                                     | _Planned — Phase 5_      |
 | [`04-Vault-Format/`](./04-Vault-Format/_INDEX.md) | The **KEEP** container spec — publishable and implementable by third parties                  | **Written**              |
