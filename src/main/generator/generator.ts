@@ -3,6 +3,8 @@ import type {
   GeneratedPassword,
   GeneratorMode,
   GeneratorOptions,
+  GeneratorDefaults,
+  GeneratorLimitName,
   GeneratorRange,
   PassphraseGeneratorOptions,
   PinGeneratorOptions,
@@ -46,7 +48,7 @@ export const GENERATOR_LIMITS = {
   passphraseWords: { min: 3, max: 20 },
   pronounceableLength: { min: 8, max: 256 },
   pinLength: { min: 4, max: 32 },
-} as const satisfies Record<string, GeneratorRange>;
+} as const satisfies Readonly<Record<GeneratorLimitName, GeneratorRange>>;
 
 /**
  * What every unspecified option means.
@@ -69,12 +71,12 @@ export const GENERATOR_DEFAULTS = {
   passphrase: {
     wordCount: 6,
     separator: '-',
-    capitalisation: 'none' as WordCapitalisation,
+    capitalisation: 'none',
     includeDigit: false,
   },
   pronounceable: { length: 16, digits: false, symbols: false },
   pin: { length: 6 },
-} as const;
+} as const satisfies GeneratorDefaults;
 
 export const LOWERCASE_CHARACTERS = 'abcdefghijklmnopqrstuvwxyz';
 export const UPPERCASE_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';

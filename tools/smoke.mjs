@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 /**
  * Launch smoke test: starts the real built app under KEYHOLD_SMOKE=1 and waits for it
@@ -19,6 +19,35 @@ const HARD_TIMEOUT_MS = 60_000;
 
 if (!existsSync(resolve('out/main/index.js'))) {
   console.error('No build found at out/main/index.js. Run `npm run build` first.');
+  process.exit(1);
+}
+
+/**
+ * Refuse to run against a stale build.
+ *
+ * This check exists because of a real mistake: a fault injection was made, `npm run build`
+ * failed its typecheck, and the smoke test ran happily against the PREVIOUS build and
+ * reported a pass. A smoke test that silently tests code you are not looking at is worse
+ * than no smoke test, because it produces confident wrong answers.
+ */
+function newestMtime(directory) {
+  let newest = 0;
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    newest = Math.max(newest, entry.isDirectory() ? newestMtime(path) : statSync(path).mtimeMs);
+  }
+  return newest;
+}
+
+const sourceTouched = Math.max(
+  newestMtime(resolve('src')),
+  statSync(resolve('package.json')).mtimeMs
+);
+const buildTouched = newestMtime(resolve('out'));
+if (sourceTouched > buildTouched) {
+  console.error(
+    'The build in out/ is older than src/. Run `npm run build` — a smoke test against a stale build proves nothing.'
+  );
   process.exit(1);
 }
 

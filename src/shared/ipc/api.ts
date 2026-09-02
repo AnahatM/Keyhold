@@ -4,7 +4,17 @@ import type {
   CustomFieldType,
   SecretRef,
   SecurityQuestion,
+  VersionedField,
 } from '../model/credential.js';
+import type {
+  GeneratedPassword,
+  GeneratorDefaults,
+  GeneratorLimitName,
+  GeneratorOptions,
+  GeneratorRange,
+} from '../model/generator.js';
+import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '../model/health.js';
+import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
 import type { PasswordStrength } from '../model/strength.js';
 import type { VaultLockedInfo, VaultSummary } from '../model/vault-document.js';
 
@@ -229,11 +239,80 @@ export interface CredentialsApi {
  * `importExport` (Phases 10–11), `sync` (Phase 12), `health` (Phase 13),
  * `settings` (Phase 14).
  */
+/**
+ * Password generation.
+ *
+ * The one API here that needs no open vault, and the one that returns plaintext secret
+ * material by design. See the note above the handlers in `src/main/ipc/register.ts`: the
+ * renderer has to render a generated password, and one value the user just asked to see is
+ * a different proposition from the vault's worth of secrets decision D13 is about.
+ */
+/**
+ * The engine's own bounds and defaults, as sent to the UI.
+ *
+ * Typed from the engine's constants rather than restated, so a control cannot be built
+ * against a stale copy of "length is 8 to 256". This is the whole reason the channel
+ * exists — a slider with `min={8}` typed into it is a second list.
+ */
+export interface GeneratorLimitsView {
+  readonly limits: Readonly<Record<GeneratorLimitName, GeneratorRange>>;
+  readonly defaults: GeneratorDefaults;
+}
+
+export interface GeneratorApi {
+  generate: (options: GeneratorOptions) => Promise<IpcResult<GeneratedPassword>>;
+  /** The entropy a configuration *would* produce, without producing a password for it. */
+  estimate: (options: GeneratorOptions) => Promise<IpcResult<number>>;
+  /** Bounds and defaults, read across the contract so no control restates them. */
+  limits: () => Promise<IpcResult<GeneratorLimitsView>>;
+}
+
+export interface HealthApi {
+  /** The offline analysis. Contains no secret material by construction. */
+  analyse: (options?: {
+    enabledRules?: Partial<Record<HealthRuleId, boolean>>;
+    thresholds?: Partial<HealthThresholds>;
+  }) => Promise<IpcResult<VaultHealthReport>>;
+}
+
+export interface HistoryApi {
+  /** What one edit changed. Secret values cross only as lengths. */
+  diff: (
+    credentialId: string,
+    versionNumber: number
+  ) => Promise<IpcResult<FieldDiffProjection[] | null>>;
+  compare: (
+    credentialId: string,
+    from: HistoryPointRef,
+    to: HistoryPointRef
+  ) => Promise<IpcResult<FieldDiffProjection[] | null>>;
+  /** Puts the record back to the state before that edit, recording the restore itself. */
+  restoreVersion: (
+    credentialId: string,
+    versionNumber: number
+  ) => Promise<IpcResult<{ projection: CredentialProjection; changedFields: string[] } | null>>;
+  restoreField: (
+    credentialId: string,
+    versionNumber: number,
+    field: VersionedField
+  ) => Promise<IpcResult<{ projection: CredentialProjection; changedFields: string[] } | null>>;
+  /** Deliberately not itself versioned — see `VaultService.clearHistory`. */
+  clear: (credentialId: string) => Promise<IpcResult<boolean>>;
+  /**
+   * The network name the app would record right now, for the settings screen.
+   * `null` when it cannot be determined — which is a normal answer, not an error.
+   */
+  networkName: () => Promise<IpcResult<string | null>>;
+}
+
 export interface KeyholdApi {
   app: AppApi;
   session: SessionApi;
   vault: VaultApi;
   credentials: CredentialsApi;
+  generator: GeneratorApi;
+  health: HealthApi;
+  history: HistoryApi;
 }
 
 /** IPC channel names. Never build one by string concatenation at a call site. */
@@ -271,6 +350,19 @@ export const CHANNELS = {
   credentialsRestore: 'kh:credentials:restore',
   credentialsPurge: 'kh:credentials:purge',
   credentialsMarkUsed: 'kh:credentials:mark-used',
+
+  generatorGenerate: 'kh:generator:generate',
+  generatorEstimate: 'kh:generator:estimate',
+  generatorLimits: 'kh:generator:limits',
+
+  healthAnalyse: 'kh:health:analyse',
+
+  historyDiff: 'kh:history:diff',
+  historyCompare: 'kh:history:compare',
+  historyRestoreVersion: 'kh:history:restore-version',
+  historyRestoreField: 'kh:history:restore-field',
+  historyClear: 'kh:history:clear',
+  historyNetworkName: 'kh:history:network-name',
 } as const;
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
