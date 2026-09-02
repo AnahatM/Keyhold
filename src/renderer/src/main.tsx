@@ -2,6 +2,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
+import { ToastProvider } from './chrome/index.js';
 import { initialiseAppearance } from './theme/appearance-store.js';
 import './styles/base.css';
 
@@ -22,6 +23,10 @@ initialiseAppearance();
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    {/* Above <App /> so every screen — including the ones shown before a vault is open —
+        can raise a toast, and so the viewport survives navigation between them. */}
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </StrictMode>
 );
