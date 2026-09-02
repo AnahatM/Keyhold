@@ -82,6 +82,11 @@ export function DiffRows({
               →
             </span>
             <span className="kh-diff__after">{describe(entry.after)}</span>
+            <RestoreField
+              credentialId={credentialId}
+              versionNumber={versionNumber}
+              field={entry.field}
+            />
             {entry.isSecret && (
               <SecretSide
                 credentialId={credentialId}
@@ -171,5 +176,55 @@ function SecretSide({
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * Puts one field back, leaving the rest of the record alone.
+ *
+ * The common case by a distance — *"that was the password I used before"* — and the reason
+ * it is a per-row control rather than a second button beside "Restore this version": a user
+ * who wants one field back should not have to undo six months of unrelated edits to get it,
+ * and offering only the whole-version restore quietly makes that the choice.
+ *
+ * No confirmation. The restore is itself versioned, so it appears in this same timeline and
+ * can be taken back from the row above — a dialog would be ceremony over an action that
+ * cannot lose anything. The whole-version restore asks twice because it moves every field
+ * at once; this one moves exactly what the row it sits on describes.
+ */
+function RestoreField({
+  credentialId,
+  versionNumber,
+  field,
+}: {
+  readonly credentialId: string;
+  readonly versionNumber: number;
+  readonly field: VersionedField;
+}): React.JSX.Element {
+  const { restoreField, busy } = useCredentials();
+  const [done, setDone] = useState(false);
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={busy}
+        onClick={() => {
+          void restoreField(credentialId, versionNumber, field).then((changed) => {
+            // `false` means the record already held this value, so nothing was written and
+            // saying "Restored" would be a small lie about what just happened.
+            setDone(changed);
+          });
+        }}
+      >
+        Restore this field
+      </Button>
+      {/* Announced as well as shown: a confirmation that only changes a label is invisible
+          to a screen reader that was not focused on the button. */}
+      <span aria-live="polite" className="kh-visually-hidden">
+        {done ? `${fieldLabel(field)} restored` : ''}
+      </span>
+    </>
   );
 }
