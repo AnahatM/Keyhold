@@ -47,23 +47,36 @@ All three guards fault-injected and confirmed to fail on the defect they claim t
 **Blocked:** the GitHub remote does not exist yet — GitHub CLI is not installed. See
 `MANUAL-BACKLOG.md` M1. Commits are landing locally; the push happens the moment the remote exists.
 
-## Phase 1 — Crypto core & the KEEP container _(headless, fully tested)_
+## Phase 1 — Crypto core & the KEEP container ✅
 
 _Goal: a library that turns a password plus records into a `.keep` file and back, with no UI at all._
 
-- [ ] `shared/crypto/` — Argon2id via `hash-wasm`, AES-256-GCM via Node `crypto`
-- [ ] KDF calibration routine — target ≈500 ms on the current machine, return `{m, t, p}`
-- [ ] Envelope encryption: derive KEK → generate DEK → wrap/unwrap DEK
-- [ ] Secure buffer helper with explicit zeroing; a `SecretString` type that resists accidental logging
-- [ ] `shared/format/` — KEEP container writer and reader per the spec §5.4
-- [ ] Header as AAD, so header tampering breaks the GCM tag
-- [ ] Attachment chunk read/write (independent chunks, addressed by id)
-- [ ] `formatVersion` gate: refuse to open a newer version rather than guessing
-- [ ] Forward-only migration framework, operating on a copy
-- [ ] Atomic write: tmp → `fsync` → rename; rolling `.keepbak` retention
-- [ ] Crash-recovery path — detect and recover from an orphaned `.tmp`
-- [ ] **Tests:** roundtrip · wrong password fails · single-bit tamper detected · KDF params honoured · DEK rotation · attachment chunk integrity · truncated file · corrupt header · unknown version · migration · atomic-write crash simulation
-- [ ] `docs/02-Security/` and `docs/04-Vault-Format/` written — the format spec must be publishable
+- [x] Argon2id via `hash-wasm`, AES-256-GCM via Node `crypto`
+- [x] KDF calibration targeting ≈500 ms, **never returning weaker than the shipped default** (guard test — a fast machine must not buy a weaker vault)
+- [x] KDF parameter bounds enforced in **both** directions: a floor so a downgraded header cannot weaken a vault, a ceiling so a hostile file cannot DoS the app
+- [x] Envelope encryption: derive KEK → generate DEK → wrap/unwrap; password change rewraps 32 bytes and never touches the body
+- [x] `SecretBytes` — redacts through `toString`, `toJSON` and `util.inspect`; zeroes on destroy; idempotent destroy; constant-time compare; `use(fn)` rather than a getter
+- [x] `randomInt` with rejection sampling, not modulo — modulo bias measurably shrinks generated-password entropy
+- [x] KEEP container writer and reader per the spec
+- [x] Header as AAD, with **explicit fixed key ordering** so a refactor cannot silently break every existing vault
+- [x] Header treated as hostile input: every field type-checked, base64 validated by round-trip
+- [x] Attachment chunks, each bound to its own id as AAD so chunks cannot be relocated between records
+- [x] `formatVersion` gate: refuse a newer version rather than guessing; preamble/header version cross-check
+- [x] Forward-only migration framework with a contiguity guard
+- [x] Atomic write: tmp → `fsync` → rotate backups → rename → `fsync` directory
+- [x] Rolling backups with configurable retention; a **failed save consumes no backup slot**
+- [x] Crash recovery: orphaned `.tmp` is surfaced and quarantined, **never silently deleted**
+- [x] **Tests (96):** roundtrip · wrong password · flipped bit in ciphertext/tag/nonce/AAD · **truncation at every length** · **a flipped bit sampled across the whole body** · header tampering at identical length · chunk relocation · KDF bounds · calibration floor · redaction paths · statistical randomness bias · password change · multiple independent DEK wrappings · atomic-write failure paths
+- [x] `docs/02-Security/` and `docs/04-Vault-Format/` written — the format spec is publishable
+
+**Verified:** `npm run verify` green (122 tests). Two fault injections confirmed: removing
+the body's AAD binding breaks the header-tampering test; rotating backups before the temp
+write breaks four durability tests.
+
+**Decision recorded:** crypto and format implementations live in `src/main/`, not
+`src/shared/`. `@shared` must compile in the renderer, and putting crypto there would make
+it importable from the renderer — exactly what decision D13 exists to prevent. `@shared`
+holds types and constants only. See D22.
 
 ## Phase 2 — Vault service & the secure IPC bridge
 
@@ -367,7 +380,7 @@ _Goal: the user, not us, decides their security/convenience trade-off._
 | Phase                            | Status      |
 | -------------------------------- | ----------- |
 | 0 · Scaffold                     | ✅ **Done** |
-| 1 · Crypto & KEEP format         | Not started |
+| 1 · Crypto & KEEP format         | ✅ **Done** |
 | 2 · Vault service & IPC          | Not started |
 | 3 · Shell, design system, themes | Not started |
 | 4 · Unlock, lock, session        | Not started |
