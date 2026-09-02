@@ -12,10 +12,10 @@ import './vault-screens.css';
 /**
  * The unlocked vault.
  *
- * Credential CRUD arrives in Phase 5; what this renders today is the shell around it — the
- * lock control, the vault header, the clipboard countdown, and the quick-unlock enrolment
- * offer. Those belong to the *session*, not to credentials, which is why they land now
- * rather than waiting.
+ * The three-pane shell: the vault sidebar, the credential list, and the detail pane, plus
+ * the lock control, the vault header, the clipboard countdown and the quick-unlock
+ * enrolment offer. Those last four belong to the *session* rather than to any credential,
+ * which is why they live here rather than in the detail pane.
  */
 export function VaultScreen({
   appearancePanel,
@@ -83,7 +83,9 @@ export function VaultScreen({
               <span>Trash</span>
               <span className="kh-sidebar__count">{vault?.trashedCount ?? 0}</span>
             </button>
-            <p className="kh-sidebar__note">Folders, tags and favourites arrive in Phase 7.</p>
+            <p className="kh-sidebar__note">
+              Folders, tags and favourites are built but not yet wired to this list.
+            </p>
           </nav>
 
           <div className="kh-sidebar__footer">

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { join } from 'node:path';
 import { app, BrowserWindow } from 'electron';
-import { buildMenu, type MenuActions } from './menu.js';
 import { HARDENED_WEB_PREFERENCES, hardenWindow } from './security.js';
 import { readWindowState, trackWindowState, windowOptionsFromState } from './window-state.js';
 
@@ -15,7 +14,7 @@ export function getMainWindow(): BrowserWindow | null {
   return mainWindow;
 }
 
-export function createMainWindow(menuActions?: MenuActions): BrowserWindow {
+export function createMainWindow(): BrowserWindow {
   const state = readWindowState();
 
   const window = new BrowserWindow({
@@ -36,7 +35,6 @@ export function createMainWindow(menuActions?: MenuActions): BrowserWindow {
 
   hardenWindow(window);
   trackWindowState(window);
-  if (menuActions !== undefined) buildMenu(window, menuActions);
 
   window.once('ready-to-show', () => {
     // Maximise before showing, so the window does not visibly jump from its restored size

@@ -25,7 +25,8 @@ export function AppearancePanel(): React.JSX.Element {
         <h2 className="kh-panel__title">Appearance</h2>
         <p className="kh-panel__subtitle">
           Every colour in Keyhold is a token, and every theme is contrast-checked to WCAG AA
-          automatically. Nothing here can produce an unreadable interface.
+          automatically. A theme you build yourself is checked too, and can never fall below the
+          point where you could not read this screen.
         </p>
       </header>
 
