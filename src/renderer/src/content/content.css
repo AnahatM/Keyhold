@@ -1,0 +1,342 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The help viewer.
+ *
+ * Every colour is a `--kh-color-*` token — there is not a literal colour in this file, and
+ * the contrast guard only covers the palettes, so the discipline is on us. Every pair used
+ * below (text on surface, muted text on surface, the four callout text-on-tint pairs, the
+ * focus ring on surface) is already declared in CONTRAST_REQUIREMENTS and therefore already
+ * checked in all eight themes.
+ *
+ * Spacing and type come from the scaled tokens rather than pixels, so the density and
+ * font-size settings move this view with everything else.
+ */
+
+.kh-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--kh-color-bg);
+  color: var(--kh-color-text);
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+
+.kh-content__header {
+  display: flex;
+  gap: var(--kh-space-4);
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--kh-space-5) var(--kh-space-5) var(--kh-space-4);
+  border-bottom: 1px solid var(--kh-color-border);
+}
+
+.kh-content__title {
+  font-size: var(--kh-text-xl);
+  font-weight: var(--kh-weight-semibold);
+  line-height: var(--kh-leading-tight);
+}
+
+.kh-content__subtitle {
+  max-width: 70ch;
+  margin-top: var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Two panes, collapsing to one ──────────────────────────────────────────── */
+
+.kh-content__body {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: var(--kh-space-5);
+  min-height: 0;
+  padding: var(--kh-space-5);
+}
+
+/*
+ * Below this width the index and the article stop being two readable columns, so the
+ * layout stacks rather than squeezing — the same rule the three-pane shell follows.
+ */
+@media (width < 720px) {
+  .kh-content__body {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+}
+
+/* ── The index ─────────────────────────────────────────────────────────────── */
+
+.kh-content__index {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  min-height: 0;
+}
+
+.kh-content__index-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.kh-content__index-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  /* Comfortable density puts this over the 44px WCAG 2.5.8 target size. */
+  min-height: var(--kh-row-height);
+  padding: var(--kh-space-2) var(--kh-space-3);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--kh-radius-md);
+  transition: background var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-content__index-item:hover {
+  background: var(--kh-color-surface-hover);
+}
+
+/*
+ * The current article is marked by a tinted fill AND a leading border, never by colour
+ * alone — and `aria-current` is what actually announces it.
+ */
+.kh-content__index-item[aria-current='page'] {
+  background: var(--kh-color-accent-subtle);
+  border-color: var(--kh-color-accent);
+  color: var(--kh-color-accent-subtle-text);
+}
+
+.kh-content__index-title {
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-medium);
+}
+
+.kh-content__index-summary {
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-content__index-item[aria-current='page'] .kh-content__index-summary {
+  color: var(--kh-color-accent-subtle-text);
+}
+
+.kh-content__no-results {
+  padding: var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+  /* `text-muted` on `surface-raised` — a pair CONTRAST_REQUIREMENTS already checks. */
+  color: var(--kh-color-text-muted);
+  background: var(--kh-color-surface-raised);
+  border-radius: var(--kh-radius-md);
+}
+
+/* ── The article ───────────────────────────────────────────────────────────── */
+
+.kh-content__article {
+  min-height: 0;
+  /*
+   * Roughly 70 characters. Long measures are the single easiest readability mistake to
+   * make in a wide desktop window: the eye loses the start of the next line.
+   */
+  max-width: 70ch;
+  padding: var(--kh-space-5);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+}
+
+.kh-content__article-title {
+  font-size: var(--kh-text-lg);
+  font-weight: var(--kh-weight-semibold);
+  line-height: var(--kh-leading-tight);
+}
+
+.kh-content__lead {
+  margin-top: var(--kh-space-2);
+  font-size: var(--kh-text-md);
+  line-height: var(--kh-leading-relaxed);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-content__heading {
+  margin-top: var(--kh-space-5);
+  font-size: var(--kh-text-md);
+  font-weight: var(--kh-weight-semibold);
+  line-height: var(--kh-leading-tight);
+}
+
+.kh-content__paragraph,
+.kh-content__list,
+.kh-content__steps,
+.kh-content__facts,
+.kh-content__callout,
+.kh-content__inline-link {
+  margin-top: var(--kh-space-3);
+}
+
+.kh-content__paragraph {
+  line-height: var(--kh-leading-relaxed);
+}
+
+/* ── Lists ─────────────────────────────────────────────────────────────────── */
+
+.kh-content__list,
+.kh-content__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding-left: var(--kh-space-5);
+  line-height: var(--kh-leading-relaxed);
+}
+
+/* The reset in base.css strips list markers globally; they are wanted here. */
+.kh-content__list {
+  list-style: disc;
+}
+
+.kh-content__steps {
+  list-style: decimal;
+}
+
+.kh-content__list li::marker,
+.kh-content__steps li::marker {
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Facts ─────────────────────────────────────────────────────────────────── */
+
+.kh-content__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+}
+
+.kh-content__fact {
+  padding-left: var(--kh-space-3);
+  border-left: 2px solid var(--kh-color-border-strong);
+}
+
+.kh-content__fact dt {
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-content__fact dd {
+  margin: 0;
+  line-height: var(--kh-leading-relaxed);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Callouts ──────────────────────────────────────────────────────────────── */
+
+.kh-content__callout {
+  padding: var(--kh-space-3) var(--kh-space-4);
+  border-left: 3px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-content__callout-label {
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-content__callout-meta {
+  font-weight: var(--kh-weight-normal);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-content__callout-text {
+  margin-top: var(--kh-space-1);
+  line-height: var(--kh-leading-relaxed);
+}
+
+.kh-content__callout--info {
+  background: var(--kh-color-info-subtle);
+  border-left-color: var(--kh-color-info);
+  color: var(--kh-color-info-text);
+}
+
+.kh-content__callout--warning {
+  background: var(--kh-color-warning-subtle);
+  border-left-color: var(--kh-color-warning);
+  color: var(--kh-color-warning-text);
+}
+
+.kh-content__callout--danger {
+  background: var(--kh-color-danger-subtle);
+  border-left-color: var(--kh-color-danger);
+  color: var(--kh-color-danger-text);
+}
+
+/*
+ * "Not built yet" is deliberately neutral rather than a warning tint. It is a status, not
+ * a problem with the user's vault, and colouring it like an error would drown the two
+ * callouts that genuinely matter.
+ */
+.kh-content__callout--not-built {
+  background: var(--kh-color-surface-raised);
+  border-left-color: var(--kh-color-border-strong);
+  color: var(--kh-color-text);
+}
+
+/* ── Links between articles ────────────────────────────────────────────────── */
+
+.kh-content__related {
+  margin-top: var(--kh-space-6);
+  padding-top: var(--kh-space-4);
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-content__related-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  margin-top: var(--kh-space-2);
+}
+
+/*
+ * Links are body text with an underline, not accent-coloured text.
+ *
+ * `accent` is only guaranteed 3:1 against a background by the contrast requirements — it
+ * is declared there as a border and icon colour, which is a lower bar than the 4.5:1 that
+ * text needs. Rather than introduce an accent-on-surface text pair nothing checks, the
+ * link is carried by the underline and the arrow, both of which work in every theme and
+ * neither of which is colour alone (WCAG 1.4.1).
+ */
+.kh-content__link {
+  display: inline-flex;
+  gap: var(--kh-space-2);
+  align-items: baseline;
+  padding: var(--kh-space-1) var(--kh-space-2);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: var(--kh-radius-sm);
+  color: var(--kh-color-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: background var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-content__link:hover {
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+}
+
+.kh-content__link-mark {
+  flex: none;
+  /* Decorative and `aria-hidden`, so SC 1.4.3 does not apply to it. */
+  color: var(--kh-color-accent);
+}
+
+.kh-content__link:hover .kh-content__link-mark {
+  color: inherit;
+}

@@ -1,0 +1,357 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The password generator.
+ *
+ * Every colour is a `--kh-color-*` token — there is not a hex value in this file, and the
+ * project's two guard tests exist to keep it that way. Every length, radius, duration and
+ * type size is a token too, so the density and font-scale settings in Appearance move this
+ * panel with the rest of the app rather than leaving it as the one screen that ignores them.
+ *
+ * Motion: durations come from `--kh-duration-*`, which `base.css` multiplies by
+ * `--kh-motion-scale` — set to 0 under `prefers-reduced-motion: reduce`. Nothing here
+ * animates on its own, so there is no sweep or pulse to suppress separately.
+ *
+ * The segmented control, the checkbox rows and the panel chrome are reused from `App.css`
+ * rather than restyled here. A second segmented control that drifted from the first would
+ * be the "no second list" rule broken in CSS.
+ */
+
+.kh-gen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+}
+
+/* ── The result ────────────────────────────────────────────────────────────── */
+
+.kh-gen__output {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-4);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+}
+
+.kh-gen__output-label {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-gen__secret-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kh-space-2);
+  min-height: var(--kh-control-height);
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+/*
+ * `break-all` and `pre-wrap`: a generated password has no word boundaries to break at, and
+ * a 64-character result must wrap inside the panel rather than push the window sideways.
+ */
+.kh-gen__secret {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--kh-text-md);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+}
+
+.kh-gen__secret--empty {
+  color: var(--kh-color-text-subtle);
+  font-style: italic;
+  user-select: none;
+}
+
+.kh-gen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+}
+
+.kh-gen__stale {
+  padding: var(--kh-space-2) var(--kh-space-3);
+  background: var(--kh-color-info-subtle);
+  color: var(--kh-color-info-text);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-gen__clipboard-note {
+  max-width: 64ch;
+  padding: var(--kh-space-2) var(--kh-space-3);
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-warning-text);
+  border-radius: var(--kh-radius-md);
+  font-size: var(--kh-text-sm);
+}
+
+/* ── Entropy readout ───────────────────────────────────────────────────────── */
+
+.kh-gen-entropy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-gen-entropy__row {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-gen-entropy__bits {
+  font-size: var(--kh-text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--kh-color-text-muted);
+}
+
+.kh-gen-entropy__track {
+  height: 6px;
+  overflow: hidden;
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-full);
+}
+
+.kh-gen-entropy__fill {
+  height: 100%;
+  border-radius: var(--kh-radius-full);
+  transition: width var(--kh-duration-base) var(--kh-ease);
+}
+
+.kh-gen-entropy__fill--danger {
+  background: var(--kh-color-danger);
+}
+
+.kh-gen-entropy__fill--warning {
+  background: var(--kh-color-warning);
+}
+
+.kh-gen-entropy__fill--success {
+  background: var(--kh-color-success);
+}
+
+/*
+ * The "no verdict yet" fill, which is only ever zero-width: the readout has no band until
+ * an estimate settles, and with no band there is no figure to fill the track with. It is
+ * declared so the class is never unstyled, not because it is drawn.
+ *
+ * `accent` rather than `border-strong` on purpose — `border-strong` on `surface-sunken`
+ * measures 2.91:1 in the solarized-light theme, under the 3:1 that SC 1.4.11 asks of a
+ * graphic that carries meaning. Zero width means it carries none, but a token that would
+ * fail if it ever did is not the one to leave here.
+ */
+.kh-gen-entropy__fill--neutral {
+  background: var(--kh-color-accent);
+}
+
+/*
+ * While an estimate is in flight the readout is dimmed rather than blanked. Blanking it
+ * makes a drag flicker between a number and nothing; dimming says "this is about to
+ * change" without taking the previous answer away.
+ */
+.kh-gen-entropy--settling .kh-gen-entropy__row,
+.kh-gen-entropy--settling .kh-gen-entropy__track {
+  opacity: 0.55;
+  transition: opacity var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-gen-entropy__meaning,
+.kh-gen-entropy__caveat {
+  max-width: 64ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-gen-entropy__caveat {
+  color: var(--kh-color-text-subtle);
+}
+
+/* ── Mode switcher and controls ────────────────────────────────────────────── */
+
+.kh-gen__modes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-3);
+}
+
+.kh-gen__summary {
+  max-width: 64ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-gen-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-gen-controls__classes {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+}
+
+.kh-gen-controls__legend {
+  padding: 0 var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+/* ── Slider ────────────────────────────────────────────────────────────────── */
+
+.kh-gen-slider {
+  display: grid;
+  grid-template-columns: 7rem 1fr 3rem;
+  align-items: center;
+  gap: var(--kh-space-3);
+  min-height: var(--kh-control-height);
+}
+
+.kh-gen-slider__label {
+  font-size: var(--kh-text-base);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-gen-slider__input {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--kh-color-accent);
+  cursor: pointer;
+}
+
+.kh-gen-slider__value {
+  font-family: var(--kh-font-secret);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── Session history ───────────────────────────────────────────────────────── */
+
+.kh-gen-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding-top: var(--kh-space-3);
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-gen-history__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-2);
+}
+
+.kh-gen-history__heading {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-gen-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kh-gen-history__item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-1) var(--kh-space-2);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-gen-history__item:hover {
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-gen-history__secret {
+  min-width: 0;
+  font-size: var(--kh-text-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+}
+
+.kh-gen-history__meta {
+  font-size: var(--kh-text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-gen-history__actions {
+  display: flex;
+  gap: 2px;
+}
+
+.kh-gen-history__note {
+  max-width: 64ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+}
+
+/* ── Inline disclosure ─────────────────────────────────────────────────────── */
+
+.kh-gen-inline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-gen-inline__panel {
+  padding: var(--kh-space-3);
+  background: var(--kh-color-surface);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+}
+
+/* ── Narrow windows ────────────────────────────────────────────────────────── */
+
+/*
+ * A credential manager is very often a narrow window parked beside whatever you are
+ * actually doing, so the narrow case is a normal case. The slider's three columns collapse
+ * to two rather than squeezing the track down to nothing.
+ */
+@media (max-width: 560px) {
+  .kh-gen-slider {
+    grid-template-columns: 1fr 3rem;
+  }
+
+  .kh-gen-slider__label {
+    grid-column: 1 / -1;
+  }
+
+  .kh-gen-history__item {
+    grid-template-columns: 1fr auto;
+  }
+
+  .kh-gen-history__meta {
+    grid-column: 1 / -1;
+  }
+}
