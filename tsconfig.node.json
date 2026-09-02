@@ -5,6 +5,7 @@
     "src/preload/**/*",
     "src/shared/**/*",
     "tools/**/*",
+    "tests/node/**/*",
     "electron.vite.config.ts",
     "vitest.config.ts",
     "eslint.config.js"

@@ -149,7 +149,7 @@ describe('detection', () => {
   });
 
   it('does not claim a binary file', () => {
-    expect(genericCsvParser.detect('PNG\r\n\n\0\0\0IHDR')).toBe(false);
+    expect(genericCsvParser.detect('PNG\r\n\u001a\n\0\0\0IHDR')).toBe(false);
   });
 
   it('does not claim a single-column file, which is a list rather than a table', () => {
