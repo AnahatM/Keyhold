@@ -1,0 +1,5 @@
+Url,Name,MatchUrl,Login,Pwd,Note,Folder
+https://mail.example.com/login,Example Mail,https://mail.example.com/login,ada@example.com,hunter2,"Renew the domain before 30 June, ask Bob",/Personal
+https://forum.example.org/,Example Forum,https://*.example.org/*,ada,correct-horse-battery-staple,,/Personal/Communities
+,Wifi Codes,,,,Guest network passphrase is taped to the router,/Home
+https://bank.example.org/,Example Bank,https://bank.example.org/,ada,tr0ub4dor,,

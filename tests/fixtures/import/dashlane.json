@@ -1,0 +1,78 @@
+{
+  "AUTHCATEGORY": [{ "categoryName": "Work" }, { "categoryName": "Personal" }],
+  "AUTHENTIFIANT": [
+    {
+      "anonId": "anon-mail",
+      "autoLogin": "true",
+      "category": "Personal",
+      "creationDatetime": "1730000000",
+      "domain": "mail.example.com",
+      "email": "ada@example.com",
+      "id": "auth-mail",
+      "lastBackupTime": "1730000100",
+      "login": "ada",
+      "note": "Renewal is in March, not January",
+      "otpSecret": "JBSWY3DPEHPK3PXP",
+      "password": "hunter2",
+      "secondaryLogin": "ada.lovelace@example.com",
+      "status": "ACCOUNT_VERIFIED",
+      "strength": "97",
+      "title": "Example Mail",
+      "url": "https://mail.example.com",
+      "useFixedUrl": "true"
+    },
+    {
+      "anonId": "anon-admin",
+      "autoLogin": "false",
+      "category": "Work",
+      "creationDatetime": "1730000200",
+      "domain": "admin.example.com",
+      "id": "auth-admin",
+      "lastBackupTime": "1730000300",
+      "login": "admin",
+      "note": "",
+      "otpUrl": "otpauth://totp/Example:admin@example.com?secret=KRSXG5CTMVRXEZLU&issuer=Example",
+      "password": "correct-horse-battery-staple",
+      "title": "Example Admin",
+      "url": "https://admin.example.com"
+    }
+  ],
+  "SECURENOTE": [
+    {
+      "category": "Personal",
+      "content": "SSID is Hazelnut on channel 6",
+      "creationDatetime": "1730000400",
+      "id": "note-wifi",
+      "lastBackupTime": "1730000400",
+      "secured": "true",
+      "title": "Wifi Passphrase",
+      "type": "COLOR_BLUE"
+    }
+  ],
+  "SECURENOTECATEGORY": [{ "categoryName": "Personal" }],
+  "PAYMENTMEANS_CREDITCARD": [
+    {
+      "bank": "Example Bank",
+      "cardNumber": "4111111111111111",
+      "color": "BLUE",
+      "expireMonth": "5",
+      "expireYear": "2030",
+      "id": "card-example",
+      "name": "Example Card",
+      "ownerName": "Ada Lovelace",
+      "securityCode": "123"
+    }
+  ],
+  "IDCARD": [
+    {
+      "dateOfBirth": "1815-12-10",
+      "deliveryDate": "2020-01-01",
+      "expireDate": "2030-01-01",
+      "fullname": "Ada Lovelace",
+      "id": "idcard-example",
+      "number": "AB1234567",
+      "sex": "FEMALE"
+    }
+  ],
+  "MEMBERSHIP": [{ "id": "membership-example", "name": "Example Loyalty Scheme", "number": "5566778899" }]
+}

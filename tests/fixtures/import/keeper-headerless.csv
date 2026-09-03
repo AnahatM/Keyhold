@@ -1,0 +1,3 @@
+Personal,Example Mail,ada@example.com,hunter2,https://mail.example.com,"Recovery codes are in the safe, not the drawer",,Account number,4471-9902
+Work\Infrastructure,Build Server,deploy,correct-horse-battery-staple,https://build.example.com,,Ops Team
+Finance,Example Bank,ada,tr0ub4dor,https://bank.example.org,Statement day is the third,,TFC:Keeper,otpauth://totp/Example:ada?secret=JBSWY3DPEHPK3PXP&issuer=Example

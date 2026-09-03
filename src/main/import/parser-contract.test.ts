@@ -4,12 +4,15 @@ import { VaultError } from '../crypto/errors.js';
 import {
   FIXTURE_FOR_PARSER,
   headerOnly,
+  loadBinaryFixture,
   loadFixture,
   withBom,
   withCrlf,
   withoutTrailingNewline,
 } from './fixtures/load.js';
 import { parseCsvTable } from './csv.js';
+import { buildZip } from './fixtures/zip-writer.js';
+import { ZIP_METHOD_STORED, ZipArchive } from './zip-reader.js';
 import { PARSERS } from './index.js';
 
 /**
@@ -50,7 +53,56 @@ const COMMA_VALUE: Readonly<Record<string, string>> = {
   'chrome-csv': 'Shared with Bob, expires in June',
   'generic-csv': 'Billed annually, purchase order required',
   'keyhold-json': 'Recovery kit is in the safe, not the drawer',
+  'proton-pass-json': 'Backup phrase is in the safe, not the drawer',
+  'enpass-json': 'Recovery kit is in the loft, not the cupboard',
+  'dashlane-json': 'Renewal is in March, not January',
+  'keeper-csv': 'Recovery codes are in the safe, not the drawer',
+  'roboform-csv': 'Renew the domain before 30 June, ask Bob',
+  'onepassword-1pux': 'The recovery kit is in the safe, not the drawer',
 };
+
+/**
+ * Formats whose file is not text.
+ *
+ * `.1pux` is a ZIP archive, and four of the cases below exist to mangle text: adding a BOM,
+ * rewriting line endings, appending a ragged row, and reading the fixture's own cells. Every
+ * one of them corrupts an archive rather than exercising a parser, so those cases take an
+ * archive-shaped route or are skipped with the reason said out loud.
+ *
+ * This is a seam, not a workaround, and the seam is in the wrong place: `ImportParser.parse`
+ * takes a `string`, which is right for the eleven text formats and structurally wrong for
+ * this one. The durable fix is an optional `parseBytes` on the parser interface with the
+ * string form as an adapter — and the same wall is waiting for KDBX, so it will have to be
+ * built. Until then a `.1pux` reaches the parser through a `latin1` round-trip, which is the
+ * one encoding that maps all 256 byte values to distinct code points and so survives the
+ * string contract byte for byte.
+ */
+const BINARY_PARSERS: ReadonlySet<string> = new Set(['onepassword-1pux']);
+
+/**
+ * Fixtures that are JSON, whose leak guard walks string leaves rather than CSV cells.
+ *
+ * A set rather than `id === 'bitwarden-json'`, which is what it was: the moment a second JSON
+ * parser was registered, the check ran its fixture through `parseCsvTable` and produced a
+ * meaningless cell list, so the leak property held against nothing at all.
+ */
+const JSON_FIXTURES: ReadonlySet<string> = new Set([
+  'bitwarden-json',
+  'keyhold-json',
+  'proton-pass-json',
+  'enpass-json',
+  'dashlane-json',
+]);
+
+/** Converts a `latin1`-carried archive back to bytes. The exact inverse of `loadBinaryFixture`. */
+function latin1(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('latin1');
+}
+
+/** The `export.data` JSON inside a `.1pux` carried as a `latin1` string. */
+function readOnePasswordExportData(fixture: string): string {
+  return ZipArchive.open(new Uint8Array(Buffer.from(fixture, 'latin1'))).readText('export.data');
+}
 
 /**
  * Formats this app wrote itself, which are read all-or-nothing.
@@ -70,7 +122,30 @@ const STRICT_PARSERS: ReadonlySet<string> = new Set(['keyhold-json']);
 
 /** The structurally-empty form of each format: a header with no rows, or an empty item list. */
 function emptyOf(parserId: string, fixture: string): string {
-  if (parserId === 'bitwarden-json') return '{"encrypted":false,"items":[]}';
+  if (parserId === 'bitwarden-json') {
+    // `folderId` is what the narrowed `detect` keys off, and an empty export still has to be
+    // recognised as Bitwarden's — otherwise this case would be testing that a file nobody
+    // claims produces no records, which is true of any file.
+    return '{"encrypted":false,"folders":[],"items":[],"folderId":null}';
+  }
+  if (parserId === 'proton-pass-json') {
+    return '{"encrypted":false,"vaults":{"share-1":{"name":"Personal","items":[]}}}';
+  }
+  if (parserId === 'enpass-json') return '{"folders":[],"items":[]}';
+  if (parserId === 'dashlane-json') return '{"AUTHENTIFIANT":[],"SECURENOTE":[]}';
+  if (parserId === 'onepassword-1pux') {
+    return latin1(
+      buildZip([
+        {
+          name: 'export.data',
+          data: JSON.stringify({
+            accounts: [{ vaults: [{ attrs: { name: 'Personal' }, items: [] }] }],
+          }),
+          method: ZIP_METHOD_STORED,
+        },
+      ])
+    );
+  }
   if (parserId === 'keyhold-json') {
     // Built from the fixture rather than hand-written, so the envelope this asserts against
     // stays the envelope the exporter actually produces.
@@ -88,6 +163,26 @@ function withMalformedRow(parserId: string, fixture: string): string {
   }
   if (parserId === 'keyhold-json') {
     return fixture.replace('"records": [', '"records": [\n    "not a record",');
+  }
+  if (parserId === 'proton-pass-json') {
+    return fixture.replace('"items": [', '"items": [\n        "not an item",');
+  }
+  if (parserId === 'enpass-json') {
+    return fixture.replace('"items": [', '"items": [\n    "not an item",');
+  }
+  if (parserId === 'dashlane-json') {
+    return fixture.replace('"AUTHENTIFIANT": [', '"AUTHENTIFIANT": [\n    "not an item",');
+  }
+  if (parserId === 'onepassword-1pux') {
+    // The archive analogue of a ragged row: a well-formed ZIP whose `export.data` holds an
+    // item that is not an object. Appending bytes to the archive itself would test the ZIP
+    // reader's bounds checking, which `zip-reader.test.ts` already does thoroughly.
+    const data = JSON.parse(readOnePasswordExportData(fixture)) as Record<string, unknown>;
+    const accounts = data.accounts as { vaults: { items: unknown[] }[] }[];
+    accounts[0]?.vaults[0]?.items.push('not an item');
+    return latin1(
+      buildZip([{ name: 'export.data', data: JSON.stringify(data), method: ZIP_METHOD_STORED }])
+    );
   }
   return `${fixture}one,two,three\n`;
 }
@@ -138,7 +233,8 @@ describe.each(PARSERS.map((parser) => [parser.id, parser] as const))(
   (id, parser) => {
     const fixtureName = FIXTURE_FOR_PARSER[id];
     if (fixtureName === undefined) throw new Error(`no fixture registered for parser "${id}"`);
-    const fixture = loadFixture(fixtureName);
+    const binary = BINARY_PARSERS.has(id);
+    const fixture = binary ? loadBinaryFixture(fixtureName) : loadFixture(fixtureName);
 
     it('parses its own fixture into at least one record', () => {
       expect(parser.parse(fixture).records.length).toBeGreaterThan(0);
@@ -159,12 +255,21 @@ describe.each(PARSERS.map((parser) => [parser.id, parser] as const))(
       expect(serialised).toContain(expected ?? '');
     });
 
-    it('survives a BOM, CRLF line endings and a missing trailing newline together', () => {
-      // Not asserted through a fixture on disk: `.gitattributes` normalises line endings, so a
-      // CRLF fixture would silently become LF and the guard would stop guarding.
-      const mangled = withBom(withCrlf(withoutTrailingNewline(fixture)));
-      expect(parser.parse(mangled).records).toEqual(parser.parse(fixture).records);
-    });
+    // Skipped for a binary format, and said out loud rather than quietly excluded. Every one
+    // of these three transformations *destroys* an archive rather than testing a parser
+    // against it: a BOM shifts every offset in the file, and CRLF rewriting corrupts the
+    // compressed stream. The thing this case protects — a file surviving Windows — is covered
+    // for `.1pux` by the ZIP reader's own bounds and checksum tests, which is where a
+    // byte-level corruption of an archive belongs.
+    it.skipIf(binary)(
+      'survives a BOM, CRLF line endings and a missing trailing newline together',
+      () => {
+        // Not asserted through a fixture on disk: `.gitattributes` normalises line endings, so a
+        // CRLF fixture would silently become LF and the guard would stop guarding.
+        const mangled = withBom(withCrlf(withoutTrailingNewline(fixture)));
+        expect(parser.parse(mangled).records).toEqual(parser.parse(fixture).records);
+      }
+    );
 
     it('reads an empty file without throwing anything but a VaultError', () => {
       try {
@@ -199,7 +304,16 @@ describe.each(PARSERS.map((parser) => [parser.id, parser] as const))(
     });
 
     it('never puts a field value in a warning message', () => {
-      const values = fixtureValues(fixture, id === 'bitwarden-json');
+      // JSON fixtures have their string leaves walked; CSV fixtures have their cells read.
+      // A `.1pux` is neither — its values live inside a compressed entry — so the archive is
+      // opened and the export's own JSON is what gets walked.
+      // Through `fixtureValues` in every case, including the archive. Calling
+      // `jsonStringLeaves` directly skipped its filtering, and the filtering is load-bearing:
+      // without it the empty strings in any fixture become needles, and `''` is contained in
+      // every warning ever written.
+      const values = binary
+        ? fixtureValues(readOnePasswordExportData(fixture), true)
+        : fixtureValues(fixture, JSON_FIXTURES.has(id));
       expect(values.length, 'the fixture has no values worth checking').toBeGreaterThan(3);
 
       for (const source of [fixture, withMalformedRow(id, fixture), emptyOf(id, fixture)]) {

@@ -1,0 +1,179 @@
+{
+  "version": "1.31.0",
+  "userId": "00000000-0000-4000-8000-000000000000",
+  "encrypted": false,
+  "vaults": {
+    "share-personal": {
+      "name": "Personal",
+      "description": "",
+      "display": { "color": 0, "icon": 0 },
+      "items": [
+        {
+          "itemId": "item-mail",
+          "shareId": "share-personal",
+          "data": {
+            "metadata": {
+              "name": "Example Mail",
+              "note": "Backup phrase is in the safe, not the drawer",
+              "itemUuid": "item-mail"
+            },
+            "extraFields": [
+              { "fieldName": "Support PIN", "type": "hidden", "data": { "content": "8891" } },
+              { "fieldName": "Account number", "type": "text", "data": { "content": "4471-9902" } },
+              {
+                "fieldName": "Backup authenticator",
+                "type": "totp",
+                "data": { "totpUri": "otpauth://totp/Example:backup@example.com?secret=KRSXG5CTMVRXEZLU&issuer=Example" }
+              }
+            ],
+            "type": "login",
+            "content": {
+              "itemEmail": "ada@example.com",
+              "itemUsername": "ada",
+              "password": "hunter2",
+              "urls": ["https://mail.example.com", "https://webmail.example.com"],
+              "totpUri": "otpauth://totp/Example:ada@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example",
+              "passkeys": [{ "keyId": "passkey-1", "domain": "mail.example.com", "userName": "ada" }]
+            }
+          },
+          "state": 1,
+          "aliasEmail": null,
+          "contentFormatVersion": 6,
+          "createTime": 1730000000,
+          "modifyTime": 1730000100,
+          "pinned": true
+        },
+        {
+          "itemId": "item-note",
+          "shareId": "share-personal",
+          "data": {
+            "metadata": {
+              "name": "Wifi Passphrase",
+              "note": "SSID is Hazelnut on channel 6",
+              "itemUuid": "item-note"
+            },
+            "extraFields": [],
+            "type": "note",
+            "content": {}
+          },
+          "state": 1,
+          "aliasEmail": null,
+          "contentFormatVersion": 6,
+          "createTime": 1730000200,
+          "modifyTime": 1730000200,
+          "pinned": false
+        },
+        {
+          "itemId": "item-trashed",
+          "shareId": "share-personal",
+          "data": {
+            "metadata": { "name": "Deleted Login", "note": "", "itemUuid": "item-trashed" },
+            "extraFields": [],
+            "type": "login",
+            "content": {
+              "itemEmail": "gone@example.com",
+              "itemUsername": "",
+              "password": "hunter7",
+              "urls": [],
+              "totpUri": "",
+              "passkeys": []
+            }
+          },
+          "state": 2,
+          "aliasEmail": null,
+          "contentFormatVersion": 6,
+          "createTime": 1730000300,
+          "modifyTime": 1730000300,
+          "pinned": false
+        }
+      ]
+    },
+    "share-work": {
+      "name": "Work Clients",
+      "description": "",
+      "display": { "color": 3, "icon": 4 },
+      "items": [
+        {
+          "itemId": "item-legacy",
+          "shareId": "share-work",
+          "data": {
+            "metadata": { "name": "Example Admin", "note": "", "itemUuid": "item-legacy" },
+            "extraFields": [],
+            "type": "login",
+            "content": {
+              "username": "admin",
+              "password": "correct-horse-battery-staple",
+              "urls": ["https://admin.example.com"],
+              "totpUri": "",
+              "passkeys": []
+            }
+          },
+          "state": 1,
+          "aliasEmail": null,
+          "contentFormatVersion": 1,
+          "createTime": 1730000400,
+          "modifyTime": 1730000400,
+          "pinned": false
+        },
+        {
+          "itemId": "item-alias",
+          "shareId": "share-work",
+          "data": {
+            "metadata": { "name": "Shopping Alias", "note": "", "itemUuid": "item-alias" },
+            "extraFields": [],
+            "type": "alias",
+            "content": {}
+          },
+          "state": 1,
+          "aliasEmail": "ada.shopping@passinbox.example",
+          "contentFormatVersion": 6,
+          "createTime": 1730000500,
+          "modifyTime": 1730000500,
+          "pinned": false
+        },
+        {
+          "itemId": "item-card",
+          "shareId": "share-work",
+          "data": {
+            "metadata": { "name": "Example Card", "note": "", "itemUuid": "item-card" },
+            "extraFields": [],
+            "type": "creditCard",
+            "content": {
+              "cardholderName": "Ada Lovelace",
+              "cardType": 1,
+              "number": "4111111111111111",
+              "verificationNumber": "123",
+              "expirationDate": "052030",
+              "pin": "4460"
+            }
+          },
+          "state": 1,
+          "aliasEmail": null,
+          "contentFormatVersion": 6,
+          "createTime": 1730000600,
+          "modifyTime": 1730000600,
+          "pinned": false
+        },
+        {
+          "itemId": "item-ssh",
+          "shareId": "share-work",
+          "data": {
+            "metadata": { "name": "Deploy Key", "note": "", "itemUuid": "item-ssh" },
+            "extraFields": [],
+            "type": "sshKey",
+            "content": {
+              "privateKey": "MIIBOgIBAAJBAKfake0000000000000000000000000000000000000000000000",
+              "publicKey": "ssh-rsa AAAAB3NzaC1yc2EAAAfake ada@example.com"
+            }
+          },
+          "state": 1,
+          "aliasEmail": null,
+          "contentFormatVersion": 6,
+          "createTime": 1730000700,
+          "modifyTime": 1730000700,
+          "pinned": false
+        }
+      ]
+    }
+  }
+}
