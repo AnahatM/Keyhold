@@ -298,8 +298,14 @@ function PaletteRow({ id, item, active, onActivate, onHover }: PaletteRowProps):
       }}
       onMouseMove={onHover}
     >
+      {/*
+        A chevron, not `⌘`. The command glyph is the macOS modifier key, and on Windows it
+        sat in the same row as a chip reading "Ctrl+S" — one row claiming two platforms.
+        `aria-hidden` because the row's own title already says what it is; the icon is a
+        shape that separates a command from a record at a glance, and nothing more.
+      */}
       <span className="kh-palette__kind" aria-hidden="true">
-        {item.kind === 'command' ? '⌘' : '🔑'}
+        {item.kind === 'command' ? '›' : '🔑'}
       </span>
 
       <span className="kh-palette__text">
