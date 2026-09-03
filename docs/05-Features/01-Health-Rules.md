@@ -13,16 +13,17 @@
 `analyseVault(document, options)` is pure — no I/O, no clock of its own. `now` is a
 parameter, so the tests are deterministic.
 
-| Rule                   | What it flags                                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `reused`               | The same password on more than one record. Reports the whole **cluster**, because the user needs to know which records to fix |
-| `weak`                 | Password entropy below a threshold                                                                                            |
-| `old`                  | `passwordUpdatedAt` older than the configured age                                                                             |
-| `expired` / `expiring` | Via `expiresAt` or `rotationIntervalDays` measured from `passwordUpdatedAt`                                                   |
-| `insecureUrl`          | An `http://` URL, ignoring `localhost` and `127.0.0.1` which are legitimately plain HTTP                                      |
-| `incomplete`           | No password, or no username **and** no email                                                                                  |
-| `duplicate`            | Same normalised URL host **and** same username/email — two records for one account                                            |
-| `emptyTitle`           | A record with no title is unfindable by search                                                                                |
+| Rule                   | What it flags                                                                                                                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reused`               | The same password on more than one record. Reports the whole **cluster**, because the user needs to know which records to fix                                                                                                               |
+| `weak`                 | Password entropy below a threshold                                                                                                                                                                                                          |
+| `old`                  | `passwordUpdatedAt` older than the configured age                                                                                                                                                                                           |
+| `expired` / `expiring` | Via `expiresAt` or `rotationIntervalDays` measured from `passwordUpdatedAt`                                                                                                                                                                 |
+| `insecureUrl`          | An `http://` URL, ignoring `localhost` and `127.0.0.1` which are legitimately plain HTTP                                                                                                                                                    |
+| `incomplete`           | No password, or no username **and** no email                                                                                                                                                                                                |
+| `duplicate`            | Same normalised URL host **and** same username/email — two records for one account                                                                                                                                                          |
+| `emptyTitle`           | A record with no title is unfindable by search                                                                                                                                                                                              |
+| `missingTotp`          | A password-bearing record with no usable `otp-secret` custom field. **Off by default** — most records legitimately have no second factor, and a rule that lights up the whole vault on first run is one people switch off and stop trusting |
 
 **Trashed records are excluded from every rule.** Someone who deleted a weak password has
 dealt with it; continuing to score them down for it would train them to ignore the
@@ -86,7 +87,7 @@ score = 100 − (average per-record penalty)
 ```
 
 Weights: `reused` 30 · `weak` 25 · `expired` 15 · `old` 10 · `insecureUrl` 10 ·
-`duplicate` 6 · `incomplete` 5 · `expiring` 3 · `emptyTitle` 3.
+`missingTotp` 8 · `duplicate` 6 · `incomplete` 5 · `expiring` 3 · `emptyTitle` 3.
 
 **Reuse tops the list because it is the only failure that spreads** — one breach compromises
 every record sharing that password. `weak` sits just below: it falls to an offline attack but

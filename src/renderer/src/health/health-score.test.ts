@@ -129,11 +129,19 @@ describe('reproducing the score', () => {
   });
 
   it('counts the enabled rules from the config the engine actually used', () => {
-    const explanation = explainScore(
-      buildReport([{ id: 'a' }], { enabledRules: { old: false, expiring: false } })
-    );
+    // Counted from the report's own config rather than as `HEALTH_RULE_IDS.length - 2`.
+    // The subtraction assumed every rule is on by default, which stopped being true the moment
+    // a rule shipped off by default (`missingTotp`) — and it would break again on the next one.
+    // Deriving it means the test states the relationship it cares about instead of an
+    // arithmetic fact about today's defaults.
+    const report = buildReport([{ id: 'a' }], { enabledRules: { old: false, expiring: false } });
+    const explanation = explainScore(report);
+
+    const enabled = HEALTH_RULE_IDS.filter((rule) => report.config.enabledRules[rule]).length;
     expect(explanation.totalRuleCount).toBe(HEALTH_RULE_IDS.length);
-    expect(explanation.enabledRuleCount).toBe(HEALTH_RULE_IDS.length - 2);
+    expect(explanation.enabledRuleCount).toBe(enabled);
+    // And the turning-off actually took, or the assertion above passes on any config at all.
+    expect(enabled).toBeLessThan(HEALTH_RULE_IDS.length);
   });
 });
 
@@ -146,11 +154,13 @@ describe('the ends of the scale', () => {
       0
     );
     expect(WORST_RECORD_PENALTY).toBe(expected);
-    expect(WORST_ACHIEVABLE_SCORE).toBe(100 - expected);
-    // Pinned, so a weight change breaks a test rather than a paragraph of prose. The engine
-    // side pins the same 99 in `src/main/health/rules.test.ts`.
-    expect(WORST_RECORD_PENALTY).toBe(99);
-    expect(WORST_ACHIEVABLE_SCORE).toBe(1);
+    // Clamped at zero. Once `missingTotp` joined the compatible set the raw subtraction went
+    // negative, and a score of -7 is not a thing the scale can express — the floor is 0 and
+    // the derivation has to say so rather than the test asserting an impossible number.
+    expect(WORST_ACHIEVABLE_SCORE).toBe(Math.max(0, 100 - expected));
+    // Pinned, so a weight change breaks a test rather than a paragraph of prose.
+    expect(WORST_RECORD_PENALTY).toBe(107);
+    expect(WORST_ACHIEVABLE_SCORE).toBe(0);
   });
 
   it('excludes the rules that cannot fire alongside the others', () => {
@@ -197,10 +207,11 @@ describe('the band', () => {
   });
 
   it('mentions how many checks were on, so a partial all-clear is not read as a full one', () => {
-    const explanation = explainScore(
-      buildReport([{ id: 'a' }], { enabledRules: { old: false, weak: false, reused: false } })
-    );
-    expect(scoreBand(explanation).summary).toContain(`${HEALTH_RULE_IDS.length - 3} of`);
+    const report = buildReport([{ id: 'a' }], {
+      enabledRules: { old: false, weak: false, reused: false },
+    });
+    const enabled = HEALTH_RULE_IDS.filter((rule) => report.config.enabledRules[rule]).length;
+    expect(scoreBand(explainScore(report)).summary).toContain(`${enabled} of`);
   });
 
   it('moves through the bands as the score falls', () => {

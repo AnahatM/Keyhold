@@ -33,6 +33,12 @@ import { RULE_LABELS, RULES_BY_IMPACT } from './health-presentation.js';
 export const WORST_COMPATIBLE_RULES: readonly HealthRuleId[] = [
   'reused',
   'weak',
+  // Compatible with all of the above — a record can have a reused, weak, expired password and
+  // no second factor at once. It is off by default, and that is deliberately not a reason to
+  // leave it out: this list answers "can these fire together", which is a fact about the rules,
+  // and the floor it computes has to be reachable by a user who turns the rule on rather than
+  // only by one who left every default alone.
+  'missingTotp',
   'expired',
   'old',
   'insecureUrl',

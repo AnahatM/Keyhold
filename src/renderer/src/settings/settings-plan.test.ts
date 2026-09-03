@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_KDF_PARAMS, MIN_KDF_PARAMS } from '@shared/format/types.js';
-import { HEALTH_RULE_IDS } from '@shared/model/health.js';
+import { HEALTH_RULES_OFF_BY_DEFAULT, HEALTH_RULE_IDS } from '@shared/model/health.js';
 import { DEFAULT_VAULT_SETTINGS } from '@shared/model/vault-document.js';
 import {
   DEFAULT_CONFIGURABLE_VAULT_SETTINGS,
@@ -109,12 +109,21 @@ describe('defaults', () => {
     }
   });
 
-  it('enable every health rule', () => {
-    // Decision D10: everything on, and the user turns off what they do not want. A rule
-    // added in the off position would be a silently missing check.
+  it('enable every health rule except the ones named as exceptions', () => {
+    // Decision D10: everything on, and the user turns off what they do not want. A rule added
+    // in the off position would be a silently missing check — which is exactly why the
+    // exceptions are a named list (D28) rather than a `false` in a table of ten that nobody
+    // reads. Shipping a rule off is then a change somebody has to write down.
     for (const rule of HEALTH_RULE_IDS) {
-      expect(DEFAULT_CONFIGURABLE_VAULT_SETTINGS.health.enabledRules[rule], rule).toBe(true);
+      const expected = !HEALTH_RULES_OFF_BY_DEFAULT.includes(rule);
+      expect(DEFAULT_CONFIGURABLE_VAULT_SETTINGS.health.enabledRules[rule], rule).toBe(expected);
     }
+  });
+
+  it('names only a handful of exceptions, so the principle still means something', () => {
+    // A list that grows to half the rules is not an exception list, it is the new default with
+    // extra steps.
+    expect(HEALTH_RULES_OFF_BY_DEFAULT.length).toBeLessThan(HEALTH_RULE_IDS.length / 3);
   });
 
   it('leave the destructive option off', () => {

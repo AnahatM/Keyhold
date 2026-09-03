@@ -563,6 +563,43 @@ the projection's.
 
 ---
 
+### D28 — A health rule may ship off, but only from a named list
+
+**Decision:** health rules are on by default, as D10 says. `missingTotp` is the first exception,
+and exceptions are enumerated in `HEALTH_RULES_OFF_BY_DEFAULT` — a rule may not simply be added
+in the off position.
+
+**Why this rule is an exception.** Every other rule flags something the user did wrong and can
+undo: a reused password, a weak one, an `http://` URL. "No second factor" is different in two
+ways. It fires on most records in a normal vault, because most accounts have no TOTP — so on
+first run it would flag the majority of the list at once. And it is frequently **not
+actionable**: an enormous number of sites offer no second factor at all, so the finding is a
+fact about the site rather than a mistake by the user.
+
+**The score is what settles it.** `missingTotp` carries weight 8. If it fires on most records,
+the health score becomes dominated by something largely outside the user's control, and a score
+that moves mostly on things you cannot change is a score you stop reading. That devalues the
+other nine rules, which are all directly actionable. Turning it on is then a deliberate act by
+somebody who wants a 2FA audit — for whom it is exactly the right rule.
+
+**Why a list rather than a free choice.** The test that caught this said it well: _"a rule added
+in the off position would be a silently missing check"_. That risk is real and does not go away
+because one exception is justified — the next rule could be added off by accident, or off
+because it was noisy in development, and nobody would notice. So the principle stays enforced
+and the exception is named: `settings-plan.test.ts` asserts that every rule not on that list is
+on, which makes shipping a rule off a change to a constant somebody has to write down.
+
+**Rejected: turn it on and let people switch it off.** Consistent, and it spends the one thing
+the health dashboard cannot get back — a user's belief that a finding means something. A
+first-run screen listing most of the vault under a heading they cannot act on is how a feature
+gets switched off wholesale rather than tuned.
+
+**Consequence:** `settings-copy.ts` no longer treats "not every rule is on" as a weakened
+trade-off, because at the defaults that is now simply untrue. It compares against the defaults,
+the way the entropy threshold beside it already did.
+
+---
+
 ## Decisions deferred to implementation
 
 Recorded so they are consciously decided rather than accidentally defaulted.
