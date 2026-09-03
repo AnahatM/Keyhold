@@ -89,25 +89,67 @@ source of one:
   the file can read — but it is key material, and key material has no business in a document
   written to be shared. "The salt is 4 bytes when it must be at least 16" is still a real
   finding.
-- `text.ts` bounds a borrowed message at 200 characters and redacts unknown quoted tokens.
+- `text.ts` bounds a borrowed message at 200 characters. It is **not** a redactor, and the
+  redactor that used to live beside it has been removed — see below.
 
 `report.test.ts` proves it: a fixture in which **every** user-authored string, name, title and
 directory path carries one marker, swept over the serialised result. One token searched for
 once, rather than a list of forbidden words, so the assertion cannot rot as fields are added.
 
-### The three borrowed messages, and why each is safe
+### Two borrowed messages, and one that is composed instead
 
-Only three messages from other layers are ever repeated. `parseHeader`'s quotes our own field
-names and, twice, an algorithm identifier read from a header that is plaintext by design.
-`assertUsableKdfParams`'s quotes numbers and an algorithm name. `assertValidHistory`'s quotes
-a record id, a version number and a field name — **except** for one case, an unexpected
-snapshot key, which in the corrupt vault this module exists to describe could be any string at
-all, possibly a fragment of a decrypted note. `redactUnknownFields` replaces exactly that,
-keeping the named invariant rather than throwing the whole message away.
+Only **two** messages from other layers are still repeated, and both are safe for reasons
+worth writing down because they are not obvious. `parseHeader`'s quotes our own field-name
+literals and, twice, an algorithm identifier read from a header that is plaintext by design —
+anything in it is already readable by whoever holds the file, and the salt and the wrapped key
+appear only as lengths. `assertUsableKdfParams`'s quotes numbers and an algorithm name.
 
-The 200-character cap is a backstop, not the defence. A truncated secret is still a secret,
-so nothing relies on it; it exists so a pathological file cannot turn one finding into a page
-of text.
+**History failures are no longer borrowed at all**, and the reason is the most instructive
+thing on this page. `assertValidHistory` interpolates the offending value into its message — a
+snapshot key, a changed-field name, a version number — and all three come out of the document,
+where in the corrupt vault this module exists to describe they can hold anything. A fragment of
+a decrypted note is the case everyone means.
+
+That message used to reach the report through a scrubber that replaced any double-quoted run
+not on an allow-list. **Two shapes walked past it**, and both are now regression tests in
+`document-diagnosis.test.ts`:
+
+- **A length cap ran first and took the closing quote with it.** Past roughly 175 characters of
+  key the message was truncated mid-token, the scanner found no `"…"` pair at all, and the whole
+  message — key included — went through untouched.
+- **The key supplied its own quotes.** `x" <secret> "password` presents the scanner with two
+  pairs it is happy about and leaks everything _between_ them. Reordering the cap and the scrub
+  fixes the first and does nothing for the second.
+
+There is a third shape no quoted-run scrubber could ever have covered: the ascending-order
+message interpolates the version number **unquoted**, and a version number out of a corrupt file
+is only a number because the type says so.
+
+So `history-detail.ts` **composes** the sentence instead, from literals in that file plus values
+that are safe by construction — a count, a 1-based position, a length, or a field name taken
+from `VERSIONED_FIELDS` itself rather than from the document. Nothing that came out of the file
+is interpolated, so there is nothing to scrub. **Do not reintroduce a scrubber, however much
+simpler it looks:** scrubbing is the losing side of the exchange, because it has to win against
+every shape forever while a shape only has to be new once.
+
+It describes rather than decides. `assertValidHistory` remains the only judge of whether a
+history is valid; this module is never asked unless it has already thrown, and it can neither
+suppress nor invent a finding. What it does duplicate is the _order_ the invariants are checked
+in, so the sentence describes the violation that actually fired. If `versioning.ts` grows an
+invariant the walk has not been taught, the caller gets `UNATTRIBUTED_HISTORY_DETAIL` — vaguer,
+still true, and never a leak. Failing to a vaguer sentence is the correct direction to fail in,
+and `history-detail.test.ts` pins it down.
+
+A length and a position, and deliberately **not a hash prefix**: a reader needs enough to find
+the offending key in their own vault, and a position plus a character count does that without
+reproducing it. A truncated digest would identify it more precisely and was rejected — this
+report is written to be pasted somewhere public, and a short digest of a short secret is
+recovered offline by guessing. A length leaks one number about a value; a digest leaks the
+value to anyone patient.
+
+The 200-character cap in `sanitiseDetail` is a backstop, not the defence. A truncated secret is
+still a secret — worse, truncation is exactly what defeated the redactor — so nothing relies on
+it. It exists so a pathological file cannot turn one finding into a page of text.
 
 ---
 
@@ -271,8 +313,35 @@ Counts are grouped by hand rather than by `toLocaleString`, which is locale-depe
 same report would render `4.096` on a German machine and `4,096` on an English one, and the
 tests asserting on those strings would pass on the developer's laptop and fail in CI.
 
-The fourth line of every report is the claim itself: _This report contains no passwords,
-notes, titles, names, or file paths._
+### The disclosure statement is a promise, so it is data before it is prose
+
+Every report opens with the claim itself, printed from `DISCLOSURE_STATEMENT` in
+`src/main/recovery/report.ts`:
+
+> This report repeats nothing that was typed into the vault — no passwords, notes, titles,
+> usernames, emails, web addresses, field labels, security questions or answers, tag or folder
+> names, and no attachment names or directory paths. It does carry the vault file's name, the
+> names of the files beside it, this vault's id and this device's id, which are stable
+> identifiers worth stripping before pasting this somewhere public.
+
+It used to read _"This report contains no passwords, notes, titles, names, or file paths"_, and
+that was **wrong in both directions**. A snapshot key out of a corrupt document could carry a
+fragment of a decrypted note past the redaction — the two bypasses in §3 — and the report has
+always carried file names and the header's ids on purpose. Under-claiming a disclosure is as
+much a broken promise as over-claiming one: a sentence that only lists what is withheld invites
+someone to paste stable correlatable identifiers and possibly a personal filename
+(`divorce-vault.keep`) into a public issue tracker without noticing.
+
+So the two halves are kept as **lists** — `DISCLOSURE_WITHHELD` and `DISCLOSURE_CARRIED` — and
+the sentence is checked against them. `report.test.ts` plants a **separate** marker for each
+withheld category in a poisoned vault and sweeps the finished report for it, and asserts each
+carried item really is present. Adding a category to the list without the report actually
+withholding it fails, and so does a sentence that stops naming one.
+
+Prose alone could not be checked: a guard that reads the same string the renderer prints agrees
+with itself no matter how wrong both are, which is exactly the failure mode this whole change
+exists to remove. **Quote the constant, not this page** — if the two ever disagree, the constant
+is right and this section is stale.
 
 Findings sort loudest first (`critical`, `warning`, `info`) and stably within a severity, so
 two runs over one vault are directly comparable.

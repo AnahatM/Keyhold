@@ -475,7 +475,11 @@ Recorded so nobody re-investigates these, and so nobody "fixes" one of them into
 - `src/main/history/diff-projection.ts` does the same for both sides of a diff, and reuses
   the same per-entry projectors, so an old security answer is stripped by exactly the code
   that strips the current one.
-- Every one of the 40 `handle(...)` registrations in `src/main/ipc/register.ts` was read.
+- Every one of the 40 `handle(...)` registrations that existed in `src/main/ipc/register.ts` on
+  the day of the sweep was read. **The file has grown a great deal since** — count it with
+  `grep -c 'handle(CHANNELS\.' src/main/ipc/register.ts` — and nothing added afterwards has been
+  read against this checklist by any audit. That is the outstanding pass, recorded in
+  [`_INDEX.md`](./_INDEX.md).
   The only routes that return secret material are `credentials.revealSecret` and
   `session.copySecret` (both `SecretRef`-addressed, brokered, TTL'd, rate-limited) and
   `generator.generate`, which is the documented bounded exception. `credentials.deepSearch`
@@ -568,8 +572,9 @@ being overridden or bypassed rather than absent.)
 changed during the audit: see "the moving target" below. As of the final re-check there is
 **exactly one `fetch` call site in the entire repository**,
 `src/main/breach/https-transport.ts:119`, and nothing outside `src/main/breach/` imports that
-module, so no runtime path reaches it — the handler count in `register.ts` is unchanged at
-40 and there is no `kh:breach:*` channel.
+module, so no runtime path reaches it, and there is no `kh:breach:*` channel. _(Later: still
+true of `breach/`. The handler count in `register.ts` is **not** unchanged — several channel
+groups have landed since; count them rather than trusting this.)_
 
 **Dependencies.** `npm audit --omit=dev`, run 2026-09-02:
 
@@ -610,10 +615,13 @@ split, since zxcvbn is lazily loaded in the main process and never sees key mate
 - **Nine main-process subsystems landed after the sweep and are NOT audited.** By the final
   re-check, `src/main/` had gained `activity/`, `attachments/`, `breach/`, `organisation/`,
   `recovery/`, `shell/`, `sync/`, `theme/` and `totp/` — none of which existed when the
-  findings above were drawn up. Nothing in them is registered on an IPC channel yet (the
-  handler count is unchanged at 40), so they are not reachable at runtime, and they are
-  visibly mid-flight: `https-transport.ts:15` names a `no-network.test.ts` guard that has
-  not been written yet. **Treat "checked and found fine" as scoped to the tree as it stood
+  findings above were drawn up. Nothing in them was registered on an IPC channel at the time,
+  so they were not reachable at runtime, and they were visibly mid-flight:
+  `https-transport.ts:15` named a `no-network.test.ts` guard that had not been written yet.
+  _(Later: all three of those have moved. `no-network.test.ts` exists and is one of the
+  strongest guards in the repository; `shell/`, `attachments/`, `organisation/` and `theme/`
+  are all reachable now; `02-Subsystem-Audit.md` covers these nine folders. `breach/`, `sync/`,
+  `recovery/`, `totp/` and `activity/` still have no channel of their own.)_ **Treat "checked and found fine" as scoped to the tree as it stood
   during the sweep.** Four of these need a real audit before they ship, and for the same
   reasons the findings above exist:
   - **`breach/`** is the first network code in the project. On a read of

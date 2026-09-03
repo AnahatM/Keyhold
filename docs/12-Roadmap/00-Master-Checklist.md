@@ -222,7 +222,7 @@ timeline UI and its IPC channels are not. Full notes: `docs/05-Features/02-Histo
       an expandable diff per entry, restore, and a clear-history action that asks twice
 - [x] Old secrets revealed through the broker under the same rules as live ones
 - [ ] Comparing two arbitrary points (`history.compare` exists end to end; nothing calls it)
-- [ ] Restoring a single field from a timeline row (`restoreField` exists end to end)
+- [x] Restoring a single field from a timeline row — `DiffRows.tsx` calls it through the store
 - [ ] Export a single credential's history
 - [x] **Tests (70):** versioning on change only · retention pruning and its direction ·
       reconstruction across a prune · diff correctness · restore and un-restore · the privacy
@@ -255,9 +255,10 @@ and the query-bar UI are not. Full notes: `docs/05-Features/03-Search-Sort-Filte
       looked
 - [x] `docs/05-Features/03-Search-Sort-Filter.md` written
 
-## Phase 8 — Password generator & strength ~ ENGINE DONE
+## Phase 8 — Password generator & strength ~ MOUNTED
 
-_The generation engine is built and tested; the IPC channel and the UI are not._
+_The engine, the three `kh:generator:*` channels and the UI are all built. The generator is a
+tool view, reachable from the sidebar, and folds into the credential form as a disclosure._
 _Full notes: `docs/05-Features/00-Password-Generator.md`._
 
 - [x] Random mode: length, character classes, exclude-ambiguous, require-one-of-each, custom exclude set
@@ -266,8 +267,9 @@ _Full notes: `docs/05-Features/00-Password-Generator.md`._
 - [x] Entropy that reflects the alphabet **after** exclusions, and that **charges for** `requireEachClass` rather than overstating it
 - [x] An over-restrictive config throws rather than silently producing something weaker
 - [x] **Tests (14)**, including a statistical anti-bias guard over ~2 000 samples. Six fault injections; one found a real gap — applying exclusions to the output rather than the alphabet is caught only by the length assertion, which is now documented as that defect's sole guard
-- [ ] IPC channel and generator UI
-- [ ] Session generation history, per-site rule memory, generate-and-replace (auto-versioning the old password)
+- [x] IPC channels (`kh:generator:generate`, `:estimate`, `:limits`) and the generator UI — a tool view plus `InlineGenerator`, which generates nothing until it is opened
+- [x] Session generation history — `generation-history.ts` and `SecretHistoryList`, discarded when the panel collapses
+- [ ] Per-site rule memory, and generate-and-replace that auto-versions the old password
 - [x] `docs/05-Features/00-Password-Generator.md` written
 
 ## Phase 9 — Encrypted attachments ~ ENGINE DONE
@@ -295,10 +297,11 @@ Full notes: `docs/05-Features/04-Attachments.md`._
 - [x] **Tests (80)** and nine fault injections, all caught
 - [x] `docs/05-Features/04-Attachments.md` written
 
-## Phase 10 — Import ~ PARSERS DONE
+## Phase 10 — Import ~ BUILT, NOT MOUNTED
 
-_Eleven parsers are built and tested. The commit half — IPC, the wizard, dedupe, dry-run,
-undo — is not. Full notes: `docs/09-Import-Export/00-Import-Formats.md`._
+_Both halves are built and tested: the parser registry, and the import service with its six
+`kh:import:*` channels. Nothing mounts `ImportWizard`. Full notes:
+`docs/09-Import-Export/00-Import-Formats.md` and `02-Import-Service.md`._
 
 - [x] Bitwarden CSV and unencrypted JSON (encrypted exports refused with a reason)
 - [x] LastPass, Chromium (Chrome/Edge/Brave), Firefox, Safari/Apple, 1Password 8, Dashlane,
@@ -309,11 +312,22 @@ undo — is not. Full notes: `docs/09-Import-Export/00-Import-Formats.md`._
       being parsed by the wrong parser
 - [x] Nothing dropped silently; **no warning may quote a value**
 - [x] Fixtures in `tests/fixtures/import/`, never beside the parsers
-- [ ] IPC, the mapping wizard, dedupe against the existing vault, dry-run, undo, activity log
+- [x] **IPC** — six `kh:import:*` channels plus a determinate `kh:event:import-progress`; no
+      channel takes a path and none returns file content
+- [x] **The mapping wizard**, as a state machine over a gateway interface, with an in-memory fake
+- [x] **Dedupe against the existing vault** on title + login identity + host, the smallest key
+      that catches a re-import without collapsing five accounts on one site
+- [x] **Dry run** — the preview parses once, holds the parse, and the commit re-uses it, so the
+      two cannot disagree
+- [x] **Undo**, guarded on the expected generation, the batch's own generation **and** no unsaved
+      changes — the third is what a generation-only check would miss
+- [ ] The activity-log entry (`ACTIVITY_KINDS` already declares an `import` kind)
+- [ ] Mount `ImportWizard`: `menu-bridge.ts` has no case for `vault.import`
 - [ ] KDBX 3/4, KeePass XML, 1PUX, Proton Pass, Enpass, Keeper, RoboForm, Dashlane JSON, and
       Keyhold's own `.keep`/`.keepx`
-- [x] **Tests (264)** and six fault injections, two of which found real holes
-- [x] `docs/09-Import-Export/00-Import-Formats.md` written
+- [x] **Tests** across the parsers, the service and the wizard, and six fault injections, two of
+      which found real holes
+- [x] `docs/09-Import-Export/00-Import-Formats.md` and `02-Import-Service.md` written
 
 ## Phase 11 — Export & the transfer parcel ~ ENGINE AND IPC DONE
 
@@ -347,35 +361,44 @@ Keyhold's own JSON export re-imports. The dialog is written but not yet mounted.
       buffer zeroed after the write
 - [x] **The preview runs the real exporter** and discards the bytes, so the loss list the
       dialog shows is the list the file would carry — guarded, for all four formats
-- [ ] Mount the export dialog, with the shred reminder (`PLAINTEXT_AFTERMATH_REMINDER`)
+- [ ] Mount the export dialog, with the shred reminder (`PLAINTEXT_AFTERMATH_REMINDER`) — `menu-bridge.ts` has no case for `vault.export`
 - [ ] KDBX 4 export; Bitwarden JSON export
 - [x] **Tests** and sixteen engine fault injections (one of which found a guard that was not
       the one doing the work), plus six on the preview and six on the IPC boundary
 - [x] `docs/09-Import-Export/01-Export-Formats.md` written
 
-## Phase 12 — Sync & merge
+## Phase 12 — Sync & merge ~ ENGINE DONE
 
-_Goal: two devices, one cloud folder, and never a lost edit._
+_Goal: two devices, one cloud folder, and never a lost edit. The engine is built and tested and
+`mergeDocuments` is called only by its own tests — there is no `kh:sync:*` channel, no watcher,
+no base-snapshot storage and no resolver UI. Full notes:
+`docs/07-Sync-And-Merge/00-Merge-Engine.md`._
 
 - [ ] Generation counter and content hash in the header
 - [ ] File watcher on the open vault; detect external modification
 - [ ] Reload prompt when the on-disk vault changed and there are no local edits
 - [ ] Base-snapshot storage — the last-synced state, for three-way merge
-- [ ] Three-way merge engine — per record, per field
-- [ ] Tombstones so a deletion never resurrects
-- [ ] Conflict detection matrix (both changed · one changed · one deleted · both deleted · both created)
+- [x] Three-way merge engine — per record, per field, pure, and with no timestamp deciding a value
+- [x] **Absence is not deletion** — a record in the ancestor and on one side only is kept and reported
+- [x] **A duplicate id is refused, not resolved** — a named `DuplicateIdError`, thrown before
+      anything is read (D26)
+- [x] Tombstones so a deletion never resurrects
+- [x] Conflict detection matrix (both changed · one changed · one deleted · both deleted · both created)
 - [ ] Field-level conflict resolver UI: mine / theirs / merge, with a diff
 - [ ] **Mandatory pre-merge backup** — no merge ever runs without one
-- [ ] Merge report, saved and viewable
+- [x] The merge report itself — a conflict carries lengths, never values, and a resolution never
+      sends a value back
+- [ ] Saving a merge report, and a view for it
 - [ ] Cloud-folder detection with guidance (Dropbox / OneDrive / iCloud / Google Drive / Syncthing)
 - [ ] Handle provider "conflicted copy" files — offer to merge them in
-- [ ] **Tests:** the full conflict matrix · a property test asserting no merge ever loses a record · tombstone correctness · idempotent re-merge
-- [ ] `docs/10-Sync-And-Transfer/` written
+- [x] **Tests:** the full conflict matrix · five whole-engine properties, including that no merge loses a record · tombstone correctness · idempotent re-merge
+- [x] Documentation written — at `docs/07-Sync-And-Merge/`, not the `docs/10-Sync-And-Transfer/` this line used to name; `07-` was free when it landed and `10-` was not
 
-## Phase 13 — Health dashboard ~ RULES DONE
+## Phase 13 — Health dashboard ~ MOUNTED, MINUS HIBP
 
-_The eight offline rules are built and tested; the dashboard, the IPC channel and the
-opt-in HIBP check are not. Full notes: `docs/05-Features/01-Health-Rules.md`._
+_The offline rules in `HEALTH_RULE_IDS`, the `kh:health:analyse` channel, the dashboard and the per-rule
+settings are all built, and the dashboard is a tool view. The opt-in HIBP check is not wired.
+Full notes: `docs/05-Features/01-Health-Rules.md` and `07-Breach-Check.md`._
 
 - [x] Offline rules: weak · reused (with the cluster) · old · expiring/expired · insecure `http://` URL · incomplete · likely-duplicate · empty title
 - [x] Trashed records excluded from every rule
@@ -383,15 +406,20 @@ opt-in HIBP check are not. Full notes: `docs/05-Features/01-Health-Rules.md`._
 - [x] Disabling a rule can only raise the score or leave it — renormalising would change the score of a vault that never broke the rule you just switched off
 - [x] **The report can never carry a password**: cluster ids are synthetic counters not hashes, and `insecureUrl` reports the host rather than the URL (which can carry credentials in its userinfo)
 - [x] **Tests (44)**, including every rule's boundary conditions and a no-secrets property test. Four fault injections
-- [ ] Dashboard view, IPC channel, per-rule settings
-- [ ] **HIBP Pwned Passwords, opt-in and off by default** — deliberately absent for now: no network code, no stub, no fetching import
+- [x] Dashboard view (a tool view), the `kh:health:analyse` channel, and per-rule settings in `HealthRulesSection`
+- [~] **HIBP Pwned Passwords, opt-in and off by default.** The k-anonymity client, the isolated
+  HTTPS transport, the projection and the four-way no-network guard are built and tested, and
+  the **global network kill-switch now exists** (D23). Still absent: the `kh:breach:*` channel,
+  the consent screen, a UI control for `networkAllowed`, and the composition root that would
+  construct a transport — so no code path in the running app makes a request
 - [ ] `missing-2FA` — needs a model decision, since there is no 2FA field to key it off
 - [x] `docs/05-Features/01-Health-Rules.md` written
 
-## Phase 14 — Settings & configurability ~ UI DONE
+## Phase 14 — Settings & configurability ~ MOUNTED, TWO CHANNELS SHORT
 
-_The screen is built and tested against a gateway interface; the IPC channel for changing
-`VaultSettings` does not exist yet._
+_The screen is built, wired to real IPC and mounted as the `settings` tool view. Four of the six
+channels it needs exist; the two that do not are envelope-crypto operations rather than settings
+writes. Full notes: `docs/06-UI-Design-System/01-Layout-And-Components.md` §1._
 
 - [x] Appearance (mounting the existing panel), security and session, history and audit,
       health rules, vault, danger zone
@@ -400,14 +428,24 @@ _The screen is built and tested against a gateway interface; the IPC channel for
 - [x] The four audit privacy levels rendered from `AUDIT_LEVEL_FIELDS`, and health rules from
       `HEALTH_RULE_IDS` — never a hand-written list
 - [x] Every default is the safe one, and reset restores exactly that
-- [ ] The `kh:settings:*` IPC channels, and the master-password change flow
-- [x] **Tests (32)**
+- [x] `kh:settings:read`, `:update-machine`, `:update-vault` and `:clear-all-history`, plus the
+      quick-unlock toggle routed through the session channels — which **re-reads** after enrolling
+      rather than reporting a failure it did not have (audit finding N4)
+- [x] The screen is reachable — `settings` is one of the four tool views, opened from the sidebar
+      or from the native Settings item through `menu-bridge.ts`
+- [ ] `kh:settings:change-master-password` and `kh:settings:rekey`. Both re-wrap the DEK and both
+      must be atomic against a real vault file, so they are a slice of their own;
+      `REQUIRED_CHANNELS` in `settings-gateway.ts` names them, and a test fails if an entry there
+      names a channel the contract already has
+- [ ] A UI control for `networkAllowed`, the global network kill-switch (D23). The preference is
+      persisted and writable over `kh:settings:update-machine`; nothing renders a toggle
+- [x] **Tests** over the settings plan, the copy, the gateway and the channel inventory
 
-## Phase 15 — Chrome & quality of life ~ CHROME DONE
+## Phase 15 — Chrome & quality of life ~ DONE BAR THE LIGHTBOX
 
-_The notification, dialog, tooltip, progress and empty-state layer is built and mounted. The
-shortcut table, the command palette and the lightbox are not.
-Full notes: `docs/06-UI-Design-System/02-App-Chrome.md`._
+_The notification, dialog, tooltip, progress and empty-state layer is built and mounted, and so
+are the shortcut table and the command palette. The lightbox is not. Full notes:
+`docs/06-UI-Design-System/02-App-Chrome.md` and `03-Command-Palette-And-Shortcuts.md`._
 
 - [x] Toasts, with a queue that coalesces then caps then bounds, and **undo and error toasts
       that never dismiss themselves**
@@ -419,18 +457,25 @@ Full notes: `docs/06-UI-Design-System/02-App-Chrome.md`._
 - [x] Progress that is honest about a slow unlock, with a reduced-motion fallback that is a
       steady fill rather than a frozen sweep
 - [x] Empty states with real copy, rendered through the existing primitive
-- [ ] Global shortcut table and the command palette (Ctrl/Cmd+K)
+- [x] Global shortcut table and the command palette (Ctrl/Cmd+K) — `CommandsProvider` is mounted
+      in `App.tsx` outside the screen switch, so the listener survives a navigation
+- [ ] `focusSearch` and `toggleSidebar`, the two handlers only the vault screen can supply, and a
+      setting that can turn the palette off
 - [ ] Image lightbox — wants attachments (Phase 9) first
-- [x] **Tests (62)** and six fault injections, all caught
+- [x] **Tests** over the queue, the timing, the focus rules and the shortcut gate, and six fault injections, all caught
 - [x] `docs/06-UI-Design-System/02-App-Chrome.md` written
 
-## Phase 16 — In-app content pages
+## Phase 16 — In-app content pages ~ HELP MOUNTED
 
-- [ ] Help & FAQ — fully offline, bundled
+_The help viewer is one of the four tool views and ships its articles inside the app. The
+generated pages — changelog, about, the licence list — are not built._
+
+- [x] Help & FAQ — fully offline, bundled, and reachable: `ContentViewer` is the `help` tool
+      view, over the articles in `src/renderer/src/content/articles/`
 - [ ] Changelog view, rendered from `CHANGELOG.md` at build time (never a hand-maintained second copy)
 - [ ] About — version, credits, links, and an **auto-generated** third-party licence list
-- [ ] **Security & Threat Model** page, in plain English, including what Keyhold does _not_ protect against
-- [ ] Keyboard shortcut reference
+- [x] **Security & Threat Model** in plain English — `how-your-data-is-protected.ts`, including what Keyhold does _not_ protect against
+- [x] Keyboard shortcut reference — `keyboard-shortcuts.ts`, built from `shortcuts-source.ts` rather than hand-listed
 - [ ] First-run onboarding tour, skippable and re-runnable
 - [ ] **Guard test:** the licence list is generated from `package.json`, not hand-written
 
@@ -450,11 +495,12 @@ Reports: `docs/14-Audits/`._
       that lost data silently, two independent `shell.openExternal` paths taking any URI scheme,
       `file:` URLs all counting as "us", `ELECTRON_RENDERER_URL` honoured when packaged, and a
       vault path validator that permitted any path
-- [ ] Fix the remaining audit findings, notably the CHANGELOG and the stale "not built yet"
-      sections
-- [ ] Audit the nine subsystems that landed _after_ the sweep — `activity`, `attachments`,
-      `breach`, `organisation`, `recovery`, `shell`, `sync`, `theme`, `totp`. **`breach/` is the
-      project's first network code and needs its own pass before it ships**
+- [~] Fix the remaining audit findings. The stale "not built yet" sections were swept in the
+  documentation catch-up pass; `PRIVACY.md` and the CHANGELOG still need a hand
+- [x] Audit the nine subsystems that landed _after_ the sweep — `docs/14-Audits/02-Subsystem-Audit.md`,
+      N1–N39, with `breach/` given a pass of its own and a plain verdict on wiring it up
+- [ ] Work the subsystem findings. N1, N2, N3, N4, N7, N10, N11, N17 and N18 are fixed and N38 is
+      half fixed; the rest are open. Every status line there was written against read code
 - [x] `docs/14-Audits/` written
 
 ## Phase 18 — Packaging, CI & release ~ CONFIGURED, NEVER RUN
@@ -483,7 +529,7 @@ produced and no workflow has ever run** — there is no remote yet. Full notes:
 ## Phase 19 — Documentation & README
 
 - [ ] Complete the numbered `docs/` tree using the **`comprehensive-documentation`** skill
-- [ ] `_INDEX.md` in every folder plus the top-level `docs/_INDEX.md`
+- [x] `_INDEX.md` in every folder plus the top-level `docs/_INDEX.md`
 - [x] Doc/code mismatches and deliberate oddities — now `docs/14-Audits/01-Doc-Code-Audit.md`,
       because `13-` was taken by packaging by the time it was written
 - [ ] Publish the KEEP format spec as a standalone, implementable document
@@ -509,34 +555,37 @@ produced and no workflow has ever run** — there is no remote yet. Full notes:
 
 ## Progress
 
-> **A note on "not mounted" and "needs IPC".** A large amount of this project is now
-> _built and tested but not reachable by a user._ Several screens are complete against a
-> gateway interface with an in-memory fake, because their IPC channels do not exist yet;
-> others are finished components that nothing renders. That is a deliberate consequence of
-> building engines before wiring — the engine is where correctness lives and the wiring is
-> mechanical — but it means the honest reading of this table is that the **remaining work is
-> mostly integration, not construction.** `MANUAL-BACKLOG.md` §M-IPC lists every channel
-> group still owed.
+> **A note on "not mounted" and "needs IPC".** A large amount of this project was built and
+> tested before it was reachable, and a large amount of the wiring has since landed — the
+> tool-view region, the menu bridge, the settings channels, the import channels, the command
+> palette. That was a deliberate order (the engine is where correctness lives; the wiring is
+> mechanical), and the honest reading of this table is still that the **remaining work is mostly
+> integration, not construction.** The two big pieces left are the sync layer around the merge
+> engine and the composition root for the breach check. `MANUAL-BACKLOG.md` §M-IPC lists the
+> channel groups still owed.
+>
+> **This table is a summary of the phases above and rots faster than they do.** Where the two
+> disagree, the phase section wins — and then fix this.
 
-| Phase                            | Status         |
-| -------------------------------- | -------------- |
-| 0 · Scaffold                     | ✅ **Done**    |
-| 1 · Crypto & KEEP format         | ✅ **Done**    |
-| 2 · Vault service & IPC          | ✅ **Done**    |
-| 3 · Shell, design system, themes | ✅ **Done**    |
-| 4 · Unlock, lock, session        | ✅ **Done**    |
-| 5 · CRUD & fields                | ✅ **Done**    |
-| 6 · History & audit trail        | ~ Nearly done  |
-| 7 · Organisation & search        | ~ IPC done     |
-| 8 · Password generator           | ~ Not mounted  |
-| 9 · Attachments                  | ~ IPC done     |
-| 10 · Import                      | ~ Needs IPC    |
-| 11 · Export & transfer bundle    | ~ Needs dialog |
-| 12 · Sync & merge                | ~ Engine done  |
-| 13 · Health dashboard            | ~ Not mounted  |
-| 14 · Settings                    | ~ IPC done     |
-| 15 · Chrome & QoL                | ~ Palette live |
-| 16 · In-app content              | ~ Not mounted  |
-| 17 · Audits                      | ~ First pass   |
-| 18 · Packaging & CI              | ~ Configured   |
-| 19 · Docs & README               | Not started    |
+| Phase                            | Status                        |
+| -------------------------------- | ----------------------------- |
+| 0 · Scaffold                     | ✅ **Done**                   |
+| 1 · Crypto & KEEP format         | ✅ **Done**                   |
+| 2 · Vault service & IPC          | ✅ **Done**                   |
+| 3 · Shell, design system, themes | ✅ **Done**                   |
+| 4 · Unlock, lock, session        | ✅ **Done**                   |
+| 5 · CRUD & fields                | ✅ **Done**                   |
+| 6 · History & audit trail        | ~ Nearly done                 |
+| 7 · Organisation & search        | ~ Sidebar UI outstanding      |
+| 8 · Password generator           | ~ Mounted                     |
+| 9 · Attachments                  | ~ IPC done, no previews       |
+| 10 · Import                      | ~ Built, nothing mounts it    |
+| 11 · Export & transfer bundle    | ~ Built, nothing mounts it    |
+| 12 · Sync & merge                | ~ Engine done                 |
+| 13 · Health dashboard            | ~ Mounted, minus HIBP         |
+| 14 · Settings                    | ~ Mounted, 2 channels short   |
+| 15 · Chrome & QoL                | ~ Done bar the lightbox       |
+| 16 · In-app content              | ~ Help mounted                |
+| 17 · Audits                      | ~ Three passes, fixes ongoing |
+| 18 · Packaging & CI              | ~ Configured, never run       |
+| 19 · Docs & README               | ~ Tree written, README not    |

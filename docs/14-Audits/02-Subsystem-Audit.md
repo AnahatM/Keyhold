@@ -23,7 +23,9 @@ seed into an error, the organisation errors carry ids and counts only, and the i
 never receives a secret at all. The one exception is `recovery/`, where a message borrowed
 from `assertValidHistory` interpolates an arbitrary string out of a corrupt file, and the
 two-stage scrubber applied to it can be walked past two different ways — in a report whose
-own printed text says it contains no secrets.
+own printed text says it contains no secrets. _(Since fixed: the scrubber was removed rather
+than repaired, and the report's disclosure sentence is now generated from a checked list. See
+N2.)_
 
 **`breach/` is well built.** The k-anonymity boundary is structural rather than conventional:
 the transport's signature accepts five hex characters and nothing else, the off state is the
@@ -32,7 +34,8 @@ property tests that assert all of this plant real distinctive secrets in the pos
 guard and fault-inject to prove they bind. The findings against it are one genuine privacy
 weakening (request ordering), three guards narrower than the rule they enforce, and a handful
 of small things. **It is safe to wire up once N10, N15 and N17 are addressed** — see the
-verdict below.
+verdict below. _(N10 and N17 have since been fixed; N15 remains open and is currently harmless
+because nothing constructs a client. See "Status, and how to read it".)_
 
 **The pattern worth naming is guard vacuity.** Hard rule 9 is "ship the guard with the
 system", and by and large this codebase does — several guards read here are the best-built
@@ -44,7 +47,8 @@ on both devices. They are named individually in N2, N6, N8, N9, N27, N28, N33 an
 point of naming each is that a guard nobody has fault-injected is a guard nobody has tested.
 
 **A note on reachability, because it drives the ranking.** Measured against
-`src/main/ipc/register.ts` (58 handlers now, up from the 40 the first audit counted) and
+`src/main/ipc/register.ts` (58 handlers at the time, up from the 40 the first audit counted;
+more have landed since — count them rather than trusting this) and
 `src/main/index.ts`: **`shell/`, `attachments/`, `organisation/` and the renderer modules are
 live** — `shell/` is imported by `index.ts:12`, the rest are reachable over `kh:attachments:*`,
 `kh:folders:*`, `kh:tags:*` and `kh:organisation:*`. **`activity/`, `breach/`, `recovery/`,
@@ -52,15 +56,36 @@ live** — `shell/` is imported by `index.ts:12`, the rest are reachable over `k
 `diagnose()`, `createHttpsTransport` and `PwnedPasswordsClient` are each referenced only by
 their own tests. So N1, N4 and N5 are live defects; N2 and N3 are armed but not yet connected.
 
-**39 findings: 4 high (N1–N4), 15 medium (N5–N19), 16 low (N20–N35), 4 informational
-(N36–N39).** No critical. Several of the low and informational entries group more than one
-related defect under a single number; the count above is of numbered findings.
+**Findings are numbered N1–N39 and ranked high, medium, low, informational.** No critical.
+Several of the low and informational entries group more than one related defect under a single
+number, so the numbering is of findings and not of defects.
+
+---
+
+## Status, and how to read it
+
+This page is a **dated snapshot**; the findings below are not. Each one that has since been
+addressed carries a `STATUS:` line directly under its heading, and **a status line is only
+written after someone has read the code and seen the fix** — never on the strength of a commit
+message. An optimistic status column is worse than none, because it is the one thing that would
+make this page actively misleading rather than merely old.
+
+A finding with no `STATUS:` line is **outstanding**. The body of every finding is left exactly
+as it was measured, including paths and line numbers that have since moved, because that is what
+makes it a snapshot; where a fix went somewhere other than the proposed one, the status line says
+so.
+
+Marked fixed on the latest pass: **N1, N2, N3, N4, N7, N10, N11, N17, N18**, and **N38 in
+half** — its kill-switch is built, its consent screen is not. **N15 was re-checked and is still
+open**, and its status line says why it is currently harmless.
 
 ---
 
 ## Findings, by impact
 
 ### N1 — HIGH · A UNC path passes every check and reaches `statSync`, which on Windows is an outbound SMB connection and an NTLM handshake
+
+**STATUS: FIXED.** Read `src/shared/model/local-path.ts`, `src/main/shell/file-open-request.ts:147` and `src/shared/ipc/validation.ts:214`. Both call sites now go through an allow-list of shapes that name local storage — a Windows drive letter plus a separator, or a single POSIX `/` and explicitly not a doubled one — so all five refused shapes in the table below are rejected before anything touches the filesystem. Recorded as decision D25 and in the threat model, because "opening a file cannot make a network connection" is a property a user is entitled to assume.
 
 **Live code.** `src/main/shell/file-open-request.ts:118-142` → `src/main/shell/shell-controller.ts:115`
 
@@ -123,6 +148,8 @@ an explicit decision about whether symlinked vaults are supported.
 ---
 
 ### N2 — HIGH · The recovery report's redaction can be walked past two ways, in a report whose own text says it carries no secrets
+
+**STATUS: FIXED, and the scrubber removed rather than repaired.** Read `src/main/recovery/history-detail.ts` and `src/main/recovery/text.ts`. `assertValidHistory`'s message is no longer borrowed at all: `history-detail.ts` composes the finding from literals plus values safe by construction — a count, a 1-based position, a length, or a field name taken from `VERSIONED_FIELDS` itself — so there is nothing to scrub. Both bypasses are regression tests in `document-diagnosis.test.ts`. `sanitiseDetail` remains only as a length backstop and its docblock says explicitly that nothing may rely on it for safety. Separately, the report's own disclosure sentence — which this finding pointed out was wrong — is now generated against `DISCLOSURE_WITHHELD` and `DISCLOSURE_CARRIED` in `report.ts`, with `report.test.ts` planting a separate marker per withheld category.
 
 `src/main/recovery/document-diagnosis.ts:210`, against `src/main/recovery/text.ts:50` and
 `:66`, and `src/main/recovery/report.ts:276`
@@ -196,6 +223,8 @@ file names and this vault's id."
 
 ### N3 — HIGH · A merge silently loses a record when either side holds a duplicate id — and it can lose a second, unrelated record
 
+**STATUS: FIXED.** Read `assertUniqueIds` in `src/main/sync/merge-document.ts:305-340` and its tests in `merge-document.test.ts:336`. A merge now throws a named `DuplicateIdError` carrying the side, the entity and every offending id, on records, folders and tags, on all three inputs, before `indexRecords` runs. Refusing rather than resolving is decision D26; the reasoning against the two alternatives is recorded there and in `07-Sync-And-Merge/00-Merge-Engine.md` §3.
+
 `src/main/sync/merge-values.ts:187-189` and `src/main/sync/merge-document.ts:222`
 
 Two independent mechanisms, both measured by reading.
@@ -252,6 +281,8 @@ today.
 ---
 
 ### N4 — HIGH · Enabling quick unlock succeeds, and the UI tells the user it failed
+
+**STATUS: FIXED.** Read `setQuickUnlock` in `src/renderer/src/settings/settings-gateway.ts:124-142`. It performs the enrol or revoke and then **re-reads the settings snapshot** instead of rejecting with `unavailable('read')`, so the toggle reports what actually happened. The comment at that call site records the original defect in both directions — the key existed while the user was told it did not, and the key was deleted while the toggle stayed reading "On".
 
 **Live code.** `src/renderer/src/settings/settings-gateway.ts:124-132` →
 `src/renderer/src/settings/use-settings.ts:127-136`
@@ -368,6 +399,8 @@ this audit's scope — flagged, not traced further.
 
 ### N7 — MEDIUM · A breach sweep's request order is the vault's record order, which is a stable cross-session fingerprint the docs say it is not
 
+**STATUS: FIXED.** Read `src/main/breach/client.ts:331` — `shuffleInPlace([...byPrefix])`, the project's CSPRNG-backed Fisher-Yates via `randomInt`'s rejection sampling, applied before any prefix is sent. Results are still returned in the caller's order. `client.test.ts` sweeps one fixed vault repeatedly and asserts the request sequences are not all identical while the prefix multiset and the caller-facing order are unchanged.
+
 `src/main/breach/client.ts:292`, against the claim at `client.ts:32-33` and its documentation
 face at `docs/05-Features/07-Breach-Check.md:28`
 
@@ -474,6 +507,8 @@ it exists to catch, on a security rule.
 
 ### N10 — MEDIUM · `no-network.test.ts`'s strongest check is defeated by writing the import in the project's own alias style
 
+**STATUS: FIXED, and the file rewritten to parse rather than pattern-match.** Read `src/main/breach/no-network.test.ts`. Specifiers, identifiers and calls now come from the TypeScript parser — the same one that compiles the project — and the path aliases are read out of `tsconfig.node.json` itself rather than restated, so there is no second list to keep in step. The file's header records this bypass, its measured 14/14 pass, and the throwaway-source-tree test that plants it and asserts the scan fails.
+
 `src/main/breach/no-network.test.ts:123-136`
 
 ```ts
@@ -505,6 +540,8 @@ directory, resolving both relative and aliased specifiers.
 ---
 
 ### N11 — MEDIUM · Unmounting the import wizard never discards the plaintext file the main process is holding
+
+**STATUS: FIXED.** Read `src/renderer/src/import/ImportWizard.tsx:56` and its cleanup effects. The component's header states the property — there is no path out of it that does not call `gateway.discard` — and `ImportWizard.test.tsx` asserts `discard:source-1` is called for a cancel on every step and again after `tree.unmount()`.
 
 **Live code.** `src/renderer/src/import/ImportWizard.tsx:265-274`, against the claim at `:54-60`
 
@@ -641,6 +678,8 @@ it. The determinism argument in the comment is preserved and the cut lands insid
 
 ### N15 — MEDIUM · `clearCache()` has no production caller, so range prefixes would survive a lock
 
+**STATUS: OPEN.** Re-read `src/main/breach/client.ts:247` and grepped `src/` for callers: still none outside the tests. It stays open for a reason that makes it currently harmless — nothing constructs a `PwnedPasswordsClient` either, so there is no cache to survive a lock. It becomes a real defect the moment the composition root in `05-Features/07-Breach-Check.md` §7 lands, and the guard belongs with the lock path rather than with `breach/`.
+
 `src/main/breach/client.ts:214`, against the claim at `:78` — "dropped by `clearCache()`,
 **which the lock path should call**".
 
@@ -691,6 +730,8 @@ tray icon land — i.e. the next slice.
 
 ### N17 — MEDIUM · The repository has no repo-wide network guard, only a per-directory one
 
+**STATUS: FIXED, and the scan stayed in `src/main/breach/`.** Read `src/main/breach/no-network.test.ts` — `SRC` is `<repo>/src` and the scan walks all of it recursively, with `NETWORK_CAPABLE_PATH` naming the single file entitled to originate a request. The fix as originally written proposed promoting the file to `tools/no-network.test.ts`; it was instead widened in place, so **the path in the fix note below is wrong** and the file is at `src/main/breach/no-network.test.ts`.
+
 `src/main/breach/no-network.test.ts:67-71` (`readdirSync(DIRECTORY)`)
 
 Hard rule 5 is repo-wide. The guard that enforces it reads one directory, non-recursively, and
@@ -710,6 +751,8 @@ the `passwordRange` spy and the booby-trapped global are about the client, not t
 ---
 
 ### N18 — MEDIUM · `stripComments` fails open, so a string literal can blind the network scan
+
+**STATUS: FIXED by construction.** Read `src/main/breach/no-network.test.ts`. There is no comment stripper any more: the scan reads TypeScript AST nodes, and comments are trivia that never become nodes, so the string-literal bypass cannot exist rather than being defended against. The file's header records the measured 14/14 pass under the planted bypass, and the throwaway-source-tree test plants it and asserts the scan fails.
 
 `src/main/breach/no-network.test.ts:82-116`
 
@@ -1198,6 +1241,8 @@ does. Worth settling before the dashboard writes copy against these reasons.
 ---
 
 ### N38 — INFORMATIONAL · The consent screen and global kill-switch that `breach/` is supposed to sit behind do not exist
+
+**STATUS: half FIXED.** The **kill-switch exists** — `src/main/network-policy.ts` plus the machine-scoped `Preferences.networkAllowed`, off by default, fail-closed on anything that is not the literal boolean `true`, and ANDed with the vault's own setting in `allowsBreachCheck` so no call site writes the conjunction itself. The grep quoted below now returns hits. Decision D23 carries the argument. **Still absent:** the consent screen, any UI control for `networkAllowed` (it is writable over `kh:settings:update-machine` and nothing renders a toggle, so today it is reachable only by editing `preferences.json`), and the composition root that would construct a transport for the policy to gate.
 
 Hard rule 5 says the HIBP check is "off by default, **behind a global network kill-switch**", and
 `docs/02-Security/01-Process-Hardening.md:95` says the same. **Measured:** a grep for

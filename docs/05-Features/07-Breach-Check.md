@@ -4,12 +4,15 @@
 > requests". Current reference. Implemented by `src/main/breach/` and
 > `src/shared/model/breach.ts`.
 >
-> **Status: the client, the transport and the projection are built and tested — 161 tests,
-> including a structural guard that parses every source file in `src/`. Nothing a user can
-> reach exists.** There is no `kh:breach:*` channel in `CHANNELS`, no setting to turn it on,
-> no global network kill-switch, and no composition root that builds the transport — so today
-> the client is constructed with none and answers `unknown` / `disabled` without hashing
-> anything. See §7, and read §6 before touching the CSP.
+> **Status: the client, the transport and the projection are built and tested, including a
+> structural guard that parses every source file in `src/`. Nothing a user can reach exists.**
+> There is no `kh:breach:*` channel in `CHANNELS`, no consent or settings surface that turns
+> it on, and — the part that matters most — **no composition root that builds the transport**,
+> so today the client is constructed with none and answers `unknown` / `disabled` without
+> hashing anything.
+>
+> The **global network kill-switch now exists** and no longer blocks this work: see §7 and
+> decision D23. What is left is wiring, not invention. Read §6 before touching the CSP.
 
 ---
 
@@ -330,26 +333,45 @@ importing something that merely sounds harmless.
 
 ---
 
-## 7. Not built yet
+## 7. What exists now, and what is still missing
 
-- **The IPC channel.** No `kh:breach:*` entry in `CHANNELS`.
-- **The setting.** `DEFAULT_BREACH_CHECK_SETTINGS` exists in `@shared`, and there is no
-  settings surface that reads or writes it, and no persistence for it.
-- **The global network kill-switch.** Hard rule 5 promises the check sits behind _two_
-  switches — its own setting, and a machine-scoped master switch that denies the network
-  whatever any per-feature setting says. A grep of `src/` for `killSwitch`, `networkEnabled`,
-  `allowNetwork`, `offlineOnly` and `networkAllowed` returns nothing: the second switch does
-  not exist, so it is a **prerequisite for wiring this feature**, not a nicety. (Audit finding
-  N38.) It belongs in machine-scoped `Preferences` rather than in vault settings — a vault
-  carried to another machine must not be able to turn that machine's network on — and the
-  composition root must read it _and_ the feature setting before it constructs a transport.
-- **The lock-path call to `clearCache()`.** See §5. The obligation exists, the caller does
-  not, and the guard for it belongs with the lock path rather than here. (Audit finding N15.)
+### The kill-switch landed
+
+Hard rule 5 promises the check sits behind _two_ switches, and until recently the second one
+did not exist anywhere in `src/` (audit finding N38). It does now.
+
+`src/main/network-policy.ts` owns both questions. `Preferences.networkAllowed` is the
+machine-scoped master switch — off by default, fail-closed on anything that is not the literal
+boolean `true`, persisted in `preferences.json`, validated at the IPC boundary and carried in
+the settings snapshot. `NetworkPolicy.allowsBreachCheck` ANDs it with this feature's own
+setting, in one place, so no call site writes the conjunction itself and forgets a switch.
+
+It is machine-scoped rather than a vault setting for a reason worth repeating: vault settings
+travel inside the `.keep` file, and a vault carried to a friend's laptop must not be able to
+turn that machine's network on. Full argument in decision D23 and
+[`../02-Security/01-Process-Hardening.md`](../02-Security/01-Process-Hardening.md) §5.
+
+**`NetworkPolicy` has no production caller yet** — it is constructed only by its own test —
+because nothing constructs a transport for it to gate. That is the next item, not this one.
+
+### Still missing
+
 - **The composition root.** Nothing calls `createHttpsTransport()` and hands the result to a
-  client. Until something does, the feature is off in the strongest available sense —
-  see §2.
+  client. The shape it must take is written down in `network-policy.ts` and is one line:
+  `policy.allowsBreachCheck(settings) ? createHttpsTransport() : undefined`, plus a
+  `policy.observe` registration so a client built while the switch was on is discarded when it
+  is turned off. Until that exists the feature is off in the strongest available sense — see §2.
+- **The IPC channel.** No `kh:breach:*` entry in `CHANNELS`.
+- **The consent and settings surface.** `DEFAULT_BREACH_CHECK_SETTINGS` exists in `@shared`
+  and nothing reads or writes it. There is also **no UI control for `networkAllowed`** — the
+  preference is writable over `kh:settings:update-machine` and no settings section renders a
+  toggle for it, so the kill-switch is currently only reachable by editing
+  `preferences.json`. Both are hard rule 7 obligations and both are outstanding.
+- **The lock-path call to `clearCache()`.** See §5. The obligation exists, the caller does
+  not, and the guard for it belongs with the lock path rather than here. (Audit finding N15,
+  still open — and note it stays open only because there is no client to hold a cache.)
 - **The health-dashboard integration.** `BreachProjection` and `BreachReport` are shaped for
-  the dashboard and nothing renders them. The eight offline health rules are unaffected: they
+  the dashboard and nothing renders them. The offline health rules are unaffected: they
   are, and remain, entirely local.
 - **A security audit of this code.** Roadmap Phase 17 records `breach/` as **the project's
   first network code**, landed after the security sweep, and says plainly that it needs its
@@ -361,23 +383,26 @@ importing something that merely sounds harmless.
 
 ## 8. Tests
 
-161 in `src/main/breach/`.
+In `src/main/breach/`. No total is written here on purpose: a count in prose is true the day it
+is typed and silently false the next time a case lands, with nothing that fails when it drifts.
+Run `npx vitest run src/main/breach` for the current number. What is worth stating is _what_
+each file covers, which changes only when someone decides it should.
 
-| File                      | Tests | Covers                                                                                                                                                                                                                                                                                        |
-| ------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `client.test.ts`          | 40    | Every failure producing `unknown` and never `safe` · prefix deduplication and cache reuse against an injected fake · that repeated sweeps of one vault do not emit a recognisable request order · the property that nothing returned names the password, its digest, its prefix or its suffix |
-| `range.test.ts`           | 27    | Strict line parsing, padding rows, the count cap, case-insensitive matching, and each of the three faults                                                                                                                                                                                     |
-| `https-transport.test.ts` | 23    | That `Add-Padding` is sent on every request · the fixed origin and prefix validation · the capped body read · `Retry-After` normalisation                                                                                                                                                     |
-| `transport.test.ts`       | 19    | Status classification and thrown-error classification, including reading `fetch`'s wrapped `cause`                                                                                                                                                                                            |
-| `no-network.test.ts`      | 29    | The four-way guard of §2 — the repo-wide scan, the directory-strict scan and the module graph, the booby-trapped global, what is not computed, and eleven planted cases proving each detector fires — and does not fire on a clean file                                                       |
-| `projection.test.ts`      | 13    | Band boundaries, that no count survives, and that the three run counts are computed rather than subtracted                                                                                                                                                                                    |
-| `hash.test.ts`            | 10    | `password` → `5BAA6` derived from first principles rather than trusted as a copied constant, and the prefix/suffix split                                                                                                                                                                      |
+| File                      | Covers                                                                                                                                                                                                                                                                                        |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client.test.ts`          | Every failure producing `unknown` and never `safe` · prefix deduplication and cache reuse against an injected fake · that repeated sweeps of one vault do not emit a recognisable request order · the property that nothing returned names the password, its digest, its prefix or its suffix |
+| `range.test.ts`           | Strict line parsing, padding rows, the count cap, case-insensitive matching, and each of the three faults                                                                                                                                                                                     |
+| `https-transport.test.ts` | That `Add-Padding` is sent on every request · the fixed origin and prefix validation · the capped body read · `Retry-After` normalisation                                                                                                                                                     |
+| `transport.test.ts`       | Status classification and thrown-error classification, including reading `fetch`'s wrapped `cause`                                                                                                                                                                                            |
+| `no-network.test.ts`      | The four-way guard of §2 — the repo-wide scan, the directory-strict scan and the module graph, the booby-trapped global, what is not computed, and eleven planted cases proving each detector fires — and does not fire on a clean file                                                       |
+| `projection.test.ts`      | Band boundaries, that no count survives, and that the three run counts are computed rather than subtracted                                                                                                                                                                                    |
+| `hash.test.ts`            | `password` → `5BAA6` derived from first principles rather than trusted as a copied constant, and the prefix/suffix split                                                                                                                                                                      |
 
 ---
 
 ## 9. Related
 
-- [`01-Health-Rules.md`](./01-Health-Rules.md) — the eight rules that are entirely offline, and the report this one would join
+- [`01-Health-Rules.md`](./01-Health-Rules.md) — the rules that are entirely offline, and the report this one would join
 - [`../00-Overview/03-Threat-Model.md`](../00-Overview/03-Threat-Model.md) — §2, the residual leak this feature accepts
 - [`../02-Security/01-Process-Hardening.md`](../02-Security/01-Process-Hardening.md) — the CSP and the empty remote-host allow-list
 - [`../12-Roadmap/02-Decision-Log.md`](../12-Roadmap/02-Decision-Log.md) — D10 (every feature ships a setting) and D13 (the safe projection)

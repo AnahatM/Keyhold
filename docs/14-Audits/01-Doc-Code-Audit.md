@@ -23,12 +23,13 @@ than one that says nothing.
 Status lines are added to each finding in place. The finding text above is left exactly as
 written: an audit records what was true when it ran.
 
-| Status                                                    | Findings                                                                                                                                                                                    |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Already fixed before this pass**                        | F2, F3, F4, F14 (partly), F17                                                                                                                                                               |
-| **Fixed this pass**                                       | F1 (earlier this session), F5, F6 (four of five), F7, F8, F9, F10 (partly), F11, F12, F13, F14, F16, F18, F19 (two of three), F20                                                           |
-| **Open — the file belongs to another agent this session** | F6 (the health-rule count in `docs/05-Features/_INDEX.md`), F10 (the `14-Audits/` row in `docs/_INDEX.md`), F19 (`docs/06-UI-Design-System/_INDEX.md`), F5 (the claim's wording, same file) |
-| **Open — `CLAUDE.md`, not edited by policy**              | F8's stack-table row, F15                                                                                                                                                                   |
+| Status                                       | Findings                                                                                                                          |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Already fixed before this pass**           | F2, F3, F4, F14 (partly), F17                                                                                                     |
+| **Fixed this pass**                          | F1 (earlier this session), F5, F6 (four of five), F7, F8, F9, F10 (partly), F11, F12, F13, F14, F16, F18, F19 (two of three), F20 |
+| **Closed in the later catch-up pass**        | F5 (the wording half), F6 (the health-rule count), F10 (in full — and the `13-Appendix/` question settled), F19 (the third index) |
+| **Re-opened in the later catch-up pass**     | F7 — `PRIVACY.md` has gone stale again, in the opposite direction. See its status line and `MANUAL-BACKLOG.md` M-PRIVACY          |
+| **Open — `CLAUDE.md`, not edited by policy** | F8's stack-table row, F15                                                                                                         |
 
 ### Two new guards, because hard rule 9 says a number in prose gets a test
 
@@ -182,7 +183,7 @@ references conditional ("will be published in the README, Phase 19").
 
 ### F5 — MEDIUM · "No hardcoded colours anywhere" is false, and the guards cannot catch it
 
-**STATUS: the code half is FIXED and now GUARDED; the wording half is open.** `window.ts` no longer holds a hex literal: `initialBackgroundColour()` takes the `bg` token of a real theme, picked by `nativeTheme.shouldUseDarkColors` the same way the renderer picks its default, so a light-theme launch no longer opens with a dark flash. It is still not the _user's_ chosen theme — that lives in renderer storage the main process cannot read — and the function says so rather than pretending otherwise. New guard `tools/no-hardcoded-colours.test.ts` scans the whole of `src/` and fails on any colour literal outside the token layer; fault-injected by restoring `'#12131a'`, which fails it. The claim's wording in `docs/06-UI-Design-System/_INDEX.md` was **not** edited — that file belongs to another agent this session — and should now be narrowed to name three guards rather than two.
+**STATUS: the code half is FIXED and now GUARDED; the wording half is open.** `window.ts` no longer holds a hex literal: `initialBackgroundColour()` takes the `bg` token of a real theme, picked by `nativeTheme.shouldUseDarkColors` the same way the renderer picks its default, so a light-theme launch no longer opens with a dark flash. It is still not the _user's_ chosen theme — that lives in renderer storage the main process cannot read — and the function says so rather than pretending otherwise. New guard `tools/no-hardcoded-colours.test.ts` scans the whole of `src/` and fails on any colour literal outside the token layer; fault-injected by restoring `'#12131a'`, which fails it. **The wording half is now fixed too.** `docs/06-UI-Design-System/_INDEX.md` no longer says "two guard tests": it names the theme-definition guards and the source-tree scan separately, and says why the second kind had to exist — the first kind structurally cannot see a literal in a `BrowserWindow` option.
 
 `docs/06-UI-Design-System/_INDEX.md:10` and `CONTRIBUTING.md:47` and `CLAUDE.md:86`, against
 `src/main/window.ts:29`
@@ -217,7 +218,7 @@ cover.
 
 ### F6 — MEDIUM · Five counts in prose disagree with the code
 
-**STATUS: four of five FIXED, plus the missing table row; one OPEN.** `00-Import-Formats.md` and `09-Import-Export/_INDEX.md` now say twelve parsers, and the §3 column-mapping table has gained the **Keyhold JSON** row it was missing — described honestly as the lossless path whose ids, dates and history are _reported_ rather than silently dropped, so importing an export is a merge and not a restore. `01-Testing-Policy.md` now says twelve formats. `12-Roadmap/_INDEX.md` now names the real range, D1-D22, and distinguishes the founding seventeen from the five added later. The custom-field-type count was already correct at thirteen when re-checked. **Still open:** `docs/05-Features/_INDEX.md` says "the eight offline rules" and `HEALTH_RULE_IDS` has nine — that file belongs to another agent this session and was not touched; `tools/doc-counts.test.ts` documents the exclusion in its header and should gain the assertion once it is corrected.
+**STATUS: four of five FIXED, plus the missing table row; one OPEN.** `00-Import-Formats.md` and `09-Import-Export/_INDEX.md` now say twelve parsers, and the §3 column-mapping table has gained the **Keyhold JSON** row it was missing — described honestly as the lossless path whose ids, dates and history are _reported_ rather than silently dropped, so importing an export is a merge and not a restore. `01-Testing-Policy.md` now says twelve formats. `12-Roadmap/_INDEX.md` names the real range — D1-D26 as of the documentation catch-up pass, which added four entries — and distinguishes the founding set, the Phase 0 scaffold decisions and the ones recorded after the fact. The custom-field-type count was already correct at thirteen when re-checked. **The last open one is now closed too:** `docs/05-Features/_INDEX.md` no longer says "the eight offline rules"; it names `HEALTH_RULE_IDS` instead, so there is no number to rot. `tools/doc-counts.test.ts` still records that exclusion in its header and can now either drop the note or, better, keep asserting per-rule-id rather than by count.
 
 Each was counted directly.
 
@@ -242,7 +243,15 @@ already documents that pattern for a different number, so the technique is in th
 
 ### F7 — MEDIUM · `PRIVACY.md` describes a Settings screen that does not exist
 
-**STATUS: FIXED, and re-verified as still real before changing anything.** `SettingsScreen.tsx` exists but nothing imports it — `App.tsx` still renders only `AppearancePanel` — and there is no kill-switch anywhere in `src/`. `PRIVACY.md` now says the breach check is not built, that neither the consent screen nor the kill-switch exists yet, and that until they do the guarantee is _stronger_ than a setting because no code path in the running app makes a request. The audit privacy level is described as built but not yet routed, with the default (`device`) named explicitly so a reader knows what is actually being captured today.
+**STATUS: FIXED at the time — and `PRIVACY.md` has since gone stale in the other direction.** The fix rewrote `PRIVACY.md` to say the breach check is not built, that neither the consent screen nor the kill-switch existed, and that until they did the guarantee was _stronger_ than a setting because no code path in the running app makes a request.
+
+Two of those three statements are now wrong, and `PRIVACY.md` is a published promise, so this needs a hand:
+
+- **The settings screen is reachable.** `SettingsScreen` is the `settings` tool view, mounted by `VaultScreen.tsx` and openable from the sidebar and the native Settings item. "Settings → Privacy" no longer names a route that does not exist.
+- **The global network kill-switch exists** — `src/main/network-policy.ts` plus the machine-scoped `Preferences.networkAllowed`, off and fail-closed by default (decision D23). What does **not** exist is a UI control for it, so it is currently only reachable by editing `preferences.json`.
+- **Still true:** the breach check itself is unreachable. Nothing constructs a transport, so no code path in the running app makes a request, and the strongest form of the guarantee still holds.
+
+`PRIVACY.md` is outside the paths this pass may edit. Recorded in `MANUAL-BACKLOG.md`.
 
 `PRIVACY.md:28-29` and `PRIVACY.md:39`
 
@@ -323,30 +332,24 @@ the exact architectural arrangement the project decided against.
 
 ### F10 — MEDIUM · The audit findings land in a folder no index knows about
 
-**STATUS: half FIXED, half OPEN.** The roadmap half is done — `00-Master-Checklist.md` now points Phase 17 and Phase 19 at `docs/14-Audits/`. The tree-index half is **not**: `docs/_INDEX.md` belongs to another agent this session and still has no `14-Audits/` row. This remains the one finding that must be actioned by hand.
+**STATUS: FIXED, and the numbering question settled.** `docs/_INDEX.md` lists `14-Audits/`,
+the Phase 17 and Phase 19 checklist items point at it, and `docs/13-Packaging/_INDEX.md` no
+longer describes `13-Appendix/` as reserved. **`13-Appendix/` was never created and is not
+planned** — `13` belongs to packaging alone and the audit findings live here. Any surviving
+pointer at `docs/13-Appendix/` is stale and should be repointed, not honoured.
 
-`docs/12-Roadmap/00-Master-Checklist.md:420` and `docs/_INDEX.md:30`
+The original finding, kept because it is why the folder is numbered as it is:
 
-Phase 17's final item is:
+Phase 17's final item read "write each audit's findings to `docs/13-Appendix/`, including an
+explicit 'checked and fine' list", and the tree index reserved `13-Appendix/` for "audit
+findings, benchmarks, doc-audit findings, deliberate oddities". Phase 19 named
+`docs/13-Appendix/03-Doc-Audit-Findings.md` explicitly. These pages were written to
+**`docs/14-Audits/`** instead, on instruction, because `13-` had been taken by packaging by the
+time they were written — leaving a documentation folder the tree index did not list and the
+roadmap did not point to, which is the exact failure mode `docs/_INDEX.md` exists to prevent.
 
-> Write each audit's findings to `docs/13-Appendix/`, including an explicit "checked and
-> fine" list
-
-and `docs/_INDEX.md:30` reserves `13-Appendix/` for "Audit findings, benchmarks, doc-audit
-findings, deliberate oddities — _Planned — Phase 17_". Phase 19 additionally names
-`docs/13-Appendix/03-Doc-Audit-Findings.md` explicitly (`00-Master-Checklist.md:438`).
-
-These two files were written to **`docs/14-Audits/`** instead, on instruction. The result is
-a documentation folder that the tree index does not list and that the roadmap does not point
-to — the exact failure mode `docs/_INDEX.md` exists to prevent.
-
-This audit is read-only over everything except its own folder, so it cannot correct either
-file. Flagging it as the one finding here that **must** be actioned by hand, because until it
-is, these reports are unreachable from the documentation entry point.
-
-**Fix.** Add a `14-Audits/` row to `docs/_INDEX.md`, and point the Phase 17 and Phase 19
-checklist items at it. Then decide whether `13-Appendix/` still has a purpose (benchmarks and
-the "deliberate oddities" register) or whether it should be folded in.
+The "deliberate oddities" register the appendix was going to hold has no separate home and does
+not need one: the "checked and found fine" list on each audit page is that register.
 
 ---
 
@@ -363,6 +366,12 @@ including the codebase's _second_ security boundary), `main/health/`, `main/gene
 `main/import/`, `main/export/`, `main/session/` (the whole session model: auto-lock,
 clipboard, quick unlock, preferences, throttle, strength), plus `main/menu.ts` and
 `main/window-state.ts`.
+
+> **Later note.** `src/main/menu.ts` no longer exists. The menu was split into
+> `src/main/shell/` — `menu-template.ts` builds it, `menu-model.ts` holds the shape, and
+> `menu-commands.ts` is the command table both processes name. The path is left above because
+> this is a dated snapshot of what the map omitted on the day it was read; anything citing
+> `src/main/menu.ts` as current is wrong.
 
 `01-IPC-Surface.md` and `02-Session-Model.md` document those areas well; the problem is that
 the page presenting itself as _the_ module map now shows less than half the tree, and
@@ -508,7 +517,7 @@ clean-room implementer reading it may conclude they should emit a `.keepbak`.
 
 ### F19 — LOW · Three folder indexes have a broken second table
 
-**STATUS: two of three FIXED.** `docs/01-Architecture/_INDEX.md` and `docs/09-Import-Export/_INDEX.md` render as single tables again. `docs/06-UI-Design-System/_INDEX.md` belongs to another agent this session and still has the stray blank line before its `02-App-Chrome.md` row.
+**STATUS: FIXED.** All three render as single tables. `docs/06-UI-Design-System/_INDEX.md` was the last one and was rewritten in the documentation catch-up pass; its rows are contiguous and it gained the two pages the table had never listed.
 
 `docs/01-Architecture/_INDEX.md:7-9`, `docs/06-UI-Design-System/_INDEX.md:6-8`,
 `docs/09-Import-Export/_INDEX.md:7-9`
@@ -578,6 +587,15 @@ Recorded so nobody re-verifies these, and so nobody "corrects" one of them.
 | Symbol set excludes space, backslash, backtick and both quotes                                                  | generator charsets                                                                                               |
 
 **Absence claims that were verified and hold.**
+
+> **Later note — three of these have since stopped holding, which is the whole point of the
+> category.** The `kh:import:*` and `kh:export:*` channel groups are both registered, so
+> "no import channels exist in `CHANNELS`" and "export is not wired to IPC" are false;
+> `src/main/theme/keeptheme-file.ts` writes `.keeptheme`, so "there is no theme export at all"
+> in F18 is false. `src/main/breach/` still has no `kh:breach:*` channel and still constructs
+> no transport, so "the running app makes no request" remains true. The bodies below are left
+> as measured, because this page is a dated snapshot; the claims they were checking live in
+> the pages named beside them and have been corrected there.
 
 - **"Keyhold makes no network requests"** (`PRIVACY.md:10`, `SECURITY.md:44`,
   `CLAUDE.md` hard rule 5, goal G2) — **true when swept, and still true at runtime, but the

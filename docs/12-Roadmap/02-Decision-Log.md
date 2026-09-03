@@ -328,6 +328,207 @@ and is not edited; this entry is the current truth.
 
 ---
 
+## Session 3 — Decisions forced by the code
+
+Four entries recorded after the fact, in the pass that caught the documentation up with
+`src/`. Each was already implemented when it was written down, which is the wrong order — the
+implementations carry the full argument in their module docblocks, and these entries exist so
+the decision is findable from here rather than only by whoever opens the right file.
+
+---
+
+### D23 — The global network kill-switch is machine-scoped, fail-closed, and dominant
+
+**Status:** Accepted
+**Decision:** A single machine-scoped preference, `Preferences.networkAllowed`, decides whether
+this **installation** may make a request at all. It is ANDed with the vault's own breach-check
+setting, and the kill-switch wins. `src/main/network-policy.ts` owns both questions.
+
+**Why.** Hard rule 5 has always said the breach check is "off by default, behind a global
+network kill-switch" — two switches. The opt-in existed; the kill-switch did not, and a
+subsystem audit found no flag anywhere in `src/` gating it (finding N38). The rule described
+two switches and the code had one.
+
+That gap is larger than it sounds. A per-vault "check my passwords" toggle answers _should this
+vault use the service_. It does not answer _may this installation talk to the network at all_,
+which is the question someone on an air-gapped machine, a corporate build, or a threat model
+that treats any egress as a signal actually needs answered — and it is a question they need
+answered **once**, not per vault and not per feature.
+
+**Why machine-scoped and not a vault setting.** Vault settings travel inside the `.keep` file.
+A vault carried to a friend's laptop must not be able to turn that machine's network on, which
+is exactly what would happen if the only switch lived in the file. The two are therefore not
+redundant: one follows the data, the other stays with the machine.
+
+**Fail closed.** Only the literal boolean `true` enables it. A missing key, `null`, the string
+`"true"`, a truncated preferences file, or a file written by a future build all read as
+`false`. The `=== true` comparison is against a value TypeScript already calls a boolean, and
+it is deliberate: what reaches it came out of a JSON file a person can edit and a half-finished
+write can truncate, and the annotation is erased long before any of that. A kill-switch that
+fails open on corruption is not a kill-switch.
+
+**Off means the capability is absent, not disabled.** The policy decides whether the transport
+is _constructed_. There is no `if (allowed)` inside the request path for a future refactor to
+skip, and `NetworkPolicy.observe` exists so anything holding a transport built while the switch
+was on is told to drop it. That preserves the strongest property of the existing breach design:
+with no transport the password is never even hashed.
+
+**Rejected:**
+
+- **A vault setting only** — travels to other people's machines. See above.
+- **A flag read at each call site** — `policy.allowsNetwork() && settings.enabled` written at a
+  call site is a second copy of the rule, and the second copy is the one that forgets a switch.
+  `allowsBreachCheck` composes it in one place.
+- **Caching the answer** — a cached "yes" outliving the user's decision to go offline is the one
+  failure mode the class exists to prevent, so it reads through on every question.
+
+**What it deliberately does not gate:** `shell.openExternal`. Handing a URL to the user's own
+browser makes the request _as the user_; Keyhold is not the one talking to the network, and a
+switch that silently broke every documentation link would teach people to leave it on. This is
+why the setting is worded "let Keyhold make network requests" rather than "go offline". It also
+does not touch the renderer's CSP: `connect-src 'none'` is unconditional and stays that way.
+
+**Consequence:** the composition root must read the policy _and_ the feature setting before it
+constructs a breach transport. Nothing constructs one today — `NetworkPolicy` has no caller
+outside its own test — so wiring the breach check is now a matter of using this, not of
+inventing it. See [`../05-Features/07-Breach-Check.md`](../05-Features/07-Breach-Check.md) §7.
+
+---
+
+### D24 — Import is a transaction: one held parse, an asymmetric merge, and a three-part undo guard
+
+**Status:** Accepted
+**Decision:** The commit half of import is a service holding state between IPC calls
+(`src/main/import-service/`), not a set of independent handlers. A preview parses once and
+holds the result; a commit can only point at that held parse; a merge is additive except on
+single-valued text; and an undo is refused unless the vault is in exactly the state the commit
+left it in.
+
+**Why a held parse.** The plausible alternative re-parses at commit time from the file the
+renderer names. It is simpler and holds less memory, and it is wrong: between the two parses
+the file can change on disk, the mapping can be edited, and the format can be re-detected — so
+the records committed are not the records approved. A dry run that can disagree with the run is
+decoration. Holding the parse also means `ImportCommitRequest` can carry no records, no mapping
+and no format, so there is no shape a compromised renderer can hand to `commit` that describes
+data it invented.
+
+**Why the merge policy is asymmetric.** Set-valued fields (urls, tags, custom fields) are
+additive only, because removing a URL on the strength of an export's omission is deleting data
+for a reason that has nothing to do with the user's intent. Single-valued text may be
+`replaced`, and that is the one genuinely destructive effect the screen can produce, which is
+why it is named separately and warned about specifically for `password`. **Folder is the
+asymmetric case:** `fills-empty` but never `replaces`. Filing is a decision the user made in
+_this_ vault, an import from another product's tree has no standing to overrule it, and unlike
+a password the previous location is not recoverable from the record itself.
+
+**Why the undo guard has three parts.** Undo removes records by id, which is only a safe
+description while the vault is exactly as the commit left it. Checking the save generation
+alone is not enough: a generation moves on a _save_, so a user who edited an imported record
+and has not saved yet has not moved it — and a generation-only check would let the undo run and
+take that edit with it while claiming it only removed what the import added. So the caller's
+expected generation, the batch's own generation, and "no unsaved changes" must all hold. That
+guard is what licenses `purgeCredential` rather than `trashCredential`, and restoring a merged
+record wholesale from a snapshot.
+
+**Rejected:** re-parsing at commit; a boolean `confirmed` from the renderer in place of held
+state; an undo that repairs what it can and reports the rest — an undo that half-works is worse
+than no offer, because the user will have believed it.
+
+**Consequence:** the service is the only place in the app holding a plaintext dump of an entire
+vault, so what it holds and when it is destroyed is itself part of the design — bytes in a
+`SecretBytes` that can be zeroed, decoded text never retained, one plan per source, and a
+bounded number of undoable batches. Full argument in
+[`../09-Import-Export/02-Import-Service.md`](../09-Import-Export/02-Import-Service.md).
+
+---
+
+### D25 — "Absolute path" is not the question; "names local storage" is
+
+**Status:** Accepted
+**Decision:** Every path arriving from outside — a double-clicked file, a dragged file, an
+`argv` entry, or a path the renderer sends back over IPC — is checked against an **allow-list
+of shapes that name this machine's own storage** (`src/shared/model/local-path.ts`), not
+against `path.isAbsolute`.
+
+**Why this is a security check and not a formatting check.** On Windows, touching a path is not
+a local operation. `\\attacker.example\share\x.keep` is a perfectly ordinary absolute path — it
+has no URL scheme, no `..` segment, and a `.keep` extension — and the moment anything calls
+`stat` on it the OS opens an **SMB connection to a host the attacker named** and by default
+performs an NTLMv2 handshake with the logged-in user's credentials. Three things go wrong at
+once: an outbound network connection from an app whose hard rule 5 is zero network by default;
+a credential disclosure, since the NTLMv2 response is offline-crackable and is the standard
+payload of a UNC-path phishing link; and a synchronous hang in the main process, before any
+window exists, for as long as the connection takes to time out. None of it requires the file to
+exist, and none of it requires the user to do more than double-click a `.lnk` someone sent
+them. (Subsystem audit finding N1.)
+
+**Why an allow-list.** The refused shapes are UNC (`\\host\share`), its forward-slash spelling,
+a device path to a UNC (`\\?\UNC\…`), the device namespace (`\\.\pipe\…`), and a rooted path
+with no drive (`\Users\…`, which resolves against whichever drive is current). A deny-list of
+those five would be one Windows path syntax away from being wrong again, and Windows has more
+path syntaxes than anyone has a complete list of. The one Windows shape that names local
+storage is a drive letter followed by a separator, so that is what is allowed.
+
+**A doubled POSIX root is refused too**, and that is not pedantry: `//host/share/v.keep` is a
+syntactically valid POSIX path _and_ the forward-slash spelling of a Windows UNC share, and the
+platform-agnostic validator at the IPC boundary does not know which OS the string came from.
+Accepting a bare leading `/` there would have let the attack through the one check that most
+needed to stop it. POSIX calls a leading `//` implementation-defined and `path.posix.normalize`
+collapses it, so refusing it costs nothing real.
+
+**Why it lives in `@shared`.** Two places need the same answer and rule 8 says they get it from
+one list: `src/main/shell/file-open-request.ts` receives paths from the OS, and
+`src/shared/ipc/validation.ts` receives them back from the renderer. Both were letting a UNC
+path through. It is written as a regex rather than over `node:path` because this module is
+compiled into the renderer's project and must stay free of Node built-ins.
+
+**Consequence:** recorded in [`../00-Overview/03-Threat-Model.md`](../00-Overview/03-Threat-Model.md)
+§1 as a threat Keyhold defends against, because "opening a file cannot make a network
+connection" is a property a user of an offline password manager is entitled to assume and would
+never think to ask about.
+
+---
+
+### D26 — A merge refuses on a duplicate id rather than resolving it
+
+**Status:** Accepted
+**Decision:** `mergeDocuments` asserts that records, folders and tags each hold no repeated id,
+on all three inputs, before it reads anything — and throws a named `DuplicateIdError` carrying
+the side, the entity and every offending id.
+
+**Why refusing is the answer.** Two entries under one id is corruption: identity is what the
+whole engine merges _by_, so the input does not describe a state the model can represent. There
+are three honest responses, and two of them cost the user something this one does not.
+
+- **Keep one and report the other.** That is a lost credential with a note attached, and a note
+  is not a password. Hard rule 6 has no "but we said so" clause. This was the pre-existing
+  behaviour, and it was silent: `new Map` keeps the last entry for a repeated key, so the merge
+  discarded one before looking at either — and could lose a second, unrelated record as a
+  knock-on. (Subsystem audit finding N3.)
+- **Keep both under fresh ids.** Minting an id needs a CSPRNG, which makes the engine impure
+  and its output unreproducible between the resolver loop's two passes; the new id is a _new
+  record_ to the other device, so the duplicate propagates rather than resolving; and it severs
+  the record from its ancestor, its history and its attachment chunks. That is repairing
+  corruption by manufacturing more of it.
+- **Refuse.** Costs nothing. The engine is pure and writes no file, so a refusal leaves both
+  vaults exactly as they were, on disk, with every record still in them.
+
+**And the user already has a repair path.** `document-diagnosis.ts` emits `duplicate-record-id`
+for precisely this state, which means the codebase's answer to "what do I do about it" predates
+this guard and is not merging. The error is named rather than bare so a dialog can say _which
+file, which list, which ids_ and point at the diagnosis, instead of saying "merge failed".
+
+**Scope:** records, folders and tags. Custom fields, security questions and attachments are
+deliberately not checked here — `assertValidCredential` already refuses a record with duplicate
+ids in those lists, and a second copy of that rule would be the duplicate list rule 8 forbids.
+
+**Consequence:** a merge is the one operation that reads two meanings of a thing at once and
+writes a single answer. Doing that when the thing has two meanings _on one side_ is how a vault
+loses a password, so this sits alongside "absence is not deletion" as a rule that outranks
+convenience. See [`../07-Sync-And-Merge/00-Merge-Engine.md`](../07-Sync-And-Merge/00-Merge-Engine.md) §3.
+
+---
+
 ## Decisions deferred to implementation
 
 Recorded so they are consciously decided rather than accidentally defaulted.

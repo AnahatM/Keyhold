@@ -4,8 +4,8 @@
 > key and no file anywhere in it. Current reference. Implemented by `src/main/sync/` and
 > `src/shared/model/sync.ts`.
 >
-> **Status: the engine is built and tested — 277 tests, including five whole-engine
-> properties. Nothing a user can reach exists.** There is no `kh:sync:*` channel in
+> **Status: the engine is built and tested, including five whole-engine properties. Nothing a
+> user can reach exists.** There is no `kh:sync:*` channel in
 > `CHANNELS`, no file watcher, no base-snapshot storage, no conflict-resolver UI, and no
 > caller taking the mandatory pre-merge backup. `mergeDocuments` is currently called only by
 > its own tests. See §11.
@@ -74,6 +74,50 @@ in exactly one situation: it is in the ancestor and gone from **both** sides, wh
 devices agreeing it was purged. That produces a `record-purged` note.
 
 Deletion has a marker for precisely this reason.
+
+### A duplicate id is refused, not resolved
+
+The rule above is about a record that is present on one side. This one is about a document
+that has gone wrong in a way the model cannot represent at all, and it fires **before**
+anything is read.
+
+`assertUniqueIds` walks records, folders and tags on all three inputs and throws a named
+`DuplicateIdError` — carrying the side, the entity and every offending id, sorted — the moment
+one list holds two entries under one id. That guard is what makes `indexRecords` safe: `new Map`
+keeps the last entry for a repeated key, so without it the merge quietly discarded one of the
+two before it had looked at either, and could take a second, unrelated record with it. That was
+the behaviour until this landed (subsystem audit finding N3).
+
+Two entries under one id is corruption, because identity is what every part of this engine
+merges _by_. There are three honest responses and two of them cost the user something this one
+does not.
+
+| Response                   | What it costs                                                                                                                                                                                                                                                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keep one, report the other | A lost credential with a note attached — and a note is not a password. Hard rule 6 has no "but we said so" clause                                                                                                                                                                                                                   |
+| Keep both under fresh ids  | Minting an id needs a CSPRNG, so the engine stops being pure and its output stops being reproducible between the resolver loop's two passes; the new id is a _new record_ to the other device, so the duplicate propagates rather than resolving; and it severs the record from its ancestor, its history and its attachment chunks |
+| **Refuse**                 | Nothing. The engine is pure and writes no file, so a refusal leaves both vaults exactly as they were, on disk, with every record still in them                                                                                                                                                                                      |
+
+The user also has a repair path already: `document-diagnosis.ts` emits `duplicate-record-id`
+for precisely this state, which means the codebase's answer to "what do I do about it" predates
+this guard and is not merging. The error is **named** rather than bare so a dialog can say which
+file, which list and which ids, and point at the diagnosis — asking a UI to pattern-match prose
+is how a dialog ends up saying "merge failed". Nothing in it is secret material: an id is
+already what `MergeNote.targetId` and the `duplicate-record-id` diagnostic carry.
+
+The sides are checked ours, theirs, then base — the order the user can act on. A duplicate in
+their own file is something they can repair now; one in the stored base snapshot is the least
+alarming of the three and should not be the message they see when their own vault is the one
+that needs work.
+
+Custom fields, security questions and attachments are deliberately **not** checked here.
+`assertValidCredential` already refuses a record with duplicate ids in those lists, and a
+second copy of that rule would be the duplicate list hard rule 8 forbids.
+
+This sits beside `assertSameDocumentVersion`, which refuses for the same shape of reason: a
+merge is the one operation that reads two meanings of a thing at once and writes a single
+answer, so doing it when the thing has two meanings on one side — or means two different things
+across a schema version — is how a vault loses a password. Full rationale in decision D26.
 
 ---
 
@@ -440,15 +484,18 @@ None of this is reachable by a user. Specifically:
 
 ## 13. Tests
 
-277 in `src/main/sync/`.
+In `src/main/sync/`. No total is written here on purpose: a count in prose is true the day it is
+typed and silently false the next time a case lands, with nothing that fails when it drifts. Run
+`npx vitest run src/main/sync` for the current number. What is worth stating is _what_ each file
+covers, which changes only when someone decides it should.
 
-| File                        | Tests | Covers                                                                                                                                          |
-| --------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `properties.test.ts`        | 155   | The five whole-engine properties over fifteen scenarios · the 27-cell tombstone matrix in both directions · the planted-marker no-secrets sweep |
-| `merge-record.test.ts`      | 51    | Per-field resolution · the tombstone rules with and without an ancestor · keyed lists and tag sets · history settings · metadata folding        |
-| `merge-document.test.ts`    | 29    | Which records exist at all · absence-is-not-deletion and its companion tombstone case · counts · the document-version refusal                   |
-| `merge-collections.test.ts` | 26    | Folders, the tag palette, the settings policy table, and `repairFolderTree`                                                                     |
-| `merge-history.test.ts`     | 16    | De-duplication by identity · deletion via the ancestor · the invariants on every result · numbering left alone when nothing was interleaved     |
+| File                        | Covers                                                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `properties.test.ts`        | The five whole-engine properties over fifteen scenarios · the 27-cell tombstone matrix in both directions · the planted-marker no-secrets sweep                                       |
+| `merge-record.test.ts`      | Per-field resolution · the tombstone rules with and without an ancestor · keyed lists and tag sets · history settings · metadata folding                                              |
+| `merge-document.test.ts`    | Which records exist at all · absence-is-not-deletion and its companion tombstone case · counts · the document-version refusal · the duplicate-id refusal on each side and each entity |
+| `merge-collections.test.ts` | Folders, the tag palette, the settings policy table, and `repairFolderTree`                                                                                                           |
+| `merge-history.test.ts`     | De-duplication by identity · deletion via the ancestor · the invariants on every result · numbering left alone when nothing was interleaved                                           |
 
 ---
 

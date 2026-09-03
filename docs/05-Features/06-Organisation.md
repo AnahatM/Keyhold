@@ -5,12 +5,10 @@
 > equivalent. Current reference. Implemented by `src/main/organisation/` and
 > `src/renderer/src/organisation/`.
 >
-> **Status: the operations engine and the sidebar are both built and tested — 96 tests in
-> the main process, 18 for the renderer's tree model. Neither half is connected to the
-> other.** There are no `kh:organisation:*` entries in `CHANNELS`, `VaultService` composes
-> none of these operations, and `OrganisationSidebar` is not mounted in `App.tsx`. The
-> sidebar's read-only surfaces would work today; every mutation reports that the vault cannot
-> answer. See §9, which also records **two places where the two halves currently disagree.**
+> **Status: built, tested and connected.** `CHANNELS` carries `kh:organisation:list` plus the
+> `kh:folders:*` and `kh:tags:*` groups, `VaultService` composes the operations against the
+> open vault, and `OrganisationSidebar` is mounted by `VaultScreen.tsx`. See §9 for what
+> remains, including **two places where the two halves disagree.**
 
 ---
 
@@ -308,50 +306,59 @@ UI-side check is a courtesy, never a guarantee.
 
 ## 9. Not built yet — and two disagreements to settle first
 
-### Not connected
+### Still outstanding
 
-- **The IPC channels.** There are no `kh:organisation:*` entries in `CHANNELS`.
-  `ipc-gateway.ts` names the nine it expects: `list`, `create-folder`, `rename-folder`,
-  `move-folder`, `delete-folder`, `create-tag`, `rename-tag`, `set-tag-colour`, `delete-tag`.
-  Filing a record needs no new channel — `kh:credentials:update` already accepts `folderId`.
-- **`VaultService` composes none of these operations.** The main-process functions are pure
-  over a document and nothing calls them on the open vault.
-- **`OrganisationSidebar` is not mounted.** `App.tsx` renders `ClearToastsOnLock` and the
-  screen switch, and nothing else. The sidebar was written against the `OrganisationGateway`
-  interface precisely so it would not block on the bridge: `fake-gateway.ts` binds it to an
-  in-memory vault for the tests, `ipc-gateway.ts` probes for the real bridge at call time, and
-  it lights up on its own the moment the channels land.
+The bridge that used to be the whole of this section has landed. `CHANNELS` carries
+`kh:organisation:list` and the `kh:folders:*` / `kh:tags:*` groups, `VaultService` composes the
+pure operations against the open vault, and `VaultScreen.tsx` mounts `OrganisationSidebar`.
+Filing a record still needs no channel of its own — `kh:credentials:update` already accepts
+`folderId`.
+
+Writing the sidebar against the `OrganisationGateway` interface is what made that a wiring job
+rather than a rewrite: `fake-gateway.ts` bound it to an in-memory vault for the tests,
+`ipc-gateway.ts` probed for the real bridge at call time, and it lit up on its own when the
+channels arrived.
+
+What is left:
+
 - **Favourites, and the query-bar UI** (roadmap Phase 7).
+- **A keyboard path for renaming a tag** — double-click is currently the only one (audit
+  finding N35).
 
-### Two places where the two halves currently disagree
+### Two places where the two halves used to disagree — both settled
 
-Both are real mismatches in the code, recorded here rather than fixed, because the fix belongs
-with whoever writes the IPC layer.
+Both were real, both were data-shaped, and both are fixed. They are kept here rather than
+deleted because _how_ they happened is the argument for the rule that now prevents them.
 
-**The folder-delete policy.** `src/main/organisation/folder-ops.ts` declares
-`FOLDER_DELETE_POLICIES = ['reparent', 'unfile']`, where `'unfile'` deletes the **whole
-subtree** and unfiles every record beneath it.
-`src/renderer/src/organisation/gateway.ts` declares
-`FOLDER_DELETION_POLICIES = ['reparent', 'unfile-records']` and states that "in **both**
-policies, subfolders are reparented rather than deleted". The value names differ and the
-semantics differ. A `delete-folder` channel wired today would either reject the renderer's
-string or delete a subtree the dialog promised to keep.
+Neither was a careless copy. Each file declared its own list, and each argued its case in a
+docblock, at length and well. That is exactly why hard rule 8 says **no second list** rather
+than "be careful with second lists": two well-reasoned lists still disagree, and the
+disagreement surfaces at the boundary, at runtime, in front of a user.
 
-**The tag colour vocabulary.** Two constants share the name `TAG_COLOUR_TOKENS` and do not
-share their members:
+**The folder-delete policy.** `src/main/organisation/` declared
+`FOLDER_DELETE_POLICIES = ['reparent', 'unfile']`, where `'unfile'` removes the whole subtree.
+`src/renderer/src/organisation/gateway.ts` declared
+`FOLDER_DELETION_POLICIES = ['reparent', 'unfile-records']` and its docblock promised that "in
+**both** policies, subfolders are reparented rather than deleted". The names differed _and_
+the meanings differed — so a user choosing what the dialog called "move the records out" would
+have lost every subfolder beneath, having just been told they were keeping them.
 
-|         | `src/main/organisation/tag-colours.ts`                         | `src/renderer/src/organisation/tag-colours.ts`              |
-| ------- | -------------------------------------------------------------- | ----------------------------------------------------------- |
-| Values  | `text-muted`, `text-subtle`, `border-strong`, `info`, `accent` | `neutral`, `accent`, `info`, `success`, `warning`, `danger` |
-| Default | `text-muted`                                                   | `neutral`                                                   |
+**The tag colour vocabulary.** Two constants named `TAG_COLOUR_TOKENS` shared only two
+members. The renderer offered `success`, `warning` and `danger`; the main process's validator
+did not accept them, so **four of the six colours the sidebar offered would have been rejected
+at the boundary** the moment the channel existed. Picking "Red" would have produced an error,
+not a red tag.
 
-The main-process file argues explicitly _against_ the status tokens the renderer offers:
-`success`, `warning` and `danger` carry meaning — they are the health dashboard's signal for
-weak, expiring and breached — and a vault where tags are also red and green is a vault where
-the real warnings stop reading as warnings. `isTagColour` in the main process would reject
-four of the renderer's six, and `neutral` is not a `ColourToken` at all. Both files
-independently record that the right long-term answer is a dedicated `--kh-color-tag-*` family
-in `tokens.ts`, each with its own contrast requirement, so the existing guard would cover them
+Both now come from one place, `src/shared/model/organisation.ts`, and
+`organisation.test.ts` is the guard. It asserts the exact membership of both lists, that the
+tag palette excludes the health dashboard's three signal colours — a decorative tag wearing
+the same red as "this password is reused" is how a real warning stops reading as one — and
+that the renderer's old `'unfile-records'` spelling is refused, because a revert is more
+likely than a typo.
+
+The palette is still thin, and the reason is unchanged: the theme has no tag ramp. Adding
+`tag-1 … tag-n` to `COLOUR_TOKENS`, each with its own contrast requirement, is the way to
+widen it, and the existing contrast guard would then cover every one of them in every theme
 for free.
 
 ### Duplication that is deliberate, and one that is not

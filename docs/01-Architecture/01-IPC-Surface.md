@@ -126,7 +126,7 @@ the API on `window` for any page script to reach.
 
 ## 7. The launch smoke test is part of this surface
 
-`npm run build && npm run test:smoke` drives 40 checks through the **real** IPC surface in a
+`npm run build && npm run test:smoke` drives its checks through the **real** IPC surface in a
 real Electron process. It exists because the defect class it was written for — a
 sandboxed-ESM preload — builds cleanly, launches cleanly, and silently leaves
 `window.keyhold` undefined. No unit test catches that.

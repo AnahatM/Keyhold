@@ -137,9 +137,11 @@ renders through the existing primitive. No second `EmptyState` component.
 
 ## 7. Not built
 
-- **The global shortcut table and the command palette** (Ctrl/Cmd+K) — the first item of
-  Phase 15, and a prerequisite for an F6 "jump to notifications" hotkey. Undo toasts are
-  reachable by Tab today, being last in the document.
+- **An F6 "jump to notifications" hotkey.** The shortcut table and the command palette are
+  built and mounted now — see
+  [`03-Command-Palette-And-Shortcuts.md`](./03-Command-Palette-And-Shortcuts.md) — so this has
+  somewhere to live; nothing has claimed F6. Undo toasts are reachable by Tab today, being last
+  in the document.
 - **The image lightbox** — Phase 15, and it wants attachments (Phase 9) to be worth having.
 - **Stacking and exit animation, and swipe-to-dismiss** — motion the reduced-motion switch
   would have to remove anyway, for no information gain.

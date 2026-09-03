@@ -4,10 +4,11 @@
 > deliberately no way to copy a password from any of it. Current reference. Implemented by
 > `src/renderer/src/commands/`.
 >
-> **Status: built and tested — 160 tests. Not mounted.** `CommandsProvider` is exported from
-> the barrel and nothing in `App.tsx` renders it, so no key is bound and the palette cannot
-> be opened. Two of the eleven commands also need handlers only their owning views can
-> supply. See §8.
+> **Status: built, tested and mounted.** `App.tsx` renders `<CommandsProvider />` outside the
+> screen switch, so the key listener is global and survives a navigation. `palette.open` and
+> `help.shortcuts` also arrive from the native menu through
+> `src/renderer/src/shell/menu-bridge.ts`. Two commands still need handlers only their owning
+> views can supply. See §8.
 
 ---
 
@@ -286,17 +287,15 @@ and the one underneath is inert but still painted, which reads as a rendering bu
 
 ## 8. Not built yet
 
-- **Nothing mounts `CommandsProvider`.** `App.tsx` renders `ClearToastsOnLock` and the screen
-  switch. Until the provider is mounted, no key is bound, the palette cannot be opened, and
-  the help sheet cannot be shown. Roadmap Phase 15 still lists "Global shortcut table and the
-  command palette (Ctrl/Cmd+K)" as outstanding, which is true of the _wiring_ and no longer
-  true of the code.
 - **Two handlers have no owner yet.** `focusSearch` and `toggleSidebar` are optional props;
-  the credential list and the vault screen's layout state have to supply them, and the
-  corresponding shortcuts and commands stay unbound and unlisted until they do.
+  `App.tsx` mounts `CommandsProvider` with neither, because both belong to the vault screen's
+  own state and are wired when that screen owns them. Their shortcuts and commands stay
+  unbound and unlisted until it does. `menu-bridge.ts` deliberately does not route them
+  either — a global listener reaching across the app into a component's state is how every
+  feature ends up having to register itself with it.
 - **The setting.** `CommandsProvider` takes `enabled`, defaulting to on, so hard rule 7's
-  preference has somewhere to land the moment there is a settings store to hold it. There is
-  no such store yet.
+  preference has somewhere to land the moment something reads the settings snapshot for it.
+  The mount in `App.tsx` passes no `enabled`, so the palette cannot currently be turned off.
 - **User-rebindable shortcuts.** The table is fixed. `findShortcutConflicts` exists and is
   tested, which is most of what a rebinding UI would need, but nothing rebinds anything.
 - **The image lightbox**, the other unbuilt item in Phase 15, which wants attachments first.
