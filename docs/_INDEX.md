@@ -14,23 +14,23 @@ that exists. **A written folder does not mean a reachable feature** — several 
 engines that are built and tested with no IPC channel and no UI, and each such page opens with a
 status blockquote saying exactly what is missing.
 
-| Folder                                                    | Contents                                                                                                                | Status      |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------- |
-| [`00-Overview/`](./00-Overview/_INDEX.md)                 | What Keyhold is · naming & glossary · competitive analysis · threat model                                               | **Written** |
-| [`01-Architecture/`](./01-Architecture/_INDEX.md)         | Process model, module map, the safe projection, the IPC contract                                                        | **Written** |
-| [`02-Security/`](./02-Security/_INDEX.md)                 | Crypto design, key hierarchy, process hardening, the safe-projection boundary                                           | **Written** |
-| [`03-Data-Model/`](./03-Data-Model/_INDEX.md)             | The record schema, the secret classification, field types, operations                                                   | **Written** |
-| [`04-Vault-Format/`](./04-Vault-Format/_INDEX.md)         | The **KEEP** container spec — publishable and implementable by third parties                                            | **Written** |
-| [`05-Features/`](./05-Features/_INDEX.md)                 | One page per feature — generator, health, history, search, attachments, TOTP, folders and tags, the breach check        | **Partial** |
-| [`06-UI-Design-System/`](./06-UI-Design-System/_INDEX.md) | Tokens, themes, the accent system, the shell, components, a11y rules, the palette, onboarding and the theme studio      | **Written** |
-| [`07-Sync-And-Merge/`](./07-Sync-And-Merge/_INDEX.md)     | The three-way merge engine, the conflict matrix and the merge report                                                    | **Written** |
-| [`08-Diagnostics/`](./08-Diagnostics/_INDEX.md)           | Reading a damaged `.keep` without a password, ranking the copies beside it, and the report that carries no user content | **Written** |
-| [`09-Import-Export/`](./09-Import-Export/_INDEX.md)       | Every supported format with its field-mapping table, plus the import service — the dry run, the duplicate rule and undo | **Written** |
-| [`11-Development/`](./11-Development/_INDEX.md)           | Setup, scripts, conventions, testing policy, toolchain decisions                                                        | **Written** |
-| [`12-Roadmap/`](./12-Roadmap/_INDEX.md)                   | Master checklist · feature backlog · decision log                                                                       | **Written** |
-| [`13-Packaging/`](./13-Packaging/_INDEX.md)               | Building, the unsigned-binary reality, the release checklist and CI                                                     | **Written** |
-| [`14-Audits/`](./14-Audits/_INDEX.md)                     | The security audit and the docs-vs-code audit, with anchored findings                                                   | **Written** |
-| [`superpowers/specs/`](./superpowers/specs/)              | Point-in-time design specs. **History, not current reference**                                                          | **Written** |
+| Folder                                                    | Contents                                                                                                                           | Status      |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| [`00-Overview/`](./00-Overview/_INDEX.md)                 | What Keyhold is · naming & glossary · competitive analysis · threat model                                                          | **Written** |
+| [`01-Architecture/`](./01-Architecture/_INDEX.md)         | Process model, module map, the safe projection, the IPC contract                                                                   | **Written** |
+| [`02-Security/`](./02-Security/_INDEX.md)                 | Crypto design, key hierarchy, process hardening, the safe-projection boundary                                                      | **Written** |
+| [`03-Data-Model/`](./03-Data-Model/_INDEX.md)             | The record schema, the secret classification, field types, operations                                                              | **Written** |
+| [`04-Vault-Format/`](./04-Vault-Format/_INDEX.md)         | The **KEEP** container spec — publishable and implementable by third parties                                                       | **Written** |
+| [`05-Features/`](./05-Features/_INDEX.md)                 | One page per feature — generator, health, history, search, attachments, TOTP, folders and tags, the breach check, session activity | **Written** |
+| [`06-UI-Design-System/`](./06-UI-Design-System/_INDEX.md) | Tokens, themes, the accent system, the shell, components, a11y rules, the palette, onboarding and the theme studio                 | **Written** |
+| [`07-Sync-And-Merge/`](./07-Sync-And-Merge/_INDEX.md)     | The three-way merge engine, the conflict matrix and the merge report                                                               | **Written** |
+| [`08-Diagnostics/`](./08-Diagnostics/_INDEX.md)           | Reading a damaged `.keep` without a password, ranking the copies beside it, and the report that carries no user content            | **Written** |
+| [`09-Import-Export/`](./09-Import-Export/_INDEX.md)       | Every supported format with its field-mapping table, plus the import service — the dry run, the duplicate rule and undo            | **Written** |
+| [`11-Development/`](./11-Development/_INDEX.md)           | Setup, scripts, conventions, testing policy, toolchain decisions                                                                   | **Written** |
+| [`12-Roadmap/`](./12-Roadmap/_INDEX.md)                   | Master checklist · feature backlog · decision log                                                                                  | **Written** |
+| [`13-Packaging/`](./13-Packaging/_INDEX.md)               | Building, the unsigned-binary reality, the release checklist and CI                                                                | **Written** |
+| [`14-Audits/`](./14-Audits/_INDEX.md)                     | The security audit and the docs-vs-code audit, with anchored findings                                                              | **Written** |
+| [`superpowers/specs/`](./superpowers/specs/)              | Point-in-time design specs. **History, not current reference**                                                                     | **Written** |
 
 ### Numbering, and the three slots that got claimed by something else
 

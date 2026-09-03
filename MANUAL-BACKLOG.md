@@ -54,10 +54,14 @@ Windows is the development machine. These need a Mac to verify, and cannot be si
 
 ---
 
-## 🟡 M3 — Install project dependencies if Claude's `npm install` is blocked
+## ~~M3~~ — Install project dependencies — **done, and no longer a live item**
 
-Claude will attempt `npm install` during Phase 0. If it fails for permissions or network reasons,
-run it manually in `C:\Dev\Credentials-App` and say so.
+`npm install` succeeded during Phase 0 and `node_modules/` has been present ever since; every
+gate run in this repo depends on it. Kept as a heading rather than deleted so the numbering
+stays stable — M4, M5 and M6 are referenced from the docs by number.
+
+**The one dependency that is still outstanding is `kdbxweb`** — that is M-KDBX below, and it
+is a separate decision rather than a rerun of this.
 
 ---
 
@@ -125,15 +129,21 @@ npm run package:dir
 Then the full path: `npm run package:win`, install it, unlock a vault.
 macOS needs a Mac (see M2).
 
-## M-CI · Apply the remaining packaging steps
+## 🟢 M-CI · One packaging step left, and it is gated on going public
 
-1. `npm run format` once — a number of files are not Prettier-clean, and `verify.yml`'s
-   `format:check` step would fail on the first run.
-2. Create `.github/dependabot.yml` — paste-ready content is in
-   `docs/13-Packaging/00-Building-And-Releasing.md` under "Dependabot".
-3. Once the repo is public: add `macos-latest` to the `verify.yml` matrix (four lines,
-   flagged in a comment there) and add `actions/dependency-review-action`, which needs the
-   dependency graph that private repos only get under Advanced Security.
+1. ~~`npm run format` once~~ — **done.** The whole repository is Prettier-clean and
+   `format:check` is inside `verify:full`, which is the command CI runs, so a file that is
+   not clean now fails the gate rather than being discovered later.
+2. ~~Create `.github/dependabot.yml`~~ — **done.** It was listed here as manual because it "is
+   not a workflow file and has to be created separately", but that reasoning was about
+   `.github/workflows/`, which a token without the `workflow` scope cannot push.
+   `dependabot.yml` is not in that directory and pushed normally. The issue templates,
+   `config.yml` and the pull-request template landed with it, which were the other half of
+   the Phase 18 line.
+3. **Still yours, and genuinely gated:** once the repo is public, add `macos-latest` to the
+   `verify.yml` matrix (four lines, flagged in a comment in the file) and add
+   `actions/dependency-review-action`, which needs the dependency graph that private
+   repositories only get under Advanced Security. Both are one edit after M5.
 
 No secrets to add — both workflows use the run's own `github.token`.
 

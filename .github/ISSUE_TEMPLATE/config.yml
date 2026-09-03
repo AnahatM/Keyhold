@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/AnahatM/Keyhold/security/advisories/new
+    about: Report privately, never as a public issue. See SECURITY.md.

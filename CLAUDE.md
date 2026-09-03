@@ -30,7 +30,7 @@ Work the phases in order. Tick items as they land. Nothing lives only in chat.
 | Packaging    | electron-builder — NSIS + portable (Win), DMG + zip (macOS)                  |
 | Argon2id     | `hash-wasm` (pure WASM — **never** a native binding)                         |
 | AES-256-GCM  | Node `crypto`, main process only                                             |
-| KDBX interop | `kdbxweb` + our WASM Argon2 — **planned (Phase 11), not installed**          |
+| KDBX interop | `kdbxweb` + our WASM Argon2 — **not installed**; MANUAL-BACKLOG M-KDBX       |
 | Strength     | `@zxcvbn-ts/core`, lazily loaded, **main process only**                      |
 
 ---
@@ -162,6 +162,31 @@ test could never fail. No coverage target is chased.
   field to it is a vulnerability, and the property test exists to catch exactly that.
 - **`docs/superpowers/specs/` is history.** A spec that has drifted from the code is a record of an
   earlier decision, not a bug to fix.
+- **Built and unreachable is the failure mode this project actually has.** Five subsystems have now
+  been finished, thoroughly tested, and mounted nowhere: the settings screen, the session activity
+  log, the onboarding tour's re-run, the inline generator, and `InlineGenerator` again from the
+  editor. Every test of each one passed the whole time, because no test of a subsystem can see that
+  nothing calls it. When you finish something, **open the app and use it** — and write the guard
+  that drives the caller, not the component.
+- **A style is not a theme.** Colour tokens (`--kh-color-*`) belong to the theme; material tokens
+  (`--kh-style-*`) belong to the style. A token belongs to the style if changing the theme should
+  not change it, and to the theme if changing the style should not. The focus ring, motion and
+  spacing belong to **neither** — see `docs/06-UI-Design-System/05-Styles-And-The-Token-Split.md`.
+- **A decorative edge is not a control outline.** `--kh-edge` fades and thins with the style; an
+  input's or popover's outline keeps `--kh-color-border-strong` at a fixed 1px, because it carries
+  WCAG 1.4.11 weight and the palettes have no headroom — `border-strong` on `bg` in Dawn clears 3.0
+  by a hair.
+- **A list of keyed entries does not belong in `VaultSettings`.** Saved searches and site rules both
+  went on `VaultDocument` instead, because anything inside `settings` merges by last-writer-wins and
+  one machine's whole list silently replaces the other's. Content goes beside `folders` and `tags`;
+  configuration goes in `settings`.
+- **`parseVaultDocument` is additive.** A new document field read with `?? []` needs no
+  `documentVersion` bump and no migration — but it **does** need a line in `mergeDocuments`, or it
+  vanishes the first time two machines sync, silently and with nothing to point at.
+- **The import parser contract takes a `string`.** That is right for the text formats and
+  structurally wrong for `.1pux`, which is a ZIP — it crosses as `latin1`, the one encoding that
+  survives arbitrary bytes. KDBX will hit the same wall. The durable fix is an optional
+  `parseBytes` on `ImportParser`; until then, `BINARY_PARSERS` names the exception out loud.
 
 ---
 

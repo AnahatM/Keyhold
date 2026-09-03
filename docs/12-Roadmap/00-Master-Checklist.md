@@ -703,7 +703,9 @@ and technical at once, rather than a stock Electron window.
 
 ## Phase 19 — Documentation & README
 
-- [ ] Complete the numbered `docs/` tree using the **`comprehensive-documentation`** skill
+- [x] Complete the numbered `docs/` tree — fourteen folders, every one with an `_INDEX.md`,
+      and the three deliberate gaps in the numbering (`10-`, and the pages `07-`/`08-` were
+      reserved for) explained in `docs/_INDEX.md` rather than left to be wondered about
 - [x] `_INDEX.md` in every folder plus the top-level `docs/_INDEX.md`
 - [x] Doc/code mismatches and deliberate oddities — now `docs/14-Audits/01-Doc-Code-Audit.md`,
       because `13-` was taken by packaging by the time it was written
@@ -714,13 +716,19 @@ and technical at once, rather than a stock Electron window.
       the day every vault already on disk would have stopped opening. It found a spec bug
       within a minute of existing: §12's draft wrote the cipher id lower-case while §3 had had
       it right all along. **Publishing it outside the repo is gated on M5** (going public)
-- [ ] **`README.md` using the `anahat-readme` skill** — never freehanded
+- [x] **`README.md` using the `anahat-readme` skill** — never freehanded
 - [x] README must include: the three-line pitch, the honest comparison table (including where
       competitors win), screenshots, the threat model summary, install instructions with the
       unsigned-build steps, and the "how to leave" export story — the comparison table and the
       unsigned-build steps were the two that were missing
-- [ ] Project `CLAUDE.md` finalised — stack, commands, architecture, conventions, guardrails, docs map, watch-outs
-- [ ] Final check of `MANUAL-BACKLOG.md` — nothing left undone that was assumed done
+- [x] Project `CLAUDE.md` finalised — and the "watch out for" list gained the six traps this
+      build actually fell into, starting with the one that came up five times: a subsystem can
+      be finished, tested and mounted nowhere, and no test of it can tell
+- [x] Final check of `MANUAL-BACKLOG.md` — and the useful findings were in the **other**
+      direction: two entries were assumed undone and were not. M3 (`npm install`) has been
+      done since Phase 0, and M-CI's dependabot step was listed as manual on reasoning that
+      applies to `.github/workflows/` and not to `dependabot.yml`, which pushed normally —
+      so that file, the issue templates and the pull-request template are now committed
 
 ---
 

@@ -483,10 +483,12 @@ Add it when the repository goes public.
 > Scheduled workflows are automatically disabled after **60 days** of repository
 > inactivity. If the audit stops appearing, that is why; re-enable it from the Actions tab.
 
-### Dependabot — to be added by hand
+### Dependabot
 
-`.github/dependabot.yml` is not a workflow file and has to be created separately. This
-configuration is ready to paste:
+`.github/dependabot.yml` is committed and live. It was expected to need adding by hand — the
+reasoning being that it "is not a workflow file" — but that restriction is about
+`.github/workflows/`, which a token lacking the `workflow` scope cannot push. `dependabot.yml`
+is not in that directory, and pushed like any other file. This is what is in it:
 
 ```yaml
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -517,7 +519,13 @@ updates:
 ```
 
 Issue and pull-request templates (`.github/ISSUE_TEMPLATE/`, `.github/pull_request_template.md`)
-are the other half of the Phase 18 checklist item and are also not workflow files.
+were the other half of that Phase 18 line and are committed for the same reason.
+
+The bug template opens by asking people **not** to paste a password, a vault file or an
+export, and points a security report at `SECURITY.md` rather than at a public issue —
+`config.yml` puts that link above the "blank issue" option, where somebody in a hurry will
+see it. The pull-request template's second checkbox is the one that matters: every guard has
+to have been fault-injected, because a guard nobody has watched fail is not known to work.
 
 ---
 
