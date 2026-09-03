@@ -293,7 +293,15 @@ _Full notes: `docs/05-Features/00-Password-Generator.md`._
       independently discover the same constraint converge instead of keeping both rules. Rides
       the lossless export, because a restored backup that had lost the bank's 16-character
       limit would make the user rediscover it the next time a password was rejected
-- [ ] Generate-and-replace that auto-versions the old password — the other half of that line
+- [x] Generate-and-replace that auto-versions the old password — and the versioning needed no
+      code, which is the design rather than an accident: replacing a password in the editor is
+      an ordinary `updateCredential`, which already writes a history entry for every field
+      that moved. A dedicated generate-and-replace path would be a second way to change a
+      password, and of two, one eventually stops versioning — silently, since a missing entry
+      looks exactly like a record nobody edited. What _was_ missing is that `InlineGenerator`
+      was written, tested, exported and mounted nowhere, so the editor had a password box and
+      no way to fill it. It now resolves the site rule from the URLs **in the form**, not the
+      saved record — somebody typing a new credential has saved nothing yet
 - [x] `docs/05-Features/00-Password-Generator.md` written
 
 ## Phase 9 — Encrypted attachments ~ MOUNTED, MINUS DRAG-AND-DROP

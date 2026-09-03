@@ -23,6 +23,7 @@ import type { VaultChangedExternally } from '../model/vault-change.js';
 import type { KdfCost, SettingsSnapshot } from '../model/settings-plan.js';
 import type { ActivityEntry, ActivitySnapshot } from '../model/activity.js';
 import type { SavedSearch } from '../model/saved-search.js';
+import type { SiteRule } from '../model/site-rules.js';
 import type { AttachmentAddView, AttachmentAudit, AttachmentPreview } from '../model/attachment.js';
 import type { ExportFormatDescriptor } from '../model/export.js';
 import {
@@ -476,6 +477,27 @@ export interface SavedSearchApi {
   remove: (searchId: string) => Promise<IpcResult<readonly SavedSearch[]>>;
 }
 
+/**
+ * Per-site generator rules — what a particular site will accept.
+ *
+ * The whole rule crosses the bridge, unlike anything under a credential's `fields`. A rule
+ * holds a host, a partial generator config and a note the user wrote about the site; none of
+ * that is secret material, and the renderer needs all of it to generate a password that the
+ * site will take and to say *why* the result was shorter than usual.
+ *
+ * `set` is an upsert keyed by host, so the renderer never has to know whether a rule already
+ * exists — see `VaultService.setSiteRule`.
+ */
+export interface SiteRuleApi {
+  read: () => Promise<IpcResult<readonly SiteRule[]>>;
+  set: (
+    url: string,
+    options: Record<string, unknown>,
+    note?: string
+  ) => Promise<IpcResult<readonly SiteRule[]>>;
+  remove: (host: string) => Promise<IpcResult<readonly SiteRule[]>>;
+}
+
 export interface SettingsApi {
   read: () => Promise<IpcResult<SettingsView>>;
   updateMachine: (patch: Record<string, unknown>) => Promise<IpcResult<SettingsView>>;
@@ -622,6 +644,7 @@ export interface KeyholdApi {
   settings: SettingsApi;
   activity: ActivityApi;
   searches: SavedSearchApi;
+  siteRules: SiteRuleApi;
   attachments: AttachmentsApi;
   exporter: ExporterApi;
   importer: ImporterApi;
@@ -703,6 +726,10 @@ export const CHANNELS = {
   searchesCreate: 'kh:searches:create',
   searchesUpdate: 'kh:searches:update',
   searchesDelete: 'kh:searches:delete',
+
+  siteRulesList: 'kh:site-rules:list',
+  siteRulesSet: 'kh:site-rules:set',
+  siteRulesDelete: 'kh:site-rules:delete',
 
   attachmentsAdd: 'kh:attachments:add',
   attachmentsRemove: 'kh:attachments:remove',

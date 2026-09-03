@@ -12,6 +12,7 @@ import { credentialMoveTargets, folderMoveTargets } from './move-targets.js';
 import { useOrganisation } from './organisation-store.js';
 import { SavedSearchList } from './SavedSearchList.js';
 import { useSavedSearches } from './saved-search-store.js';
+import { useSiteRules } from './site-rule-store.js';
 import { SmartViewList } from './SmartViewList.js';
 import { TagFilterList } from './TagFilterList.js';
 import './organisation.css';
@@ -70,6 +71,7 @@ export function OrganisationSidebar(): React.JSX.Element {
   } = useOrganisation();
 
   const refreshSearches = useSavedSearches((state) => state.refresh);
+  const refreshSiteRules = useSiteRules((state) => state.refresh);
 
   const [movingFolderId, setMovingFolderId] = useState<string | null>(null);
   const [deletingFolderId, setDeletingFolderId] = useState<string | null>(null);
@@ -93,6 +95,14 @@ export function OrganisationSidebar(): React.JSX.Element {
     if (vaultId === '') return;
     void refreshSearches();
   }, [vaultId, refreshSearches]);
+
+  // Loaded here rather than in the editor, because the editor mounts and unmounts constantly
+  // and re-reading the rule list on every record selection would be a channel call per click
+  // for a list that changes only when the user changes one.
+  useEffect(() => {
+    if (vaultId === '') return;
+    void refreshSiteRules();
+  }, [vaultId, refreshSiteRules]);
 
   const counts = useMemo(() => countRecordsByFolder(credentials, tree), [credentials, tree]);
 

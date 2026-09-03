@@ -36,11 +36,21 @@ import {
   unlock as unlockKeys,
   type DeriveKeyFn,
 } from '../crypto/envelope.js';
+import type { GeneratorOptions } from '@shared/model/generator.js';
+import {
+  bySiteRuleHost,
+  normaliseSiteRule,
+  siteRuleProblem,
+  SITE_RULE_MAX,
+  type SiteRule,
+} from '@shared/model/site-rules.js';
 import {
   duplicateSearchName,
   invalidSavedSearch,
+  invalidSiteRule,
   noSuchSavedSearch,
   tooManySavedSearches,
+  tooManySiteRules,
 } from '../organisation/errors.js';
 import {
   bySavedSearchOrder,
@@ -1145,6 +1155,78 @@ export class VaultService {
     if (clash) {
       throw duplicateSearchName();
     }
+  }
+
+  // ── Site rules ───────────────────────────────────────────────────────────────
+  //
+  // What a particular site will accept. Content on the document, like the saved searches
+  // above, and keyed by registrable host rather than by an id — see `site-rules.ts` for why
+  // the host being the identity is what makes two machines converge on the same rule instead
+  // of keeping two.
+
+  siteRules(): readonly SiteRule[] {
+    return [...this.#requireOpen().document.siteRules].sort(bySiteRuleHost);
+  }
+
+  /**
+   * Saves the rule for a site, replacing any rule already held for that host.
+   *
+   * **One upsert, not create-plus-update.** The host is the identity and it is derived from a
+   * URL already on screen, so "remember this" and "change this" are the same gesture. A
+   * `createSiteRule` that refused a duplicate host would force every caller to check first,
+   * and that check would be a second copy of the identity rule.
+   */
+  setSiteRule(input: {
+    /** A URL or a bare host. Normalised here, so a caller never has to know the rule. */
+    readonly url: string;
+    readonly options: Partial<GeneratorOptions>;
+    readonly note?: string;
+  }): SiteRule {
+    const open = this.#requireOpen();
+
+    const candidate = normaliseSiteRule({
+      host: input.url,
+      options: input.options,
+      ...(input.note === undefined ? {} : { note: input.note }),
+      // Never left alone: this is what the merge tie-breaks on, so an update that did not
+      // stamp it would let the older of two edits win.
+      updatedAt: Date.now(),
+    });
+
+    const problem = siteRuleProblem(candidate);
+    if (problem !== null) throw invalidSiteRule(problem);
+
+    const existing = open.document.siteRules;
+    const replacing = existing.some((rule) => rule.host === candidate.host);
+    // Checked only when adding. Correcting a rule on a vault that is already at the cap must
+    // not be refused — the list is not growing.
+    if (!replacing && existing.length >= SITE_RULE_MAX) throw tooManySiteRules(SITE_RULE_MAX);
+
+    this.#open = {
+      ...open,
+      document: {
+        ...open.document,
+        siteRules: replacing
+          ? existing.map((rule) => (rule.host === candidate.host ? candidate : rule))
+          : [...existing, candidate],
+      },
+      dirty: true,
+    };
+    return candidate;
+  }
+
+  /** Forgets a site's rule. `false` when there was nothing to forget. */
+  deleteSiteRule(host: string): boolean {
+    const open = this.#requireOpen();
+    const remaining = open.document.siteRules.filter((rule) => rule.host !== host);
+    if (remaining.length === open.document.siteRules.length) return false;
+
+    this.#open = {
+      ...open,
+      document: { ...open.document, siteRules: remaining },
+      dirty: true,
+    };
+    return true;
   }
 
   // ── History ──────────────────────────────────────────────────────────────────

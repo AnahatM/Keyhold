@@ -46,7 +46,11 @@ export type OrganisationErrorCode =
   /** Two rows with the same name are two rows the user cannot tell apart. */
   | 'DUPLICATE_SEARCH_NAME'
   /** Empty name, empty query, or either one over its cap. */
-  | 'INVALID_SAVED_SEARCH';
+  | 'INVALID_SAVED_SEARCH'
+  /** The document already holds `SITE_RULE_MAX`. */
+  | 'TOO_MANY_SITE_RULES'
+  /** A host that cannot key a rule, a note over its cap, or an unusable options object. */
+  | 'INVALID_SITE_RULE';
 
 export class OrganisationError extends Error {
   readonly code: OrganisationErrorCode;
@@ -144,4 +148,20 @@ export function duplicateSearchName(): OrganisationError {
  */
 export function invalidSavedSearch(reason: string): OrganisationError {
   return new OrganisationError('INVALID_SAVED_SEARCH', `That search cannot be saved — ${reason}.`);
+}
+
+export function tooManySiteRules(limit: number): OrganisationError {
+  return new OrganisationError(
+    'TOO_MANY_SITE_RULES',
+    `This vault already has the maximum of ${String(limit)} site rules.`
+  );
+}
+
+/**
+ * `reason` comes from `siteRuleProblem`, which is written to read at the end of this sentence
+ * and never to quote the value it is complaining about — a rule's note is text the user wrote
+ * about a site they use, and this message ends up in a banner.
+ */
+export function invalidSiteRule(reason: string): OrganisationError {
+  return new OrganisationError('INVALID_SITE_RULE', `That rule cannot be saved — ${reason}.`);
 }
