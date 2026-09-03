@@ -158,13 +158,35 @@ exist yet. Each needs a channel group added to `src/shared/ipc/api.ts`, a handle
 `src/main/ipc/register.ts`, a validator, and a preload binding — the same shape as
 `kh:generator:*`, `kh:health:*` and `kh:history:*`, which are done and can be copied.
 
-- `kh:settings:*` — reading and writing `VaultSettings`, plus the master-password change.
+- ~~`kh:settings:*`~~ — **done**, except the master-password change and the KDF re-key.
+  Those two are envelope-crypto operations rather than settings writes, and belong in a slice
+  of their own with the re-wrap tested against a real vault file.
 - `kh:import:*` — list formats, detect, preview (a dry run), commit, undo.
 - `kh:export:*` — list formats, run an export, and **the main process owns the save dialog
   and the file write**; the renderer must never receive a path it chose.
-- `kh:folders:*` and `kh:tags:*` — the operations in `src/main/organisation/`.
-- `kh:attachments:*` — add, remove, read, audit. **Attachment bytes go through the secret
-  broker with a TTL**, exactly like a password reveal.
+- ~~`kh:folders:*` and `kh:tags:*`~~ — **done**.
+- ~~`kh:attachments:*`~~ — **done**. Both dialogs are opened in the main process and the
+  bytes never cross the bridge; there is deliberately no `read` channel.
 - `kh:totp:*`, `kh:recovery:*`, `kh:sync:*` — once those engines are finished.
 
 Each agent's report names the exact payloads.
+
+---
+
+## M-CLAUDEMD · Two factual corrections to `CLAUDE.md`
+
+Both were found by the doc/code audit (`docs/14-Audits/01-Doc-Code-Audit.md`, F8 and F15)
+and verified as still true. `CLAUDE.md` is Anahat's to edit, so they were left rather than
+made. Neither is urgent; both mislead a reader.
+
+1. **Line 45** currently says `npm run typecheck # tsc --noEmit across all three tsconfigs`.
+   It runs **two** passes — `tsconfig.node.json` and `tsconfig.web.json`.
+   `tsconfig.base.json` holds shared compiler options and is never checked on its own.
+   `docs/11-Development/00-Setup-And-Scripts.md` already words this correctly ("against both
+   tsconfigs"). Suggested: `# tsc --noEmit across both tsconfigs`.
+
+2. **The stack table, line 33** lists `KDBX interop | kdbxweb + our WASM Argon2` as though
+   it were installed. `kdbxweb` is not a dependency, `EXPORT_FORMATS` holds four formats and
+   none of them is KDBX, and `docs/09-Import-Export/01-Export-Formats.md` correctly lists it
+   under "Not built". `docs/00-Overview/03-Threat-Model.md` has already been corrected.
+   Suggested: `KDBX interop | kdbxweb + our WASM Argon2 — planned, Phase 11; not installed`.
