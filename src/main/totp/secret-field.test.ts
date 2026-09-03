@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
+import { decodeBase32 } from './base32.js';
 import { TotpError } from './errors.js';
 import {
   parseOtpSecretField,
@@ -17,8 +18,14 @@ import {
  * should fail.
  */
 
-const URI_FIELD = 'otpauth://totp/Example:ada?secret=JBSWY3DPEHPK3PXP';
-const BARE_FIELD = 'JBSWY3DPEHPK3PXP';
+const SEED = 'JBSWY3DPEHPK3PXP';
+const URI_FIELD = `otpauth://totp/Example:ada?secret=${SEED}`;
+const BARE_FIELD = SEED;
+
+/** `JSON.stringify` turns a `Uint8Array` into `{"0":72,"1":101,…}`, so that is the leak shape. */
+const SEED_AS_JSON_BYTES = JSON.stringify(Object.fromEntries([...decodeBase32(SEED)].entries()));
+/** The hex form, kept only so the assertion below covers it too rather than only it. */
+const SEED_HEX = Buffer.from(decodeBase32(SEED)).toString('hex');
 
 describe('reading whichever form the importer stored', () => {
   it('reads a full otpauth URI and says the parameters came from the record', () => {
@@ -95,8 +102,23 @@ describe('the convenience entry points', () => {
   it('does not leave the decoded seed alive after the call', () => {
     // The seed is decoded, used, and destroyed inside the call. Nothing that could hold it
     // afterwards is returned — the result is a string and four numbers.
+    //
+    // **N27(c): the shape of the assertion is the whole test.** It used to sweep for
+    // `deadbeef`, the hex tail of the fixture's decoded bytes — and nothing in this codebase
+    // ever hex-encodes a seed, so the sweep could not fail whatever the function returned.
+    // The three forms below are what a leak here would actually look like: the base32 seed
+    // as the importer stored it, the whole field including the URI wrapper, and a
+    // `Uint8Array` gone through `JSON.stringify`, which serialises as an index-keyed object.
     const result = totpSecretCodeFromField(URI_FIELD, NOW);
     expect(Object.keys(result).sort()).toEqual(['secretCode', 'window']);
-    expect(JSON.stringify(result)).not.toContain('deadbeef');
+
+    const serialised = JSON.stringify(result);
+    for (const leak of [SEED, URI_FIELD, SEED_AS_JSON_BYTES, SEED_HEX]) {
+      expect(serialised).not.toContain(leak);
+    }
+    // Non-vacuity: the markers are real. `SEED` is the seed this fixture actually carries,
+    // and `SEED_AS_JSON_BYTES` is what `JSON.stringify` really does to those bytes.
+    expect(URI_FIELD).toContain(SEED);
+    expect(JSON.stringify({ bytes: decodeBase32(SEED) })).toContain(SEED_AS_JSON_BYTES);
   });
 });
