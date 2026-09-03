@@ -17,6 +17,7 @@ import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '../model
 import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
 import type { PasswordStrength } from '../model/strength.js';
 import type { Folder, Tag, VaultLockedInfo, VaultSummary } from '../model/vault-document.js';
+import type { MenuCommandId } from '../model/menu-commands.js';
 import type { SettingsSnapshot } from '../model/settings-plan.js';
 import type { AttachmentAddView, AttachmentAudit } from '../model/attachment.js';
 import type { ExportFormatDescriptor } from '../model/export.js';
@@ -107,6 +108,15 @@ export type IpcResult<T> = IpcSuccess<T> | IpcFailure;
 export interface AppApi {
   getVersion: () => Promise<string>;
   getPlatform: () => Promise<Platform>;
+  /**
+   * Subscribes to native menu and tray commands the main process could not handle itself.
+   *
+   * Returns an unsubscribe function, the same shape as `session.onStatusChanged`. There is
+   * no general `on(channel, fn)` here and never will be: that would be the receive-side
+   * equivalent of exposing `invoke`, letting the renderer attach to any event the main
+   * process ever emits, including ones added later by someone who never read this file.
+   */
+  onMenuCommand: (listener: (command: MenuCommandId) => void) => () => void;
 }
 
 /**
@@ -570,6 +580,14 @@ export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
  */
 export const EVENTS = {
   sessionChanged: 'kh:event:session-changed',
+  /**
+   * A native menu or tray item was chosen and the app cannot act on it in the main process.
+   *
+   * Pushed, not requested, because a menu click originates outside the renderer entirely.
+   * The payload is a `MenuCommandId` and the preload refuses anything else — see
+   * `@shared/model/menu-commands.ts` for why that list is shared rather than duplicated.
+   */
+  menuCommand: 'kh:event:menu-command',
   ...IMPORT_EVENTS,
 } as const;
 
