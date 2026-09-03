@@ -4,6 +4,15 @@ import './Input.css';
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
   /**
+   * A ref onto the underlying `<input>`.
+   *
+   * Declared rather than reached for with `forwardRef`: in React 19 a ref is an ordinary prop,
+   * so the existing `...rest` spread already delivers it to the element — the type was the only
+   * thing missing. Needed by Ctrl+F, which has to focus this box from a shortcut handler
+   * mounted above it.
+   */
+  readonly ref?: React.Ref<HTMLInputElement>;
+  /**
    * Required, not optional.
    *
    * A placeholder is not a label: it vanishes the moment someone types, it is invisible to

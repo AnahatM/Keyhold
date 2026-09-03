@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { Button } from '../components/Button.js';
 import { ContentViewer } from '../content/index.js';
@@ -33,6 +33,7 @@ import { CredentialEditor } from './CredentialEditor.js';
 import { CredentialList } from './CredentialList.js';
 import { useCredentials } from './credential-store.js';
 import { useSession } from './session-store.js';
+import { useRegisterVaultAction } from './vault-actions.js';
 import { useTransfer } from './transfer-store.js';
 import './vault-screens.css';
 
@@ -66,6 +67,12 @@ export function VaultScreen({
   // keeps only what it still owns.
   const { selectedId, editing, select, setShowTrash } = useCredentials();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Ctrl+B, in the registry and the palette and, until now, wired to nothing.
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((collapsed) => !collapsed);
+  }, []);
+  useRegisterVaultAction('toggleSidebar', toggleSidebar);
   const openTransfer = useTransfer((state) => state.open);
   const folders = useOrganisation((state) => state.folders);
   const tags = useOrganisation((state) => state.tags);

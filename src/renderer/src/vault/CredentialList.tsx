@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { Badge, EmptyState } from '../components/Feedback.js';
 import { Button } from '../components/Button.js';
 import { Input } from '../components/Input.js';
 import { QueryHelp } from './QueryHelp.js';
+import { useRegisterVaultAction } from './vault-actions.js';
 import { SortControl } from './SortControl.js';
 import { useCredentials, visibleCredentials } from './credential-store.js';
 import { useSession } from './session-store.js';
@@ -28,6 +29,16 @@ const OVERSCAN = 6;
 
 export function CredentialList(): React.JSX.Element {
   const [searchFocused, setSearchFocused] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Ctrl+F. The shortcut and the palette row have both existed since they were written, with
+  // nothing behind them — see `vault-actions.ts`. Selecting as well as focusing, because the
+  // gesture means "search for something else" far more often than "add to what I typed".
+  const focusSearch = useCallback(() => {
+    searchRef.current?.focus();
+    searchRef.current?.select();
+  }, []);
+  useRegisterVaultAction('focusSearch', focusSearch);
   const { credentials } = useSession();
   const {
     selectedId,
@@ -84,6 +95,7 @@ export function CredentialList(): React.JSX.Element {
           onChange={(event) => {
             void setQuery(event.target.value);
           }}
+          ref={searchRef}
           onFocus={() => {
             setSearchFocused(true);
           }}
