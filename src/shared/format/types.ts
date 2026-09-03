@@ -122,6 +122,34 @@ export interface KeepHeader {
   readonly modifiedAt: number;
   /** Monotonic, incremented on every save. Cheap external-change detection. */
   readonly generation: number;
+  /**
+   * SHA-256 of the plaintext body, as 64 lowercase hex characters — or absent.
+   *
+   * **Optional, and it has to stay optional.** Every vault written before this field existed
+   * has none, and the reader keeps the file's own header bytes as the AAD rather than
+   * re-serialising, so an older file's tag still verifies against exactly the bytes it was
+   * sealed with. Adding a *required* field would have broken every existing vault, silently,
+   * at the point of opening it.
+   *
+   * ## What it is for, and what it is not
+   *
+   * `generation` already answers "has this file been written since I last read it" — it is a
+   * counter and it is cheap. It cannot answer "is this file's content different from mine",
+   * which is a different question and the one sync actually has. Two devices editing from
+   * the same ancestor reach generation 8 independently and disagree completely; a device
+   * that copies a vault and copies it back has a higher generation and identical content.
+   * A merge in the first case is necessary and in the second is pure cost — a mandatory
+   * backup, a full three-way pass, and a resolver prompt for a file nobody changed.
+   *
+   * Of the **plaintext** body, deliberately. The ciphertext differs on every save whatever
+   * the content — a fresh nonce is drawn each time, which is the one thing that must never
+   * be reused — so hashing the sealed bytes would answer "was this saved again", which is
+   * what `generation` already says, less usefully.
+   *
+   * It is not a integrity check. The GCM tag is, over both the body and this header, and it
+   * is checked on every open. This is for deciding whether two files need reconciling.
+   */
+  readonly contentHash?: string;
   readonly recordCount: number;
   readonly attachmentCount: number;
 }

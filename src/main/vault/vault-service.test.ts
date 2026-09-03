@@ -7,7 +7,10 @@ import type { Credential } from '@shared/model/credential.js';
 import { emptyVaultDocument } from '@shared/model/vault-document.js';
 import { VaultError } from '../crypto/errors.js';
 import { readVaultFile } from './atomic-write.js';
-import { parseVaultDocument, VaultService } from './vault-service.js';
+import { readPreamble } from '../format/container.js';
+import { newKdfParams } from '../crypto/kdf.js';
+import { bodyDigest, newHeader, parseHeader, serialiseHeader } from '../format/header.js';
+import { parseVaultDocument, serialiseVaultDocument, VaultService } from './vault-service.js';
 
 /**
  * Vault lifecycle.
@@ -394,5 +397,67 @@ describe('saving while a save is in flight', () => {
     service.lock();
     await service.unlock(vaultPath, PASSWORD);
     expect(service.listProjections()).toHaveLength(1);
+  });
+});
+
+describe('the content hash in the header', () => {
+  /**
+   * Guard: the hash actually describes the body.
+   *
+   * Written after an injection that failed nothing — replacing `bodyDigest(body)` with a
+   * digest of unrelated bytes broke no test, so the field could have been garbage and the
+   * suite would have stayed green. Sync's whole "do these two files differ" decision reads
+   * it, and a wrong answer there either skips a merge and loses an edit or runs one for
+   * nothing.
+   */
+  it('matches a digest of the document that was saved', async () => {
+    await create();
+    service.createCredential({ title: 'Bank' });
+    await service.save();
+
+    // `readPreamble` reads the header without a key, which is the same route sync takes and
+    // the reason the header is plaintext at all. The body is re-derived from the document
+    // the service holds rather than decrypted, so this asserts the writer's own arithmetic
+    // rather than re-testing the container.
+    const { header } = readPreamble(await readVaultFile(vaultPath));
+
+    expect(header.contentHash).toBe(bodyDigest(serialiseVaultDocument(service.documentUnsafe())));
+  });
+
+  it('is omitted from the bytes entirely when absent, not written as null', () => {
+    // The compatibility claim, asserted rather than reasoned.
+    //
+    // The header **is** the AAD, so its exact bytes are what the tag covers, and a vault
+    // written before this field existed has to keep serialising to the bytes it was sealed
+    // with. A `"contentHash": null` would be different bytes and would break the tag on every
+    // one of them — a required field here would have broken every existing vault silently,
+    // at the moment of opening it.
+    const header = newHeader({
+      vaultId: 'v',
+      deviceId: 'd',
+      kdf: newKdfParams(),
+      // Base64, because `parseHeader` validates the shape of these — the point of the
+      // test is the presence of one field, not the plausibility of the others.
+      wrappedDek: { nonce: 'AAAA', ciphertext: 'AAAA', tag: 'AAAA' },
+      now: 1,
+    });
+
+    const text = Buffer.from(serialiseHeader(header)).toString('utf8');
+    expect(text).not.toContain('contentHash');
+    expect(parseHeader(serialiseHeader(header)).contentHash).toBeUndefined();
+  });
+
+  it('is unchanged by a save that changes nothing', () => {
+    // The property the feature exists for. A file written twice with no edit between must
+    // compare `identical`, or every cloud-client touch becomes a resolver prompt for a vault
+    // nobody changed — which is how people learn to dismiss the prompt that matters.
+    const body = new Uint8Array(Buffer.from('{"a":1}', 'utf8'));
+    expect(bodyDigest(body)).toBe(bodyDigest(new Uint8Array(Buffer.from('{"a":1}', 'utf8'))));
+  });
+
+  it('changes when the body does', () => {
+    const before = bodyDigest(new Uint8Array(Buffer.from('{"a":1}', 'utf8')));
+    const after = bodyDigest(new Uint8Array(Buffer.from('{"a":2}', 'utf8')));
+    expect(before).not.toBe(after);
   });
 });

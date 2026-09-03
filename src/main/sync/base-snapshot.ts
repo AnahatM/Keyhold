@@ -132,3 +132,40 @@ export function serialiseSnapshot(document: VaultDocument): Uint8Array {
   // thing to keep in step with the first.
   return new Uint8Array(Buffer.from(JSON.stringify(document), 'utf8'));
 }
+
+/**
+ * Whether two vault files need reconciling at all.
+ *
+ * The question a watcher has to answer before it prompts anybody, and the reason
+ * `KeepHeader.contentHash` exists. Both headers are **plaintext**, so this is answerable
+ * without a key, without unlocking, and without decrypting a byte — which is what makes it
+ * cheap enough to run on every filesystem event.
+ *
+ * Three answers, and the middle one is the one that matters:
+ *
+ *  - **`identical`** — same content hash. A file copied, re-synced, or written twice with no
+ *    edit in between. No merge, no prompt, no backup. Without this, every cloud client that
+ *    touches a file would produce a resolver dialog for a vault nobody changed, which is how
+ *    people learn to dismiss the dialog that matters.
+ *  - **`differs`** — different hashes. Genuinely divergent; the merge path is warranted.
+ *  - **`unknown`** — either side has no hash, because it was written before the field
+ *    existed. Falls back to comparing generations, which is what the app had before and is
+ *    correct-but-noisy: it can say "differs" for two identical files. Never the other way
+ *    round, which is the direction that matters — a false "identical" would skip a merge and
+ *    lose an edit.
+ */
+export type VaultComparison = 'identical' | 'differs' | 'unknown';
+
+export function compareVaultContent(
+  ours: { readonly contentHash?: string | undefined; readonly generation: number },
+  theirs: { readonly contentHash?: string | undefined; readonly generation: number }
+): VaultComparison {
+  if (ours.contentHash !== undefined && theirs.contentHash !== undefined) {
+    return ours.contentHash === theirs.contentHash ? 'identical' : 'differs';
+  }
+  // No hash on one side. `generation` is a counter, not a fingerprint: two devices editing
+  // from the same ancestor both reach 8 and disagree completely, so equal generations are
+  // not evidence of equal content. Reported as unknown rather than guessed, so the caller
+  // decides whether to pay for a full comparison rather than being told something false.
+  return 'unknown';
+}
