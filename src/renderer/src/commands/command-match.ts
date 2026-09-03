@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import {
+  classifyMatch,
   foldText,
   matchScore,
   type FieldMatch,
   type MatchField,
-  type MatchKind,
   type ParsedQuery,
   type QueryTerm,
 } from '@shared/search/index.js';
@@ -70,23 +70,6 @@ interface Surface {
   readonly field: CommandField;
   readonly text: string;
   readonly folded: string;
-}
-
-/**
- * Classifies one folded haystack against one folded needle.
- *
- * This mirrors the private `classifyMatch` in `@shared/search/filter.ts`. It is three lines
- * and it is the one thing the engine does not export; `command-match.test.ts` pins it
- * against the engine's own observable output, so if the engine ever changes what counts as
- * a prefix, this file fails rather than quietly ranking commands on a different rule than
- * credentials. The permanent fix is a one-line `export` in `filter.ts`, which this agent
- * does not own — it is written up in the report.
- */
-export function classifyMatch(haystack: string, needle: string): MatchKind | null {
-  if (haystack === needle) return 'exact';
-  if (haystack.startsWith(needle)) return 'prefix';
-  if (haystack.includes(needle)) return 'substring';
-  return null;
 }
 
 /**

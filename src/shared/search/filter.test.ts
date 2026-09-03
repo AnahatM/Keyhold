@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { CredentialProjection } from '../model/credential.js';
 import type { Folder, Tag } from '../model/vault-document.js';
 import {
+  classifyMatch,
   collectDescendantFolderIds,
   filterCredentials,
   matchCredential,
@@ -401,6 +402,28 @@ describe('searchCredentials — flags', () => {
       projection({ id: 'b', title: 'Bank' }),
     ];
     expect(ids(find(records, 'bank is:favorite'))).toEqual(['a']);
+  });
+});
+
+/**
+ * `classifyMatch` is exported, so it is part of this module's contract rather than an
+ * implementation detail. The command palette ranks on it too — that is the whole reason it
+ * is exported — so a change here changes two features, and these four lines are what makes
+ * that deliberate rather than accidental.
+ */
+describe('classifyMatch', () => {
+  it('reports exact, prefix and substring in that order of specificity', () => {
+    expect(classifyMatch('github', 'github')).toBe('exact');
+    expect(classifyMatch('github', 'git')).toBe('prefix');
+    expect(classifyMatch('my github', 'github')).toBe('substring');
+    expect(classifyMatch('github', 'gitlab')).toBeNull();
+  });
+
+  it('normalises nothing — both sides must already be folded', () => {
+    // Callers fold once per search rather than once per comparison, which is why this is a
+    // raw string compare. A caller that forgets gets `null`, not a silent case-insensitive
+    // match, and that is the behaviour worth pinning.
+    expect(classifyMatch('GitHub', 'github')).toBeNull();
   });
 });
 

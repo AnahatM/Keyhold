@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it, vi } from 'vitest';
 import { AUDIT_LEVEL_FIELDS, AUDIT_PRIVACY_LEVELS } from '@shared/model/credential.js';
-import { firstLocalIpv4, OriginCapture } from './origin.js';
+import { firstLocalIpv4, FORCED_REFRESH_MIN_INTERVAL_MS, OriginCapture } from './origin.js';
 import { activeInterfaceName, parseAirportNetwork, parseNetshSsid } from './network-name.js';
 
 /**
@@ -163,7 +163,9 @@ describe('capture is synchronous and cannot hang a save', () => {
 
   it('forgets the network name when a probe fails rather than keeping a stale one', async () => {
     let fail = false;
+    let now = 1_000;
     const subject = capture({
+      now: () => now,
       probe: {
         detect: () =>
           fail ? Promise.reject(new Error('adapter gone')) : Promise.resolve<string | null>('WIFI'),
@@ -174,9 +176,68 @@ describe('capture is synchronous and cannot hang a save', () => {
     expect(subject.cachedNetworkName).toBe('WIFI');
 
     fail = true;
+    // Past the forced-refresh floor, so this is a real second probe and not the throttled
+    // reply. The clock is injected rather than slept through.
+    now += FORCED_REFRESH_MIN_INTERVAL_MS;
     await subject.refreshNetwork();
     // Keeping "WIFI" would be a lie about *when* it was true, recorded in an audit trail.
     expect(subject.cachedNetworkName).toBeNull();
+  });
+});
+
+/**
+ * The forced-refresh floor.
+ *
+ * `refreshNetwork()` is the only route in Keyhold that starts a process on demand, and it
+ * deliberately bypasses the 60-second cache. Without a floor, a renderer looping on
+ * `kh:history:networkName` kept `netsh` or `system_profiler` running back to back.
+ *
+ * Fault injection performed: deleting the `sinceLast` guard in `refreshNetwork` fails
+ * "starts no second process inside the floor"; setting `FORCED_REFRESH_MIN_INTERVAL_MS` to
+ * 0 fails it too.
+ */
+describe('forced refresh is rate-limited', () => {
+  it('starts no second process inside the floor', async () => {
+    const now = 1_000;
+    const detect = vi.fn(() => Promise.resolve<string | null>('WIFI'));
+    const subject = capture({ probe: { detect }, now: () => now });
+
+    await subject.refreshNetwork();
+    expect(detect).toHaveBeenCalledTimes(1);
+
+    for (let index = 0; index < 50; index += 1) {
+      // The loop a compromised renderer would run. Time does not advance.
+      expect(await subject.refreshNetwork()).toBe('WIFI');
+    }
+    expect(detect).toHaveBeenCalledTimes(1);
+  });
+
+  it('probes again once the floor has passed', async () => {
+    let now = 1_000;
+    const detect = vi.fn(() => Promise.resolve<string | null>('WIFI'));
+    const subject = capture({ probe: { detect }, now: () => now });
+
+    await subject.refreshNetwork();
+    now += FORCED_REFRESH_MIN_INTERVAL_MS - 1;
+    await subject.refreshNetwork();
+    expect(detect).toHaveBeenCalledTimes(1);
+
+    now += 1;
+    await subject.refreshNetwork();
+    expect(detect).toHaveBeenCalledTimes(2);
+  });
+
+  it('still answers with the current value while throttled', async () => {
+    const now = 1_000;
+    const subject = capture({
+      probe: { detect: () => Promise.resolve<string | null>('CAFE-WIFI') },
+      now: () => now,
+    });
+
+    // A throttled call is not an error and not a null — the caller asked "what network am
+    // I on?", and the answer from a probe moments ago is the answer to that question.
+    expect(await subject.refreshNetwork()).toBe('CAFE-WIFI');
+    expect(await subject.refreshNetwork()).toBe('CAFE-WIFI');
   });
 });
 

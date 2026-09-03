@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import { describe, expect, it } from 'vitest';
-import { foldText, matchScore, parseQuery, searchCredentials } from '@shared/search/index.js';
-import {
-  COMMAND_FIELDS,
-  classifyMatch,
-  commandSurfaces,
-  matchCommand,
-  searchCommands,
-} from './command-match.js';
-import { command, projection } from './test-fixtures.js';
+import { matchScore, parseQuery } from '@shared/search/index.js';
+import { COMMAND_FIELDS, commandSurfaces, matchCommand, searchCommands } from './command-match.js';
+import { command } from './test-fixtures.js';
 
 /**
  * Command matching, and the guard that keeps it on the same rules as credential matching.
@@ -26,49 +20,15 @@ const all = [lock, trash];
 
 const run = (text: string) => searchCommands(all, parseQuery(text));
 
-describe('classifyMatch mirrors the engine', () => {
-  it('reports exact, prefix and substring in that order of specificity', () => {
-    expect(classifyMatch('github', 'github')).toBe('exact');
-    expect(classifyMatch('github', 'git')).toBe('prefix');
-    expect(classifyMatch('my github', 'github')).toBe('substring');
-    expect(classifyMatch('github', 'gitlab')).toBeNull();
-  });
-
-  /**
-   * The drift guard.
-   *
-   * `classifyMatch` is private in `@shared/search/filter.ts`, so the three lines are
-   * mirrored in `command-match.ts`. This test runs the **real engine** over real
-   * projections and asserts that the kind it reports is the kind this copy would have
-   * reported — so if the engine ever changes what counts as a prefix, commands and
-   * credentials cannot silently start ranking on two different rules.
-   */
-  it('agrees with what searchCredentials reports for the same strings', () => {
-    const cases: readonly (readonly [string, string])[] = [
-      ['github', 'github'],
-      ['github', 'git'],
-      ['my github account', 'github'],
-      ['Café', 'cafe'],
-      ['GITHUB', 'github'],
-    ];
-
-    for (const [title, needle] of cases) {
-      const results = searchCredentials([projection({ id: 'x', title })], {
-        query: parseQuery(needle),
-      });
-      const engineKind = results[0]?.matches[0]?.kind ?? null;
-
-      // Both sides folded by the engine's own `foldText`, which is what `buildHaystack`
-      // uses. Reaching for `parseQuery(title)` here would tokenise the title on spaces and
-      // compare against only its first word — a mistake this guard caught the first time it
-      // ran, which is a fair advertisement for having written it.
-      expect(classifyMatch(foldText(title), foldText(needle)), `${title} / ${needle}`).toBe(
-        engineKind
-      );
-    }
-  });
-});
-
+/**
+ * There is no `classifyMatch` drift guard here any more, deliberately.
+ *
+ * This file used to mirror the engine's three-line `classifyMatch` and pin the copy against
+ * `searchCredentials`' observable output, because `@shared/search/filter.ts` did not export
+ * it. It does now, `command-match.ts` imports it, and a test comparing the engine's function
+ * to the engine's own search results could no longer fail. The contract it was guarding is
+ * asserted directly in `src/shared/search/filter.test.ts`, next to the function.
+ */
 describe('commandSurfaces stays inside the declared mapping', () => {
   /**
    * `COMMAND_FIELDS` is the list; this is the assertion that makes it mean something.

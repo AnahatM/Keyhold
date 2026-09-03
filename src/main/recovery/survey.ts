@@ -6,7 +6,7 @@ import type {
   SurveyedFileRole,
   VaultFileSurvey,
 } from '@shared/model/recovery.js';
-import { BACKUP_INFIX, TEMP_SUFFIX } from '../vault/atomic-write.js';
+import { BACKUP_INFIX, QUARANTINE_INFIX, TEMP_SUFFIX } from '../vault/atomic-write.js';
 import { inspectVaultFile } from './file-inspection.js';
 import { formatCount } from './text.js';
 
@@ -41,15 +41,6 @@ import { formatCount } from './text.js';
  * person's real name often enough to matter — into a report meant to be pasted into a public
  * issue tracker.
  */
-
-/**
- * The infix `quarantineOrphanedTemp` uses when it renames a temp aside.
- *
- * Restated here because `atomic-write.ts` builds it inline and does not export it, and this
- * module does not own that file. It is the one string in this module that could drift; a
- * guard test pins it, and the fix is to export the constant there — recorded rather than made.
- */
-const QUARANTINE_INFIX = '.recovered-';
 
 /** The legacy single-backup extension, per `docs/04-Vault-Format/00-KEEP-Format-Spec.md` §11. */
 const LEGACY_BACKUP_EXTENSION = '.keepbak';

@@ -157,9 +157,29 @@ export function applyWebContentsHardening(contents: WebContents): void {
 }
 
 /**
- * Session-level hardening: the CSP header, and a blanket denial of every web
- * permission. An offline password manager needs none of camera, microphone,
- * geolocation, notifications or clipboard-read.
+ * The one web permission Keyhold grants, and the reasoning for the exception.
+ *
+ * Everything else is denied: camera, microphone, geolocation, notifications, MIDI, idle
+ * detection, window management, and — importantly — `clipboard-read`, which would let a
+ * compromised renderer harvest whatever the user last copied from another application.
+ *
+ * `clipboard-sanitized-write` is different in kind. It is *write*-only and sanitised, so it
+ * grants no read access and cannot exfiltrate anything; it is what `navigator.clipboard
+ * .writeText` needs. Denying it broke a real feature silently: `PlainField`'s copy button
+ * (usernames, emails, URLs — never secrets) called `writeText`, the promise rejected with
+ * `NotAllowedError`, nothing was copied, and no error was shown, because a blanket denial
+ * produces no signal at the call site. A control that quietly breaks a feature gets
+ * "temporarily" removed wholesale by the next person to debug it, which is a far worse
+ * outcome than one named exception written down.
+ *
+ * Secrets do **not** ride on this. They are copied by the main process through
+ * `SecretClipboard`, which owns the auto-clear timer and the platform exclusion markers.
+ */
+const ALLOWED_PERMISSIONS: ReadonlySet<string> = new Set(['clipboard-sanitized-write']);
+
+/**
+ * Session-level hardening: the CSP header, and denial of every web permission bar the
+ * single write-only clipboard one documented above.
  */
 export function applySessionHardening(): void {
   const ses = session.defaultSession;
@@ -174,11 +194,20 @@ export function applySessionHardening(): void {
     });
   });
 
-  ses.setPermissionRequestHandler((_wc, _permission, callback) => {
-    callback(false);
+  // Both handlers are set, and both consult the same set. Electron routes a request through
+  // one and a `navigator.permissions.query`-style check through the other; answering them
+  // differently is how a permission ends up effectively granted or effectively denied
+  // depending on which path Chromium happens to take for a given API.
+  ses.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(isPermissionAllowed(permission));
   });
 
-  ses.setPermissionCheckHandler(() => false);
+  ses.setPermissionCheckHandler((_wc, permission) => isPermissionAllowed(permission));
+}
+
+/** Exported so the guard test asserts the real predicate, not a copy of its table. */
+export function isPermissionAllowed(permission: string): boolean {
+  return ALLOWED_PERMISSIONS.has(permission);
 }
 
 /** Applies every hardening control to a freshly created window. */

@@ -1,12 +1,39 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { join } from 'node:path';
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, nativeTheme } from 'electron';
+import {
+  DEFAULT_DARK_THEME_ID,
+  DEFAULT_LIGHT_THEME_ID,
+  FALLBACK_THEME,
+  findTheme,
+} from '@shared/theme/themes.js';
 import { HARDENED_WEB_PREFERENCES, hardenWindow } from './security.js';
 import { readWindowState, trackWindowState, windowOptionsFromState } from './window-state.js';
 
 /** Below this the three-pane layout collapses to a single pane; smaller is unusable. */
 const MIN_WIDTH = 720;
 const MIN_HEIGHT = 520;
+
+/**
+ * The colour painted before the renderer's first paint.
+ *
+ * This used to be the literal `#12131a`, which was wrong twice over. It was the one
+ * hardcoded colour in a codebase whose stated hard rule is that every colour is a
+ * `--kh-color-*` token — and neither guard test could see it, because both operate over the
+ * theme definitions and a `BrowserWindow` option is not one. And because it was a fixed dark
+ * value, every launch on a light theme opened with a dark flash.
+ *
+ * Now it is the `bg` token of a real theme, chosen by the OS appearance the same way the
+ * renderer chooses its default. It is not the *user's* chosen theme — that lives in the
+ * renderer's own storage and is not readable here — so someone running Midnight on a light
+ * OS still gets one light frame. That is a strictly smaller mismatch than the previous
+ * always-dark behaviour, and closing it entirely means moving the appearance preference into
+ * the main process, which is a bigger change than this defect warrants.
+ */
+function initialBackgroundColour(): string {
+  const id = nativeTheme.shouldUseDarkColors ? DEFAULT_DARK_THEME_ID : DEFAULT_LIGHT_THEME_ID;
+  return (findTheme(id) ?? FALLBACK_THEME).palette.bg;
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -25,7 +52,7 @@ export function createMainWindow(): BrowserWindow {
     // security tool reads as "did it crash?".
     show: false,
     autoHideMenuBar: false,
-    backgroundColor: '#12131a',
+    backgroundColor: initialBackgroundColour(),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       ...HARDENED_WEB_PREFERENCES,

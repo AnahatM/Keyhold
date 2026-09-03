@@ -14,10 +14,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * and nodeIntegration, and adding 'unsafe-eval' to script-src, each fails this file.
  */
 
+/**
+ * Hoisted so the handler tests below can assert on the same function the module under test
+ * calls. Reaching for it as `vi.mocked(shell.openExternal)` would work, but pulling a method
+ * off an object detaches it from its receiver, which the lint config rightly objects to.
+ */
+const openExternalMock = vi.hoisted(() => vi.fn());
+
 vi.mock('electron', () => ({
   app: { isPackaged: false },
   session: { defaultSession: {} },
-  shell: { openExternal: vi.fn() },
+  shell: { openExternal: openExternalMock },
 }));
 
 const loadSecurity = async () => import('./security.js');
@@ -135,6 +142,130 @@ describe('handing a URL to the browser', () => {
   ])('refuses %s rather than handing it to the OS', async (url) => {
     const { openExternally } = await loadSecurity();
     expect(openExternally(url)).toBe(false);
+  });
+});
+
+/**
+ * The handlers actually installed on a WebContents — not the configuration object.
+ *
+ * This is the gap the audit found: every test above asserts a value in
+ * `HARDENED_WEB_PREFERENCES` or the CSP string, and none of them could see that
+ * `window.ts` was installing a *second* `setWindowOpenHandler` twenty lines after
+ * `hardenWindow`, replacing the hardened one and dropping its scheme check. A defect of
+ * that shape leaves every assertion above green. These tests invoke what was registered.
+ *
+ * Fault injection performed: calling `shell.openExternal(url)` directly in the window-open
+ * handler instead of `openExternally(url)` fails "never hands a non-http(s) URI to the OS
+ * from the window-open handler"; returning `{ action: 'allow' }` fails "denies every popup";
+ * dropping `event.preventDefault()` from `will-attach-webview` fails "prevents a webview
+ * from ever attaching".
+ */
+describe('the handlers applyWebContentsHardening actually installs', () => {
+  interface FakeContents {
+    handlers: Map<string, (...args: unknown[]) => void>;
+    openHandler: ((details: { url: string }) => { action: string }) | null;
+    on: (event: string, listener: (...args: unknown[]) => void) => void;
+    setWindowOpenHandler: (handler: (details: { url: string }) => { action: string }) => void;
+    closeDevTools: () => void;
+  }
+
+  const fakeContents = (): FakeContents => {
+    const contents: FakeContents = {
+      handlers: new Map(),
+      openHandler: null,
+      on(event, listener) {
+        contents.handlers.set(event, listener);
+      },
+      setWindowOpenHandler(handler) {
+        contents.openHandler = handler;
+      },
+      closeDevTools: vi.fn(),
+    };
+    return contents;
+  };
+
+  const hardened = async () => {
+    const security = await loadSecurity();
+    const contents = fakeContents();
+    security.applyWebContentsHardening(
+      contents as unknown as Parameters<typeof security.applyWebContentsHardening>[0]
+    );
+    return contents;
+  };
+
+  it('denies every popup, whatever the URL', async () => {
+    const contents = await hardened();
+    for (const url of ['https://example.com', 'ms-msdt:-id X', 'not a url']) {
+      expect(contents.openHandler?.({ url })).toEqual({ action: 'deny' });
+    }
+  });
+
+  it('never hands a non-http(s) URI to the OS from the window-open handler', async () => {
+    openExternalMock.mockClear();
+
+    const contents = await hardened();
+    for (const url of ['ms-msdt:-id PCWDiagnostic', 'file:///C:/Windows/System32/calc.exe', '~']) {
+      contents.openHandler?.({ url });
+    }
+    expect(openExternalMock).not.toHaveBeenCalled();
+
+    contents.openHandler?.({ url: 'https://keyhold.example/docs' });
+    expect(openExternalMock).toHaveBeenCalledExactlyOnceWith('https://keyhold.example/docs');
+  });
+
+  it('never hands a non-http(s) URI to the OS from will-navigate either', async () => {
+    openExternalMock.mockClear();
+
+    const contents = await hardened();
+    const willNavigate = contents.handlers.get('will-navigate');
+    expect(willNavigate).toBeDefined();
+
+    const event = { preventDefault: vi.fn() };
+    // The two paths had drifted once; `location.href = 'ms-msdt:…'` was the hole.
+    willNavigate?.(event, 'ms-msdt:-id PCWDiagnostic');
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(openExternalMock).not.toHaveBeenCalled();
+  });
+
+  it('prevents a webview from ever attaching', async () => {
+    const contents = await hardened();
+    const event = { preventDefault: vi.fn() };
+    contents.handlers.get('will-attach-webview')?.(event);
+    expect(event.preventDefault).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Web permissions.
+ *
+ * There is exactly one exception to the blanket denial and it is written down in
+ * `security.ts`: `clipboard-sanitized-write` is write-only and sanitised, it cannot read
+ * what the user copied elsewhere, and denying it silently broke the non-secret copy button.
+ * Everything that could exfiltrate — `clipboard-read` above all — stays denied.
+ *
+ * Fault injection performed: adding `'clipboard-read'` to `ALLOWED_PERMISSIONS` fails
+ * "denies every permission that could read or capture anything".
+ */
+describe('web permissions', () => {
+  it('allows exactly one permission, and it is write-only', async () => {
+    const { isPermissionAllowed } = await loadSecurity();
+    expect(isPermissionAllowed('clipboard-sanitized-write')).toBe(true);
+  });
+
+  it.each([
+    'clipboard-read',
+    'media',
+    'geolocation',
+    'notifications',
+    'midiSysex',
+    'display-capture',
+    'idle-detection',
+    'window-management',
+    'openExternal',
+    'unknown',
+  ])('denies %s', async (permission) => {
+    const { isPermissionAllowed } = await loadSecurity();
+    expect(isPermissionAllowed(permission)).toBe(false);
   });
 });
 

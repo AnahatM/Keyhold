@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { execFile } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
+import { join } from 'node:path';
 
 /**
  * Finds a human-meaningful name for the network the machine is currently on.
@@ -27,6 +28,17 @@ import { networkInterfaces } from 'node:os';
  * shell injection surface. Nothing here interpolates user input today — but a future
  * "probe this interface" argument would, and the safe form costs nothing now.
  *
+ * ## Why both binaries are named by absolute path
+ *
+ * `execFile` with a bare program name resolves through the OS search order, and on Windows
+ * `CreateProcess` begins that search with the application directory and — depending on
+ * `SafeProcessSearchMode` — the current working directory, both ahead of `%PATH%`. A
+ * `netsh.exe` dropped in either would then be executed by Keyhold, in Keyhold's process
+ * context, on the ordinary save path. That is not hypothetical for the planned portable
+ * Windows build, which by design lives in a user-writable folder. The macOS branch already
+ * used an absolute path; `netshPath()` makes the Windows branch match. A wrong or missing
+ * path collapses to `null` like every other failure here, so being strict costs nothing.
+ *
  * ## Why the output parsing is so defensive
  *
  * These are localised, undocumented, human-readable CLI outputs that change between OS
@@ -38,6 +50,22 @@ import { networkInterfaces } from 'node:os';
 const PROBE_TIMEOUT_MS = 2_000;
 /** Output past this is certainly not an SSID line we understand; stop reading it. */
 const PROBE_MAX_OUTPUT_BYTES = 512 * 1024;
+
+/**
+ * The absolute path to `netsh.exe`, so the OS search order never gets a say.
+ *
+ * `%SystemRoot%` rather than a hardcoded `C:\Windows` because Windows genuinely does get
+ * installed elsewhere; the literal is only the fallback for an environment that has lost it.
+ * Exported for the guard test that asserts this is never a bare name again.
+ */
+export function netshPath(): string {
+  const systemRoot = process.env.SystemRoot;
+  const root = systemRoot !== undefined && systemRoot !== '' ? systemRoot : 'C:\\Windows';
+  return join(root, 'System32', 'netsh.exe');
+}
+
+/** The absolute path to `system_profiler`, for the same reason as `netshPath`. */
+export const SYSTEM_PROFILER_PATH = '/usr/sbin/system_profiler';
 
 /** A network name we will never record, because it identifies nothing. */
 const USELESS_NAMES = new Set(['', 'none', 'n/a', 'not associated', 'unknown', '<none>']);
@@ -150,11 +178,11 @@ export class SystemNetworkProbe implements NetworkProbe {
 
   async #detectSsid(): Promise<string | null> {
     if (this.#platform === 'win32') {
-      const output = await runCommand('netsh', ['wlan', 'show', 'interfaces']);
+      const output = await runCommand(netshPath(), ['wlan', 'show', 'interfaces']);
       return output === null ? null : parseNetshSsid(output);
     }
     if (this.#platform === 'darwin') {
-      const output = await runCommand('/usr/sbin/system_profiler', [
+      const output = await runCommand(SYSTEM_PROFILER_PATH, [
         'SPAirPortDataType',
         '-detailLevel',
         'basic',

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { BACKUP_INFIX, TEMP_SUFFIX } from '../vault/atomic-write.js';
 import { surveyVaultFiles, type DirectoryEntry } from './survey.js';
 import { buildContainer, truncatedTo } from './test-support.js';
@@ -228,16 +227,5 @@ describe('what a survey may never contain', () => {
     // A pure function of its input: the same entries twice give byte-identical output.
     const entries = [entry('vault.keep', { bytes: buildContainer() })];
     expect(survey(entries)).toEqual(survey(entries));
-  });
-});
-
-describe('the constant this module had to restate', () => {
-  it('still matches the infix `quarantineOrphanedTemp` actually uses', () => {
-    // `survey.ts` restates `.recovered-` because `atomic-write.ts` builds it inline and does
-    // not export it. This is the guard that keeps the copy honest: if that file starts
-    // naming quarantined files differently, this fails rather than the survey silently
-    // classifying them as strangers. The real fix is to export the constant there.
-    const source = readFileSync(new URL('../vault/atomic-write.ts', import.meta.url), 'utf8');
-    expect(source).toContain('.recovered-');
   });
 });

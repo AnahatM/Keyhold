@@ -161,6 +161,13 @@ export function SecretField({
  * Lives beside `SecretField` on purpose: seeing the two together in one file makes the
  * boundary obvious to anyone adding a field, and makes "which of these am I writing?" a
  * question they have to answer.
+ *
+ * The copy path here is the browser clipboard, not the brokered one — a username is not a
+ * secret and clearing someone's clipboard because they copied one would be interference.
+ * It does need a `catch`, though: `applySessionHardening` denies web permissions, and while
+ * `clipboard-sanitized-write` is now the one documented exception, a rejected `writeText`
+ * must show something rather than becoming an unhandled rejection and a button that
+ * silently does nothing.
  */
 export function PlainField({
   label,
@@ -174,6 +181,7 @@ export function PlainField({
   readonly mono?: boolean;
 }): React.JSX.Element | null {
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   if (value === '') return null;
 
   return (
@@ -194,9 +202,19 @@ export function PlainField({
               // A non-secret value goes through the ordinary clipboard, with no auto-clear
               // timer — clearing someone's clipboard because they copied a username would
               // be interference, not protection.
-              void navigator.clipboard.writeText(value).then(() => {
-                setCopied(true);
-              });
+              setError(null);
+              void navigator.clipboard.writeText(value).then(
+                () => {
+                  setCopied(true);
+                },
+                () => {
+                  // Never echo the value into the failure; a clipboard error is about the
+                  // clipboard. Same wording as the generator's, so the two do not describe
+                  // one condition two ways.
+                  setCopied(false);
+                  setError('Keyhold could not reach the clipboard.');
+                }
+              );
             }}
           >
             ⧉
@@ -206,6 +224,11 @@ export function PlainField({
       <span className="kh-visually-hidden" aria-live="polite">
         {copied ? `${label} copied.` : ''}
       </span>
+      {error !== null && (
+        <p className="kh-secret-field__error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

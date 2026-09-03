@@ -289,7 +289,16 @@ function buildHaystack(
   return entries;
 }
 
-function classifyMatch(haystack: string, needle: string): MatchKind | null {
+/**
+ * Classifies one already-folded haystack against one already-folded needle.
+ *
+ * Exported because this engine is the project's single ranked matcher, and the command
+ * palette matches on the same rule. It used to be private, so `command-match.ts` mirrored
+ * these three lines and pinned itself against this engine's observable output to stay
+ * honest; exporting it deletes both the copy and the pin (hard rule 8). Both inputs must
+ * already be through `foldText` — this function does no normalisation of its own.
+ */
+export function classifyMatch(haystack: string, needle: string): MatchKind | null {
   if (haystack === needle) return 'exact';
   if (haystack.startsWith(needle)) return 'prefix';
   if (haystack.includes(needle)) return 'substring';
