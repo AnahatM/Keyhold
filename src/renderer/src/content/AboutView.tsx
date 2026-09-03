@@ -88,7 +88,11 @@ export function AboutView({
 
       {/* `data-selectable` because every address on this page is meant to be copied, and
           the app suppresses text selection everywhere else. */}
-      <article className="kh-content__article" aria-labelledby={titleId} data-selectable="true">
+      <article
+        className="kh-content__article kh-content__article--standalone"
+        aria-labelledby={titleId}
+        data-selectable="true"
+      >
         <h2 className="kh-content__article-title" id={titleId}>
           {ABOUT_TITLE}
         </h2>

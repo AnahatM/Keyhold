@@ -162,7 +162,7 @@ Not everything is a win, and the README should not pretend otherwise.
 
 1. **A password manager that is actually offline** — one encrypted file, no account, no server, no telemetry, no subscription.
 2. **That remembers everything** — per-credential version history with a full device and network audit trail, so you always know what changed and where it changed.
-3. **And that you can leave at any time** — imports from 18+ managers, exports to KDBX 4, format publicly documented.
+3. **And that you can leave at any time** — imports from eighteen managers, a lossless JSON export and Bitwarden's own column set, and a format documented well enough for somebody else to write a reader. (KDBX 4 export is intended and not yet built.)
 
 ---
 

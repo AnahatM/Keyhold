@@ -21,6 +21,7 @@ import {
 export const VAULT_DOCUMENT_VERSION = 1;
 
 import type { SavedSearch } from './saved-search.js';
+import type { SiteRule } from './site-rules.js';
 
 export interface Folder {
   readonly id: string;
@@ -150,6 +151,20 @@ export interface VaultDocument {
    * machine saved a second later is not a trade anyone would choose.
    */
   readonly savedSearches: readonly SavedSearch[];
+  /**
+   * What each site's password policy will accept, keyed by host.
+   *
+   * Here rather than in `settings` for the reason saved searches are, and one more of its own.
+   * The shared reason is the merge: a keyed list inside `VaultSettings` goes through
+   * `mergeSettings`' last-writer-wins, so one machine's whole rule set would replace the
+   * other's. The extra reason is what that would cost — a rule is a constraint the user
+   * *discovered*, usually by having a password rejected, and losing one silently means
+   * rediscovering it the same way.
+   *
+   * Keyed by `host`, with no `id`; see `site-rules.ts` for why that is deliberate and
+   * `mergeSiteRules` for how the merge keys on it without a second copy of the survival rules.
+   */
+  readonly siteRules: readonly SiteRule[];
   readonly settings: VaultSettings;
 }
 
@@ -162,6 +177,7 @@ export function emptyVaultDocument(
     folders: [],
     tags: [],
     savedSearches: [],
+    siteRules: [],
     settings,
   };
 }

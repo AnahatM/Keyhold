@@ -1310,14 +1310,23 @@ export function runSmokeCheck(window: BrowserWindow): void {
         //
         // Opened by clicking the real sidebar row, not by poking the store. Three separate
         // things have to agree for a tool to render anything — the row, the registry, and
-        // the shell's tool mode — and only the click path proves all three. Four rows and
-        // four screenshots, because the whole reason these exist is that three finished
+        // the shell's tool mode — and only the click path proves all three. One row and one
+        // screenshot per tool view, because the whole reason these exist is that finished
         // screens had no way in, and a regression here puts them back where they were.
+        //
+        // The list is written out rather than derived from `TOOL_VIEWS`, which lives in the
+        // renderer and cannot be imported here. That is a real seam, and the guard against it
+        // is `palette-lists-every-tool-view` above, which counts the palette's rows against
+        // the registry — so a tool view added without a line here is caught there rather than
+        // slipping through both.
         for (const [label, name] of [
           ['Generate a password', 'Keyhold-Screenshot-06'],
           ['Vault health', 'Keyhold-Screenshot-07'],
           ['Settings', 'Keyhold-Screenshot-08'],
           ['Help', 'Keyhold-Screenshot-09'],
+          ['Session activity', 'Keyhold-Screenshot-13'],
+          ['What’s new', 'Keyhold-Screenshot-14'],
+          ['About', 'Keyhold-Screenshot-15'],
         ] as const) {
           const opened: unknown = await window.webContents.executeJavaScript(
             `(() => {

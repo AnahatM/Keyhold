@@ -161,6 +161,22 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     symbol: '=',
     countNoun: null,
   },
+  'site-rule-added': {
+    label: 'Site password rules brought in',
+    description:
+      'Rules for what a particular site’s password box accepts. These were remembered in the other file only, and are now in yours too.',
+    severity: 'notice',
+    symbol: '+',
+    countNoun: null,
+  },
+  'site-rule-kept-unmatched': {
+    label: 'Site password rules kept rather than deleted',
+    description:
+      'Present in the shared ancestor and in only one of the two files. Absence alone never deletes, so they were kept — a rule is usually something you found out the hard way.',
+    severity: 'notice',
+    symbol: '=',
+    countNoun: null,
+  },
   'tag-added': {
     label: 'Tags brought in',
     description: 'These exist only in the other file, and are now in yours too.',

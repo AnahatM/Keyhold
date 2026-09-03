@@ -144,9 +144,9 @@ exist yet. Each needs a channel group added to `src/shared/ipc/api.ts`, a handle
 `src/main/ipc/register.ts`, a validator, and a preload binding — the same shape as
 `kh:generator:*`, `kh:health:*` and `kh:history:*`, which are done and can be copied.
 
-- ~~`kh:settings:*`~~ — **done**, except the master-password change and the KDF re-key.
-  Those two are envelope-crypto operations rather than settings writes, and belong in a slice
-  of their own with the re-wrap tested against a real vault file.
+- ~~`kh:settings:*`~~ — **done**, all of it. The master-password change and the KDF re-key
+  landed as their own slice, with the re-wrap tested against a real vault file and both
+  revoking quick unlock, which three places had always promised and nothing had ever done.
 - ~~`kh:import:*`~~ — **done**. Six channels plus a determinate progress event; no channel
   takes a path and none returns file content. What remains is mounting `ImportWizard`, which is
   renderer work, not a channel.
@@ -160,6 +160,11 @@ exist yet. Each needs a channel group added to `src/shared/ipc/api.ts`, a handle
   file path crosses in either direction: the dialog opens in main, the other copy is read
   there, and the renderer is handed a plan id, a report of lengths, and a backup filename.
   The resolver is mounted behind the palette and the File menu.
+- ~~`kh:activity:*`~~ — **done**. One channel, a poll rather than a push, answering with the
+  snapshot plus the last lock notice. It also bound a recorder that was complete, tested, and
+  constructed nowhere outside its own tests.
+- ~~`kh:searches:*`~~ — **done**. Four channels, each answering with the whole list rather
+  than the entry it touched, so the sidebar cannot disagree with the vault about what exists.
 - `kh:totp:*`, `kh:recovery:*` — once those engines are finished.
 
 Each agent's report names the exact payloads.

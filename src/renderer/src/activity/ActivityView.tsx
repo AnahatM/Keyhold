@@ -8,6 +8,7 @@ import { relativeTime } from '../history/origin-labels.js';
 import {
   KIND_SYMBOLS,
   KIND_TONES,
+  LOCK_REASON_LABELS,
   describeEntry,
   recordCount,
   type EntryNaming,
@@ -123,8 +124,18 @@ export function ActivityView({ records, hideTitle = false }: ActivityViewProps):
 
       {lastLock !== null && (
         <p className="kh-activity__notice">
+          {/*
+            The reason alone, not `describeEntry`. That returns the whole sentence — "Vault
+            locked — you locked it" — which read as "…when the vault last locked — Vault locked
+            — you locked it" once this line supplied its own subject. Caught by looking at the
+            rendered screen rather than at the test, which asserted the entry was shown and was
+            perfectly happy with it being shown twice.
+          */}
           <span aria-hidden="true">{KIND_SYMBOLS.lock}</span> The log was cleared when the vault
-          last locked — {describeEntry(lastLock)}.
+          last locked
+          {lastLock.lockReason === undefined
+            ? '.'
+            : ` — ${LOCK_REASON_LABELS[lastLock.lockReason]}.`}
         </p>
       )}
 

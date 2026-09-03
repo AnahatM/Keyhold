@@ -12,12 +12,17 @@ One page per feature. Folders are added as each lands.
 | [`05-TOTP.md`](./05-TOTP.md)                             | —     | Why the RFC vectors are the only reason to trust any of it, why `now` is a parameter, and why base32 rejects rather than producing confidently-wrong digits                                |
 | [`06-Organisation.md`](./06-Organisation.md)             | 7     | The folder-delete policy being the caller's choice, the three cycle guards, `findOrCreateFolderPath` as the import commit stage's dependency, and why every drag has a keyboard equivalent |
 | [`07-Breach-Check.md`](./07-Breach-Check.md)             | 13    | k-anonymity in plain English, why off-by-default is structural rather than a flag, why a failure is never `safe`, and why the CSP must not be relaxed to enable it                         |
+| [`08-Session-Activity.md`](./08-Session-Activity.md)     | 6     | The half of the audit trail history cannot see — reads. Why it is never persisted, why it clears on lock, and why naming a record is off by default                                        |
 
 **Reachability, which is the thing these pages most often get stale about.** The generator, the
-health dashboard, search, organisation and attachments are all wired end to end today. **TOTP and
-the breach check are engines with no way in** — neither has a `kh:*` channel of its own, and
-nothing constructs a breach transport. Each page's status blockquote is the authority; if one
-disagrees with `src/shared/ipc/api.ts`, the contract wins.
+health dashboard, search, organisation, attachments and the session activity log are all wired
+end to end today. **TOTP and the breach check are engines with no way in** — neither has a
+`kh:*` channel of its own, and nothing constructs a breach transport. Each page's status
+blockquote is the authority; if one disagrees with `src/shared/ipc/api.ts`, the contract wins.
+
+The activity log was in that second group until recently, and its page records why that is a
+category worth naming: a subsystem can be complete, tested and unreachable, and no test of the
+subsystem itself can tell.
 
 Import parsing and the import service are documented separately in
 [`09-Import-Export`](../09-Import-Export/_INDEX.md); the merge engine in

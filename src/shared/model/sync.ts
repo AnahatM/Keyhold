@@ -180,6 +180,16 @@ export const MERGE_NOTE_KINDS = [
   'saved-search-added',
   /** Present in the ancestor and on one side only. Kept — absence alone never deletes. */
   'saved-search-kept-unmatched',
+  /** A remembered site rule that exists only on the other side was brought in. */
+  'site-rule-added',
+  /**
+   * Present in the ancestor and on one side only. Kept — absence alone never deletes.
+   *
+   * Worth keeping distinct from the saved-search note it looks like: a rule that comes back is
+   * a password policy the user discovered by having a password rejected, so the cost of the
+   * two directions is not symmetric. Deleting it again is a click.
+   */
+  'site-rule-kept-unmatched',
   'tag-added',
   'tag-kept-unmatched',
   /**
