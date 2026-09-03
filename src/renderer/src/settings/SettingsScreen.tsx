@@ -58,9 +58,20 @@ interface NavEntry {
 export interface SettingsScreenProps {
   /** Injected so the screen can be driven by an in-memory gateway in tests. */
   readonly gateway?: SettingsGateway;
+  /**
+   * Drop the `<h2>` because the frame around this screen already shows the name.
+   *
+   * The same prop the other tool views take. Only the title goes — the subtitle and the
+   * scope legend stay, because they explain what the screen is *for* and the frame's title
+   * does not.
+   */
+  readonly hideTitle?: boolean;
 }
 
-export function SettingsScreen({ gateway }: SettingsScreenProps): React.JSX.Element {
+export function SettingsScreen({
+  gateway,
+  hideTitle = false,
+}: SettingsScreenProps): React.JSX.Element {
   // Memoised so the identity is stable: the loading effect keys off the gateway, and a new
   // object each render would re-read the settings forever.
   const resolved = useMemo(() => gateway ?? createBridgeGateway(), [gateway]);
@@ -123,7 +134,7 @@ export function SettingsScreen({ gateway }: SettingsScreenProps): React.JSX.Elem
       </div>
 
       <header className="kh-settings__header">
-        <h2 className="kh-settings__title">Settings</h2>
+        {!hideTitle && <h2 className="kh-settings__title">Settings</h2>}
         <p className="kh-settings__subtitle">
           Keyhold is meant to be configurable rather than opinionated: every behaviour here is yours
           to choose, and every choice that costs you something says so.

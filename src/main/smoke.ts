@@ -626,10 +626,28 @@ export function runSmokeCheck(window: BrowserWindow): void {
         );
         emit(`SMOKE-CHECK palette-opens-on-its-shortcut ${String(paletteOpen === true)}`);
         await captureNamedShot(window, 'Keyhold-Screenshot-05');
+        // At `document.activeElement`, not at `document`.
+        //
+        // This used to dispatch on `document`, which cannot work and never did: a DOM event
+        // dispatched on the document propagates *up* to the window, never down into the
+        // tree, so a handler on the palette's own `<dialog>` element never saw it. The
+        // palette stayed open for the rest of the run — visible in every screenshot after
+        // this point, obscuring the very views they were capturing — and nothing noticed,
+        // because nothing asserted it had closed.
+        //
+        // That is the third guard in this file found asserting nothing. The lesson is the
+        // same each time: dispatch where the real event would land, then check the result.
         await window.webContents.executeJavaScript(
-          `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+          `(document.activeElement ?? document.body).dispatchEvent(
+             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
           true
         );
+        await new Promise<void>((resolve) => setTimeout(resolve, 250));
+        const paletteClosed: unknown = await window.webContents.executeJavaScript(
+          `document.querySelector('.kh-palette') === null`,
+          true
+        );
+        emit(`SMOKE-CHECK palette-closes-on-escape ${String(paletteClosed === true)}`);
         await new Promise<void>((resolve) => setTimeout(resolve, 200));
         await window.webContents.executeJavaScript(
           `(() => {
@@ -665,6 +683,58 @@ export function runSmokeCheck(window: BrowserWindow): void {
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 350));
         await captureNamedShot(window, 'Keyhold-Screenshot-04');
+
+        // ── The tool views ──────────────────────────────────────────────────
+        //
+        // Opened by clicking the real sidebar row, not by poking the store. Three separate
+        // things have to agree for a tool to render anything — the row, the registry, and
+        // the shell's tool mode — and only the click path proves all three. Four rows and
+        // four screenshots, because the whole reason these exist is that three finished
+        // screens had no way in, and a regression here puts them back where they were.
+        for (const [label, name] of [
+          ['Generate a password', 'Keyhold-Screenshot-06'],
+          ['Vault health', 'Keyhold-Screenshot-07'],
+          ['Settings', 'Keyhold-Screenshot-08'],
+          ['Help', 'Keyhold-Screenshot-09'],
+        ] as const) {
+          const opened: unknown = await window.webContents.executeJavaScript(
+            `(() => {
+              const row = [...document.querySelectorAll('.kh-tools-nav .kh-sidebar__item')]
+                .find((element) => element.textContent?.includes(${JSON.stringify(label)}));
+              row?.click();
+              return row !== undefined;
+            })()`,
+            true
+          );
+          await new Promise<void>((resolve) => setTimeout(resolve, 400));
+          // Typed, not inferred. `executeJavaScript` returns `any`, and letting that flow
+          // into a boolean check gives an assertion that passes on a string, a number or an
+          // exception object — a check that cannot fail.
+          const rendered: unknown = await window.webContents.executeJavaScript(
+            `document.querySelector('.kh-shell__main .kh-tool__title')?.textContent ?? null`,
+            true
+          );
+          emit(
+            `SMOKE-CHECK ${name.toLowerCase()}-opens ${String(opened === true && typeof rendered === 'string' && rendered.length > 0)}`
+          );
+          await captureNamedShot(window, name);
+        }
+
+        // Escape closes it. Dispatched at the focused element, which after opening a tool is
+        // its heading — the same place a real keystroke would land, and inside the container
+        // that handles it. A Modal open inside a tool would take it first, which is the
+        // behaviour we want and the reason this is not dispatched at the document.
+        await window.webContents.executeJavaScript(
+          `(document.activeElement ?? document.querySelector('.kh-tool__title'))?.dispatchEvent(
+             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+        const closed: unknown = await window.webContents.executeJavaScript(
+          `document.querySelector('.kh-shell__main') === null`,
+          true
+        );
+        emit(`SMOKE-CHECK tool-view-closes-on-escape ${String(closed === true)}`);
 
         await captureIfRequested(window);
 

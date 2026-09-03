@@ -6,6 +6,7 @@ import { ContentViewer } from '../content/index.js';
 import { GeneratorScreen } from '../generator/index.js';
 import { HealthDashboard } from '../health/HealthDashboard.js';
 import { OrganisationSidebar } from '../organisation/index.js';
+import { SettingsScreen } from '../settings/SettingsScreen.js';
 import {
   AppShell,
   TOOL_VIEW_BY_ID,
@@ -200,6 +201,11 @@ function ToolPane({
       return (
         <HealthDashboard records={records} onSelectCredential={onSelectCredential} hideTitle />
       );
+    case 'settings':
+      // No gateway prop: the screen memoises its own `createBridgeGateway()` when none is
+      // given, and passing a fresh one from here on every render would re-trigger its
+      // loading effect forever — the exact bug that `useMemo` on the other side prevents.
+      return <SettingsScreen hideTitle />;
     case 'help':
       return <ContentViewer hideTitle />;
   }

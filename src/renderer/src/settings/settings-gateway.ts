@@ -8,23 +8,30 @@ import type { ConfigurableVaultSettings, SettingsSnapshot } from '@shared/model/
  * The screen is written against `SettingsGateway` rather than against `window.keyhold`
  * directly, for two reasons. The first is testing: `@testing-library/react` is not a
  * dependency here, so the only way to exercise this screen is to drive it against an
- * in-memory implementation (`fake-gateway.ts`). The second is that **Phase 14's IPC does
- * not exist yet** — none of the channels below are registered, and writing the screen
- * against a named seam keeps the gap visible instead of hiding it behind stubs that look
- * like they work.
+ * in-memory implementation (`fake-gateway.ts`). The second is that the IPC arrived in
+ * pieces — writing the screen against a named seam kept the gap visible instead of hiding
+ * it behind stubs that looked like they worked, and let it be closed one channel at a time.
  *
- * `createBridgeGateway` implements the two operations the bridge already offers and
- * refuses the rest with the channel name in the message. A settings screen that silently
- * pretends to save is worse than one that says it cannot.
+ * `createBridgeGateway` implements everything the bridge offers and refuses the rest with
+ * the channel name in the message. A settings screen that silently pretends to save is worse
+ * than one that says it cannot — and, as an audit found here, a gateway that *performs* the
+ * change and then reports failure is worse than both.
  */
 
 /**
- * The IPC surface Phase 14 has to add, and the payload each carries.
+ * The IPC surface still missing, and the payload each would carry.
  *
- * Kept here as data rather than prose so the failure message names the exact missing
- * channel — and so this list is the thing that gets deleted, one line at a time, as the
- * handlers land. Channel naming follows `kh:<domain>:<action>`, and each of these belongs
- * in `CHANNELS` in `@shared/ipc/api.ts` alongside a `SettingsApi` namespace.
+ * Data rather than prose so the failure message names the exact channel, and so the list
+ * shrinks one line at a time as handlers land. It began with six; four have been deleted as
+ * their channels appeared, and `settings-gateway.test.ts` fails if an entry here names a
+ * channel `CHANNELS` already has — otherwise this becomes a stale inventory describing a
+ * gap that closed months ago, which is the failure mode of every "still to do" list kept
+ * next to the code rather than inside it.
+ *
+ * The two that remain are not settings writes. Both re-wrap the DEK, both must be atomic
+ * against a real vault file, and both need their own slice with the re-wrap tested against
+ * one — which is exactly why they are still here rather than quietly bundled in with a
+ * boolean toggle.
  */
 export interface RequiredChannel {
   readonly method: keyof SettingsGateway;
@@ -34,24 +41,6 @@ export interface RequiredChannel {
 }
 
 export const REQUIRED_CHANNELS: readonly RequiredChannel[] = [
-  {
-    method: 'read',
-    channel: 'kh:settings:read',
-    payload: '()',
-    returns: 'IpcResult<SettingsSnapshot>',
-  },
-  {
-    method: 'updateMachine',
-    channel: 'kh:settings:update-machine',
-    payload: '(patch: Partial<MachineSettings>)',
-    returns: 'IpcResult<SettingsSnapshot>',
-  },
-  {
-    method: 'updateVault',
-    channel: 'kh:settings:update-vault',
-    payload: '(patch: Partial<ConfigurableVaultSettings>)',
-    returns: 'IpcResult<SettingsSnapshot>',
-  },
   {
     method: 'changeMasterPassword',
     channel: 'kh:settings:change-master-password',
@@ -63,12 +52,6 @@ export const REQUIRED_CHANNELS: readonly RequiredChannel[] = [
     channel: 'kh:settings:rekey',
     payload: '(currentSecret: string, cost: KdfCost)',
     returns: 'IpcResult<SettingsSnapshot>',
-  },
-  {
-    method: 'clearAllHistory',
-    channel: 'kh:settings:clear-all-history',
-    payload: '()',
-    returns: 'IpcResult<number> — versions removed',
   },
 ];
 
@@ -94,17 +77,35 @@ function unavailable(method: keyof SettingsGateway): Promise<never> {
 /**
  * The real gateway, over the preload bridge.
  *
- * Two methods work today because their channels already exist for other features:
- * `history.networkName` (added for exactly this screen) and `session.revokeQuickUnlock`.
- * Everything else rejects with the channel it needs.
+ * Four of the six channels exist now. The two that do not — changing the master password
+ * and re-keying — are envelope-crypto operations rather than settings writes: both re-wrap
+ * the DEK and both must be atomic against a real vault file, which is a slice of its own.
+ * They still refuse by name, which is the point of {@link REQUIRED_CHANNELS}: the list
+ * shrinks one line at a time and the gap stays visible instead of being stubbed into
+ * something that looks like it works.
  */
 export function createBridgeGateway(): SettingsGateway {
+  /**
+   * Unwraps a result, or throws its message.
+   *
+   * The message comes from `toFailure` in the main process, which has already decided what
+   * is safe to say — a validation failure names the field, an internal error says only that
+   * something went wrong. So it is surfaced verbatim rather than replaced with something
+   * vaguer here, which would throw away the half of it the user could act on.
+   */
+  const unwrap = <T>(result: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!result.ok) throw new Error(result.message);
+    return result.value;
+  };
+
   return {
-    read: () => unavailable('read'),
+    read: async () => unwrap(await window.keyhold.settings.read()),
 
-    updateMachine: (_patch: Partial<MachineSettings>) => unavailable('updateMachine'),
+    updateMachine: async (patch: Partial<MachineSettings>) =>
+      unwrap(await window.keyhold.settings.updateMachine(patch)),
 
-    updateVault: (_patch: Partial<ConfigurableVaultSettings>) => unavailable('updateVault'),
+    updateVault: async (patch: Partial<ConfigurableVaultSettings>) =>
+      unwrap(await window.keyhold.settings.updateVault(patch)),
 
     networkName: async (): Promise<string | null> => {
       const result = await window.keyhold.history.networkName();
@@ -118,16 +119,26 @@ export function createBridgeGateway(): SettingsGateway {
 
     rekey: (_currentSecret: string, _cost: KdfCost) => unavailable('rekey'),
 
-    clearAllHistory: () => unavailable('clearAllHistory'),
+    clearAllHistory: async () => unwrap(await window.keyhold.settings.clearAllHistory()),
 
     setQuickUnlock: async (enabled: boolean): Promise<SettingsSnapshot> => {
       const result = enabled
         ? await window.keyhold.session.enrolQuickUnlock()
         : await window.keyhold.session.revokeQuickUnlock();
       if (!result.ok) throw new Error(result.message);
-      // The enrolment really has changed at this point; re-reading is what fails, because
-      // `read` needs the channel that does not exist yet.
-      return unavailable('read');
+
+      // Re-read, rather than returning `unavailable('read')`.
+      //
+      // This used to do the enrol and *then* reject, so the screen caught the rejection and
+      // announced "Not saved" — after the OS keystore had really been written. The user
+      // turned quick unlock on, was told it failed, and walked away believing no copy of
+      // their vault key existed while one did. Turning it off was quieter and worse: the key
+      // was deleted, the failure was reported, and the toggle stayed reading "On".
+      //
+      // A gateway that performs an irreversible action and then reports failure is worse
+      // than one that refuses up front, because the user's model of what happened is now
+      // wrong in the direction that matters.
+      return unwrap(await window.keyhold.settings.read());
     },
   };
 }
