@@ -35,6 +35,9 @@ export const EXPORT_FORMAT_IDS = [
   'compatible-csv',
   /** The Keyhold JSON sealed in a KEEP container under its own passphrase. */
   'keyhold-parcel',
+  /** The leaving-Keyhold path in Bitwarden's own JSON: keeps field types, folders and
+   * multiple addresses, and re-imports into Bitwarden itself. */
+  'bitwarden-json',
 ] as const;
 
 export type ExportFormatId = (typeof EXPORT_FORMAT_IDS)[number];

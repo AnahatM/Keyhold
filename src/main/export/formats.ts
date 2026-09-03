@@ -43,6 +43,14 @@ export const EXPORT_FORMATS: readonly ExportFormatDescriptor[] = [
     lossless: false,
   },
   {
+    id: 'bitwarden-json',
+    name: 'Bitwarden (JSON)',
+    extension: '.json',
+    description: 'Bitwarden’s own export. Keeps field types, folders and multiple addresses.',
+    encrypted: false,
+    lossless: false,
+  },
+  {
     id: 'compatible-csv',
     name: 'Other password managers (CSV)',
     extension: '.csv',

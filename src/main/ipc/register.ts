@@ -1034,6 +1034,8 @@ export function registerIpcHandlers(context: IpcContext): void {
           return { format: 'keyhold-csv', ...scope };
         case 'compatible-csv':
           return { format: 'compatible-csv', ...scope };
+        case 'bitwarden-json':
+          return { format: 'bitwarden-json', ...scope };
         case 'keyhold-parcel':
           // Refused twice already -- by the validator, and by the registry cross-check.
           // Thrown rather than sealed under an empty passphrase, because that would be a

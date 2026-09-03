@@ -5,6 +5,7 @@ import type { ExportPreview, ExportScope } from '@shared/model/export-plan.js';
 import type { VaultDocument } from '@shared/model/vault-document.js';
 import { parcelPlan } from './encrypted.js';
 import { findExportFormat } from './formats.js';
+import { exportBitwardenJson } from './bitwarden-json.js';
 import { exportCompatibleCsv } from './generic-csv.js';
 import { exportCsv } from './csv.js';
 import { exportKeyholdJson } from './keyhold-json.js';
@@ -101,6 +102,10 @@ function runReadableExport(
       return exportCsv(document, options);
     case 'compatible-csv':
       return exportCompatibleCsv(document, options);
+    // No `now`: Bitwarden's envelope carries no export timestamp, so the file is deterministic
+    // for a given vault and there is nothing for a clock to stamp.
+    case 'bitwarden-json':
+      return exportBitwardenJson(document, selection);
     case 'keyhold-parcel':
       // Unreachable: the parcel returned above, from `previewExport`. Named as a case rather
       // than left to a `default`, so adding a format is a non-exhaustive-switch error here
