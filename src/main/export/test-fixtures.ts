@@ -9,6 +9,7 @@ import {
   type VaultSettings,
 } from '@shared/model/vault-document.js';
 import type { SavedSearch } from '@shared/model/saved-search.js';
+import type { SiteRule } from '@shared/model/site-rules.js';
 
 /**
  * Fixtures for the export tests.
@@ -238,6 +239,21 @@ const SAVED_SEARCHES: readonly SavedSearch[] = [
   },
 ];
 
+const SITE_RULES: readonly SiteRule[] = [
+  {
+    host: 'bank.example',
+    options: { length: 16 },
+    note: 'Silently truncates at 16 characters',
+    updatedAt: 1_700_000_000_000,
+  },
+  {
+    host: 'payroll.example',
+    options: { excludeCharacters: '!@#' },
+    note: 'Rejects symbols',
+    updatedAt: 1_700_000_001_000,
+  },
+];
+
 export function buildDocument(
   records: readonly Credential[],
   settings: VaultSettings = DEFAULT_VAULT_SETTINGS
@@ -248,6 +264,11 @@ export function buildDocument(
     folders: [...FOLDERS],
     tags: [...TAGS],
     savedSearches: [...SAVED_SEARCHES],
+    // Empty, and that is a statement about the export format rather than about the fixture.
+    // Two real rules, so the lossless round trip has something to lose. An empty array would
+    // let a writer that never serialises site rules and a reader that never parses them agree
+    // perfectly — the shape of test that passes while the feature does nothing.
+    siteRules: [...SITE_RULES],
     settings,
   };
 }

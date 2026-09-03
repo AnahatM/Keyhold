@@ -99,7 +99,11 @@ export function ChangelogView({
           report, into a release note — and the app suppresses text selection everywhere
           else. `aria-label` rather than `aria-labelledby`: the article holds one `<h2>` per
           release and no single heading names the whole of it. */}
-      <article className="kh-content__article" aria-label={title} data-selectable="true">
+      <article
+        className="kh-content__article kh-content__article--standalone"
+        aria-label={title}
+        data-selectable="true"
+      >
         {preambleBlocks(changelog).map((block, index) => (
           <ContentBlockView
             // Static data assembled in file order by a pure function — the array for a given

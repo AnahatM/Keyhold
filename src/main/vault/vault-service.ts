@@ -49,6 +49,7 @@ import {
   SAVED_SEARCH_MAX,
   type SavedSearch,
 } from '@shared/model/saved-search.js';
+import { readSiteRules } from '@shared/model/site-rules.js';
 import { calibrateKdf, newKdfParams } from '../crypto/kdf.js';
 import { uuid } from '../crypto/random.js';
 import { SecretBytes } from '../crypto/secret.js';
@@ -1584,6 +1585,11 @@ export function parseVaultDocument(body: Uint8Array): VaultDocument {
       .filter((entry) => savedSearchProblem(entry) === null)
       .map((entry) => normaliseSavedSearch(entry as SavedSearch))
       .slice(0, SAVED_SEARCH_MAX),
+    // Additive for the same reason, and behind one function rather than the four lines above
+    // it: the cap, the drop-don't-refuse rule and the collapsing of duplicate hosts have to
+    // hold wherever a rule list is read, and a `.keep` can be hand-edited, so "the UI enforces
+    // it" would not be an enforcement at all. See `readSiteRules`.
+    siteRules: readSiteRules(candidate.siteRules),
     // Merged rather than defaulted wholesale: a vault written before a settings field
     // existed must keep every setting it *does* carry, and gain only the missing one. A
     // `?? defaults` would silently reset the user's whole configuration on the first open

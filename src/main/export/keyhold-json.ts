@@ -30,6 +30,7 @@ import {
 import { parseRecord, serialiseRecord } from './record-json.js';
 import { reportSelectionLosses, selectRecords, type ExportSelection } from './select.js';
 import { LossLog, plaintextExport, type PlaintextExport } from './types.js';
+import { readSiteRules, type SiteRule } from '@shared/model/site-rules.js';
 import {
   normaliseSavedSearch,
   savedSearchProblem,
@@ -163,6 +164,7 @@ function serialiseEnvelope(
     folders: folders.map(serialiseFolder),
     tags: tagScope(document, records, options).map(serialiseTag),
     savedSearches: savedSearchScope(document, options),
+    siteRules: siteRuleScope(document, options),
     records: records.map(serialiseRecord),
   };
 
@@ -285,6 +287,25 @@ function tagScope(
  * references, so there is no honest way to ask which exported records a saved search is
  * "about". All or nothing is the only rule that can be stated truthfully, so it is the rule.
  */
+/**
+ * Site rules, on a whole-vault export only.
+ *
+ * The same rule as `savedSearchScope`, and the same reason to carry them at all: this format
+ * is declared `lossless`, so a full export that dropped them would make that claim false —
+ * and a user restoring a backup would find their bank's 16-character limit gone, which they
+ * would rediscover the next time a password was rejected. That is precisely the rediscovery
+ * the feature exists to prevent.
+ *
+ * Dropped from a **scoped** export because a rule names a host the user visits, and a note
+ * they wrote about it. Twenty hostnames travelling inside a three-record export is a
+ * disclosure about the rest of the vault, in a file they are about to hand to somebody.
+ * Scoping by content is not available: a rule is keyed by host, and a record's URLs may not
+ * be in the export at all.
+ */
+function siteRuleScope(document: VaultDocument, selection: ExportSelection): readonly SiteRule[] {
+  return selection.recordIds === undefined ? document.siteRules : [];
+}
+
 function savedSearchScope(
   document: VaultDocument,
   selection: ExportSelection
@@ -355,6 +376,14 @@ export function parseKeyholdJson(source: string | Uint8Array): KeyholdJsonDocume
         .filter((entry) => savedSearchProblem(entry) === null)
         .map((entry) => normaliseSavedSearch(entry as SavedSearch))
         .slice(0, SAVED_SEARCH_MAX),
+      // Always empty, because this format does not carry site rules yet — the writer above does
+      // not serialise them. Stated here rather than left implicit so the gap is visible at the
+      // point where it would otherwise look like a parse that simply found nothing: an import
+      // of a Keyhold export currently arrives with no remembered site policies.
+      // Read through `readSiteRules`, which normalises the host, collapses duplicates and
+      // caps the list — the same treatment `parseVaultDocument` gives a `.keep` body, because
+      // an export file is exactly as hand-editable as a vault is.
+      siteRules: readSiteRules(envelope.siteRules),
       records: requireArray(envelope.records, 'records').map((item, index) =>
         parseRecord(item, `records[${index}]`)
       ),

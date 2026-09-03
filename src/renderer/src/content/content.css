@@ -351,6 +351,22 @@
   color: inherit;
 }
 
+/*
+ * An article with nothing beside it.
+ *
+ * `.kh-content__article` is capped at 70ch, which is right — a long measure is the easiest
+ * readability mistake to make in a wide desktop window. In the help viewer the rest of the
+ * width is the article nav, so the cap is invisible. The changelog and About pages have no
+ * nav, so the same cap left the page pinned to the left with half the window empty, which
+ * reads as a layout bug rather than as a deliberate measure.
+ *
+ * Centred rather than widened: the measure is the point, and losing it to fill space would
+ * trade the readability of every line for the tidiness of one edge.
+ */
+.kh-content__article--standalone {
+  margin-inline: auto;
+}
+
 /* ── The changelog's releases ─────────────────────────────────────────────────
  *
  * A release heading is an `<h2>` over the block renderer's `<h3>` group headings, so it has

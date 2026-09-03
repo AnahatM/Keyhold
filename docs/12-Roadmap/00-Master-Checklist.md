@@ -288,7 +288,12 @@ _Full notes: `docs/05-Features/00-Password-Generator.md`._
 - [x] **Tests (14)**, including a statistical anti-bias guard over ~2 000 samples. Six fault injections; one found a real gap — applying exclusions to the output rather than the alphabet is caught only by the length assertion, which is now documented as that defect's sole guard
 - [x] IPC channels (`kh:generator:generate`, `:estimate`, `:limits`) and the generator UI — a tool view plus `InlineGenerator`, which generates nothing until it is opened
 - [x] Session generation history — `generation-history.ts` and `SecretHistoryList`, discarded when the panel collapses
-- [ ] Per-site rule memory, and generate-and-replace that auto-versions the old password
+- [x] Per-site rule memory — `SiteRule` on `VaultDocument`, keyed by registrable host, merged
+      element-wise. The host **is** the identity rather than a minted id, so two machines that
+      independently discover the same constraint converge instead of keeping both rules. Rides
+      the lossless export, because a restored backup that had lost the bank's 16-character
+      limit would make the user rediscover it the next time a password was rejected
+- [ ] Generate-and-replace that auto-versions the old password — the other half of that line
 - [x] `docs/05-Features/00-Password-Generator.md` written
 
 ## Phase 9 — Encrypted attachments ~ MOUNTED, MINUS DRAG-AND-DROP

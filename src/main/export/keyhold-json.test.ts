@@ -177,6 +177,7 @@ describe('determinism', () => {
       'folders',
       'tags',
       'savedSearches',
+      'siteRules',
       'records',
     ]);
   });
@@ -273,6 +274,22 @@ describe('a subset export', () => {
     expect(parsed.document.folders).toHaveLength(3);
   });
 
+  it('keeps every site rule on a whole-vault export, because this format is lossless', () => {
+    // Without this the claim is false in the way that costs most: a user restores a backup
+    // and their bank's 16-character limit is gone, to be rediscovered the next time a
+    // password is rejected — which is the rediscovery the whole feature exists to prevent.
+    const parsed = parseKeyholdJson(serialiseKeyholdJson(document, OPTIONS));
+    expect(parsed.document.siteRules.map((rule) => rule.host)).toEqual([
+      'bank.example',
+      'payroll.example',
+    ]);
+    // Through the note rather than the option: `GeneratorOptions` is a union, so `length`
+    // only exists on some arms and reading it here would be asserting against the type rather
+    // than against the round trip. The note is the field that carries the user's own words,
+    // and it is the one whose loss they would actually notice.
+    expect(parsed.document.siteRules[0]?.note).toBe('Silently truncates at 16 characters');
+  });
+
   it('keeps every saved search on a whole-vault export, because this format is lossless', () => {
     // The `lossless: true` claim in the format registry is only true if this holds. A backup
     // that quietly drops the user's named queries is exactly the kind of loss nobody notices
@@ -283,6 +300,38 @@ describe('a subset export', () => {
       'Banking',
     ]);
     expect(parsed.document.savedSearches[1]?.query).toBe('folder:Finance has:totp');
+  });
+
+  it('normalises the site rules it reads, because an export file is hand-editable', () => {
+    // Found by fault injection: replacing `readSiteRules` with a bare cast failed nothing,
+    // because every other test round-trips rules this app wrote and those are already
+    // normalised. An export is a plain JSON file anybody can edit, so it gets exactly the
+    // treatment `parseVaultDocument` gives a `.keep` body — the host lower-cased and stripped
+    // to its registrable form, duplicates collapsed, unusable entries dropped.
+    const envelope = JSON.parse(serialiseKeyholdJson(document, OPTIONS)) as Record<string, unknown>;
+    const parsed = parseKeyholdJson(
+      JSON.stringify({
+        ...envelope,
+        siteRules: [
+          { host: 'HTTPS://WWW.Bank.Example/login', options: {}, updatedAt: 1 },
+          { host: 'bank.example', options: {}, updatedAt: 2 },
+          { host: '', options: {}, updatedAt: 3 },
+          'not a rule',
+        ],
+      })
+    );
+
+    expect(parsed.document.siteRules.map((rule) => rule.host)).toEqual(['bank.example']);
+  });
+
+  it('carries no site rule either, for the same reason', () => {
+    // A rule names a host the user visits and carries a note they wrote about it. Twenty
+    // hostnames inside a three-record export is a disclosure about the rest of the vault, in
+    // a file they are about to hand to somebody.
+    const parsed = parseKeyholdJson(
+      serialiseKeyholdJson(document, { ...OPTIONS, recordIds: ['rec-1'] })
+    );
+    expect(parsed.document.siteRules).toEqual([]);
   });
 
   it('carries no saved search at all, whatever they match', () => {

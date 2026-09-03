@@ -20,6 +20,7 @@ import {
   type VaultSettings,
 } from '@shared/model/vault-document.js';
 import type { SavedSearch } from '@shared/model/saved-search.js';
+import type { SiteRule } from '@shared/model/site-rules.js';
 
 /**
  * Fixtures for the merge tests.
@@ -166,6 +167,7 @@ export interface DocumentInput {
   readonly folders?: readonly Folder[];
   readonly tags?: readonly Tag[];
   readonly savedSearches?: readonly SavedSearch[];
+  readonly siteRules?: readonly SiteRule[];
   readonly settings?: VaultSettings;
 }
 
@@ -176,6 +178,7 @@ export function doc(input: DocumentInput = {}): VaultDocument {
     folders: input.folders ?? [],
     tags: input.tags ?? [],
     savedSearches: input.savedSearches ?? [],
+    siteRules: input.siteRules ?? [],
     settings: input.settings ?? DEFAULT_VAULT_SETTINGS,
   };
 }
@@ -218,4 +221,15 @@ export const MERGE_OPTIONS = { now: NOW } as const;
 /** A saved search, with everything defaulted so a test names only what it is about. */
 export function savedSearch(id: string, overrides: Partial<SavedSearch> = {}): SavedSearch {
   return { id, name: id, query: `tag:${id}`, order: 0, updatedAt: NOW, ...overrides };
+}
+
+/**
+ * A site rule keyed on `<host>.example`, so a test can name a rule by one short word.
+ *
+ * The host is built rather than taken verbatim because a rule whose host is not in the form
+ * `siteRuleKey` produces is one the merge repairs on the way through — correct behaviour, and
+ * an accident waiting to happen in a fixture whose test is about something else entirely.
+ */
+export function siteRule(host: string, overrides: Partial<SiteRule> = {}): SiteRule {
+  return { host: `${host}.example`, options: { length: 16 }, updatedAt: NOW, ...overrides };
 }

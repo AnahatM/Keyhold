@@ -12,6 +12,7 @@ import {
   mergeFolders,
   mergeSettings,
   mergeSavedSearches,
+  mergeSiteRules,
   mergeTagPalette,
   repairFolderTree,
 } from './merge-collections.js';
@@ -192,8 +193,9 @@ export function mergeDocuments(
     ours.savedSearches,
     theirs.savedSearches
   );
+  const siteRules = mergeSiteRules(base?.siteRules ?? null, ours.siteRules, theirs.siteRules);
   conflicts.push(...folders.conflicts, ...palette.conflicts, ...settings.conflicts);
-  notes.push(...folders.notes, ...palette.notes, ...searches.notes);
+  notes.push(...folders.notes, ...palette.notes, ...searches.notes, ...siteRules.notes);
 
   const repaired = repairFolderTree(folders.items, mergedRecords, folderPool(base, ours, theirs));
   notes.push(...repaired.notes);
@@ -204,6 +206,7 @@ export function mergeDocuments(
     folders: repaired.folders,
     tags: palette.items,
     savedSearches: searches.items,
+    siteRules: siteRules.items,
     settings: settings.settings,
   };
 

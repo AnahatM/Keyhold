@@ -44,7 +44,7 @@ It is free, GPL-3.0, and there is nothing to pay for and nothing to host.
 
 - **Unlimited custom fields** — 13 types, reorderable, individually hidden, alongside usernames, emails, multiple URLs, security questions and notes. Notes are treated as secret, because people keep recovery codes in them.
 
-- **Import from the manager you are leaving** — Bitwarden (CSV and JSON), LastPass, Chrome/Edge/Brave, Firefox, Safari, 1Password 8, Dashlane, NordPass, KeePass, Keyhold's own JSON export, and a generic CSV mapper for everything else. Nothing is dropped silently; anything that could not be carried is named.
+- **Import from the manager you are leaving** — eighteen formats: Bitwarden (CSV and JSON), LastPass, Chrome/Edge/Brave, Firefox, Safari, 1Password (CSV and the `.1pux` archive), Dashlane (CSV and JSON), NordPass, KeePass CSV, Proton Pass, Enpass, Keeper, RoboForm, Keyhold's own JSON export, and a generic CSV mapper for everything else. Nothing is dropped silently; anything that could not be carried is named.
 
 - **An import you can take back** — a dry run over the real parse, so what you approve is exactly what gets written; duplicate detection against your vault; a merge that fills empty fields and never removes a URL or moves a record out of the folder you filed it in; and an undo that refuses rather than swallowing an edit you made in the meantime.
 
@@ -58,19 +58,57 @@ It is free, GPL-3.0, and there is nothing to pay for and nothing to host.
 
 - **Eight themes, and a design system with a contrast guard** — every colour is a token, and a test fails the build if any theme drops a pair below its WCAG 2.2 AA minimum.
 
+- **A session activity log** — what this session unlocked, revealed, copied and saved, which is the one question a password manager otherwise cannot answer: _did something just walk my vault?_ Held in memory only and cleared the moment you lock, because a durable record of which credentials were read is a second, unencrypted index of what is in the vault.
+
+- **Saved searches** — name a query and it lives in the sidebar. Stored inside the vault, so it travels with the file rather than staying on one computer.
+
+- **Changing the master password is instant** — envelope encryption means it re-wraps one 32-byte key and rewrites a header, whether the vault holds ten records or ten thousand. Your records are never re-encrypted, so there is no long, dangerous-looking operation to talk yourself out of.
+
+---
+
+## How it compares, honestly
+
+Keyhold is not the right password manager for everyone, and the places it loses are not
+footnotes. This table is the same one in
+[`docs/00-Overview/02-Competitive-Analysis.md`](docs/00-Overview/02-Competitive-Analysis.md),
+put here rather than buried, because "it doesn't autofill" is better learned from a README
+than from a one-star review.
+
+| Where others win               | Who                                                | Where Keyhold stands                                                                                                                                             |
+| ------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Browser autofill**           | Everyone except `pass`                             | Not built. This is the single biggest gap, and for a lot of people it is the whole decision                                                                      |
+| **Mobile apps**                | Bitwarden, Proton, 1Password, the KeePassXC family | Not in scope, and not currently mitigated — KDBX export is designed but not built, so today there is no clean path onto a phone                                  |
+| **Third-party security audit** | Bitwarden, Proton, 1Password, KeePassXC            | None, and none claimed. What there is instead: a written threat model, a small readable codebase, and a published format spec anyone can implement a reader from |
+| **Hardware keys / YubiKey**    | KeePassXC                                          | Not built. The envelope design already accommodates it — a hardware key would be another wrapping of the same data key — but it is a plan, not a feature         |
+| **Maturity**                   | KeePassXC, Bitwarden                               | A new project that has never been trusted with anybody's real vault. The answer is obsessive data-loss protection, not a claim of stability it has not earned    |
+| **Team sharing**               | Bitwarden, Passbolt, Psono                         | A deliberate non-goal. `.keepx` parcels cover handing a few credentials to one person, and nothing more                                                          |
+| **A memory-safe runtime**      | KeePassXC (C++/Qt)                                 | Electron is a fair criticism and there is no way to argue it away. It is why no secret is allowed into the renderer process at all                               |
+
+Where it wins is narrower and more specific: it is the only free, serverless, local manager
+that records **where every change came from**, and it is one file you own with no account
+attached to it.
+
 ---
 
 ## Screenshots
 
-| ![The vault](docs/images/Keyhold-Screenshot-01.png) | ![The timeline](docs/images/Keyhold-Screenshot-02.png) |
-| --------------------------------------------------- | ------------------------------------------------------ |
-| ![A diff](docs/images/Keyhold-Screenshot-03.png)    | ![The editor](docs/images/Keyhold-Screenshot-04.png)   |
+|     ![The vault, with a cloud-folder warning](docs/images/Keyhold-Screenshot-01.png)      | ![A credential's version history](docs/images/Keyhold-Screenshot-02.png) |
+| :---------------------------------------------------------------------------------------: | :----------------------------------------------------------------------: |
+| The vault, and an unprompted warning that this file is inside a folder Dropbox is syncing |    Version history, with the device and network each change came from    |
+
+| ![A field-level diff](docs/images/Keyhold-Screenshot-03.png) | ![The record editor](docs/images/Keyhold-Screenshot-04.png) |
+| :----------------------------------------------------------: | :---------------------------------------------------------: |
+|            What one edit changed, field by field             |               The editor, with custom fields                |
+
+| ![The health dashboard](docs/images/Keyhold-Screenshot-07.png) | ![The session activity log](docs/images/Keyhold-Screenshot-13.png) |
+| :------------------------------------------------------------: | :----------------------------------------------------------------: |
+|         Ten offline health checks over the whole vault         |   What this session read, revealed and copied — cleared on lock    |
 
 > Generated from the real app rather than hand-made:
 > `npm run build && node tools/smoke.mjs --shots docs/images`
 >
 > The smoke run seeds a deterministic vault, drives the UI through it by clicking real
-> controls, and captures four named views — so a screenshot here cannot quietly stop
+> controls, and captures fifteen named views — so a screenshot here cannot quietly stop
 > matching the app it claims to show. Regenerating them is one command.
 
 ---
@@ -94,6 +132,39 @@ The vault file is a **KEEP** container — _Keyhold Encrypted Entry Package_: a 
 ![Vitest](https://img.shields.io/badge/-Vitest-05122A?style=flat-square&logo=Vitest&color=2a2e34)
 
 ---
+
+<details>
+<summary><strong>💾 Installing a downloaded build — and why your OS will warn you</strong></summary>
+
+Keyhold ships **unsigned**, and your operating system will say so. That is worth being
+straight about rather than papering over: the whole pitch is that you should not have to
+trust a company with your passwords, so it would be a poor start to hide the fact that your
+OS cannot verify who built the binary. It genuinely cannot. Code-signing certificates cost
+$99–400 a year, and this project has decided not to spend money it would then have to
+recover.
+
+**Windows.** Running the installer produces a blue **"Windows protected your PC"** dialog
+from SmartScreen. There is no visible way forward until you click **More info**, which
+reveals **Run anyway**. If the download was blocked outright, nothing will happen at all
+when you run it — right-click the file → **Properties** → tick **Unblock** → **OK**, then
+run it again. The UAC prompt will show **Publisher: Unknown**, which is accurate.
+
+SmartScreen reputation does not accrue for unsigned software: the warning looks the same on
+the ten-thousandth download as on the first. Verify the published checksum if you want more
+assurance than the dialog can give you.
+
+**macOS.** The app is ad-hoc signed rather than truly unsigned, which matters — on Apple
+Silicon a genuinely unsigned binary will not launch at all, and macOS offers only "Move to
+Bin". Ad-hoc signing costs nothing and gets you to the ordinary unidentified-developer
+prompt instead, which has a way through: launch the app, let it be refused, then open
+**System Settings → Privacy & Security**, scroll to the bottom, and click **Open Anyway**.
+The old right-click → **Open** trick was removed in recent macOS versions; instructions
+elsewhere on the internet that still recommend it are out of date.
+
+> The macOS wording is **unverified** — there is no Mac on this project yet. If it differs
+> on your machine, please open an issue and say what it actually said.
+
+</details>
 
 <details>
 <summary><strong>📦 Building from source</strong></summary>

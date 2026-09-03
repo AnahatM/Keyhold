@@ -18,10 +18,11 @@ import { orderIds, resolveValue } from './merge-values.js';
 import { canonicallyFirst, largerCap, sameValue } from './stable-value.js';
 
 /**
- * Folders, the tag palette, and vault settings.
+ * Everything in a vault that is **not** a record: folders, the tag palette, saved searches,
+ * site rules, and vault settings.
  *
- * The three things in a vault that are **not** records, and each needs its own policy for the
- * same reason: none of them has a tombstone. A record that vanishes from one side might have
+ * Each needs its own policy, for the same reason: none of them has a tombstone. A record that
+ * vanishes from one side might have
  * been deleted or might never have arrived, and `trashedAt` is what settles it. A folder that
  * vanishes has no such marker, so the merge has only the ancestor to go on.
  *
@@ -52,6 +53,12 @@ import {
   SAVED_SEARCH_MAX,
   type SavedSearch,
 } from '@shared/model/saved-search.js';
+import {
+  bySiteRuleHost,
+  readSiteRules,
+  SITE_RULE_MAX,
+  type SiteRule,
+} from '@shared/model/site-rules.js';
 
 interface Keyed {
   readonly id: string;
@@ -315,6 +322,95 @@ export function mergeSavedSearches(
   const ordered = [...items].sort(bySavedSearchOrder);
 
   return { items: ordered.slice(0, SAVED_SEARCH_MAX), conflicts: [], notes };
+}
+
+// ── Site rules ───────────────────────────────────────────────────────────────
+
+/**
+ * Remembered per-site password policies, merged element-wise and keyed on the **host**.
+ *
+ * ## Host, not an id, and still through `mergeCollection`
+ *
+ * `SiteRule` has no `id` and deliberately never will — `site-rules.ts` carries that argument in
+ * full, and the short version is that the host already *is* the identity, so a second one would
+ * let the model hold two rules for `bank.example` of which `ruleForUrl` silently applies one.
+ *
+ * That leaves a choice between adding an id purely to satisfy `mergeCollection`'s
+ * `{ id: string }` constraint, and writing a host-keyed merge beside it. Both are wrong. The
+ * first corrupts the model to please a function signature, and it would make two machines that
+ * independently discovered the same constraint keep **both** rules — the one outcome a
+ * host-keyed model exists to avoid. The second is the duplicate hard rule 8 forbids, and of all
+ * the code in this file `mergeCollection` is the worst to have two of: it is the single place
+ * that answers "does absence delete?", and a second answer to that is how a merge loses data.
+ *
+ * So neither. The rules are lifted into `{ id: host, rule }` for the length of the call and
+ * dropped back out. Three lines, no new survival rules, and the stored model keeps one identity.
+ *
+ * ## Both sides edited the same host: the later edit wins, whole
+ *
+ * `mergeSavedSearches`' policy, for `mergeSavedSearches`' reason. Resolving `options` and `note`
+ * independently would produce this machine's note over that machine's constraint — "rejects
+ * symbols" attached to a 16-character limit — which is worse than either side's version and
+ * would go unnoticed until a password was rejected. And no conflict is raised: asking somebody
+ * to adjudicate two password policies in the middle of a merge that may also be asking about
+ * real credentials spends their attention on the cheapest thing in the file.
+ *
+ * The one place this is stricter than `mergeSavedSearches` is an exact tie. Two rules stamped
+ * in the same millisecond — which is not exotic, since copying a vault stamps a whole list at
+ * once — fall through to `canonicallyFirst` rather than to "mine", so `merge(a, b)` and
+ * `merge(b, a)` agree. A tie-break that depended on argument order would make a sync's outcome
+ * depend on which machine pressed the button.
+ */
+export function mergeSiteRules(
+  base: readonly SiteRule[] | null,
+  ours: readonly SiteRule[],
+  theirs: readonly SiteRule[]
+): CollectionMerge<SiteRule> {
+  const notes: MergeNote[] = [];
+
+  // `readSiteRules` rather than a bare map, and not for tidiness. A duplicated host would make
+  // `indexById` below keep whichever copy came last, which is both silent and dependent on the
+  // order the caller concatenated its documents in. The parser already collapses duplicates on
+  // the way in from a file; doing it here too means the engine is total on any input, including
+  // a document handed to it by a test, an import, or a build we have not written.
+  const keyed = (rules: readonly SiteRule[]): KeyedSiteRule[] =>
+    readSiteRules(rules).map((rule) => ({ id: rule.host, rule }));
+
+  const items = mergeCollection<KeyedSiteRule>(
+    base === null ? null : keyed(base),
+    keyed(ours),
+    keyed(theirs),
+    (id, _ancestor, mine, yours) => ({ id, rule: laterRule(mine.rule, yours.rule) }),
+    (kind, id) => notes.push({ kind, targetId: id, count: null }),
+    { added: 'site-rule-added', kept: 'site-rule-kept-unmatched' }
+  );
+
+  const rules = items.map((entry) => entry.rule);
+  // Capped after merging, because two vaults each holding a legal number can combine to exceed
+  // it — the cap is a bound on the file, not a claim that either input was wrong.
+  //
+  // Sorted only when the cap actually bites, unlike `mergeSavedSearches`, which sorts
+  // unconditionally. Sorting a list that fits would make `merge(x, x)` return `x` reordered,
+  // and the whole point of that property is that syncing with a device that has nothing new is
+  // a no-op rather than a rewrite of the file.
+  if (rules.length <= SITE_RULE_MAX) return { items: rules, conflicts: [], notes };
+  return {
+    items: [...rules].sort(bySiteRuleHost).slice(0, SITE_RULE_MAX),
+    conflicts: [],
+    notes,
+  };
+}
+
+/** A rule under its own host, for the length of one `mergeCollection` call. */
+interface KeyedSiteRule extends Keyed {
+  readonly rule: SiteRule;
+}
+
+/** The later edit, or — on an exact tie — the canonically smaller one, so the merge commutes. */
+function laterRule(mine: SiteRule, yours: SiteRule): SiteRule {
+  if (yours.updatedAt > mine.updatedAt) return yours;
+  if (mine.updatedAt > yours.updatedAt) return mine;
+  return canonicallyFirst(mine, yours);
 }
 
 /**
