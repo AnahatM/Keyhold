@@ -313,7 +313,8 @@ drag-and-drop and a lightbox. Full notes: `docs/05-Features/04-Attachments.md`._
 - [ ] Drag-and-drop onto the attachments panel — the only part of that line not built
 - [x] In-app preview: images, PDF, plain text — `AttachmentViewer.tsx`, judged on the
       **sniffed** type rather than the claimed one
-- [ ] A lightbox for the preview (also Phase 15)
+- [x] A lightbox for the preview (also Phase 15) — `chrome/Lightbox.tsx`, opened from the
+      preview image, which is a real button so focus has somewhere to return to
 - [x] `VaultSettings` carrying the caps, so they travel with the vault
 - [x] **Tests (80)** and nine fault injections, all caught
 - [x] `docs/05-Features/04-Attachments.md` written
@@ -388,7 +389,9 @@ is left is KDBX 4 and Bitwarden JSON export. Full notes:
       dialog shows is the list the file would carry — guarded, for all four formats
 - [x] Mount the export dialog, with the shred reminder (`PLAINTEXT_AFTERMATH_REMINDER`) —
       `menu-bridge.ts` routes `vault.export` and the palette offers the row
-- [ ] KDBX 4 export; Bitwarden JSON export
+- [x] Bitwarden JSON export — the leaving-Keyhold path, round-tripped through our own
+      importer, with every dropped field named rather than silently lost
+- [ ] KDBX 4 export
 - [x] **Tests** and sixteen engine fault injections (one of which found a guard that was not
       the one doing the work), plus six on the preview and six on the IPC boundary
 - [x] `docs/09-Import-Export/01-Export-Formats.md` written
@@ -474,7 +477,11 @@ Full notes: `docs/05-Features/01-Health-Rules.md` and `07-Breach-Check.md`._
   the **global network kill-switch now exists** (D23). Still absent: the `kh:breach:*` channel,
   the consent screen, a UI control for `networkAllowed`, and the composition root that would
   construct a transport — so no code path in the running app makes a request
-- [ ] `missing-2FA` — needs a model decision, since there is no 2FA field to key it off
+- [x] `missingTotp` — the model decision this line was waiting for had already been made: an
+      `otp-secret` custom field is the 2FA field, and `has:totp` has keyed off it since the
+      search engine landed. **Off by default** (D28), because it fires on most records and
+      is frequently not actionable — at weight 8 it would let something outside the user's
+      control dominate the score
 - [x] `docs/05-Features/01-Health-Rules.md` written
 
 ## Phase 14 — Settings & configurability ~ MOUNTED, TWO CHANNELS SHORT
@@ -522,9 +529,12 @@ are the shortcut table and the command palette. The lightbox is not. Full notes:
 - [x] Empty states with real copy, rendered through the existing primitive
 - [x] Global shortcut table and the command palette (Ctrl/Cmd+K) — `CommandsProvider` is mounted
       in `App.tsx` outside the screen switch, so the listener survives a navigation
-- [ ] `focusSearch` and `toggleSidebar`, the two handlers only the vault screen can supply, and a
+- [x] `focusSearch` and `toggleSidebar` — Ctrl+F and Ctrl+B had been registered and inert
+      since they were written, because the provider is mounted above the screen that owns
+      the search box and the sidebar state. Registered through a store, the way the
+      transfer flows already solve the same problem. Originally a
       setting that can turn the palette off
-- [ ] Image lightbox — wants attachments (Phase 9) first
+- [x] Image lightbox — built and wired into the attachment viewer
 - [x] **Tests** over the queue, the timing, the focus rules and the shortcut gate, and six fault injections, all caught
 - [x] `docs/06-UI-Design-System/02-App-Chrome.md` written
 
@@ -540,7 +550,9 @@ generated pages — changelog, about, the licence list — are not built._
 - [x] **Security & Threat Model** in plain English — `how-your-data-is-protected.ts`, including what Keyhold does _not_ protect against
 - [x] Keyboard shortcut reference — `keyboard-shortcuts.ts`, built from `shortcuts-source.ts` rather than hand-listed
 - [ ] First-run onboarding tour, skippable and re-runnable
-- [ ] **Guard test:** the licence list is generated from `package.json`, not hand-written
+- [x] **Guard test:** the licence list is generated from `package.json`, not hand-written —
+      `tools/licences.ts` derives it from the production dependency closure, and the guard
+      fails if the module ever hard-codes a package name, version or licence
 
 ## Phase 17 — Accessibility, performance & quality audits ✅
 

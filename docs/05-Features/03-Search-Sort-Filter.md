@@ -143,15 +143,65 @@ interrupt a synchronous infinite loop.
 
 ---
 
+## 6a. The query bar, and the sort control
+
+Both existed in the engine long before either was reachable, which is the same story twice.
+
+### What the parser understood, and never said
+
+`parseQuery` has always produced user-facing diagnostics — an unterminated quote, a dangling
+negation, an unknown flag, and the `note:` degradation explaining itself. Nothing rendered them.
+So a typo produced an empty list, and **an empty list on a password manager reads as "you do not
+have it" rather than "I did not understand that"**. `QueryHelp` shows them, in a warning tone
+rather than a danger one, because the query still ran.
+
+### What it accepts, and never offered
+
+Six field prefixes and ten flags, discoverable only by reading the source. `QUERY_FIELDS` says
+in its own comment that it is exported so a menu can render from it; `query-suggestions.ts` is
+that menu, generated from the parser's own tables so a prefix added there appears without
+anyone remembering to.
+
+The property its tests hold is the **round trip**: everything offered, applied to what was
+typed, must parse back cleanly. A suggestion the parser rejects is worse than no suggestions —
+the user did not type it, the app did, and then complained about it. That test found `note:`
+produces a diagnostic, which is correct rather than a defect: the parser degrades it to
+`has:notes` because note bodies never cross the bridge, and the renderer supplements it with a
+real deep search, so in this app `note:recovery` does find the note.
+
+Completions are computed for the **last token, not the caret** — a deliberate simplification for
+a one-line box, stated rather than left to be discovered.
+
+### The sort control
+
+Eight keys and a sensible default direction per key had been in the engine since it was written,
+and `visibleCredentials` had taken a `SortOptions` the whole time with nothing passing one.
+
+`SortControl` is a key picker plus a direction toggle, not one menu of every combination — two
+decisions however many keys exist. **The direction button says what it will do in that key's own
+words**, because "ascending" is accurate and useless: for a date it means oldest, for a count it
+means fewest, and a control that says "newest first" while doing the opposite is worse than no
+control. That mapping lives in `sort-labels.ts` and is tested.
+
+Choosing a key adopts _that key's_ default direction rather than carrying the previous one over.
+Going from "Name A–Z" to "Last used" and landing on longest-ago-first is the literal reading and
+never the intended one.
+
+The automatic order — title on an empty box, relevance once there is a query — remains the
+default, and choosing pins it against that switch. That switch is the reason the control matters:
+a list that silently reorders itself as you type is one you cannot keep your place in.
+
+---
+
 ## 7. Not built yet
 
-- **The query-bar UI**: prefix autocomplete driven by `QUERY_FIELDS`/`QUERY_FLAGS`, the
-  diagnostics line (which is where the `note:` degradation explains itself), and saved
-  searches.
+- **Saved searches.** The remaining third of the query-bar line. It needs somewhere to live, and
+  that is a decision rather than a leftover: vault settings travel inside the `.keep` file, and
+  machine preferences do not — a saved search naming a folder that only exists on one device is
+  the case that decides it.
 - ~~**Folder and tag sidebars** wired to `folderId` / `tagIds`~~ — built and mounted; see
   [`06-Organisation.md`](./06-Organisation.md).
-- **A sort control.** `visibleCredentials` currently picks relevance when there is a query
-  and title when there is not; the key and direction want to become a user preference.
+- ~~**The query-bar UI** and **a sort control**~~ — both built; see §6a.
 - **Fuzzy matching and highlight offsets.** `FieldMatch` already carries what a highlighter
   needs to compute ranges.
 - **Memoised haystacks.** Folding is already limited to the fields a given query can reach.
