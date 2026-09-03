@@ -4,7 +4,12 @@
   display: grid;
   grid-template-columns: auto auto auto auto 1fr;
   height: 100%;
-  background: var(--kh-color-bg);
+  /*
+   * Transparent rather than repainting `--kh-color-bg`. `body` already carries that colour,
+   * so this drew the same shade over the same shade — and over the style's texture layer,
+   * which is a fixed pseudo-element behind the app. Under Flat this changes nothing at all.
+   */
+  background: transparent;
   color: var(--kh-color-text);
 }
 
@@ -28,7 +33,7 @@
 .kh-shell__banner:not(:empty) {
   padding: var(--kh-space-3) var(--kh-space-4);
   border-bottom: 1px solid var(--kh-color-border);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
 }
 
 .kh-shell__sidebar {
@@ -36,8 +41,12 @@
   min-width: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   border-right: 1px solid var(--kh-color-border);
+  /* Only where the surface is genuinely translucent. `backdrop-filter` forces a compositing
+     layer even at `blur(0px)`, so it belongs on the few large surfaces that read as glass
+     rather than on every card. A style that wants no glass sets `--kh-style-blur` to 0. */
+  backdrop-filter: blur(var(--kh-style-blur));
 }
 
 .kh-shell__list {
@@ -45,15 +54,25 @@
   min-width: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   border-right: 1px solid var(--kh-color-border);
+  /* Only where the surface is genuinely translucent. `backdrop-filter` forces a compositing
+     layer even at `blur(0px)`, so it belongs on the few large surfaces that read as glass
+     rather than on every card. A style that wants no glass sets `--kh-style-blur` to 0. */
+  backdrop-filter: blur(var(--kh-style-blur));
 }
 
 .kh-shell__detail {
   min-width: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: var(--kh-color-bg);
+  /*
+   * Transparent, not `--kh-color-bg`, which it used to repaint. `body` already carries that
+   * colour, so this was drawing the same shade over the same shade — and over the style's
+   * texture layer, which is a fixed pseudo-element behind the app. The widest region of the
+   * window was the one place a blueprint grid could not show through.
+   */
+  background: transparent;
 }
 
 /* ── Tool mode ─────────────────────────────────────────────────────────────── */
@@ -85,7 +104,12 @@
   min-height: 0;
   /* The tool owns its own scrolling — see `.kh-tool__body`. */
   overflow: hidden;
-  background: var(--kh-color-bg);
+  /*
+   * Transparent rather than repainting `--kh-color-bg`. `body` already carries that colour,
+   * so this drew the same shade over the same shade — and over the style's texture layer,
+   * which is a fixed pseudo-element behind the app. Under Flat this changes nothing at all.
+   */
+  background: transparent;
 }
 
 /*
@@ -138,7 +162,7 @@ body.kh-resizing * {
   width: 100%;
   min-height: var(--kh-control-height);
   padding: 0 var(--kh-space-4);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   border: none;
   border-bottom: 1px solid var(--kh-color-border);
   color: var(--kh-color-accent);
@@ -157,8 +181,8 @@ body.kh-resizing * {
   left: 0;
   width: var(--kh-space-5);
   height: var(--kh-space-6);
-  background: var(--kh-color-surface-raised);
-  border: 1px solid var(--kh-color-border);
+  background: var(--kh-fill-surface-raised);
+  border: var(--kh-edge);
   border-left: none;
   border-radius: 0 var(--kh-radius-md) var(--kh-radius-md) 0;
   color: var(--kh-color-text-muted);

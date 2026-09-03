@@ -5,6 +5,7 @@ import { THEMES } from '@shared/theme/themes.js';
 import { Badge } from '../components/Feedback.js';
 import { Button } from '../components/Button.js';
 import { useAppearance } from '../theme/appearance-store.js';
+import { STYLES } from '@shared/theme/styles.js';
 
 /**
  * The appearance settings panel.
@@ -29,6 +30,54 @@ export function AppearancePanel(): React.JSX.Element {
           point where you could not read this screen.
         </p>
       </header>
+
+      {/*
+        Style before theme, because it is the coarser choice: it decides what the interface is
+        made of, and the theme then colours it. Putting the finer choice first would have
+        somebody pick a palette and then watch the whole surface change under it.
+      */}
+      <section className="kh-panel__section">
+        <h3 className="kh-panel__heading">Style</h3>
+        <p className="kh-panel__hint">
+          A style decides shape and material. A theme decides colour. Every style works under every
+          theme, and all thirty-two combinations are contrast-checked before they ship.
+        </p>
+
+        <div className="kh-style-grid">
+          {STYLES.map((style) => (
+            <button
+              key={style.id}
+              type="button"
+              className="kh-style-card"
+              aria-pressed={settings.styleId === style.id}
+              onClick={() => {
+                update({ styleId: style.id });
+              }}
+            >
+              <span className="kh-style-card__name">{style.name}</span>
+              <span className="kh-style-card__summary">{style.summary}</span>
+            </button>
+          ))}
+        </div>
+
+        <label className="kh-panel__check">
+          <input
+            type="checkbox"
+            checked={settings.reduceTransparency}
+            onChange={(event) => {
+              update({ reduceTransparency: event.target.checked });
+            }}
+          />
+          <span>
+            Turn off transparency and blur
+            <small>
+              Every surface becomes fully opaque and the background grid is hidden. Already on if
+              your operating system asks for reduced transparency — this can add that, never remove
+              it.
+            </small>
+          </span>
+        </label>
+      </section>
 
       <section className="kh-panel__section">
         <h3 className="kh-panel__heading">Theme</h3>

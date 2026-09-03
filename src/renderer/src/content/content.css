@@ -18,7 +18,12 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: var(--kh-color-bg);
+  /*
+   * Transparent rather than repainting `--kh-color-bg`. `body` already carries that colour,
+   * so this drew the same shade over the same shade — and over the style's texture layer,
+   * which is a fixed pseudo-element behind the app. Under Flat this changes nothing at all.
+   */
+  background: transparent;
   color: var(--kh-color-text);
 }
 
@@ -145,7 +150,7 @@
   font-size: var(--kh-text-sm);
   /* `text-muted` on `surface-raised` — a pair CONTRAST_REQUIREMENTS already checks. */
   color: var(--kh-color-text-muted);
-  background: var(--kh-color-surface-raised);
+  background: var(--kh-fill-surface-raised);
   border-radius: var(--kh-radius-md);
 }
 
@@ -159,8 +164,8 @@
    */
   max-width: 70ch;
   padding: var(--kh-space-5);
-  background: var(--kh-color-surface);
-  border: 1px solid var(--kh-color-border);
+  background: var(--kh-fill-surface);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
 }
 
@@ -291,7 +296,7 @@
  * callouts that genuinely matter.
  */
 .kh-content__callout--not-built {
-  background: var(--kh-color-surface-raised);
+  background: var(--kh-fill-surface-raised);
   border-left-color: var(--kh-color-border-strong);
   color: var(--kh-color-text);
 }

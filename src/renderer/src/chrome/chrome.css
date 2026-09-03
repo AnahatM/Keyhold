@@ -60,9 +60,9 @@
   align-items: flex-start;
   width: 100%;
   padding: var(--kh-space-3) var(--kh-space-3) var(--kh-space-3) var(--kh-space-4);
-  background: var(--kh-color-surface-raised);
+  background: var(--kh-fill-surface-raised);
   color: var(--kh-color-text);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-left: 3px solid var(--kh-color-border-strong);
   border-radius: var(--kh-radius-md);
   box-shadow: var(--kh-shadow-lg);
@@ -171,9 +171,9 @@
   max-height: calc(100vh - var(--kh-space-7));
   padding: 0;
   overflow: hidden;
-  background: var(--kh-color-surface-raised);
+  background: var(--kh-fill-surface-raised);
   color: var(--kh-color-text);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
   box-shadow: var(--kh-shadow-lg);
 }
@@ -202,6 +202,10 @@
   gap: var(--kh-space-3);
   max-height: inherit;
   padding: var(--kh-space-5);
+  /* Only where the surface is genuinely translucent. `backdrop-filter` forces a compositing
+     layer even at `blur(0px)`, so it belongs on the few large surfaces that read as glass
+     rather than on every card. A style that wants no glass sets `--kh-style-blur` to 0. */
+  backdrop-filter: blur(var(--kh-style-blur));
 }
 
 .kh-modal__header {
@@ -281,7 +285,7 @@
   padding: var(--kh-space-1) var(--kh-space-2);
   font-size: var(--kh-text-sm);
   line-height: var(--kh-leading-normal);
-  background: var(--kh-color-surface-raised);
+  background: var(--kh-fill-surface-raised);
   color: var(--kh-color-text);
   border: 1px solid var(--kh-color-border-strong);
   border-radius: var(--kh-radius-sm);
@@ -318,7 +322,7 @@
   height: var(--kh-space-2);
   overflow: hidden;
   background: var(--kh-color-surface-sunken);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-full);
 }
 

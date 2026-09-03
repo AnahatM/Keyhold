@@ -40,7 +40,7 @@
 }
 
 .kh-button--secondary {
-  background: var(--kh-color-surface-raised);
+  background: var(--kh-fill-surface-raised);
   color: var(--kh-color-text);
   border-color: var(--kh-color-border);
 }

@@ -107,9 +107,9 @@
   max-width: 100%;
   padding: var(--kh-space-1) var(--kh-space-3);
   font-size: var(--kh-text-sm);
-  background: var(--kh-color-surface-raised);
+  background: var(--kh-fill-surface-raised);
   color: var(--kh-color-text);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-full);
 
   /* A filename, so it breaks anywhere rather than forcing the figure wider than the screen. */

@@ -439,7 +439,7 @@
   gap: var(--kh-space-2);
   margin: 0;
   padding: var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
 }
 

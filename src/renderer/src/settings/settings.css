@@ -53,8 +53,8 @@
   gap: var(--kh-space-2);
   margin-top: var(--kh-space-4);
   padding: var(--kh-space-3);
-  background: var(--kh-color-surface);
-  border: 1px solid var(--kh-color-border);
+  background: var(--kh-fill-surface);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
 }
 
@@ -121,7 +121,7 @@
   font-size: var(--kh-text-sm);
   color: var(--kh-color-text-muted);
   text-decoration: none;
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-full);
   transition: background var(--kh-duration-fast) var(--kh-ease);
 }
@@ -145,8 +145,8 @@
 
 .kh-settings-section {
   padding: var(--kh-space-4);
-  background: var(--kh-color-surface);
-  border: 1px solid var(--kh-color-border);
+  background: var(--kh-fill-surface);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
 }
 
@@ -204,7 +204,7 @@
 .kh-fieldset {
   margin: 0 0 var(--kh-space-4);
   padding: var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
 }
 
@@ -374,7 +374,7 @@
 
 .kh-audit-level {
   padding: var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
 }
 
@@ -473,7 +473,7 @@
   display: flex;
   gap: var(--kh-space-3);
   padding: var(--kh-space-2);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
 }
 
@@ -526,7 +526,7 @@
 
 .kh-kdf {
   padding: var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
 }
 

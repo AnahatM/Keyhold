@@ -93,9 +93,21 @@ function isComment(line: string): boolean {
   );
 }
 
-/** A CSS custom-property declaration is a token definition, which is the point of tokens. */
+/**
+ * A **colour** custom-property declaration is a token definition, which is the point of tokens.
+ *
+ * Narrowed from every `--kh-*` property to `--kh-color-*` only, because the wider version
+ * exempted more than its own reason covered and something got through: `--kh-shadow-sm/md/lg`
+ * held `rgb(0 0 0 / …)` for the life of the project — the one colour in the app that never
+ * followed the theme, and a black shadow under a dark palette is a smudge rather than a lift.
+ *
+ * The reason the exemption exists is that a colour token has to state a colour *somewhere*,
+ * and that somewhere is the palette. A radius, an elevation or a border width has no such
+ * excuse: if one names a colour it is bypassing the theme, which is the exact thing this file
+ * exists to prevent.
+ */
 function definesToken(line: string): boolean {
-  return /^\s*--kh-[\w-]+\s*:/.test(line);
+  return /^\s*--kh-color-[\w-]+\s*:/.test(line);
 }
 
 describe('the colour rule', () => {

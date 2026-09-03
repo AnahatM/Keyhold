@@ -6,6 +6,8 @@ import {
   FALLBACK_THEME,
   findTheme,
 } from './themes.js';
+import { STYLE_TOKENS, type StyleDefinition } from './style-tokens.js';
+import { DEFAULT_STYLE_ID, resolveStyle } from './styles.js';
 import { COLOUR_TOKENS, type Palette, type ThemeDefinition } from './tokens.js';
 
 /**
@@ -93,6 +95,23 @@ export interface AppearanceSettings {
    * setting override that.
    */
   readonly reduceMotion: boolean;
+  /**
+   * Which material the interface is made of — see `styles.ts`.
+   *
+   * The second axis, and deliberately independent of `themeId`. A style decides shape,
+   * elevation and translucency; a theme decides colour. Folding them into one list would mean
+   * eight themes times four styles as thirty-two entries, most of which nobody wants, and it
+   * would make "I like this palette but not the glass" unexpressible.
+   */
+  readonly styleId: string;
+  /**
+   * Forces every translucent surface opaque, even when the OS does not ask for it.
+   *
+   * The same shape as `reduceMotion`, and for the same reason: the OS preference is always
+   * honoured and this can only ever add restraint. Somebody who has asked their system for
+   * reduced transparency must never find an app setting overriding that.
+   */
+  readonly reduceTransparency: boolean;
   /** A user-authored palette, taking precedence over `themeId` when present. */
   readonly customPalette: Palette | null;
 }
@@ -107,6 +126,8 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
   fontScale: 1,
   fontFamily: 'system',
   reduceMotion: false,
+  styleId: DEFAULT_STYLE_ID,
+  reduceTransparency: false,
   customPalette: null,
 };
 
@@ -120,6 +141,8 @@ export interface ResolvedAppearance {
   readonly fontScale: number;
   readonly fontStack: string;
   readonly reduceMotion: boolean;
+  readonly style: StyleDefinition;
+  readonly reduceTransparency: boolean;
 }
 
 /**
@@ -133,7 +156,8 @@ export interface ResolvedAppearance {
 export function resolveAppearance(
   settings: AppearanceSettings,
   systemPrefersDark: boolean,
-  systemPrefersReducedMotion = false
+  systemPrefersReducedMotion = false,
+  systemPrefersReducedTransparency = false
 ): ResolvedAppearance {
   const themeId =
     settings.mode === 'system'
@@ -165,6 +189,11 @@ export function resolveAppearance(
     fontStack: FONT_STACKS[settings.fontFamily],
     // OR, never override: an OS-level reduced-motion request is a stated access need.
     reduceMotion: settings.reduceMotion || systemPrefersReducedMotion,
+    style: resolveStyle(settings.styleId),
+    // Same rule, same reason. Note the fallback for reduced transparency is Flat's values
+    // rather than the style's, which `toCssVariables` applies — a style cannot opt out of an
+    // access need by declaring different numbers.
+    reduceTransparency: settings.reduceTransparency || systemPrefersReducedTransparency,
   };
 }
 
@@ -173,13 +202,41 @@ export function resolveAppearance(
  *
  * Returned as data rather than written to the DOM, so the same function serves the live
  * app, the theme editor's preview, and its own test.
+ *
+ * **Two token layers, emitted side by side.** `--kh-color-*` comes from the theme and
+ * `--kh-style-*` from the UI style, and the separation is the whole point of the split: a
+ * theme decides hue, a style decides material, and neither may reach into the other. They
+ * are written in one pass because they land on the same element and a stylesheet reading a
+ * half-applied appearance would flash.
+ *
+ * **Reduced transparency is applied here, not in a media query, and that is not a
+ * preference.** `applyToDocument` writes these as inline styles on the root element, and an
+ * inline style beats any `:root` rule — so a `@media (prefers-reduced-transparency: reduce)`
+ * block would be dead the moment JavaScript ran. `base.css` carries one anyway, for the frame
+ * before that happens, exactly as it already does for reduced motion.
  */
 export function toCssVariables(resolved: ResolvedAppearance): Record<string, string> {
   const metrics = DENSITY_METRICS[resolved.density];
+  const style = resolved.style;
   const variables: Record<string, string> = {};
 
   for (const token of COLOUR_TOKENS) {
     variables[`--kh-color-${token}`] = resolved.palette[token];
+  }
+
+  for (const token of STYLE_TOKENS) {
+    variables[`--kh-style-${token}`] = style.tokens[token];
+  }
+
+  // After the loop, so it wins whatever the style declared. A style cannot opt out of an
+  // access need by choosing different numbers, and forcing every surface fully opaque is by
+  // definition contrast-safe: 100% opaque is exactly the un-composited case the theme
+  // contrast guard already verifies.
+  if (resolved.reduceTransparency) {
+    variables['--kh-style-surface-opacity'] = '100%';
+    variables['--kh-style-fill-opacity'] = '100%';
+    variables['--kh-style-blur'] = '0px';
+    variables['--kh-style-texture-opacity'] = '0%';
   }
 
   variables['--kh-font-body'] = resolved.fontStack;
@@ -256,6 +313,13 @@ export function coerceAppearance(value: unknown): AppearanceSettings {
     fontScale: isValidFontScale(raw.fontScale) ? raw.fontScale : DEFAULT_APPEARANCE.fontScale,
     fontFamily: isValidFontFamily(raw.fontFamily) ? raw.fontFamily : DEFAULT_APPEARANCE.fontFamily,
     reduceMotion: typeof raw.reduceMotion === 'boolean' ? raw.reduceMotion : false,
+    // Not validated against the registry here, deliberately, for the same reason `themeId` is
+    // not: `resolveStyle` falls back at the point of use, so a settings file naming a style
+    // that was renamed or removed renders in Flat and lets the user pick again, rather than
+    // being silently rewritten to a default they never chose.
+    styleId: typeof raw.styleId === 'string' ? raw.styleId : DEFAULT_APPEARANCE.styleId,
+    reduceTransparency:
+      typeof raw.reduceTransparency === 'boolean' ? raw.reduceTransparency : false,
     customPalette: isCompletePalette(raw.customPalette) ? raw.customPalette : null,
   };
 }

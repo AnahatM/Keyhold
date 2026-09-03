@@ -51,16 +51,85 @@
   --kh-weight-medium: 500;
   --kh-weight-semibold: 600;
 
-  /* ── Radius ─────────────────────────────────────────────────────────────── */
-  --kh-radius-sm: 4px;
-  --kh-radius-md: 7px;
-  --kh-radius-lg: 11px;
+  /*
+   * ── Style (material) fallbacks ───────────────────────────────────────────
+   *
+   * The second axis. A **theme** decides colour; a **style** decides what a surface is made
+   * of — its edges, its corners, its elevation, whether you can see through it. The real
+   * values arrive from `applyAppearance()` as inline properties on the root element, exactly
+   * like the colours; these are the frame before that happens.
+   *
+   * They are Flat's values, not the default style's, and deliberately: the pre-JS frame
+   * should be the plainest thing the app can draw, not a translucent one that then shifts.
+   */
+  --kh-style-border-width: 1px;
+  --kh-style-divider-width: 1px;
+  --kh-style-border-opacity: 100%;
+  --kh-style-radius-scale: 1;
+  --kh-style-shadow-sm: 0 1px 2px color-mix(in srgb, var(--kh-color-overlay) 8%, transparent);
+  --kh-style-shadow-md: 0 4px 12px color-mix(in srgb, var(--kh-color-overlay) 12%, transparent);
+  --kh-style-shadow-lg: 0 12px 32px color-mix(in srgb, var(--kh-color-overlay) 20%, transparent);
+  --kh-style-shadow-inset: none;
+  --kh-style-surface-opacity: 100%;
+  --kh-style-fill-opacity: 100%;
+  --kh-style-blur: 0px;
+  --kh-style-texture-image: none;
+  --kh-style-texture-size: 0px;
+  --kh-style-texture-opacity: 0%;
+  --kh-style-accent-image: none;
+
+  /*
+   * ── Radius. One ladder, scaled by the style. ─────────────────────────────
+   *
+   * A multiplier over the existing steps rather than four more style tokens, so the ladder
+   * keeps its proportions: a card can never end up rounder than the chip inside it, whatever
+   * a style asks for.
+   */
+  --kh-radius-sm: calc(4px * var(--kh-style-radius-scale));
+  --kh-radius-md: calc(7px * var(--kh-style-radius-scale));
+  --kh-radius-lg: calc(11px * var(--kh-style-radius-scale));
+  /* A pill is a pill under every style. */
   --kh-radius-full: 999px;
 
-  /* ── Elevation. Deliberately restrained: this is a tool, not a showcase. ── */
-  --kh-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.08);
-  --kh-shadow-md: 0 4px 12px rgb(0 0 0 / 0.12);
-  --kh-shadow-lg: 0 12px 32px rgb(0 0 0 / 0.2);
+  /*
+   * ── Elevation. Owned by the style; the colour still comes from the theme. ─
+   *
+   * These used to be `rgb(0 0 0 / …)` — the only colour in the app that never followed the
+   * theme, and a black shadow under a dark palette is a smudge rather than a lift.
+   * `tools/no-hardcoded-colours.test.ts` missed them because its exemption is for any line
+   * declaring a `--kh-*` property, which was wider than its own stated reason.
+   */
+  --kh-shadow-sm: var(--kh-style-shadow-sm);
+  --kh-shadow-md: var(--kh-style-shadow-md);
+  --kh-shadow-lg: var(--kh-style-shadow-lg);
+  --kh-shadow-inset: var(--kh-style-shadow-inset);
+
+  /*
+   * ── Derived, so no component repeats a `color-mix` ───────────────────────
+   *
+   * `--kh-edge` is the **decorative** edge: panels, cards, buttons. Input and popover
+   * outlines keep `--kh-color-border-strong` at a fixed 1px and must not use this — they
+   * carry WCAG 1.4.11 weight, and the palettes have no headroom there. `border-strong` on
+   * `bg` in Dawn was darkened until it cleared 3.0 by a hair, so fading it by any amount
+   * puts a theme under AA.
+   */
+  --kh-edge: var(--kh-style-border-width) solid
+    color-mix(in srgb, var(--kh-color-border) var(--kh-style-border-opacity), transparent);
+  --kh-fill-surface: color-mix(
+    in srgb,
+    var(--kh-color-surface) var(--kh-style-surface-opacity),
+    transparent
+  );
+  --kh-fill-surface-raised: color-mix(
+    in srgb,
+    var(--kh-color-surface-raised) var(--kh-style-surface-opacity),
+    transparent
+  );
+  --kh-fill-accent: color-mix(
+    in srgb,
+    var(--kh-color-accent) var(--kh-style-fill-opacity),
+    transparent
+  );
 
   /*
    * ── Motion ───────────────────────────────────────────────────────────────
@@ -86,6 +155,40 @@
   :root {
     --kh-motion-scale: 0;
   }
+}
+
+/*
+ * Belt and braces, exactly like the motion block above: this covers the frame before
+ * `applyAppearance()` runs and nothing after it, because that writes inline properties on
+ * the root element and an inline property beats any `:root` rule. The real enforcement is in
+ * `toCssVariables`, which ORs this preference with the user's own setting.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --kh-style-surface-opacity: 100%;
+    --kh-style-fill-opacity: 100%;
+    --kh-style-blur: 0px;
+    --kh-style-texture-opacity: 0%;
+  }
+}
+
+/*
+ * The style's texture layer — the blueprint grid, under everything.
+ *
+ * A fixed pseudo-element behind the app rather than a background on `body`, so it never
+ * enters a stacking context or a hit-testing path: it cannot end up over a control, and it
+ * cannot intercept a click. `none` and `0%` under every style that does not want one, which
+ * is why this can be unconditional.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background-image: var(--kh-style-texture-image);
+  background-size: var(--kh-style-texture-size) var(--kh-style-texture-size);
+  opacity: var(--kh-style-texture-opacity);
+  pointer-events: none;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
