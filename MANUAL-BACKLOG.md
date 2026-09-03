@@ -15,9 +15,17 @@ Last updated: 2026-09-03
 privately for now"_ (decision D12). Local git is already initialised and committed — only the remote
 is missing.
 
-**Status:** GitHub CLI is **not installed** on this machine (checked 2026-09-02: `gh` is not on
-PATH, not in `%ProgramFiles%\GitHub CLI`, not in `%LOCALAPPDATA%\GitHubCLI`). Git itself is fine
-(2.55.0) and the identity is already set to `Anahat <61635745+AnahatM@users.noreply.github.com>`.
+**Status:** GitHub CLI is **still not installed** (re-checked 2026-09-03: `gh` is on neither the
+Git Bash PATH nor the PowerShell one). Git itself is fine and the identity is already set to
+`Anahat <61635745+AnahatM@users.noreply.github.com>`.
+
+**The repository is push-ready.** Everything is committed, the working tree is clean, and
+`.gitignore` refuses `*.keep`, `*.keepx`, `*.keepbak`, `*.kdbx`, `*.csv`, `*.1pux`, `.env*` and
+private-key extensions, with an explicit allow-list for `tests/**/fixtures/`. Verified that no
+vault file, export or preferences file is tracked. The only thing missing is the remote.
+
+Installing a system tool and completing a browser login are both yours by CLAUDE.md §7, which is
+why this has not been done for you rather than an oversight.
 
 ### Option A — install the GitHub CLI (recommended; then Claude can do the rest)
 

@@ -557,12 +557,18 @@ produced and no workflow has ever run** — there is no remote yet. Full notes:
 
 > **A note on "not mounted" and "needs IPC".** A large amount of this project was built and
 > tested before it was reachable, and a large amount of the wiring has since landed — the
-> tool-view region, the menu bridge, the settings channels, the import channels, the command
-> palette. That was a deliberate order (the engine is where correctness lives; the wiring is
-> mechanical), and the honest reading of this table is still that the **remaining work is mostly
-> integration, not construction.** The two big pieces left are the sync layer around the merge
-> engine and the composition root for the breach check. `MANUAL-BACKLOG.md` §M-IPC lists the
-> channel groups still owed.
+> tool-view region, the menu bridge, the settings channels, the import and export channels, the
+> command palette, and the import wizard and export dialog themselves. That was a deliberate
+> order (the engine is where correctness lives; the wiring is mechanical), and the honest reading
+> of this table is still that the **remaining work is mostly integration, not construction.**
+>
+> **A built thing nothing renders is worth less than an unbuilt one**, because it looks finished
+> in every test and in every count while a user cannot reach it. Anything in the phases above
+> marked as built-and-unmounted should be finished before new construction starts. What is left
+> in that state: the renderer half of attachments, the onboarding flow, the theme-import
+> channels, and the composition root for the breach check. The sync layer around the merge
+> engine is the one genuinely unbuilt piece. `MANUAL-BACKLOG.md` §M-IPC lists the channel
+> groups still owed.
 >
 > **This table is a summary of the phases above and rots faster than they do.** Where the two
 > disagree, the phase section wins — and then fix this.
@@ -579,8 +585,8 @@ produced and no workflow has ever run** — there is no remote yet. Full notes:
 | 7 · Organisation & search        | ~ Sidebar UI outstanding      |
 | 8 · Password generator           | ~ Mounted                     |
 | 9 · Attachments                  | ~ IPC done, no previews       |
-| 10 · Import                      | ~ Built, nothing mounts it    |
-| 11 · Export & transfer bundle    | ~ Built, nothing mounts it    |
+| 10 · Import                      | ~ Mounted, wizard polish left |
+| 11 · Export & transfer bundle    | ~ Mounted, KDBX left          |
 | 12 · Sync & merge                | ~ Engine done                 |
 | 13 · Health dashboard            | ~ Mounted, minus HIBP         |
 | 14 · Settings                    | ~ Mounted, 2 channels short   |
