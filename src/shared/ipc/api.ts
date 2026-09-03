@@ -16,14 +16,8 @@ import type {
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '../model/health.js';
 import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
 import type { PasswordStrength } from '../model/strength.js';
-import type {
-  Folder,
-  Tag,
-  VaultLockedInfo,
-  VaultSettings,
-  VaultSummary,
-} from '../model/vault-document.js';
-import type { MachineSettings } from '../model/settings-plan.js';
+import type { Folder, Tag, VaultLockedInfo, VaultSummary } from '../model/vault-document.js';
+import type { SettingsSnapshot } from '../model/settings-plan.js';
 import type { AttachmentAddView, AttachmentAudit } from '../model/attachment.js';
 import type { ExportFormatDescriptor } from '../model/export.js';
 import type { ImportFormatDescriptor } from '../model/import.js';
@@ -398,20 +392,20 @@ export interface SettingsApi {
   clearAllHistory: () => Promise<IpcResult<number>>;
 }
 
-/** Everything the settings screen renders in one read. Contains no secret material. */
-export interface SettingsView {
-  readonly machine: MachineSettings;
-  /** `null` when no vault is open — the machine half of the screen still works. */
-  readonly vault: VaultSettings | null;
-  readonly vaultPath: string | null;
-  readonly kdf: {
-    readonly memoryKib: number;
-    readonly iterations: number;
-    readonly parallelism: number;
-  } | null;
-  /** Total stored versions across every record, so "clear all history" can state the cost. */
-  readonly historyVersionCount: number;
-}
+/**
+ * Everything the settings screen renders in one read. Contains no secret material.
+ *
+ * `SettingsSnapshot`, not a shape of its own. There were briefly two — this file described
+ * what the channel returns, and `@shared/model/settings-plan.ts` described what the screen
+ * consumes — and they had already drifted: the screen's version carried the vault's display
+ * name and the quick-unlock summary, and the channel's did not. So the screen could not have
+ * been wired to the channel without either widening one or writing an adapter, and an
+ * adapter between two descriptions of the same payload is the second list wearing a
+ * function.
+ *
+ * The screen's shape wins because it is the one written against what a person needs to see.
+ */
+export type SettingsView = SettingsSnapshot;
 
 /**
  * Attachments.

@@ -843,11 +843,21 @@ export function registerIpcHandlers(context: IpcContext): void {
   const settingsView = (): SettingsView => {
     const status = session.status();
     const open = status.state === 'unlocked';
+    // `mechanism` is deliberately not carried across. The renderer renders `description`
+    // verbatim precisely so it cannot restate the mechanism in its own words — Touch ID is a
+    // biometric gate and Windows DPAPI is not, and a renderer holding the enum is a renderer
+    // that will eventually write `mechanism === 'touch-id' ? 'Touch ID' : 'biometrics'`.
+    const { available, promptsForBiometrics, description, enrolledForThisVault } =
+      status.quickUnlock;
     return {
       machine: session.machineSettings(),
       vault: open ? vault.settings() : null,
       vaultPath: status.vault?.path ?? null,
+      // The file name, not the path. The screen shows it as a label, and a label is not a
+      // place to put a directory tree the user did not ask to see.
+      vaultDisplayName: status.vault === null ? null : basename(status.vault.path),
       kdf: open ? vault.kdfParams() : null,
+      quickUnlock: { available, enrolled: enrolledForThisVault, promptsForBiometrics, description },
       historyVersionCount: open ? vault.historyVersionCount() : 0,
     };
   };

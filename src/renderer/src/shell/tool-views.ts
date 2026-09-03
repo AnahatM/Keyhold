@@ -34,18 +34,19 @@
  */
 
 /**
- * `settings` is deliberately absent, and it is the only one that is.
+ * All four, now that Settings has somewhere to go.
  *
- * `SettingsScreen` is written and mounted-ready, but `settings/settings-gateway.ts` still
- * refuses every read with "Phase 14 has not registered kh:settings:read" — a renderer-side
- * stub written before that channel existed. It exists now (`register.ts` handles
- * `CHANNELS.settingsRead`, and the preload exposes `window.keyhold.settings.read`), so the
- * gateway is the only thing left, and it is not in this pass's remit. Until it is replaced,
- * `app.settings` has nowhere to go that is not an error page, and a permanent sidebar row
- * that only ever fails is worse than one that is not there yet. See the handover note for
- * the four lines that add it back.
+ * `settings` was briefly absent from this list. `SettingsScreen` was written and
+ * mount-ready, but its gateway still refused every read with "Phase 14 has not registered
+ * kh:settings:read" — a renderer-side stub written before the channel existed and left
+ * behind after it did. So the row rendered nothing but an error page, and a permanent
+ * sidebar entry that only ever fails is worse than one that is not there yet.
+ *
+ * The gateway is wired now and `settings-gateway.test.ts` fails if an entry in its
+ * `REQUIRED_CHANNELS` names a channel the contract already has — which is what stops the
+ * same gap from re-opening quietly the next time a channel lands.
  */
-export const TOOL_VIEW_IDS = ['generator', 'health', 'help'] as const;
+export const TOOL_VIEW_IDS = ['generator', 'health', 'settings', 'help'] as const;
 
 export type ToolViewId = (typeof TOOL_VIEW_IDS)[number];
 
@@ -93,6 +94,14 @@ export const TOOL_VIEWS: readonly ToolViewDefinition[] = [
     title: 'Vault health',
     summary: 'Eight offline checks over every record in this vault.',
     menuCommandId: 'tools.health',
+    fills: false,
+  },
+  {
+    id: 'settings',
+    title: 'Settings',
+    summary: 'Auto-lock, clipboard, quick unlock, history and this vault\u2019s own options.',
+    menuCommandId: 'app.settings',
+    // The screen is a long flowing form of grouped sections; it wants the frame to scroll it.
     fills: false,
   },
   {
