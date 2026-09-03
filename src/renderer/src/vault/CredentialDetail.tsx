@@ -3,7 +3,9 @@ import { useState } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { Badge, EmptyState } from '../components/Feedback.js';
 import { Button } from '../components/Button.js';
+import { AttachmentsPanel } from './AttachmentsPanel.js';
 import { useCredentials } from './credential-store.js';
+import { useSession } from './session-store.js';
 import { HistoryTimeline } from '../history/HistoryTimeline.js';
 import { PlainField, SecretField } from './SecretField.js';
 
@@ -246,12 +248,6 @@ export function CredentialDetail({
             <dt>Used</dt>
             <dd>{credential.meta.useCount} times</dd>
           </div>
-          {credential.attachments.length > 0 && (
-            <div>
-              <dt>Attachments</dt>
-              <dd>{credential.attachments.length}</dd>
-            </div>
-          )}
           <div>
             <dt>History</dt>
             <dd>
@@ -262,6 +258,18 @@ export function CredentialDetail({
           </div>
         </dl>
       </section>
+
+      <AttachmentsPanel
+        credentialId={credential.id}
+        attachments={credential.attachments}
+        readOnly={trashed}
+        onChanged={() => {
+          // The projection is stale the moment a chunk lands or leaves — the count, the
+          // sizes and the list all come from it. Refreshing the session rather than patching
+          // the record locally keeps one source of truth for what the vault holds.
+          void useSession.getState().refresh();
+        }}
+      />
 
       <section className="kh-detail__section">
         <div className="kh-detail__section-head">

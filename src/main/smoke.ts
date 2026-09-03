@@ -597,6 +597,24 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 250));
+
+        // The attachments panel. Four channels were registered and the detail pane showed a
+        // count and nothing else, so a user could neither attach a file nor get one back out.
+        // Asserted on the empty state, because that is what a record with no attachments must
+        // show — a panel that only appears once something is attached is a panel nobody can
+        // use to attach the first thing.
+        const attachments: unknown = await window.webContents.executeJavaScript(
+          `(() => {
+            const panel = document.querySelector('.kh-attachments');
+            if (!panel) return 'missing';
+            const button = [...panel.querySelectorAll('button')]
+              .find((element) => element.textContent?.includes('Attach a file'));
+            return button ? 'ready' : 'no-add-button';
+          })()`,
+          true
+        );
+        emit(`SMOKE-CHECK attachments-panel-usable ${String(attachments === 'ready')}`);
+
         await captureNamedShot(window, 'Keyhold-Screenshot-02');
 
         // The command palette, opened by its real shortcut rather than by calling into the
