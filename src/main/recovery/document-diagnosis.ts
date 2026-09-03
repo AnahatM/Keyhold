@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { VERSIONED_FIELDS, type Credential } from '@shared/model/credential.js';
+import { type Credential } from '@shared/model/credential.js';
 import {
   ATTACHMENT_DIAGNOSTICS,
   DIAGNOSTICS,
@@ -20,7 +20,8 @@ import {
 } from '../organisation/integrity.js';
 import { assertValidHistory } from '../history/versioning.js';
 import { assertValidCredential } from '../vault/credential-ops.js';
-import { formatCount, redactUnknownFields, sanitiseDetail } from './text.js';
+import { describeHistoryViolation } from './history-detail.js';
+import { formatCount } from './text.js';
 
 /**
  * Integrity of a **decrypted** vault: everything that is still wrong after the file opened.
@@ -195,20 +196,15 @@ function diagnoseRecord(record: Credential, now: number): DiagnosticIssue[] {
 
   try {
     assertValidHistory(record);
-  } catch (error) {
-    // The message names the invariant, the record and the version number, all of which are
-    // worth keeping. The one case where it quotes something that came out of a corrupt file —
-    // an unexpected snapshot key — is redacted, because in a corrupt document that key could
-    // be any bytes at all, including a fragment of a decrypted note.
-    const message = error instanceof Error ? error.message : 'invalid history';
+  } catch {
+    // The thrown message is deliberately dropped rather than cleaned. It interpolates the
+    // snapshot key, the changed-field name and the version number straight out of the
+    // document, and in a corrupt document each of those can be any bytes at all — including a
+    // fragment of a decrypted note. Two shapes walked past the scrubber that used to stand
+    // here; `history-detail.ts` records both and explains why the replacement composes a
+    // sentence from safe values instead of trying to clean an unsafe one.
     issues.push(
-      issueFor(
-        'invalid-history',
-        'record',
-        record.id,
-        record.id,
-        redactUnknownFields(sanitiseDetail(message), VERSIONED_FIELDS)
-      )
+      issueFor('invalid-history', 'record', record.id, record.id, describeHistoryViolation(record))
     );
   }
 

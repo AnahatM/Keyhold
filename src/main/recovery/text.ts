@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 /**
- * The two string helpers every diagnostic message goes through.
+ * The small string helpers every diagnostic message goes through.
  *
- * Small, and in their own file, because both are load-bearing in a way that would be invisible
- * inlined: one keeps a report readable, the other keeps it safe.
+ * Small, and in their own file, because they are load-bearing in a way that would be invisible
+ * inlined: they decide how a report reads, and they used to be asked to decide whether it was
+ * safe. That second job has been taken away from them — see the note at the foot of this file.
  */
 
 /**
@@ -40,12 +41,14 @@ const MAX_DETAIL_LENGTH = 200;
  *    salt and the wrapped key never appear in a message, only in fields this module reports as
  *    lengths.
  *  - **KDF range failures** quote numbers and the algorithm name.
- *  - **History failures** quote a record id, a version number, and a field name — except for
- *    one case, a snapshot key that came out of a corrupt file and could be any string at all.
- *    `redactUnknownFields` handles exactly that case; this function only bounds the length.
+ *  - **History failures are no longer borrowed at all.** They interpolated a snapshot key, a
+ *    changed-field name and a version number straight out of a corrupt document, and
+ *    `document-diagnosis.ts` now composes that finding itself. See `history-detail.ts`.
  *
- * The cap is a backstop, not the defence. A truncated secret is still a secret, so nothing
- * relies on it — it exists so a pathological file cannot turn one finding into a page of text.
+ * The cap is a backstop, not a defence, and this function is not a redactor. A truncated
+ * secret is still a secret — worse, truncation is what defeated the redactor that used to
+ * live below this one. Nothing may rely on this for safety; it exists so that a pathological
+ * file cannot turn one finding into a page of text.
  */
 export function sanitiseDetail(message: string): string {
   const collapsed = message.replace(/\s+/g, ' ').trim();
@@ -54,19 +57,26 @@ export function sanitiseDetail(message: string): string {
     : `${collapsed.slice(0, MAX_DETAIL_LENGTH - 1)}…`;
 }
 
-/**
- * Replaces any double-quoted run that is not a known-safe token with `"…"`.
+/*
+ * `redactUnknownFields` used to live here, and it is not coming back.
  *
- * `assertValidHistory` reports an unexpected snapshot key by quoting it. In a healthy vault
- * that key is a field name; in the corrupt vault this module exists to describe, it is
- * whatever the corruption put there — which could be a fragment of a decrypted note. Naming
- * the invariant that broke is worth keeping, so the message is kept and the unknown token is
- * removed, rather than throwing the whole message away.
+ * It replaced any double-quoted run that was not a known field name with `"…"`, so that
+ * `assertValidHistory`'s message could be repeated in a report even though the snapshot key it
+ * quotes comes out of a corrupt file and could be a fragment of a decrypted note. Two shapes
+ * walked straight past it:
+ *
+ *  - a key long enough that `sanitiseDetail`'s cap cut the closing quote off, leaving no pair
+ *    to match and the entire message — key included — passing through untouched; and
+ *  - a key containing a `"` of its own, which leaks everything *between* two pairs the scanner
+ *    is perfectly happy with. Swapping the order of the two calls fixes the first and not the
+ *    second.
+ *
+ * The lesson is not "write a better regex". A scrubber over a string built by interpolating
+ * untrusted content has to win every time; the next adversarial key only has to be new once.
+ * The replacement composes the sentence from a fixed vocabulary plus values that are safe by
+ * construction, so nothing untrusted ever enters the string. See `history-detail.ts`, and
+ * `document-diagnosis.test.ts` for both bypasses as live regression tests.
  */
-export function redactUnknownFields(message: string, allowed: readonly string[]): string {
-  const safe = new Set(allowed);
-  return message.replace(/"([^"]*)"/g, (whole, token: string) => (safe.has(token) ? whole : '"…"'));
-}
 
 /**
  * Greedy word wrap.

@@ -10,9 +10,23 @@ import { emptyVaultDocument, type VaultDocument } from '@shared/model/vault-docu
 import { recordOf } from '../attachments/test-fixtures.js';
 import { diagnoseDocument } from './document-diagnosis.js';
 import { inspectVaultFile } from './file-inspection.js';
-import { buildRecoveryReport, renderRecoveryReport } from './report.js';
+import {
+  DISCLOSURE_CARRIED,
+  DISCLOSURE_STATEMENT,
+  DISCLOSURE_WITHHELD,
+  buildRecoveryReport,
+  renderRecoveryReport,
+} from './report.js';
 import { surveyVaultFiles } from './survey.js';
-import { FIXTURE_NOW, bodyOffsetOf, buildContainer, chunkId, truncatedTo } from './test-support.js';
+import {
+  FIXTURE_DEVICE_ID,
+  FIXTURE_NOW,
+  FIXTURE_VAULT_ID,
+  bodyOffsetOf,
+  buildContainer,
+  chunkId,
+  truncatedTo,
+} from './test-support.js';
 
 /**
  * The report is written to be pasted into a bug report, which is what makes the no-content
@@ -24,44 +38,88 @@ import { FIXTURE_NOW, bodyOffsetOf, buildContainer, chunkId, truncatedTo } from 
 const DAY = 86_400_000;
 
 /**
- * A marker planted in every user-authored string a fixture has.
+ * One marker per category the report promises to withhold, keyed by the category.
  *
- * One token, searched for once, rather than a list of forbidden words: a report that leaks
- * anything at all leaks this, and the assertion cannot rot as fields are added.
+ * A single umbrella marker proves "nothing leaked", which is the property that matters most —
+ * but it cannot prove that each category the report *names* is individually guaranteed, and
+ * naming a category is what a user acts on. So the map is keyed by the exact phrases in
+ * `DISCLOSURE_WITHHELD`, `plantedMarkers` proves every one of them is really planted, and the
+ * sweep then checks them one at a time. Add a category to the promise without planting it and
+ * the fixture test fails; plant one the report does not actually withhold and the sweep fails.
  */
-const MARKER = 'ZZLEAKMARKERZZ';
+const WITHHELD_MARKERS: Readonly<Record<string, string>> = {
+  passwords: 'ZZPASSWORDZZ',
+  notes: 'ZZNOTEBODYZZ',
+  titles: 'ZZTITLEZZ',
+  usernames: 'ZZUSERNAMEZZ',
+  emails: 'ZZEMAILZZ',
+  'web addresses': 'ZZWEBADDRZZ',
+  'field labels': 'ZZFIELDLABELZZ',
+  'security questions or answers': 'ZZSECURITYQAZZ',
+  'tag or folder names': 'ZZORGNAMEZZ',
+  'attachment names': 'ZZATTACHNAMEZZ',
+  // The directory lives in the path handed to the report, not in the document.
+  'directory paths': 'ZZDIRMARKERZZ',
+};
 
-/** A vault where literally every user-authored string carries the marker. */
+/**
+ * The corrupt document's own bytes, which belong to no field at all.
+ *
+ * A snapshot key or a changed-field name out of a damaged vault is whatever the corruption
+ * put there — `versioning.ts` and `history-detail.ts` both say a fragment of a decrypted note
+ * is the case to plan for. It gets its own token rather than borrowing the `notes` one so that
+ * each token is planted in exactly one place: a token planted twice makes the plant check
+ * below unable to notice when one of the two goes missing, which is how a sweep quietly stops
+ * covering what it claims to. (Learned the hard way: it did exactly that once here.)
+ */
+const CORRUPT_KEY_MARKER = 'ZZCORRUPTKEYZZ';
+
+/** Shorthand, because the fixture below reads better than `WITHHELD_MARKERS['titles']` does. */
+function marker(category: string): string {
+  const value = WITHHELD_MARKERS[category];
+  if (value === undefined) throw new Error(`no marker planted for "${category}"`);
+  return value;
+}
+
+/** A vault where every user-authored string carries the marker for its own category. */
 function poisonedDocument(): VaultDocument {
   const base = recordOf('r1');
   const record: Credential = {
     ...base,
-    title: `${MARKER}-title`,
-    tags: [`${MARKER}-tagname`],
+    title: `${marker('titles')}-title`,
+    tags: [`${marker('tag or folder names')}-tagname`],
     fields: {
-      username: `${MARKER}-username`,
-      email: `${MARKER}-email`,
-      password: `${MARKER}-password`,
-      urls: [`https://${MARKER}.example.com`],
+      username: `${marker('usernames')}-username`,
+      email: `${marker('emails')}-email`,
+      password: `${marker('passwords')}-password`,
+      urls: [`https://${marker('web addresses')}.example.com`],
       securityQuestions: [
-        { id: 'q1', question: `${MARKER}-question`, answer: `${MARKER}-answer` },
-        { id: 'q1', question: `${MARKER}-question2`, answer: `${MARKER}-answer2` },
+        {
+          id: 'q1',
+          question: `${marker('security questions or answers')}-question`,
+          answer: `${marker('security questions or answers')}-answer`,
+        },
+        {
+          id: 'q1',
+          question: `${marker('security questions or answers')}-question2`,
+          answer: `${marker('security questions or answers')}-answer2`,
+        },
       ],
-      notes: `${MARKER}-notes`,
+      notes: `${marker('notes')}-notes`,
       custom: [
         {
           id: 'c1',
-          label: `${MARKER}-label`,
+          label: `${marker('field labels')}-label`,
           type: 'otp-secret',
-          value: `${MARKER}-seed`,
+          value: `${marker('passwords')}-seed`,
           hidden: true,
           order: 0,
         },
         {
           id: 'c1',
-          label: `${MARKER}-label2`,
+          label: `${marker('field labels')}-label2`,
           type: 'password',
-          value: `${MARKER}-value`,
+          value: `${marker('passwords')}-value`,
           hidden: true,
           order: 1,
         },
@@ -70,7 +128,7 @@ function poisonedDocument(): VaultDocument {
     attachments: [
       {
         id: chunkId('a'),
-        name: `${MARKER}-payslip.pdf`,
+        name: `${marker('attachment names')}-payslip.pdf`,
         mime: 'application/pdf',
         size: 999,
         sha256: 'f'.repeat(64),
@@ -78,6 +136,48 @@ function poisonedDocument(): VaultDocument {
       },
     ],
     meta: { ...base.meta, updatedAt: FIXTURE_NOW + 5 * DAY },
+    /**
+     * Ordering-valid on purpose, so the check *below* it is the one that fires.
+     *
+     * `assertValidHistory` stops at the first broken invariant. The fixture used to open
+     * with version 2 followed by version 1, which meant this sweep never reached the
+     * snapshot-key branch — the single reason the redaction existed. The guard reported
+     * success for a path it had never executed. Each poisoned record below therefore breaks
+     * exactly one invariant, and `reaches every history branch` asserts all three ran.
+     */
+    history: {
+      enabled: true,
+      maxVersions: null,
+      versions: [
+        {
+          versionNumber: 1,
+          savedAt: FIXTURE_NOW,
+          changedFields: ['title'],
+          snapshot: { title: `${marker('titles')}-older` },
+          origin: { action: 'update' },
+        },
+        {
+          versionNumber: 2,
+          savedAt: FIXTURE_NOW,
+          changedFields: ['title'],
+          // The branch that matters: a key that came out of the document, shaped to walk
+          // past a quoted-run scrubber — its own quotes, and long enough to lose the
+          // closing one to the length cap.
+          snapshot: {
+            title: `${marker('titles')}-old`,
+            [`x" ${CORRUPT_KEY_MARKER}-snapshot-key ${'y'.repeat(200)}`]: 'x',
+          },
+          origin: { action: 'update' },
+        },
+      ],
+    },
+    folderId: 'ghost-folder',
+  };
+
+  /** Same id as `record` — the duplicate-record-id case — but broken a different way. */
+  const duplicate: Credential = {
+    ...record,
+    id: 'r1',
     history: {
       enabled: true,
       maxVersions: null,
@@ -86,33 +186,51 @@ function poisonedDocument(): VaultDocument {
           versionNumber: 2,
           savedAt: FIXTURE_NOW,
           changedFields: ['title'],
-          snapshot: { title: `${MARKER}-old` },
+          snapshot: { title: `${marker('titles')}-old` },
           origin: { action: 'update' },
         },
         {
           versionNumber: 1,
           savedAt: FIXTURE_NOW,
           changedFields: ['title'],
-          snapshot: { title: `${MARKER}-older` },
+          snapshot: { title: `${marker('titles')}-older` },
           origin: { action: 'update' },
         },
       ],
     },
-    folderId: 'ghost-folder',
   };
 
-  const duplicate: Credential = { ...record, id: 'r1' };
+  /** The third history branch: a changed-field name the build does not recognise. */
+  const unknownField: Credential = {
+    ...record,
+    id: 'r2',
+    history: {
+      enabled: true,
+      maxVersions: null,
+      versions: [
+        {
+          versionNumber: 1,
+          savedAt: FIXTURE_NOW,
+          changedFields: [
+            `q" ${CORRUPT_KEY_MARKER}-changed-field`,
+          ] as unknown as Credential['history']['versions'][number]['changedFields'],
+          snapshot: {},
+          origin: { action: 'update' },
+        },
+      ],
+    },
+  };
 
   return {
     ...emptyVaultDocument(),
-    records: [record, duplicate],
+    records: [record, duplicate, unknownField],
     folders: [
-      { id: 'f1', name: `${MARKER}-Work`, parentId: 'f2', order: 0 },
-      { id: 'f2', name: `${MARKER}-Personal`, parentId: 'f1', order: 0 },
+      { id: 'f1', name: `${marker('tag or folder names')}-Work`, parentId: 'f2', order: 0 },
+      { id: 'f2', name: `${marker('tag or folder names')}-Personal`, parentId: 'f1', order: 0 },
     ],
     tags: [
-      { id: 't1', name: `${MARKER}-Employer`, colour: 'tag-slate' },
-      { id: 't2', name: `${MARKER}-employer`, colour: 'tag-slate' },
+      { id: 't1', name: `${marker('tag or folder names')}-Employer`, colour: 'tag-slate' },
+      { id: 't2', name: `${marker('tag or folder names')}-employer`, colour: 'tag-slate' },
     ],
   };
 }
@@ -126,7 +244,7 @@ function poisonedDocument(): VaultDocument {
  * directory is a person's real name often enough to matter. Two markers, so the test can
  * hold the real boundary instead of a stricter one the design does not claim.
  */
-const DIRECTORY_MARKER = 'ZZDIRMARKERZZ';
+const DIRECTORY_MARKER = marker('directory paths');
 
 const VAULT_DIRECTORY = `C:\\Users\\${DIRECTORY_MARKER}-person\\${DIRECTORY_MARKER}-Documents`;
 const VAULT_PATH = `${VAULT_DIRECTORY}\\vault.keep`;
@@ -155,16 +273,49 @@ function poisonedReport(): ReturnType<typeof buildRecoveryReport> {
   });
 }
 
+/** Every token the fixture plants — the disclosure categories plus the corrupt-key bytes. */
+const ALL_MARKERS: Readonly<Record<string, string>> = {
+  ...WITHHELD_MARKERS,
+  'a corrupt document’s own bytes': CORRUPT_KEY_MARKER,
+};
+
 describe('the property that matters: no user content, anywhere', () => {
-  it('does not leak the marker into the serialised report', () => {
-    const serialised = JSON.stringify(poisonedReport());
-    expect(serialised).not.toContain(MARKER);
+  it('plants every category it later sweeps for, so no sweep can pass vacuously', () => {
+    // Without this, deleting a poisoned field would turn its sweep green rather than red —
+    // the same shape of hollow guard that let the redaction bypass live: a test that reports
+    // success for a case it never actually presented.
+    const planted = `${JSON.stringify(poisonedDocument())} ${VAULT_PATH}`;
+    for (const [category, token] of Object.entries(ALL_MARKERS)) {
+      expect(`${category}:${planted.includes(token)}`).toBe(`${category}:true`);
+    }
   });
 
-  it('does not leak the marker into the rendered text either', () => {
+  it('names every withheld category in the sentence it prints', () => {
+    // The promise and the checked list must be the same list. A category quietly dropped from
+    // the prose while the sweep still covers it understates; one added to the prose without a
+    // sweep behind it is an unbacked claim.
+    const claim = DISCLOSURE_STATEMENT.join(' ');
+    for (const category of DISCLOSURE_WITHHELD) {
+      expect(claim).toContain(category);
+      expect(Object.keys(WITHHELD_MARKERS)).toContain(category);
+    }
+    expect(Object.keys(WITHHELD_MARKERS).sort()).toEqual([...DISCLOSURE_WITHHELD].sort());
+  });
+
+  it('leaks no category of user content into the serialised report', () => {
+    const serialised = JSON.stringify(poisonedReport());
+    for (const [category, token] of Object.entries(ALL_MARKERS)) {
+      expect(`${category}:${serialised.includes(token)}`).toBe(`${category}:false`);
+    }
+  });
+
+  it('leaks no category into the rendered text either', () => {
     // Rendering is a second surface: a field that is safe in the object could still be
     // interpolated into a sentence.
-    expect(renderRecoveryReport(poisonedReport())).not.toContain(MARKER);
+    const text = renderRecoveryReport(poisonedReport());
+    for (const [category, token] of Object.entries(ALL_MARKERS)) {
+      expect(`${category}:${text.includes(token)}`).toBe(`${category}:false`);
+    }
   });
 
   it('found plenty to report, so the sweep above is not passing on an empty report', () => {
@@ -178,6 +329,21 @@ describe('the property that matters: no user content, anywhere', () => {
     expect(sources).toContain('document');
     expect(sources).toContain('organisation');
     expect(sources).toContain('attachments');
+  });
+
+  it('reaches every history branch, so the sweep is guarding code that ran', () => {
+    // The guard for the guard. A sweep that never executes the branch it exists to police
+    // reports success forever — which is exactly what this fixture did before: it broke the
+    // ascending-order invariant first, and `assertValidHistory` never got as far as the
+    // snapshot key. If this assertion fails, the two sweeps above have stopped meaning
+    // anything, whatever colour they are.
+    const details = poisonedReport()
+      .findings.filter((finding) => finding.code === 'invalid-history')
+      .map((finding) => finding.detail ?? '');
+
+    expect(details.some((detail) => detail.includes('snapshot'))).toBe(true);
+    expect(details.some((detail) => detail.includes('ascend'))).toBe(true);
+    expect(details.some((detail) => detail.includes('changed field'))).toBe(true);
   });
 
   it('never lets a directory reach the report, in the object or the text', () => {
@@ -206,9 +372,25 @@ describe('the property that matters: no user content, anywhere', () => {
 
   it('says in the report itself what it does not contain', () => {
     const text = renderRecoveryReport(poisonedReport());
-    expect(text).toContain(
-      'This report contains no passwords, notes, titles, names, or file paths.'
-    );
+    for (const line of DISCLOSURE_STATEMENT) expect(text).toContain(line);
+  });
+
+  it('is honest in the other direction too: it does carry what it says it carries', () => {
+    // A promise that understates is still a promise the code does not keep. A user who strips
+    // nothing because the report said "no names" has been misled just as surely as one whose
+    // note leaked. The basename and the two ids are deliberate — so the sentence names them,
+    // and this asserts they really are there and must therefore stay named.
+    const report = poisonedReport();
+    const serialised = JSON.stringify(report);
+    const claim = DISCLOSURE_STATEMENT.join(' ');
+
+    for (const category of DISCLOSURE_CARRIED) expect(claim).toContain(category);
+
+    expect(report.vaultName).toBe('vault.keep');
+    expect(report.survey?.files.map((file) => file.name)).toContain('vault.keep.bak.1');
+    expect(serialised).toContain(FIXTURE_VAULT_ID);
+    expect(serialised).toContain(FIXTURE_DEVICE_ID);
+    expect(renderRecoveryReport(report)).toContain(FIXTURE_VAULT_ID);
   });
 
   it('leaks nothing when handed only a document diagnosis', () => {
@@ -216,8 +398,10 @@ describe('the property that matters: no user content, anywhere', () => {
       generatedAt: FIXTURE_NOW,
       diagnosis: diagnoseDocument(poisonedDocument(), { now: FIXTURE_NOW }),
     });
-    expect(JSON.stringify(report)).not.toContain(MARKER);
-    expect(renderRecoveryReport(report)).not.toContain(MARKER);
+    for (const token of Object.values(ALL_MARKERS)) {
+      expect(JSON.stringify(report)).not.toContain(token);
+      expect(renderRecoveryReport(report)).not.toContain(token);
+    }
   });
 });
 

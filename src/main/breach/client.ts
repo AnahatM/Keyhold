@@ -6,6 +6,7 @@ import {
   type BreachUnknownReason,
   type CredentialBreachResult,
 } from '@shared/model/breach.js';
+import { shuffleInPlace } from '../crypto/random.js';
 import { passwordRange } from './hash.js';
 import { parseRangeBody } from './range.js';
 import {
@@ -28,10 +29,17 @@ import {
  *
  * The password never leaves the machine. Neither does the full hash. Neither does anything
  * saying which account the password belongs to — no title, no username, no URL, no record
- * id, and no ordering that would let requests be grouped back into one person's vault. The
+ * id, and no ordering that would let two sweeps of the same vault be recognised as the same
+ * vault: the prefixes of a sweep go out in a **CSPRNG-shuffled** order (see `#run`). The
  * service cannot tell which of the ~800 passwords behind a prefix was being asked about,
  * which is what "k-anonymity" means here and why this is the one network feature that can
  * be defended at all. `hash.ts` holds the arithmetic; `https-transport.ts` holds the request.
+ *
+ * What an observer *does* learn is inherent and is recorded in the threat model rather than
+ * denied here: that this address asked about N prefixes inside one paced window. Padding
+ * hides how many candidate passwords sit behind each answer; the shuffle is what stops the
+ * *sequence* itself — an ordered multiset of twenty-bit values, stable across sessions if it
+ * followed the vault's record order — from being a linking handle of its own.
  *
  * ## "Off by default" is structural, not a flag
  *
@@ -75,9 +83,10 @@ import {
  * No result is written to disk, no hash is stored, and no "this password was breached" flag
  * is kept anywhere — a stored flag is a stored fact about a password, and it would outlive
  * both the password and the user's opt-in. The range cache is memory-only, bounded, and
- * dropped by `clearCache()`, which the lock path should call. There is no logging in this
- * directory at all, and a property test asserts that nothing returned from it contains a
- * password, a hash, a suffix or a prefix.
+ * dropped by `clearCache()` — **an obligation of whoever holds the client, and today
+ * unwired**; see that method. There is no logging in this directory at all, and a property
+ * test asserts that nothing returned from it contains a password, a hash, a suffix or a
+ * prefix.
  */
 
 /** One record's password, ready to be checked. Never leaves the main process. */
@@ -148,6 +157,14 @@ const DEFAULT_MAX_CACHED_RANGES = 128;
 interface PreparedEntry {
   readonly credentialId: string;
   readonly suffix: string;
+  /**
+   * Where this record sat in `inputs`.
+   *
+   * Requests go out in a random order (see `#run`) and results are handed back in the
+   * caller's order. Keeping the two orders separate means the privacy property costs the
+   * caller nothing: a dashboard still renders records in the order it asked about them.
+   */
+  readonly inputIndex: number;
 }
 
 /** A completed prefix fetch: a body, or the reason there isn't one. */
@@ -210,7 +227,23 @@ export class PwnedPasswordsClient {
     return this.#ranges.size;
   }
 
-  /** Drops every cached range. Call this when the vault locks, along with everything else. */
+  /**
+   * Drops every cached range. **The lock path must call this, and today nothing does.**
+   *
+   * The cache is per-client and outlives a sweep on purpose — reopening the dashboard should
+   * not re-ask the service the same questions — so it is not self-cleaning, and a client held
+   * across a lock/unlock cycle would carry it over. The cached keys are the prefixes of
+   * passwords in the vault that was open: a partial twenty-bit fingerprint of that vault,
+   * sitting in main-process memory after the event whose entire meaning is that nothing
+   * derived from the vault is still there.
+   *
+   * So this is not dead code and it is not a convenience — it is half of an obligation whose
+   * other half belongs at the composition root, next to where the DEK is destroyed
+   * (`SessionController.lock()`), together with the guard that proves it happens. Discarding
+   * the whole client on lock satisfies it equally well. Recorded in
+   * `docs/05-Features/07-Breach-Check.md` §7 as outstanding, because a wiring obligation with
+   * no caller is exactly the kind that gets lost between a module and its composition root.
+   */
   clearCache(): void {
     this.#ranges.clear();
   }
@@ -270,26 +303,50 @@ export class PwnedPasswordsClient {
     // duplicated passwords collapse into one entry list, and unrelated passwords that
     // happen to share a prefix are answered by the same response.
     const byPrefix = new Map<string, PreparedEntry[]>();
-    for (const input of inputs) {
-      if (input.secretPassword === '') continue;
+    inputs.forEach((input, inputIndex) => {
+      if (input.secretPassword === '') return;
       const { prefix, suffix } = passwordRange(input.secretPassword);
-      const entry: PreparedEntry = { credentialId: input.credentialId, suffix };
+      const entry: PreparedEntry = { credentialId: input.credentialId, suffix, inputIndex };
       const bucket = byPrefix.get(prefix);
       if (bucket === undefined) byPrefix.set(prefix, [entry]);
       else bucket.push(entry);
-    }
+    });
 
-    const results: CredentialBreachResult[] = [];
+    /**
+     * The order the prefixes go out in — **randomised, and that is a privacy control.**
+     *
+     * A `Map` iterates in insertion order, so walking `byPrefix` directly would send the
+     * prefixes in the order the records appear in the vault. That order is stable: the same
+     * vault swept a month later, from a different address, would emit very nearly the same
+     * ordered sequence, and an ordered multiset of a few hundred twenty-bit values is a
+     * strong handle for linking two sweeps to one vault. `Add-Padding` hides *how many*
+     * candidates sit behind each prefix and the count of requests is inherent — but the
+     * order is not inherent, and unshuffled it hands back exactly the grouping the rest of
+     * the design is spent denying.
+     *
+     * `shuffleInPlace` is the project's CSPRNG-backed Fisher-Yates, via `randomInt`'s
+     * rejection sampling. A biased shuffle would leak a little of the original order back,
+     * and `Math.random()` is banned project-wide for precisely this class of use.
+     */
+    const order = shuffleInPlace([...byPrefix]);
+
+    /** Results as they are produced, tagged so they can be restored to the caller's order. */
+    const collected: { readonly at: number; readonly result: CredentialBreachResult }[] = [];
     let requestCount = 0;
     let consecutiveFailures = 0;
     /** Set once the run has given up; every remaining record inherits it. */
     let stoppedBy: BreachUnknownReason | null = null;
 
     const record = (entries: readonly PreparedEntry[], result: BreachCheckResult): void => {
-      for (const entry of entries) results.push({ credentialId: entry.credentialId, ...result });
+      for (const entry of entries) {
+        collected.push({
+          at: entry.inputIndex,
+          result: { credentialId: entry.credentialId, ...result },
+        });
+      }
     };
 
-    for (const [prefix, entries] of byPrefix) {
+    for (const [prefix, entries] of order) {
       if (stoppedBy !== null) {
         record(entries, unknownResult(stoppedBy));
         continue;
@@ -343,6 +400,12 @@ export class PwnedPasswordsClient {
         );
       }
     }
+
+    // Back into the caller's order. Sorted rather than pre-placed because records with no
+    // password are skipped entirely, so `inputIndex` is sparse and there is no slot to fill.
+    const results = collected
+      .sort((left, right) => left.at - right.at)
+      .map((entry) => entry.result);
 
     return { results, requestCount, incompleteReason: stoppedBy ?? firstUnknownReason(results) };
   }
