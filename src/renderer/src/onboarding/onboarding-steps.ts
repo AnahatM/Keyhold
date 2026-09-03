@@ -58,7 +58,11 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   },
   {
     id: 'first-credential',
-    heading: 'Add your first credential',
+    // 'a credential', not 'your first credential'. The tour is re-runnable from Settings and
+    // the palette, and a returning user with two hundred entries reading "your first" is
+    // being told the app has not noticed them. The body copy already reads correctly either
+    // way, and the one word is cheaper than making headings mode-aware for a single step.
+    heading: 'Add a credential',
     shortLabel: 'First entry',
     optional: true,
   },

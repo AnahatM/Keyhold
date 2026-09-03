@@ -42,6 +42,7 @@ export type CommandId =
   | 'nav.toggleSidebar'
   | 'search.focus'
   | 'help.shortcuts'
+  | 'help.tour'
   | 'vault.import'
   | 'vault.export'
   | 'vault.merge'
@@ -229,6 +230,16 @@ export const COMMANDS: readonly CommandDefinition[] = [
     section: 'Help',
     keywords: ['keys', 'bindings', 'hotkeys', 'accelerators', 'help'],
     shortcutId: 'shortcuts.help',
+    requiresSelection: false,
+    destructive: false,
+  },
+  {
+    id: 'help.tour',
+    title: 'Show the setup tour again',
+    section: 'Help',
+    keywords: ['onboarding', 'walkthrough', 'guide', 'intro', 'getting started', 'first run'],
+    // No shortcut. Something you run once or twice ever does not earn a chord, and every
+    // chord spent here is one unavailable to something used daily.
     requiresSelection: false,
     destructive: false,
   },

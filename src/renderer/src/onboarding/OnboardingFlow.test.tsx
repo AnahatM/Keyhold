@@ -9,8 +9,8 @@ import type { PasswordStrength } from '@shared/model/strength.js';
 import { mountReact } from '../chrome/test-dom.js';
 import { OnboardingFlow } from './OnboardingFlow.js';
 import { NO_RECOVERY_ACKNOWLEDGEMENT } from './onboarding-copy.js';
-import type { OnboardingState } from './onboarding-state.js';
-import { ONBOARDING_STEPS, type OnboardingStepId } from './onboarding-steps.js';
+import { REVISIT_START_STEP_ID, type OnboardingState } from './onboarding-state.js';
+import { ONBOARDING_STEPS, stepById, type OnboardingStepId } from './onboarding-steps.js';
 import { writeProgress } from './onboarding-storage.js';
 import { forgetFirstRunDecision, isFirstRunOnThisMachine } from './onboarding-visibility.js';
 
@@ -458,6 +458,192 @@ describe('focus', () => {
     const next = tree.container.querySelector<HTMLHeadingElement>('h1')!;
     expect(next.textContent).not.toBe(firstText);
     expect(document.activeElement).toBe(next);
+
+    tree.unmount();
+  });
+});
+
+describe('running the tour a second time', () => {
+  /**
+   * The same component, the same callbacks, one prop different.
+   *
+   * `vaultKey` and `vaultPath` are supplied exactly as the first-run mount supplies them,
+   * which is the point: if a re-run touched storage, it would touch *this* vault's record.
+   */
+  function mountRevisit(api: Handlers): ReturnType<typeof mountReact> {
+    return mountReact(
+      <OnboardingFlow
+        mode="revisit"
+        vaultKey={VAULT_KEY}
+        vaultPath={VAULT_PATH}
+        estimateStrength={api.estimateStrength as never}
+        onCreateVault={api.onCreateVault as never}
+        onCreateFirstCredential={api.onCreateFirstCredential as never}
+        busy={false}
+        error={null}
+        onExit={api.onExit as never}
+      />
+    );
+  }
+
+  it('opens past the screens that create a vault, with no route back to them', async () => {
+    // Seeded at the very first step, so a re-run that resumed stored progress would land on
+    // the welcome screen and walk from there straight into the create form.
+    seed('welcome');
+    const api = handlers();
+    const tree = mountRevisit(api);
+    await settle(0);
+
+    expect(tree.container.querySelector('h1')?.textContent).toBe(
+      stepById(REVISIT_START_STEP_ID)?.heading
+    );
+    expect(buttonWith(tree.container, 'Create my vault')).toBeNull();
+    expect(buttonWith(tree.container, 'Back')).toBeNull();
+    expect(api.onCreateVault).not.toHaveBeenCalled();
+
+    tree.unmount();
+  });
+
+  it('writes nothing — the first run’s record survives a whole re-run untouched', async () => {
+    /*
+     * The failure this exists to catch is quiet and permanent. Closing a re-run dispatches
+     * `dismiss`, exactly as skipping a first run does; persisted, that rewrites a
+     * `completed` record as `dismissed` — the outcome whose entire meaning is "this user was
+     * never told there is no recovery" — for a user who was told everything. Nothing on
+     * screen would look wrong, and the damage is only visible much later.
+     *
+     * Asserted against every stored value byte for byte, not against the one key the flow
+     * would have written, so a write landing under some other scope is caught too.
+     */
+    seed('what-next', { outcome: 'completed', firstCredentialSaved: true });
+    const before = allStoredText();
+    expect(before).toContain('"outcome":"completed"');
+
+    const api = handlers();
+    const tree = mountRevisit(api);
+    await settle(0);
+
+    // The full path to the end, which is the one that would overwrite the record.
+    for (const label of ['Got it', 'Skip this step', 'Take me to my vault']) {
+      await act(async () => {
+        buttonWith(tree.container, label)?.click();
+        await Promise.resolve();
+      });
+      await settle(0);
+    }
+
+    expect(api.onExit).toHaveBeenCalledWith('completed');
+    expect(allStoredText()).toBe(before);
+
+    tree.unmount();
+  });
+
+  it('does not re-scope a record either, when the vault id arrives late', async () => {
+    /*
+     * The other write. `moveProgress` re-keys the pending record onto the real vault id, and
+     * it fires on any change of `vaultKey` — including the one a host produces by mounting a
+     * re-run before the session status has settled and re-rendering a tick later. Left
+     * ungated it would copy a state that was never the user's progress over the record that
+     * is, under the live vault's own key.
+     *
+     * Driven rather than reasoned about, because "a re-run never changes vaultKey" is a
+     * claim about a mount site this component does not own.
+     */
+    seed('what-next', { outcome: 'completed' });
+    const before = allStoredText();
+
+    const api = handlers();
+    const tree = mountReact(
+      <OnboardingFlow
+        mode="revisit"
+        vaultKey={null}
+        vaultPath={VAULT_PATH}
+        estimateStrength={api.estimateStrength as never}
+        onCreateVault={api.onCreateVault as never}
+        busy={false}
+        error={null}
+        onExit={api.onExit as never}
+      />
+    );
+    await settle(0);
+
+    tree.render(
+      <OnboardingFlow
+        mode="revisit"
+        vaultKey={VAULT_KEY}
+        vaultPath={VAULT_PATH}
+        estimateStrength={api.estimateStrength as never}
+        onCreateVault={api.onCreateVault as never}
+        busy={false}
+        error={null}
+        onExit={api.onExit as never}
+      />
+    );
+    await settle(0);
+
+    expect(allStoredText()).toBe(before);
+
+    tree.unmount();
+  });
+
+  it('is closed by a control that says what it does, and by Escape', async () => {
+    const api = handlers();
+    const tree = mountRevisit(api);
+    await settle(0);
+
+    // "Skip setup" would be a lie here: there is no setup, and closing changes nothing.
+    expect(buttonWith(tree.container, 'Skip setup')).toBeNull();
+    await act(async () => {
+      buttonWith(tree.container, 'Close tour')?.click();
+      await Promise.resolve();
+    });
+    expect(api.onExit).toHaveBeenCalledWith('dismissed');
+    expect(allStoredText()).toBe('');
+
+    tree.unmount();
+
+    const second = handlers();
+    const escaped = mountRevisit(second);
+    await settle(0);
+    await act(async () => {
+      pressEscape();
+      await Promise.resolve();
+    });
+    expect(second.onExit).toHaveBeenCalledWith('dismissed');
+    escaped.unmount();
+  });
+});
+
+describe('the smoke test’s grip on the first run', () => {
+  it('leaves the first run’s control worded exactly as `smoke.ts` matches it', async () => {
+    /*
+     * `src/main/smoke.ts` finds this button with
+     * `textContent?.trim() === 'Skip setup'` inside `.kh-onb`, clicks it, and then waits for
+     * `.kh-onb` to disappear. Both the text and the class are load-bearing across a process
+     * boundary that no type checker spans: rename either and the packaged-app run becomes a
+     * fifteen-second timeout with no other symptom, on CI only, because a developer profile
+     * has been past onboarding for months.
+     *
+     * Pinned here now that the label is a conditional rather than a literal.
+     */
+    seed('welcome');
+    const api = handlers();
+    const tree = mount(api);
+    await settle(0);
+
+    const panel = tree.container.querySelector('.kh-onb');
+    expect(panel).not.toBeNull();
+
+    const skip = Array.from(panel!.querySelectorAll('button')).find(
+      (button) => button.textContent.trim() === 'Skip setup'
+    );
+    expect(skip, 'smoke.ts matches this button by its exact text').toBeDefined();
+
+    await act(async () => {
+      skip?.click();
+      await Promise.resolve();
+    });
+    expect(api.onExit).toHaveBeenCalledWith('dismissed');
 
     tree.unmount();
   });

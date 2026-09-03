@@ -10,8 +10,10 @@ import { WelcomeStep } from './WelcomeStep.js';
 import { WhatNextStep } from './WhatNextStep.js';
 import {
   canGoBackFrom,
+  initialStateFor,
   onboardingReducer,
   type FirstCredentialDraft,
+  type OnboardingMode,
   type OnboardingState,
 } from './onboarding-state.js';
 import { stepById } from './onboarding-steps.js';
@@ -44,6 +46,24 @@ import './onboarding.css';
  * thing — start at the beginning. See `onboarding-storage.ts`, which also carries the rule
  * that **nothing the user typed is ever written there.**
  *
+ * ## Running it a second time
+ *
+ * `mode` is the whole of it. `first-run` is the flow described above; `revisit` is the same
+ * five steps re-read on demand by somebody who already has a vault, and it differs in
+ * exactly three ways, all of them here rather than spread through the steps:
+ *
+ * 1. **It starts at `REVISIT_START_STEP_ID`**, past the screens that exist to get you
+ *    a vault, and the reducer's own gates make the create form unreachable from there.
+ * 2. **It never writes.** Not the progress, not the re-scope. A re-run that persisted would
+ *    overwrite a `completed` record with the `dismissed` that closing it produces — turning
+ *    a user who was told everything into one the record says was told nothing.
+ * 3. **It says so.** The kicker and the leave control name what is actually happening; there
+ *    is no setup here to skip.
+ *
+ * Nothing else changes, which is the point: one flow, one reducer, one set of gates. The
+ * host decides *when* to mount it — see `onboarding-visibility.ts` for the first-run
+ * question; a re-run is an explicit user action and has no condition to compute.
+ *
  * ## Skipping
  *
  * The skip control is rendered by this component rather than by the steps, so it is in the
@@ -60,9 +80,19 @@ import './onboarding.css';
 
 export interface OnboardingFlowProps {
   /**
+   * Which run this is. Defaults to `'first-run'`, so every existing mount site keeps the
+   * behaviour it already had and a re-run has to be asked for on purpose.
+   *
+   * `'revisit'` is only meaningful with a vault open — three of the five steps describe one.
+   * The host is what knows that; see the module comment.
+   */
+  readonly mode?: OnboardingMode;
+  /**
    * Scopes the stored progress. The vault id once one exists, `null` before that — the flow
    * re-keys itself when it changes, so a half-finished tour cannot be inherited by the next
    * vault someone creates.
+   *
+   * Unused in `'revisit'` mode, which reads and writes nothing.
    */
   readonly vaultKey: string | null;
   /** Where the vault file is, or will be. Shown, never chosen here. */
@@ -84,6 +114,7 @@ export interface OnboardingFlowProps {
 }
 
 export function OnboardingFlow({
+  mode = 'first-run',
   vaultKey,
   vaultPath,
   estimateStrength,
@@ -99,7 +130,14 @@ export function OnboardingFlow({
   error,
   onExit,
 }: OnboardingFlowProps): React.JSX.Element {
-  const [state, dispatch] = useReducer(onboardingReducer, vaultKey, readProgress);
+  // Lazy, and taken from the mode rather than from storage alone: a re-run ignores the
+  // stored record entirely. `initialStateFor` is where that choice lives, so it is one pure
+  // function a test can hold still rather than a branch buried in an initialiser.
+  const [state, dispatch] = useReducer(onboardingReducer, mode, (initialMode) =>
+    initialStateFor(initialMode, readProgress(vaultKey))
+  );
+
+  const firstRun = mode === 'first-run';
 
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -108,13 +146,22 @@ export function OnboardingFlow({
   const scopeRef = useRef(vaultKey);
   useEffect(() => {
     if (scopeRef.current === vaultKey) return;
-    moveProgress(scopeRef.current, vaultKey);
+    if (firstRun) moveProgress(scopeRef.current, vaultKey);
     scopeRef.current = vaultKey;
-  }, [vaultKey]);
+  }, [firstRun, vaultKey]);
 
+  /*
+   * A re-run leaves no trace, and that is a correctness property rather than tidiness.
+   *
+   * Closing one dispatches `dismiss`, exactly as skipping a first run does. Written down,
+   * that would replace a `completed` record with `dismissed` — the outcome whose whole
+   * meaning is "this user was never told there is no recovery" — for somebody who walked the
+   * entire flow. The record describes the first run and only the first run.
+   */
   useEffect(() => {
+    if (!firstRun) return;
     writeProgress(vaultKey, state);
-  }, [vaultKey, state]);
+  }, [firstRun, vaultKey, state]);
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -162,7 +209,10 @@ export function OnboardingFlow({
     <div className="kh-onb">
       <section className="kh-onb__panel" aria-labelledby="kh-onb-heading">
         <header className="kh-onb__header">
-          <p className="kh-onb__kicker">Setting up Keyhold</p>
+          {/* A re-run is not a setup. Saying "Setting up Keyhold" over somebody's existing
+              vault is the kind of small lie that makes people wonder what the flow is about
+              to do to their data. */}
+          <p className="kh-onb__kicker">{firstRun ? 'Setting up Keyhold' : 'The Keyhold tour'}</p>
           {/*
            * `tabIndex={-1}` makes this focusable programmatically without adding a tab stop.
            * Focus lands here on every step change, so the change of screen is announced and
@@ -207,6 +257,14 @@ export function OnboardingFlow({
             </Button>
           )}
           <span className="kh-onb__footer-spacer" />
+          {/*
+            One control, one action, two honest labels. "Skip setup" is exactly right for a
+            first run and exactly wrong for a re-run, where there is no setup and nothing is
+            being skipped — the vault already exists and closing the tour changes nothing.
+            The first-run wording is load-bearing beyond the copy: `src/main/smoke.ts` finds
+            this button by matching that text, so it is pinned by a test in
+            `OnboardingFlow.test.tsx` rather than left to be discovered by a red CI run.
+          */}
           <Button
             variant="ghost"
             size="sm"
@@ -215,7 +273,7 @@ export function OnboardingFlow({
               dispatch({ type: 'dismiss' });
             }}
           >
-            Skip setup
+            {firstRun ? 'Skip setup' : 'Close tour'}
           </Button>
         </footer>
       </section>

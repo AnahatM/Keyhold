@@ -6,6 +6,7 @@ import { useCredentials } from '../vault/credential-store.js';
 import { unwrap, useSession } from '../vault/session-store.js';
 import { TOOL_VIEWS, useToolView } from '../shell/index.js';
 import { useTransfer } from '../vault/transfer-store.js';
+import { useTourGate } from '../onboarding/index.js';
 import { CommandPalette } from './CommandPalette.js';
 import { resolveCommands, type CommandHandlers } from './command-registry.js';
 import { anyOverlayOpen, loadPlatform, usePaletteStore } from './palette-store.js';
@@ -156,6 +157,15 @@ export function CommandsProvider({
       'nav.toggleSidebar': toggleSidebar,
       'search.focus': focusSearch,
       'help.shortcuts': openHelp,
+      // Needs an open vault, like the transfers below and for the same kind of reason: three
+      // of the tour's five steps describe a vault that exists, and one of them writes a
+      // record into it. Offered while locked it would be a walkthrough of somewhere the user
+      // is not.
+      'help.tour': locked
+        ? undefined
+        : (): void => {
+            useTourGate.getState().show();
+          },
       // All three need an open vault: one writes into it, one reads all of it, and the third
       // opens a second copy with this one's key.
       'vault.import': locked

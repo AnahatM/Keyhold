@@ -6,10 +6,13 @@ import {
   canCreateVault,
   canFinishOnboarding,
   canGoBackFrom,
+  initialStateFor,
   INITIAL_ONBOARDING_STATE,
   masterPasswordBlocker,
   onboardingReducer,
   reconcileResumedState,
+  REVISIT_ONBOARDING_STATE,
+  REVISIT_START_STEP_ID,
   type MasterPasswordDraft,
   type OnboardingState,
 } from './onboarding-state.js';
@@ -267,6 +270,115 @@ describe('resumption', () => {
       acknowledgedNoRecovery: true,
     });
     expect(reconcileResumedState(fine)).toBe(fine);
+  });
+
+  it('pulls a record left mid-creation forward, off the create form', () => {
+    /*
+     * The window this closes is real and about a second wide. Progress is written on every
+     * state change, so `vault-created` is persisted while the flow is still *on* the
+     * master-password step, a tick before `advance` moves it off. A crash, a kill or a power
+     * cut in that gap leaves exactly this record — and resuming it used to render "Choose
+     * your master password", with a working Create button, to somebody whose vault already
+     * existed and already held whatever they had put in it.
+     */
+    const midCreation = state({
+      stepId: 'master-password',
+      vaultCreated: true,
+      acknowledgedNoRecovery: true,
+    });
+    expect(reconcileResumedState(midCreation).stepId).toBe(REVISIT_START_STEP_ID);
+  });
+});
+
+// ── Running the tour a second time ───────────────────────────────────────────
+
+describe('a re-run of the tour', () => {
+  it('starts at the first step that describes a vault you already have', () => {
+    /*
+     * Asserted against `canonicalStepFor`'s own boundary rather than against the literal
+     * 'vault-file', so this cannot quietly go on agreeing with a stale answer after a step
+     * is inserted. The step immediately before a re-run's start must be the last step a
+     * vault-less flow is allowed to sit on — that is what "past the screens that get you a
+     * vault, and no further" means, written as an equation rather than as a name.
+     */
+    const lastPreVaultStep = canonicalStepFor(ONBOARDING_STEPS.at(-1)!.id, false);
+    expect(previousStepId(REVISIT_START_STEP_ID)).toBe(lastPreVaultStep);
+    expect(canonicalStepFor(REVISIT_START_STEP_ID, false)).not.toBe(REVISIT_START_STEP_ID);
+  });
+
+  it('steps over the create-vault screen instead of landing on it', () => {
+    // The only way to be on the welcome screen with a vault already made is a hand-edited
+    // record — but "then show them the create form" is not an acceptable answer to one.
+    const odd = state({ stepId: 'welcome', vaultCreated: true, acknowledgedNoRecovery: true });
+    expect(onboardingReducer(odd, { type: 'advance' }).stepId).toBe(REVISIT_START_STEP_ID);
+  });
+
+  it('can never reach the step that creates a vault, forwards or backwards', () => {
+    // The guarantee, walked rather than reasoned about: drive the whole flow from where a
+    // re-run begins, trying to go back at every stop, and prove the create form is not on
+    // the graph at all.
+    const visited: string[] = [REVISIT_ONBOARDING_STATE.stepId];
+    let current = REVISIT_ONBOARDING_STATE;
+
+    for (let guard = 0; guard < ONBOARDING_STEPS.length * 2; guard += 1) {
+      visited.push(onboardingReducer(current, { type: 'back' }).stepId);
+      const advanced = onboardingReducer(current, { type: 'advance' });
+      if (advanced === current) break;
+      current = advanced;
+      visited.push(current.stepId);
+    }
+
+    expect(visited).not.toContain('master-password');
+    // And it did actually get to the end, rather than stalling on step one and passing.
+    expect(current.stepId).toBe(ONBOARDING_STEPS.at(-1)!.id);
+  });
+
+  it('can be finished, and closed, from the state it starts in', () => {
+    /*
+     * This is what the two `true`s in `REVISIT_ONBOARDING_STATE` buy, and the reason they
+     * are not a lie: a vault exists, and no vault can exist without the acknowledgement
+     * having been given. Drop either and the flow becomes a screen with a Finish button that
+     * silently does nothing — `canFinishOnboarding` re-checks both.
+     */
+    expect(REVISIT_ONBOARDING_STATE.outcome).toBe('active');
+    expect(canFinishOnboarding(REVISIT_ONBOARDING_STATE)).toBe(true);
+    expect(onboardingReducer(REVISIT_ONBOARDING_STATE, { type: 'dismiss' }).outcome).toBe(
+      'dismissed'
+    );
+
+    const atTheEnd = { ...REVISIT_ONBOARDING_STATE, stepId: ONBOARDING_STEPS.at(-1)!.id };
+    expect(onboardingReducer(atTheEnd, { type: 'complete' }).outcome).toBe('completed');
+  });
+});
+
+describe('the state a mount starts in', () => {
+  it('resumes stored progress on a first run', () => {
+    const stored = state({
+      stepId: 'first-credential',
+      vaultCreated: true,
+      acknowledgedNoRecovery: true,
+    });
+    expect(initialStateFor('first-run', stored)).toBe(stored);
+  });
+
+  it('still reconciles an impossible stored position on a first run', () => {
+    expect(initialStateFor('first-run', state({ stepId: 'what-next' })).stepId).toBe(
+      'master-password'
+    );
+  });
+
+  it('ignores stored progress entirely on a re-run', () => {
+    // Including — especially — a record saying the tour was finished. Resuming that would
+    // make "run the tour again" open on the summary screen with a Finish button, which is
+    // not a tour; and it is the state every user who ran the tour once is in.
+    const finished = state({
+      stepId: 'what-next',
+      vaultCreated: true,
+      acknowledgedNoRecovery: true,
+      outcome: 'completed',
+    });
+    expect(initialStateFor('revisit', finished)).toBe(REVISIT_ONBOARDING_STATE);
+    expect(initialStateFor('revisit', INITIAL_ONBOARDING_STATE)).toBe(REVISIT_ONBOARDING_STATE);
   });
 });
 
