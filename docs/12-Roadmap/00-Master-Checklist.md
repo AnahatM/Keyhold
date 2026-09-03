@@ -261,7 +261,9 @@ and the query-bar UI are not. Full notes: `docs/05-Features/03-Search-Sort-Filte
 - [ ] Query-bar UI: prefix autocomplete from `QUERY_FIELDS`, the diagnostics line, saved searches
       — the parser and `QUERY_FIELDS` are done and unit-tested; no `.tsx` imports either, so
       none of the three is built
-- [ ] A user-facing sort control
+- [x] A user-facing sort control — `SortControl`, a key picker plus a direction toggle rather
+      than one menu of every combination. The engine and `visibleCredentials`' `SortOptions`
+      parameter had both existed the whole time with nothing passing one
 - [x] **Tests (79)** and nine fault injections, two of which exposed guards weaker than they
       looked
 - [x] `docs/05-Features/03-Search-Sort-Filter.md` written

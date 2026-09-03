@@ -813,3 +813,41 @@
 .kh-viewer__note--error {
   color: var(--kh-color-danger);
 }
+
+/* ── The sort control ──────────────────────────────────────────────────────── */
+
+/*
+ * A key picker and a direction toggle, not one menu of every combination. Two decisions stay
+ * two however many keys the engine grows.
+ */
+
+.kh-sort {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding: 0 var(--kh-space-3) var(--kh-space-2);
+  min-width: 0;
+}
+
+.kh-sort__field {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.kh-sort__select {
+  width: 100%;
+  min-width: 0;
+  padding: var(--kh-space-1) var(--kh-space-2);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface);
+  color: var(--kh-color-text);
+  font: inherit;
+  font-size: var(--kh-text-sm);
+}
+
+.kh-sort__select:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}

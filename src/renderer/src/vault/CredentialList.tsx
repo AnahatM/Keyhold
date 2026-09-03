@@ -4,6 +4,7 @@ import type { CredentialProjection } from '@shared/model/credential.js';
 import { Badge, EmptyState } from '../components/Feedback.js';
 import { Button } from '../components/Button.js';
 import { Input } from '../components/Input.js';
+import { SortControl } from './SortControl.js';
 import { useCredentials, visibleCredentials } from './credential-store.js';
 import { useSession } from './session-store.js';
 
@@ -26,12 +27,30 @@ const OVERSCAN = 6;
 
 export function CredentialList(): React.JSX.Element {
   const { credentials } = useSession();
-  const { selectedId, select, query, setQuery, showTrash, setShowTrash, deepMatches, setEditing } =
-    useCredentials();
+  const {
+    selectedId,
+    select,
+    query,
+    setQuery,
+    showTrash,
+    setShowTrash,
+    deepMatches,
+    setEditing,
+    sort,
+  } = useCredentials();
 
   const visible = useMemo(
-    () => visibleCredentials(credentials, { query, showTrash, deepMatches }),
-    [credentials, query, showTrash, deepMatches]
+    // `sort` is passed through as-is, `null` included: `visibleCredentials` owns the automatic
+    // fallback — title on an empty box, relevance once there is a query — and re-deciding that
+    // here would be a second copy of the rule that drifts.
+    () =>
+      visibleCredentials(credentials, {
+        query,
+        showTrash,
+        deepMatches,
+        ...(sort === null ? {} : { sort }),
+      }),
+    [credentials, query, showTrash, deepMatches, sort]
   );
 
   return (
@@ -75,6 +94,13 @@ export function CredentialList(): React.JSX.Element {
           <span>Trash</span>
         </label>
       </div>
+
+      {/*
+        After the search box, not before it. The order on screen matches the order of the
+        decisions: what you are looking for, then how to arrange what came back. It also puts
+        the relevance option next to the query that makes it mean anything.
+      */}
+      <SortControl hasQuery={query.trim() !== ''} />
 
       {/*
        * Announced so a screen-reader user hears the result count change as they type.
