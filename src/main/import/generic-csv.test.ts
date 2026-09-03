@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { isSingleValuedImportTarget } from '@shared/model/import-plan.js';
 import { describe, expect, it } from 'vitest';
 import { isCustomFieldValueSecret } from '@shared/model/credential.js';
 import { loadFixture } from './fixtures/load.js';
@@ -23,6 +24,20 @@ import {
 const fixture = loadFixture('generic.csv');
 const result = genericCsvParser.parse(fixture);
 const [hosting, registrar] = result.records;
+
+describe('single-valued targets', () => {
+  it('are the shared list, not a local six-way comparison', () => {
+    // This file used to decide for itself which targets accumulate. The mapping UI reads the
+    // shared list, so a divergence would mean the dropdown believing `folder` can appear
+    // twice while the parser silently turns the second one into a custom field — two
+    // different imports of the same file, and only one of them explained to the user.
+    expect(isSingleValuedImportTarget('folder')).toBe(true);
+    expect(isSingleValuedImportTarget('title')).toBe(true);
+    expect(isSingleValuedImportTarget('url')).toBe(false);
+    expect(isSingleValuedImportTarget('tags')).toBe(false);
+    expect(isSingleValuedImportTarget('notes')).toBe(false);
+  });
+});
 
 describe('inferColumnMapping', () => {
   it('recognises the common synonyms for each field', () => {
