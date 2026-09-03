@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve, sep } from 'node:path';
-import ts from 'typescript';
+import { dirname, join, relative, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  aliasesFrom,
+  factsOf,
+  importedNamesFrom,
+  isTestFile,
+  moduleGraphFrom,
+  posixRelative,
+  sourceFilesUnder,
+  type SourceFacts,
+  type SourceTree,
+} from '../../../tools/source-facts.js';
 
 /**
  * The structural guarantees the shell makes about itself.
@@ -79,17 +89,22 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
  * the scan **fails** on it. A guard nobody has watched fail is not known to work, and this one
  * was watched to pass while carrying four bypasses.
  *
- * ## The duplication that caused this, still unresolved
+ * ## The duplication that caused this, now folded in
  *
- * `factsOf`, `sourceFilesUnder`, `aliasesFrom`, `resolveSpecifier` and `moduleGraphFrom` below
- * are the same routines as in `src/main/breach/no-network.test.ts`. That is a second list
- * (hard rule 8), and a second copy of a source scanner is the exact defect this file is being
- * repaired for: the previous duplication was flagged in a comment and left, and the bug
- * travelled with the copy. It could not be folded in during this pass — the fix belongs in one
- * module both guards import, e.g. `tools/source-facts.ts`, which is outside the paths this
- * change was allowed to touch. **Fold it in before writing a third copy.** The parser at least
- * means the two copies can no longer drift into *different* wrong answers about what a comment
- * is: `ts.createSourceFile` is the definition, and neither file has an opinion of its own.
+ * `factsOf`, `sourceFilesUnder`, `aliasesFrom`, `resolveSpecifier` and `moduleGraphFrom` used to
+ * sit in this file **and** in `src/main/breach/no-network.test.ts`, twice over. That was the
+ * second list hard rule 8 exists for, and it is not an abstract one: the routine those two files
+ * shared before the rebuild was the comment stripper, N18 was found and fixed in the breach copy,
+ * and this copy kept the bug under a comment saying that sharing the routine "would mean a third
+ * location outside both modules" and that the duplication was "noted in this phase's report".
+ * Noting it is what let seven planted violations through this guard for weeks.
+ *
+ * They now live in `tools/source-facts.ts`, which both guards import, and whose header carries
+ * the full history. **Nothing below re-derives a fact about source.** What stays here is the
+ * *policy* — which names mean a window, which mean the vault, where the shell may reach, what
+ * counts as logging a value. Those are judgements about this directory and they belong beside
+ * it. If a claim here needs a fact the shared module does not expose, add it there: a local
+ * `factsOf` in this file would be the third copy.
  */
 
 // ── Where things are ─────────────────────────────────────────────────────────
@@ -98,7 +113,7 @@ const DIRECTORY = import.meta.dirname;
 const ROOT = resolve(DIRECTORY, '..', '..', '..');
 
 /** Repo-relative, `/`-separated, so failure messages read the same on both platforms. */
-const repoPath = (file: string): string => relative(ROOT, file).split(sep).join('/');
+const repoPath = (file: string): string => posixRelative(ROOT, file);
 
 /**
  * The pure column of the table in `index.ts`: no Electron, testable under Vitest.
@@ -126,259 +141,24 @@ const CONTROLLER_FILE = 'shell-controller.ts';
 /** The barrel. Re-exports both columns and imports nothing on its own account. */
 const BARREL_FILE = 'index.ts';
 
-// ── Reading source the way the compiler reads it ─────────────────────────────
-
-interface ImportRef {
-  readonly specifier: string;
-  readonly kind: 'static' | 'dynamic' | 'require';
-  /**
-   * `import type …` or `export type …`. A type import is erased at build time and carries no
-   * capability, but it is still followed by the module walk: the shell has no reason to name a
-   * main-process type either, and a rule with an exception is a rule someone will argue about.
-   */
-  readonly typeOnly: boolean;
-  /** Imported (not local) names, for a value import. Empty for a type-only one. */
-  readonly valueNames: readonly string[];
-}
-
-/** One `console.*` call, reduced to the names its arguments could carry a value through. */
-interface LogCall {
-  readonly method: string;
-  readonly names: readonly string[];
-}
-
-/**
- * Everything the checks below need to know about one file, taken from its parse tree.
- *
- * Deliberately not "the source with comments removed": that framing is what produced N18. A
- * comment never becomes a node, so the paragraph in `shell-controller.ts` explaining that it
- * "never touches the session" cannot trip the rule it is explaining, and no string literal can
- * hide a line from any of these sets.
- */
-interface SourceFacts {
-  readonly file: string;
-  readonly imports: readonly ImportRef[];
-  /** Every identifier written in code, property names included (`shell.openExternal`). */
-  readonly identifiers: ReadonlySet<string>;
-  /** Names actually invoked: `fetch(…)`, `new BrowserWindow(…)`, `o['loadURL'](…)`. */
-  readonly called: ReadonlySet<string>;
-  /** String and template contents, in code only. */
-  readonly strings: readonly string[];
-  readonly logCalls: readonly LogCall[];
-}
-
-function stringValue(node: ts.Node | undefined): string | null {
-  return node !== undefined && ts.isStringLiteralLike(node) ? node.text : null;
-}
-
-/**
- * The value bindings an import clause brings in, by imported name.
- *
- * Reads the clause rather than matching one spelling of it (S1). A default import, a namespace
- * import and a named import are three different node shapes and one identical capability, and
- * the old regex recognised exactly one of the three. `import { type X }` contributes nothing:
- * an inline `type` specifier is erased, which is why the project's lint rule prefers it.
- */
-/**
- * `import type { … }` — the whole clause erased.
- *
- * Read off `phaseModifier` rather than the deprecated `isTypeOnly`, and compared against
- * `TypeKeyword` specifically: the other phase modifier is `defer`, and a deferred import is a
- * value import that has merely not run yet. Treating it as erased would be a hole.
- */
-function isErasedClause(clause: ts.ImportClause): boolean {
-  return clause.phaseModifier === ts.SyntaxKind.TypeKeyword;
-}
-
-function valueBindings(clause: ts.ImportClause | undefined): readonly string[] {
-  if (clause === undefined || isErasedClause(clause)) return [];
-
-  const names: string[] = [];
-  if (clause.name !== undefined) names.push('default');
-
-  const bindings = clause.namedBindings;
-  if (bindings === undefined) return names;
-
-  if (ts.isNamespaceImport(bindings)) {
-    // `import * as electron from 'electron'` puts every binding in reach at once.
-    names.push('*');
-  } else {
-    for (const element of bindings.elements) {
-      if (element.isTypeOnly) continue;
-      names.push((element.propertyName ?? element.name).text);
-    }
-  }
-  return names;
-}
-
-function factsOf(file: string): SourceFacts {
-  const source = ts.createSourceFile(
-    file,
-    readFileSync(file, 'utf8'),
-    ts.ScriptTarget.Latest,
-    false,
-    ts.ScriptKind.TS
-  );
-
-  const imports: ImportRef[] = [];
-  const identifiers = new Set<string>();
-  const called = new Set<string>();
-  const strings: string[] = [];
-  const logCalls: LogCall[] = [];
-
-  const calleeName = (expression: ts.Expression): string | null => {
-    if (ts.isIdentifier(expression)) return expression.text;
-    if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
-    if (ts.isElementAccessExpression(expression)) return stringValue(expression.argumentExpression);
-    return null;
-  };
-
-  /** Every identifier and property name inside an expression — the things carrying values. */
-  const namesIn = (node: ts.Node): readonly string[] => {
-    const found: string[] = [];
-    const walk = (current: ts.Node): void => {
-      if (ts.isIdentifier(current) || ts.isPrivateIdentifier(current)) found.push(current.text);
-      ts.forEachChild(current, walk);
-    };
-    walk(node);
-    return found;
-  };
-
-  const visit = (node: ts.Node): void => {
-    if (ts.isImportDeclaration(node)) {
-      const specifier = stringValue(node.moduleSpecifier);
-      if (specifier !== null) {
-        imports.push({
-          specifier,
-          kind: 'static',
-          typeOnly: node.importClause !== undefined && isErasedClause(node.importClause),
-          valueNames: valueBindings(node.importClause),
-        });
-      }
-    } else if (ts.isExportDeclaration(node) && node.moduleSpecifier !== undefined) {
-      // `export … from '…'` is an import as far as the module graph is concerned.
-      const specifier = stringValue(node.moduleSpecifier);
-      if (specifier !== null) {
-        imports.push({
-          specifier,
-          kind: 'static',
-          typeOnly: node.isTypeOnly,
-          valueNames: [],
-        });
-      }
-    } else if (ts.isCallExpression(node)) {
-      const first = node.arguments[0];
-      if (node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-        const specifier = stringValue(first);
-        // A dynamic import is never type-only and hands over the whole module namespace.
-        if (specifier !== null) {
-          imports.push({ specifier, kind: 'dynamic', typeOnly: false, valueNames: ['*'] });
-        }
-      } else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') {
-        const specifier = stringValue(first);
-        if (specifier !== null) {
-          imports.push({ specifier, kind: 'require', typeOnly: false, valueNames: ['*'] });
-        }
-      }
-
-      const name = calleeName(node.expression);
-      if (name !== null) called.add(name);
-
-      const target = node.expression;
-      if (
-        ts.isPropertyAccessExpression(target) &&
-        ts.isIdentifier(target.expression) &&
-        target.expression.text === 'console'
-      ) {
-        logCalls.push({
-          method: target.name.text,
-          names: node.arguments.flatMap((argument) => namesIn(argument)),
-        });
-      }
-    } else if (ts.isNewExpression(node)) {
-      const name = calleeName(node.expression);
-      if (name !== null) called.add(name);
-    } else if (ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) {
-      identifiers.add(node.text);
-    } else if (ts.isStringLiteralLike(node)) {
-      strings.push(node.text);
-    } else if (ts.isTemplateExpression(node)) {
-      strings.push(node.head.text, ...node.templateSpans.map((span) => span.literal.text));
-    }
-
-    ts.forEachChild(node, visit);
-  };
-
-  ts.forEachChild(source, visit);
-
-  return { file, imports, identifiers, called, strings, logCalls };
-}
-
 // ── The tree being scanned ───────────────────────────────────────────────────
 
 /**
- * A source tree and the aliases its imports may be written in.
+ * The project, and the aliases its imports may be written in.
  *
- * A parameter rather than a constant so the fault-injection block can point the very same
- * scan at a throwaway tree of planted violations. A guard that can only be run against the
- * repository can only ever be observed passing.
+ * The alias table is parsed out of `tsconfig.node.json` rather than restated: hard rule 8, and
+ * because a guard carrying its own copy of it stops seeing an alias the moment one is added —
+ * which is how a module walk goes quietly blind, and how S2 stayed invisible.
  */
-interface SourceTree {
-  readonly root: string;
-  /** Alias prefix (`@main`) → absolute directory. Read from tsconfig, never restated. */
-  readonly aliases: ReadonlyMap<string, string>;
-}
-
-/**
- * The project's path aliases, read out of `tsconfig.node.json`.
- *
- * Parsed rather than duplicated: hard rule 8, and because a guard carrying its own copy of the
- * alias table stops seeing an alias the moment one is added — which is how a module walk goes
- * quietly blind.
- */
-function aliasesFrom(tsconfigPath: string, root: string): ReadonlyMap<string, string> {
-  const parsed = ts.readConfigFile(tsconfigPath, (path) => ts.sys.readFile(path));
-  expect(parsed.error, `${tsconfigPath} could not be read`).toBeUndefined();
-
-  const config = parsed.config as {
-    compilerOptions?: { paths?: Readonly<Record<string, readonly string[]>> };
-  };
-  const paths = config.compilerOptions?.paths ?? {};
-
-  const aliases = new Map<string, string>();
-  for (const [pattern, targets] of Object.entries(paths)) {
-    const target = targets[0];
-    if (!pattern.endsWith('/*') || target?.endsWith('/*') !== true) continue;
-    aliases.set(pattern.slice(0, -2), resolve(root, target.slice(0, -2)));
-  }
-  return aliases;
-}
-
 const PROJECT: SourceTree = {
   root: join(ROOT, 'src'),
   aliases: aliasesFrom(join(ROOT, 'tsconfig.node.json'), ROOT),
 };
 
-/** Every `.ts` below `directory`, recursively, as paths relative to it. Closes N17. */
-function sourceFilesUnder(directory: string): readonly string[] {
-  const found: string[] = [];
-  const walk = (current: string): void => {
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const path = join(current, entry.name);
-      if (entry.isDirectory()) walk(path);
-      else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) found.push(path);
-    }
-  };
-  walk(directory);
-  return found.sort();
-}
-
-const isTest = (file: string): boolean => file.endsWith('.test.ts');
-
 /** Directory-relative, `/`-separated: `menu-model.ts`, or `bridge/reveal.ts`. */
-const localName = (file: string): string => relative(DIRECTORY, file).split(sep).join('/');
+const localName = (file: string): string => posixRelative(DIRECTORY, file);
 
-const shellFiles = sourceFilesUnder(DIRECTORY).filter((file) => !isTest(file));
+const shellFiles = sourceFilesUnder(DIRECTORY).filter((file) => !isTestFile(file));
 const shellFacts: readonly SourceFacts[] = shellFiles.map(factsOf);
 const shellFileNames = shellFiles.map(localName);
 
@@ -388,92 +168,19 @@ const factsFor = (name: string): SourceFacts => {
   return facts;
 };
 
-// ── Resolution and the module graph ──────────────────────────────────────────
-
-function isLocalSpecifier(specifier: string, tree: SourceTree): boolean {
-  if (specifier.startsWith('.')) return true;
-  for (const alias of tree.aliases.keys()) {
-    if (specifier === alias || specifier.startsWith(`${alias}/`)) return true;
-  }
-  return false;
-}
-
-/** The file a specifier names, or `null` if it is not a file in this tree. */
-function resolveSpecifier(specifier: string, fromFile: string, tree: SourceTree): string | null {
-  let base: string | null = null;
-
-  if (specifier.startsWith('.')) {
-    base = resolve(dirname(fromFile), specifier);
-  } else {
-    for (const [alias, directory] of tree.aliases) {
-      if (specifier === alias) base = directory;
-      else if (specifier.startsWith(`${alias}/`))
-        base = join(directory, specifier.slice(alias.length + 1));
-    }
-  }
-  if (base === null) return null;
-
-  // Source imports are written with a `.js` extension (NodeNext-style) and resolve to the
-  // `.ts` beside them; a directory resolves through its `index`.
-  const withoutExtension = base.replace(/\.[cm]?js$/, '');
-  const candidates = [base, `${withoutExtension}.ts`, join(base, 'index.ts')];
-
-  for (const candidate of candidates) {
-    if (!candidate.endsWith('.ts')) continue;
-    try {
-      readFileSync(candidate);
-      return candidate;
-    } catch {
-      // Not this candidate. An unresolvable local specifier is reported by the caller.
-    }
-  }
-  return null;
-}
-
-interface ModuleGraph {
-  /** Every file reachable from the entries, the entries included. */
-  readonly files: ReadonlySet<string>;
-  /** Local specifiers that resolved to nothing — a hole in the walk, never a pass. */
-  readonly unresolved: readonly string[];
-}
-
-/**
- * Every file reachable from `entries` by following imports of any kind.
- *
- * Relative, aliased, dynamic and `require`d specifiers all count, and the walk leaves the
- * directory: reachability is a property of the repository, not of a folder. An unresolvable
- * local specifier is collected rather than skipped, because "the walk did not understand this
- * line" and "there is nothing there" must not look the same to a security guard.
- */
-function moduleGraphFrom(entries: readonly string[], tree: SourceTree): ModuleGraph {
-  const files = new Set<string>();
-  const unresolved: string[] = [];
-  const queue = [...entries];
-
-  while (queue.length > 0) {
-    const current = queue.pop();
-    if (current === undefined || files.has(current)) continue;
-    files.add(current);
-
-    for (const reference of factsOf(current).imports) {
-      const resolved = resolveSpecifier(reference.specifier, current, tree);
-      if (resolved !== null) queue.push(resolved);
-      else if (isLocalSpecifier(reference.specifier, tree)) {
-        unresolved.push(`${repoPath(current)} → ${reference.specifier}`);
-      }
-    }
-  }
-
-  return { files, unresolved };
-}
-
 // ── The rules ────────────────────────────────────────────────────────────────
 
-/** Electron value bindings this file pulls in, by any import shape. Closes S1. */
+/**
+ * Electron value bindings this file pulls in, by any import shape. Closes S1.
+ *
+ * The shape-blindness is the shared scanner's job: a default import, a namespace import, a
+ * named import, a `require()`, a dynamic `import()` and an `export … from` are six node shapes
+ * and one identical capability, and the regex this replaces recognised exactly one of them.
+ * What is decided *here* is that only the runtime bindings count — `import type { BrowserWindow }
+ * from 'electron'` is erased and carries nothing, which is why the pure half may name the type.
+ */
 function electronValueImports(facts: SourceFacts): readonly string[] {
-  return facts.imports
-    .filter((reference) => reference.specifier === 'electron' && !reference.typeOnly)
-    .flatMap((reference) => reference.valueNames);
+  return importedNamesFrom(facts, 'electron', 'values');
 }
 
 /**
@@ -544,7 +251,7 @@ function vaultFaults(facts: SourceFacts): readonly string[] {
  * the correct outcome: it is a decision-log entry, not an edit to a pattern.
  */
 function outsideShellReach(file: string, tree: SourceTree): boolean {
-  const path = relative(tree.root, file).split(sep).join('/');
+  const path = posixRelative(tree.root, file);
   return !path.startsWith('main/shell/') && !path.startsWith('shared/');
 }
 
