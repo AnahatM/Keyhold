@@ -109,6 +109,11 @@ async function waitFor(
  * Cheap enough to leave in: one `executeJavaScript` returning a short string.
  */
 async function noteScreen(window: BrowserWindow, label: string): Promise<void> {
+  // Note the doubled backslash in the whitespace regex below. The probe is a template
+  // literal, and a single backslash-s in one is not a valid escape, so JS collapses it to a
+  // bare s before the renderer sees it — the first version stripped every letter s from the
+  // page text. Comments inside the literal must also avoid backticks, which end it.
+
   const seen: unknown = await window.webContents
     .executeJavaScript(
       `JSON.stringify({
@@ -121,6 +126,12 @@ async function noteScreen(window: BrowserWindow, label: string): Promise<void> {
          selected: document.querySelector('.kh-detail') !== null,
          overview: document.querySelector('.kh-vault-facts') !== null,
          rows: document.querySelectorAll('.kh-row').length,
+         // What is actually mounted, when none of the above is. Without this a note that says
+         // "no panes" is still a note that does not say what the user would be looking at.
+         roots: [...document.querySelectorAll('#root > *, #root > * > *')]
+           .slice(0, 6)
+           .map((element) => element.tagName + '.' + String(element.className).slice(0, 40)),
+         text: (document.body.innerText ?? '').replace(/\\s+/g, ' ').slice(0, 160),
        })`,
       true
     )
