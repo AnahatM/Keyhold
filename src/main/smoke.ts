@@ -98,6 +98,36 @@ async function waitFor(
   }
 }
 
+/**
+ * Says what is actually on screen, as one grepable line.
+ *
+ * Emitted unconditionally at the points other checks depend on, rather than only on failure. A
+ * run on a machine nobody can look at is the only evidence there will ever be, and "four checks
+ * said false" is not evidence — it is the absence of it. Two CI rounds were spent guessing at a
+ * cause this line would have named in the first.
+ *
+ * Cheap enough to leave in: one `executeJavaScript` returning a short string.
+ */
+async function noteScreen(window: BrowserWindow, label: string): Promise<void> {
+  const seen: unknown = await window.webContents
+    .executeJavaScript(
+      `JSON.stringify({
+         screen: document.querySelector('.kh-screen__title')?.textContent ?? 'shell',
+         width: window.innerWidth,
+         sidebar: document.querySelector('.kh-shell__sidebar') !== null,
+         list: document.querySelector('.kh-shell__list') !== null,
+         detail: document.querySelector('.kh-shell__detail') !== null,
+         banner: document.querySelector('.kh-shell__banner') !== null,
+         selected: document.querySelector('.kh-detail') !== null,
+         overview: document.querySelector('.kh-vault-facts') !== null,
+         rows: document.querySelectorAll('.kh-row').length,
+       })`,
+      true
+    )
+    .catch(() => '"unreadable"');
+  emit(`SMOKE-NOTE ${label} ${String(seen)}`);
+}
+
 async function captureNamedShot(window: BrowserWindow, name: string): Promise<void> {
   const directory = process.env.KEYHOLD_SMOKE_SHOTS;
   if (directory === undefined || directory === '') return;
@@ -709,6 +739,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
           })()`,
           true
         );
+        await noteScreen(window, 'before-cloud-notice');
         emit(
           `SMOKE-CHECK cloud-folder-notice-names-the-provider ${String(cloudNotice === 'shown')}`
         );
@@ -801,6 +832,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
         );
         emit(`SMOKE-NOTE viewport ${String(wideEnough)}`);
 
+        await noteScreen(window, 'before-attachments');
         emit(`SMOKE-CHECK attachments-panel-usable ${String(attachments === 'ready')}`);
 
         await captureNamedShot(window, 'Keyhold-Screenshot-02');
@@ -869,6 +901,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
             return 'offered';
           })()`
         );
+        await noteScreen(window, 'before-banner');
         emit(`SMOKE-CHECK external-change-banner-offers-a-reload ${String(banner === 'offered')}`);
         await captureNamedShot(window, 'Keyhold-Screenshot-10');
 
@@ -1013,6 +1046,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
              return 'compared';
            })()`
         );
+        await noteScreen(window, 'before-compare');
         emit(`SMOKE-CHECK history-compare-is-reachable ${String(compared === 'compared')}`);
 
         await captureNamedShot(window, 'Keyhold-Screenshot-12');
