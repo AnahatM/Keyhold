@@ -22,6 +22,12 @@ import type {
 } from '@shared/model/attachment.js';
 import { isMenuCommandId, type MenuCommandId } from '@shared/model/menu-commands.js';
 import type { VaultChangedExternally } from '@shared/model/vault-change.js';
+import type { MergeReport } from '@shared/model/sync.js';
+import type {
+  MergeCommitResult,
+  MergePreview,
+  MergeResolveRequest,
+} from '@shared/model/sync-plan.js';
 import type {
   ThemeExportRequest,
   ThemeExportResponse,
@@ -417,6 +423,30 @@ const api: KeyholdApi = {
         ipcRenderer.removeListener(EVENTS.importProgress, forward);
       };
     },
+  },
+
+  sync: {
+    /**
+     * Merging another copy of this vault.
+     *
+     * No path in either direction. `prepare` opens the file dialog on the other side, reads
+     * the other copy, takes the mandatory pre-merge backup and merges once — the renderer
+     * learns a plan id, a report, and the name of the backup file. `null` means the dialog
+     * was dismissed.
+     *
+     * The report carries lengths where a secret would be, so none of these calls can be made
+     * to hand over a credential. Resolving sends a side by name and the merge re-runs in the
+     * main process, which is what makes that true rather than merely intended.
+     */
+    prepare: () =>
+      ipcRenderer.invoke(CHANNELS.syncPrepare) as Promise<IpcResult<MergePreview | null>>,
+    resolve: (request: MergeResolveRequest) =>
+      ipcRenderer.invoke(CHANNELS.syncResolve, request) as Promise<IpcResult<MergeReport>>,
+    commit: (planId: string) =>
+      ipcRenderer.invoke(CHANNELS.syncCommit, planId) as Promise<IpcResult<MergeCommitResult>>,
+    // Not politeness: what is dropped is a decrypted copy of another whole vault.
+    discard: (planId: string) =>
+      ipcRenderer.invoke(CHANNELS.syncDiscard, planId) as Promise<IpcResult<null>>,
   },
 
   theme: {

@@ -259,6 +259,7 @@ if (!gotTheLock) {
       session,
       appVersion: APP_VERSION,
       originCapture,
+      userDataPath: app.getPath('userData'),
       getWindow: () => mainWindow,
     });
 

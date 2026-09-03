@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { ALL_CHANNELS, CHANNELS } from '@shared/ipc/api.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -54,7 +56,14 @@ describe('IPC registration', () => {
     handled.clear();
     vi.resetModules();
     const { registerIpcHandlers } = await import('./register.js');
-    registerIpcHandlers({ session: stubContext(), appVersion: '0.0.0', getWindow: () => null });
+    registerIpcHandlers({
+      session: stubContext(),
+      appVersion: '0.0.0',
+      // A directory that is never written to: registration stores closures and runs none of
+      // them, so nothing here reaches the filesystem.
+      userDataPath: join(tmpdir(), 'keyhold-register-test'),
+      getWindow: () => null,
+    });
   });
 
   it('registers a handler for every declared channel', () => {

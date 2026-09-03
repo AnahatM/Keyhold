@@ -30,6 +30,7 @@ import {
   type ExportPreviewRequest,
 } from '../model/export-plan.js';
 import type { ImporterApi } from '../model/import-plan.js';
+import { SYNC_CHANNELS, type SyncApi } from '../model/sync-plan.js';
 import { THEME_CHANNELS, THEME_EVENTS, type ThemeApi } from '../theme/theme-channels.js';
 import { IMPORT_CHANNELS, IMPORT_EVENTS } from '../model/import-plan.js';
 
@@ -496,6 +497,15 @@ export type { ImporterApi };
  */
 export type { ThemeApi };
 
+/**
+ * Merging another copy of this vault — the namespace declared in
+ * `@shared/model/sync-plan.ts`, beside its payloads.
+ *
+ * Re-exported rather than restated. Nothing in it can be made to hand over a credential:
+ * the report carries lengths, the choice is a side by name, and the merge re-runs in main.
+ */
+export type { SyncApi };
+
 export interface KeyholdApi {
   app: AppApi;
   session: SessionApi;
@@ -510,6 +520,7 @@ export interface KeyholdApi {
   exporter: ExporterApi;
   importer: ImporterApi;
   theme: ThemeApi;
+  sync: SyncApi;
 }
 
 /** IPC channel names. Never build one by string concatenation at a call site. */
@@ -587,6 +598,7 @@ export const CHANNELS = {
   ...EXPORT_CHANNELS,
   ...IMPORT_CHANNELS,
   ...THEME_CHANNELS,
+  ...SYNC_CHANNELS,
 } as const;
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];

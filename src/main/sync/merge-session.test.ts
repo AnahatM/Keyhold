@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { MergeSessionStore } from './merge-session.js';
+import { MergeSessionError, MergeSessionStore } from './merge-session.js';
 import { doc, NOW, record } from './test-fixtures.js';
 import { writeVaultFileAtomically } from '../vault/atomic-write.js';
 import { buildContainer } from '../recovery/test-support.js';
@@ -77,7 +77,9 @@ describe('preparing a merge', () => {
 
     expect(second.planId).not.toBe(first.planId);
     expect(sessions.openPlanId).toBe(second.planId);
-    expect(() => sessions.commit(first.planId)).toThrow(/no longer open/);
+    expect(() => sessions.commit(first.planId)).toThrow(
+      expect.objectContaining({ code: 'sync/stale-plan' })
+    );
   });
 });
 
@@ -90,7 +92,13 @@ describe('committing', () => {
     const sessions = store();
     const preview = await sessions.prepare({ vaultPath, ...CONFLICTING });
 
-    expect(() => sessions.commit(preview.planId)).toThrow(/unresolved/);
+    expect(() => sessions.commit(preview.planId)).toThrow(MergeSessionError);
+    // By code, not by message. The resolver branches on this one — an unresolved commit is a
+    // bug and is reported as one — and matching on prose would break the moment the wording
+    // is improved.
+    expect(() => sessions.commit(preview.planId)).toThrow(
+      expect.objectContaining({ code: 'sync/unresolved' })
+    );
   });
 
   it('allows it once every conflict has a side', async () => {
@@ -158,7 +166,9 @@ describe('resolving', () => {
     const preview = await sessions.prepare({ vaultPath, ...CONFLICTING });
     sessions.discard(preview.planId);
 
-    expect(() => sessions.resolve(preview.planId, {})).toThrow(/no longer open/);
+    expect(() => sessions.resolve(preview.planId, {})).toThrow(
+      expect.objectContaining({ code: 'sync/stale-plan', recoverable: true })
+    );
   });
 });
 

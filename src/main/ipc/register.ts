@@ -45,6 +45,7 @@ import {
 } from '@shared/model/export-plan.js';
 import type { AttachmentPreview, PreviewableAttachmentKind } from '@shared/model/attachment.js';
 import type { ColumnMapping } from '@shared/model/import.js';
+import type { ConflictChoice } from '@shared/model/sync.js';
 import type { ImportDuplicateAction } from '@shared/model/import-plan.js';
 import { VaultError } from '../crypto/errors.js';
 import {
@@ -56,6 +57,13 @@ import {
 } from '../export/index.js';
 import { reportOf } from '../export/types.js';
 import { createThemeIpcHandlers } from '../theme/index.js';
+import {
+  createBaseSnapshotStore,
+  MergeSessionStore,
+  serialiseSnapshot,
+  snapshotIsSafeToStore,
+} from '../sync/index.js';
+import { parseVaultDocument } from '../vault/vault-service.js';
 import { createElectronImportFilePicker } from '../import-service/file-picker.js';
 import {
   createVaultImportAccess,
@@ -90,6 +98,30 @@ import type { SessionController } from '../session/session-controller.js';
  * **3. Handlers return results, never throw.** The renderer gets a discriminated union it
  * has to look at, rather than a rejected promise it might not catch.
  */
+
+/**
+ * A conflict-id → side map, validated key by key.
+ *
+ * The values decide which half of a disagreement survives, so an unrecognised one must be
+ * refused rather than defaulted: defaulting would silently pick a side, which is the
+ * last-writer-wins behaviour the whole engine exists to prevent. Keys are not checked against
+ * the report — the engine ignores an id it does not know, and refusing here would mean a
+ * resolver holding a stale selection could never make progress.
+ */
+function requireConflictChoices(
+  channel: string,
+  value: unknown
+): Readonly<Record<string, ConflictChoice>> {
+  const raw = requireRecord(channel, value, 'choices');
+  const choices: Record<string, ConflictChoice> = {};
+  for (const [id, side] of Object.entries(raw)) {
+    if (side !== 'ours' && side !== 'theirs') {
+      throw new IpcValidationError(channel, `choices["${id}"] must be "ours" or "theirs"`);
+    }
+    choices[id] = side;
+  }
+  return choices;
+}
 
 /** A plain object, for the two import payloads that are maps rather than fixed shapes. */
 function requireRecord(channel: string, value: unknown, name: string): Record<string, unknown> {
@@ -251,6 +283,13 @@ function handle<T>(channel: string, run: (...args: unknown[]) => Promise<T> | T)
 export interface IpcContext {
   readonly session: SessionController;
   readonly appVersion: string;
+  /**
+   * Where machine-scoped state lives — `app.getPath('userData')` in production.
+   *
+   * Passed in rather than read from `electron` here, so the whole IPC layer stays testable
+   * without an Electron runtime, which is the same reason `getWindow` is a function.
+   */
+  readonly userDataPath: string;
   readonly getWindow: () => BrowserWindow | null;
   /**
    * The provenance source, for the settings screen's "what network am I on?" check.
@@ -627,6 +666,88 @@ export function registerIpcHandlers(context: IpcContext): void {
     return null;
   });
 
+  // ── sync ───────────────────────────────────────────────────────────────────
+  //
+  // Merging another copy of this vault. Four handlers and no path in either direction: the
+  // file dialog opens here, the other copy is read and decrypted here, and the renderer is
+  // handed a plan id, a report of lengths, and a backup filename.
+  //
+  // `prepare` is where the mandatory pre-merge backup is taken — before the user has seen a
+  // single conflict, so the copy that lets them walk away exists by the time they are looking
+  // at four hundred of them.
+
+  handle(CHANNELS.syncPrepare, async () => {
+    const ours = vault.documentUnsafe();
+    const summary = vault.summary();
+
+    const window = context.getWindow();
+    const options: OpenDialogOptions = {
+      title: 'Merge another copy of this vault',
+      filters: [
+        { name: 'Keyhold vault', extensions: ['keep'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    };
+    const chosen =
+      window === null
+        ? await dialog.showOpenDialog(options)
+        : await dialog.showOpenDialog(window, options);
+    const otherPath = chosen.canceled ? undefined : chosen.filePaths[0];
+    if (otherPath === undefined) return null;
+
+    // The same master password opens both, because a merge is between two copies of *one*
+    // vault. Reading the other one with the open vault's key is what makes that structural
+    // rather than a thing we hope is true — a genuinely different vault fails to decrypt.
+    const theirs = await vault.readOtherCopyUnsafe(otherPath);
+
+    // The ancestor, if this device has merged before. Absent degrades to a two-way merge,
+    // which asks far more questions and is honest about it — never guesses.
+    const base = snapshots.read(summary.vaultId);
+
+    return await merges.prepare({
+      vaultPath: summary.path,
+      ours,
+      theirs: theirs.document,
+      base: base === null ? null : parseVaultDocument(base),
+    });
+  });
+
+  handle(CHANNELS.syncResolve, (raw) => {
+    const channel = CHANNELS.syncResolve;
+    const request = requireRecord(channel, raw, 'request');
+    return merges.resolve(
+      requireId(channel, request.planId, 'planId'),
+      requireConflictChoices(channel, request.choices)
+    );
+  });
+
+  handle(CHANNELS.syncCommit, async (planId) => {
+    const id = requireId(CHANNELS.syncCommit, planId, 'planId');
+    const { document, result } = merges.commit(id);
+
+    // Replace the document, then save through the ordinary path — which brackets the write
+    // for the watcher, rotates the backups and stamps the header, all of which a merge needs
+    // exactly as much as an edit does.
+    vault.replaceDocument(document);
+    const saved = await vault.save();
+
+    // The ancestor is stored only now, and only because the write succeeded. A snapshot
+    // describing a state no file ever held would make the *next* merge read the user's real
+    // edits as changes away from something that never existed.
+    if (snapshotIsSafeToStore({ mergedWasWritten: true, unresolvedConflicts: 0 })) {
+      snapshots.write(saved.vaultId, serialiseSnapshot(document));
+    }
+
+    merges.discard(id);
+    return result;
+  });
+
+  handle(CHANNELS.syncDiscard, (planId) => {
+    merges.discard(requireId(CHANNELS.syncDiscard, planId, 'planId'));
+    return null;
+  });
+
   // ── themes ─────────────────────────────────────────────────────────────────
   //
   // Three handlers and no path in either direction: the dialogs open in `theme-ipc.ts`, the
@@ -637,6 +758,17 @@ export function registerIpcHandlers(context: IpcContext): void {
   // parsed inside the renderer.
 
   const themeFiles = createThemeIpcHandlers({ getWindow: context.getWindow });
+
+  // The ancestor store and the in-progress merge, constructed here because both belong to
+  // the app's lifetime rather than to a vault: the snapshots outlive any one open vault, and
+  // the merge session must be droppable on lock from a place that can see the session.
+  const snapshots = createBaseSnapshotStore(context.userDataPath);
+  const merges = new MergeSessionStore({ now: Date.now });
+  session.onLock(() => {
+    // A held merge is a decrypted copy of another whole vault. A lock means nothing derived
+    // from any vault is still in memory, and that includes the one being merged in.
+    merges.discardAll();
+  });
 
   handle(CHANNELS.themeImport, () => themeFiles.importTheme());
   handle(CHANNELS.themeExport, (raw) => themeFiles.exportTheme(raw));

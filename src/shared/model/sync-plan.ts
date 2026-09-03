@@ -80,6 +80,40 @@ export interface MergeCommitResult {
   readonly backupFileName: string;
 }
 
+/**
+ * The refusal codes a merge can come back with.
+ *
+ * Here beside the channels rather than on either side, for the reason `IMPORT_ERROR_CODES`
+ * ended up here: both processes need the same strings, and two copies either side of a
+ * boundary drift before anything uses both. The resolver reacts to several of these **by
+ * name** — a stale plan gets "start it again", a duplicate id gets routed to the diagnostic
+ * report — which a generic error box cannot do.
+ *
+ * A message carrying one of these never contains a value out of either vault. The report the
+ * resolver renders carries lengths rather than values, and a failure message that undid that
+ * would be the one place the guarantee leaked.
+ */
+export const SYNC_ERROR_CODES = [
+  /** The plan expired, or the app restarted. The merge must be started again. */
+  'sync/stale-plan',
+  /** `commit` was called while conflicts were unresolved. A bug, and reported as one. */
+  'sync/unresolved',
+  /** A vault file changed on disk under the merge. Re-read and merge again. */
+  'sync/vault-moved',
+  /** One of the two documents holds a duplicate id — `DuplicateIdError`. Route to diagnose. */
+  'sync/duplicate-id',
+  /** The pre-merge backup could not be verified, so nothing was merged. */
+  'sync/backup-failed',
+  /** The write failed. The vault is untouched and the backup still stands. */
+  'sync/write-failed',
+] as const;
+
+export type SyncErrorCode = (typeof SYNC_ERROR_CODES)[number];
+
+export function isSyncErrorCode(value: unknown): value is SyncErrorCode {
+  return typeof value === 'string' && (SYNC_ERROR_CODES as readonly string[]).includes(value);
+}
+
 export const SYNC_CHANNELS = {
   /** Opens a file dialog, reads the other copy, backs up, and merges once. */
   syncPrepare: 'kh:sync:prepare',
