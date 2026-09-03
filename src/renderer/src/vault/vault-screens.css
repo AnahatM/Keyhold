@@ -932,3 +932,21 @@
 .kh-query-help__dismiss {
   color: var(--kh-color-text-muted);
 }
+
+/*
+ * The preview image doubles as the control that opens the lightbox, so it is a real button —
+ * focusable, so focus has somewhere to return to when the overlay closes.
+ */
+.kh-viewer__zoom {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  min-width: 0;
+}
+
+.kh-viewer__zoom:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}

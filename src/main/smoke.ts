@@ -808,6 +808,38 @@ export function runSmokeCheck(window: BrowserWindow): void {
           })()`,
           true
         );
+        // Ctrl+F and Ctrl+B, both registered in the shortcut table and the palette since they
+        // were written, and both wired to nothing until now. Driven through the real key
+        // events, because a handler that exists and is never reached is the failure here.
+        const shortcuts = await waitFor(
+          window,
+          `(async () => {
+             const fire = (key) => document.dispatchEvent(
+               new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true })
+             );
+
+             const sidebarBefore = document.querySelector('.kh-shell__sidebar') !== null;
+             fire('b');
+             await new Promise((done) => setTimeout(done, 300));
+             const sidebarAfter = document.querySelector('.kh-shell__sidebar') !== null;
+             fire('b');
+             await new Promise((done) => setTimeout(done, 300));
+
+             const box = document.querySelector('.kh-list__search input');
+             if (!box) return 'no-search-box';
+             box.blur();
+             fire('f');
+             await new Promise((done) => setTimeout(done, 300));
+             const focused = document.activeElement === box;
+
+             if (sidebarBefore === sidebarAfter) return 'ctrl-b-did-nothing';
+             if (!focused) return 'ctrl-f-did-nothing';
+             return 'both';
+           })()`
+        );
+        emit(`SMOKE-NOTE vault-shortcuts ${String(shortcuts)}`);
+        emit(`SMOKE-CHECK vault-shortcuts-do-something ${String(shortcuts === 'both')}`);
+
         // The query help. Both halves had existed in the parser and neither was ever shown:
         // the diagnostics, so a typo looked like an empty vault rather than a misread query,
         // and the prefix list, which `QUERY_FIELDS` says in its own comment it exists for.

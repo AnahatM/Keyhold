@@ -14,6 +14,7 @@ import { watchLockForTransfers } from './vault/transfer-store.js';
 import { useToolView, watchLockForToolViews, watchSelectionForToolViews } from './shell/index.js';
 import { ClearToastsOnLock } from './vault/ClearToastsOnLock.js';
 import { useSession, watchSession, type Screen } from './vault/session-store.js';
+import { useVaultActions } from './vault/vault-actions.js';
 import './App.css';
 
 /**
@@ -63,6 +64,7 @@ function ThemeFileBridge(): null {
 
 export function App(): React.JSX.Element {
   const { screen, status, refresh } = useSession();
+  const vaultActions = useVaultActions();
   // Answered once per launch, from the first status that can answer it. Creating a vault
   // records it as opened, so a moment later the machine looks like a returning user's —
   // see `onboarding/onboarding-visibility.ts` for why this must not be re-derived per
@@ -139,7 +141,16 @@ export function App(): React.JSX.Element {
           per-screen would only mean re-registering the same key listeners on every
           navigation. `focusSearch` and `toggleSidebar` belong to the vault screen's own
           state and are wired when that screen owns them. */}
-      <CommandsProvider />
+      {/*
+        The two handlers only the vault screen can supply, read from the store it registers
+        them in. Both shortcuts were registered and inert before this — see `vault-actions.ts`.
+      */}
+      <CommandsProvider
+        {...(vaultActions.focusSearch === null ? {} : { focusSearch: vaultActions.focusSearch })}
+        {...(vaultActions.toggleSidebar === null
+          ? {}
+          : { toggleSidebar: vaultActions.toggleSidebar })}
+      />
       <MenuBridge />
       <ThemeFileBridge />
       {/* Above the screen switch, not inside it: the flow spans the states the switch is
