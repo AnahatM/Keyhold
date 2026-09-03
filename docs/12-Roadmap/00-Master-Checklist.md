@@ -586,6 +586,47 @@ Full notes: `docs/13-Packaging/00-Building-And-Releasing.md`._
 - [ ] App icons (MANUAL-BACKLOG M-ICON)
 - [x] `docs/13-Packaging/` written
 
+## Phase 20 — UI styles, separate from colour themes
+
+_Requested 2026-09-03. **Last, deliberately** — it restyles surfaces that are still being built,
+and doing it before Phases 16 and 19 land would mean styling screens twice._
+
+**The idea, and it is the load-bearing half:** a **UI style** and a **colour theme** are
+different axes and are currently one. A style decides shape and material — flat, minimalist,
+neumorphic, holographic. A theme decides hue. Every style must work under every theme, and every
+existing theme must keep working under every style. Today `--kh-*` tokens carry both, so a style
+cannot be chosen without redefining every colour.
+
+**The new default is holographic-blueprint:** a grid in the background, semi-transparent button
+fills with an opaque border matching the text colour, gradients, and a sense of depth — shiny
+and technical at once, rather than a stock Electron window.
+
+- [ ] **Split the token layer in two.** Colour tokens stay as they are; a second, smaller set
+      carries surface, border, blur, gradient and grid. A style sets the second, a theme the
+      first, and neither may reach into the other
+- [ ] **A style registry** beside the theme registry — one table, ids, display names, summaries
+      (rule 8: not a second list of "the styles" anywhere else)
+- [ ] A setting for it, beside the theme picker (D10: every feature ships a setting)
+- [ ] **Flat** — the current look, kept and named, so choosing a style is never a one-way door
+- [ ] **Minimalist** — less chrome, more whitespace, hairline borders
+- [ ] **Neumorphic** — soft extruded surfaces, dual-light shadows
+- [ ] **Holographic-blueprint**, and the new default: background grid, transparent button fills
+      with opaque text-coloured borders, gradient accents, depth
+- [ ] **Zero hardcoded colour, still.** Hard rule 4 does not relax for a style; the existing
+      guard already sweeps every source file and must keep passing
+- [ ] **Guard: every style resolves every token, under every theme.** The theme guard is
+      per-theme today; this becomes the cross-product, or a style can ship with a token that is
+      blank under one theme and nobody finds out
+- [ ] **Guard: contrast holds for every style × theme pair.** A translucent button over a grid is
+      exactly where WCAG AA quietly stops being true, and it is the reason this phase needs its
+      guard extended rather than reused
+- [ ] **Reduced motion and reduced transparency respected** — a holographic style that ignores
+      `prefers-reduced-transparency` is unusable for the people those settings exist for
+- [ ] **Verified visually, per style × theme**, with `node tools/smoke.mjs --shots <dir>` and the
+      screenshots actually looked at — a contrast test cannot see "this looks wrong"
+- [ ] Documented in `docs/06-UI-Design-System/`, with the style/theme split stated as the rule it
+      is
+
 ## Phase 19 — Documentation & README
 
 - [ ] Complete the numbered `docs/` tree using the **`comprehensive-documentation`** skill
@@ -655,3 +696,4 @@ Full notes: `docs/13-Packaging/00-Building-And-Releasing.md`._
 | 17 · Audits                      | ~ Three passes, fixes ongoing |
 | 18 · Packaging & CI              | ~ Configured, never run       |
 | 19 · Docs & README               | ~ Tree written, README not    |
+| 20 · UI styles                   | Not started — after 19        |
