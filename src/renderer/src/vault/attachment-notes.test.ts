@@ -154,9 +154,9 @@ describe('addNotes', () => {
     // the disguise. Asserted as a set of matched sentences rather than a length, so adding a
     // finding does not silently break this into a number nobody re-derives.
     expect(notes.some((n) => /already in the vault/i.test(n))).toBe(true);
-    expect(notes.some((n) => /x\.pdf\.exe/.test(n))).toBe(true);
+    expect(notes.some((n) => n.includes('x.pdf.exe'))).toBe(true);
     expect(notes.some((n) => /hides a second extension/i.test(n))).toBe(true);
-    expect(notes.some((n) => /application\/pdf/.test(n))).toBe(true);
+    expect(notes.some((n) => n.includes('application/pdf'))).toBe(true);
     expect(notes.some((n) => /longer to open and save/i.test(n))).toBe(true);
   });
 
