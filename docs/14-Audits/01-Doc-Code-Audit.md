@@ -13,6 +13,38 @@
 
 ---
 
+## Remediation status — updated 2026-09-02, after the fix pass
+
+Every finding was re-verified against the code before anything was changed, and **four of
+the twenty had already been fixed by other work in the meantime** — F2, F3, F4 and F17.
+That is worth stating first, because a report that re-fixes something already fixed is worse
+than one that says nothing.
+
+Status lines are added to each finding in place. The finding text above is left exactly as
+written: an audit records what was true when it ran.
+
+| Status                                                    | Findings                                                                                                                                                                                    |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Already fixed before this pass**                        | F2, F3, F4, F14 (partly), F17                                                                                                                                                               |
+| **Fixed this pass**                                       | F1 (earlier this session), F5, F6 (four of five), F7, F8, F9, F10 (partly), F11, F12, F13, F14, F16, F18, F19 (two of three), F20                                                           |
+| **Open — the file belongs to another agent this session** | F6 (the health-rule count in `docs/05-Features/_INDEX.md`), F10 (the `14-Audits/` row in `docs/_INDEX.md`), F19 (`docs/06-UI-Design-System/_INDEX.md`), F5 (the claim's wording, same file) |
+| **Open — `CLAUDE.md`, not edited by policy**              | F8's stack-table row, F15                                                                                                                                                                   |
+
+### Two new guards, because hard rule 9 says a number in prose gets a test
+
+- **`tools/doc-counts.test.ts`** parses the counted numbers back out of the markdown and
+  checks them against the real registries — custom-field types, parsers, import formats, the
+  decision range — plus a structural check that the §3 column-mapping table has exactly one
+  row per parser, which is what would have caught the missing Keyhold JSON row. Every health
+  rule id must also appear in its own doc, which is stronger than a count.
+- **`tools/no-hardcoded-colours.test.ts`** scans every `.ts`/`.tsx`/`.css` file under `src/`
+  for a colour literal outside the token layer, with a five-entry allow-list that each state
+  a reason. This is the guard F5 correctly said did not exist: both existing guards operate
+  over the theme _definitions_, so neither could ever see `backgroundColor: '#12131a'` in a
+  `BrowserWindow` option.
+
+---
+
 ## Summary
 
 **The guarded numbers held; the unguarded ones did not.** Every figure this project bothered
@@ -46,6 +78,8 @@ that are false, and both have matching entries in the security audit.
 
 ### F1 — HIGH · `CHANGELOG.md` describes Phase 0 and says nothing is stored yet
 
+**STATUS: FIXED** earlier in this session, before this pass began.
+
 `CHANGELOG.md:11-29` against `docs/12-Roadmap/00-Master-Checklist.md:460-483`
 
 The entire `[Unreleased]` section lists scaffold, hardening, navigation lockdown, the
@@ -69,6 +103,8 @@ landed phase, and delete the Notes block.
 
 ### F2 — HIGH · Three "not built yet" sections describe features that are built
 
+**STATUS: ALREADY FIXED** when re-verified — not by this pass. Both §"Not built yet" sections now list only genuinely-unbuilt work: the generator page's third bullet explicitly records that `kh:generator:limits` is what reads the limits across the contract, and the health page's list is down to per-rule persistence, the HIBP check, a `missing-2FA` rule and score history. All four were checked against the code and hold.
+
 Absence claims are the most dangerous kind of documentation because nothing fails when they
 go stale. All three of these were verified in both directions.
 
@@ -90,6 +126,8 @@ the generator and health rows to `docs/01-Architecture/01-IPC-Surface.md`'s chan
 ---
 
 ### F3 — HIGH · The architecture doc says version snapshots never cross the boundary
+
+**STATUS: ALREADY FIXED.** `00-Process-Model.md` now carries two rows — the raw snapshot's secret half never crosses, the projected snapshot does with old secrets as lengths — plus a paragraph explaining that this is the one row that changed after the table was first written.
 
 `docs/01-Architecture/00-Process-Model.md:70` against
 `src/main/vault/projection.ts:72-108` and `src/shared/model/credential.ts:399-433`
@@ -119,6 +157,8 @@ does, non-secret values verbatim and secret ones as lengths.
 
 ### F4 — HIGH · There is no `README.md`, and four documents assume there is
 
+**STATUS: ALREADY FIXED.** `README.md` exists at the repository root, so the five present-tense references are now true.
+
 The repository root holds `CHANGELOG.md`, `CLAUDE.md`, `CODE_OF_CONDUCT.md`,
 `CONTRIBUTING.md`, `MANUAL-BACKLOG.md`, `PRIVACY.md`, `SECURITY.md` — and no `README.md`.
 
@@ -141,6 +181,8 @@ references conditional ("will be published in the README, Phase 19").
 ---
 
 ### F5 — MEDIUM · "No hardcoded colours anywhere" is false, and the guards cannot catch it
+
+**STATUS: the code half is FIXED and now GUARDED; the wording half is open.** `window.ts` no longer holds a hex literal: `initialBackgroundColour()` takes the `bg` token of a real theme, picked by `nativeTheme.shouldUseDarkColors` the same way the renderer picks its default, so a light-theme launch no longer opens with a dark flash. It is still not the _user's_ chosen theme — that lives in renderer storage the main process cannot read — and the function says so rather than pretending otherwise. New guard `tools/no-hardcoded-colours.test.ts` scans the whole of `src/` and fails on any colour literal outside the token layer; fault-injected by restoring `'#12131a'`, which fails it. The claim's wording in `docs/06-UI-Design-System/_INDEX.md` was **not** edited — that file belongs to another agent this session — and should now be narrowed to name three guards rather than two.
 
 `docs/06-UI-Design-System/_INDEX.md:10` and `CONTRIBUTING.md:47` and `CLAUDE.md:86`, against
 `src/main/window.ts:29`
@@ -175,6 +217,8 @@ cover.
 
 ### F6 — MEDIUM · Five counts in prose disagree with the code
 
+**STATUS: four of five FIXED, plus the missing table row; one OPEN.** `00-Import-Formats.md` and `09-Import-Export/_INDEX.md` now say twelve parsers, and the §3 column-mapping table has gained the **Keyhold JSON** row it was missing — described honestly as the lossless path whose ids, dates and history are _reported_ rather than silently dropped, so importing an export is a merge and not a restore. `01-Testing-Policy.md` now says twelve formats. `12-Roadmap/_INDEX.md` now names the real range, D1-D22, and distinguishes the founding seventeen from the five added later. The custom-field-type count was already correct at thirteen when re-checked. **Still open:** `docs/05-Features/_INDEX.md` says "the eight offline rules" and `HEALTH_RULE_IDS` has nine — that file belongs to another agent this session and was not touched; `tools/doc-counts.test.ts` documents the exclusion in its header and should gain the assertion once it is corrected.
+
 Each was counted directly.
 
 | Claim                                                                                | Code                                                                                                                                                                                            |
@@ -197,6 +241,8 @@ already documents that pattern for a different number, so the technique is in th
 ---
 
 ### F7 — MEDIUM · `PRIVACY.md` describes a Settings screen that does not exist
+
+**STATUS: FIXED, and re-verified as still real before changing anything.** `SettingsScreen.tsx` exists but nothing imports it — `App.tsx` still renders only `AppearancePanel` — and there is no kill-switch anywhere in `src/`. `PRIVACY.md` now says the breach check is not built, that neither the consent screen nor the kill-switch exists yet, and that until they do the guarantee is _stronger_ than a setting because no code path in the running app makes a request. The audit privacy level is described as built but not yet routed, with the default (`device`) named explicitly so a reader knows what is actually being captured today.
 
 `PRIVACY.md:28-29` and `PRIVACY.md:39`
 
@@ -231,6 +277,8 @@ section until Phase 14 lands. The rest of the page — "Keyhold makes no network
 
 ### F8 — MEDIUM · The threat model lists KDBX export as a present mitigation
 
+**STATUS: FIXED in the threat model; OPEN in `CLAUDE.md`.** `03-Threat-Model.md` now names the four export formats that exist today and states that KDBX 4 is Phase 11 work with `kdbxweb` not yet a dependency. `CLAUDE.md`'s stack table still lists "KDBX interop | `kdbxweb` + our WASM Argon2"; that file was deliberately not edited (see the status table above) and the row wants a "— planned, Phase 11" qualifier.
+
 `docs/00-Overview/03-Threat-Model.md:23`
 
 > **The vendor turns hostile, raises prices, or shuts down** → There is no vendor. GPL-3.0,
@@ -254,6 +302,8 @@ is read as a list of what protects the user today.
 
 ### F9 — MEDIUM · Two documents point at `src/shared/crypto/`, which does not exist
 
+**STATUS: FIXED.** `SECURITY.md:56` and `CONTRIBUTING.md:74` now read `src/main/security.ts`, `src/main/crypto/`, `src/main/format/`, `src/shared/format/types.ts` — which is where those things are, and consistent with decision D22 rather than pointing a security reporter at the arrangement the project decided against.
+
 `SECURITY.md:56` and `CONTRIBUTING.md:74`
 
 > If a pull request touches `src/main/security.ts`, `src/shared/crypto/`,
@@ -272,6 +322,8 @@ the exact architectural arrangement the project decided against.
 ---
 
 ### F10 — MEDIUM · The audit findings land in a folder no index knows about
+
+**STATUS: half FIXED, half OPEN.** The roadmap half is done — `00-Master-Checklist.md` now points Phase 17 and Phase 19 at `docs/14-Audits/`. The tree-index half is **not**: `docs/_INDEX.md` belongs to another agent this session and still has no `14-Audits/` row. This remains the one finding that must be actioned by hand.
 
 `docs/12-Roadmap/00-Master-Checklist.md:420` and `docs/_INDEX.md:30`
 
@@ -300,6 +352,8 @@ the "deliberate oddities" register) or whether it should be folded in.
 
 ### F11 — MEDIUM · The module map omits six of the main process's nine folders
 
+**STATUS: FIXED, and regenerated against the real tree** — which by now is nineteen main-process folders, not nine. The map lists all of them with their files, and marks the **two projection boundaries** (`vault/projection.ts` and `history/diff-projection.ts`) inline with a `◄ BOUNDARY` marker plus a paragraph saying they are the only two places a decrypted record becomes something the renderer may hold.
+
 `docs/01-Architecture/00-Process-Model.md:28-48`
 
 The map lists `shared/`, `main/crypto/`, `main/format/`, `main/vault/`, `main/ipc/`,
@@ -321,6 +375,8 @@ boundary — does not appear on it at all.
 
 ### F12 — LOW · "The three files" over a four-row table
 
+**STATUS: FIXED.** "## 1. The four files, and why it takes four".
+
 `docs/01-Architecture/01-IPC-Surface.md:9-16`
 
 The heading reads "## 1. The three files, and why it takes three"; the table has four rows —
@@ -329,6 +385,8 @@ The heading reads "## 1. The three files, and why it takes three"; the table has
 ---
 
 ### F13 — LOW · The channel-group table says history needs an open vault
+
+**STATUS: FIXED.** The `history` row now reads "mixed" and names `history:networkName` as the exception, since the table is the quick answer to "can this be called on the unlock screen?".
 
 `docs/01-Architecture/01-IPC-Surface.md:33` against `src/main/ipc/register.ts:405-408`
 
@@ -340,6 +398,8 @@ screen?".
 ---
 
 ### F14 — LOW · `npm run package` is documented as a script that works
+
+**STATUS: FIXED, and the cause resolved itself.** `electron-builder.yml` now exists — 207 lines, written by other work — so the scripts do what the row says. The row has been updated to point at the config file and to document `package:dir`, which was undocumented.
 
 `docs/11-Development/00-Setup-And-Scripts.md:29`
 
@@ -359,6 +419,8 @@ it that way. The config is correctly listed as the first item of Phase 18
 
 ### F15 — LOW · `CLAUDE.md` says typecheck covers three tsconfigs
 
+**STATUS: OPEN, deliberately.** Still true — `npm run typecheck` runs two passes, over `tsconfig.node.json` and `tsconfig.web.json`. `CLAUDE.md` was not edited by this pass on policy grounds; line 45 should read "across both tsconfigs", matching `00-Setup-And-Scripts.md`, which is already correct.
+
 `CLAUDE.md:45` against `package.json:46-48` and
 `docs/11-Development/00-Setup-And-Scripts.md:26`
 
@@ -370,6 +432,8 @@ correctly. Only `CLAUDE.md` says three.
 ---
 
 ### F16 — LOW · `id: UUID v7 — time-sortable` is a v4
+
+**STATUS: FIXED, on the documentation side, which is the right side.** The field line now reads "UUID v4 from the platform CSPRNG (`crypto.randomUUID`)", and a new short section says plainly that ids carry no order, that every ordering in the app goes through `sort.ts` on real timestamp fields, and that switching to v7 would touch the file format and every sync tombstone — so it is a decision-log entry, and is not currently proposed. The code was not changed, because changing it silently would be the larger mistake.
 
 `docs/03-Data-Model/00-Credential-Model.md:13` against `src/main/crypto/random.ts:22-25`
 
@@ -398,6 +462,8 @@ format.
 
 ### F17 — LOW · A code comment contradicts the constant directly beneath it
 
+**STATUS: ALREADY FIXED.** The OWASP paragraph now sits above `DEFAULT_KDF_PARAMS`, where it belongs, and `MIN_KDF_PARAMS` carries its own one-line comment naming the floor.
+
 `src/shared/format/types.ts:66-84`
 
 > OWASP's minimum recommendation is m=19 MiB, t=2, p=1. Keyhold's floor is well above that
@@ -423,6 +489,8 @@ correct.
 
 ### F18 — LOW · The extension family lists two extensions nothing produces
 
+**STATUS: FIXED, and one half resolved itself.** `.keeptheme` **is** now produced — `src/main/theme/keeptheme-file.ts` reads and writes it — so that row is correct as it stands. `.keepbak` is still written by nothing; the table now splits it from `.keep.bak.N` and marks it "Read, never written", explaining that it exists only so `recovery/survey.ts` recognises one left by an older build and that a conforming implementation must not emit it. That matters because this document is written to be implementable by a third party.
+
 `docs/04-Vault-Format/00-KEEP-Format-Spec.md:296-303`
 
 `.keepbak` and `.keeptheme` appear in the table. Nothing in `src/` writes either:
@@ -440,6 +508,8 @@ clean-room implementer reading it may conclude they should emit a `.keepbak`.
 
 ### F19 — LOW · Three folder indexes have a broken second table
 
+**STATUS: two of three FIXED.** `docs/01-Architecture/_INDEX.md` and `docs/09-Import-Export/_INDEX.md` render as single tables again. `docs/06-UI-Design-System/_INDEX.md` belongs to another agent this session and still has the stray blank line before its `02-App-Chrome.md` row.
+
 `docs/01-Architecture/_INDEX.md:7-9`, `docs/06-UI-Design-System/_INDEX.md:6-8`,
 `docs/09-Import-Export/_INDEX.md:7-9`
 
@@ -451,6 +521,8 @@ fixable by deleting the blank line.
 ---
 
 ### F20 — MEDIUM · The hardening doc describes a scheme check that does not run
+
+**STATUS: RESOLVED, by fixing the code exactly as this finding instructed.** Security audit S1 and S2 are both fixed: there is one `setWindowOpenHandler`, and both it and `will-navigate` route through `openExternally`, which opens only `http:` and `https:`. `docs/02-Security/01-Process-Hardening.md` §4 is therefore left as written, because it now describes what the code does. `security.test.ts` asserts the installed handlers rather than the configuration object, so this paragraph cannot quietly become false again.
 
 _Numbered last because it was raised by the security audit after this list was drawn up; it
 ranks with the medium findings above._

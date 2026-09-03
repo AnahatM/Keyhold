@@ -13,6 +13,29 @@
 
 ---
 
+## Remediation status — updated 2026-09-02, after the fix pass
+
+Every finding above has been re-verified against the code as it stands now. **Status lines
+were added to each finding in place; the finding text itself is left exactly as written**,
+because an audit is a record of what was true when it ran, not a document edited to agree
+with today's code.
+
+| Status                                                    | Findings                                                        |
+| --------------------------------------------------------- | --------------------------------------------------------------- |
+| **Fixed**                                                 | S1, S2, S3, S4, S5, S6, S7, S9, S10, S12, S15                   |
+| **Open — the file belongs to another agent this session** | S8, S11, S13, S14 (all in `src/shared/ipc/` or `src/main/ipc/`) |
+
+S13 and S14 have a **guard** even though the one-line fix could not be made:
+`tools/limit-parity.test.ts` fails if the two layers' caps drift, or if the validator's
+`ICON_KINDS` stops matching the model's.
+
+Also closed since the sweep, by other work: `https-transport.ts:15` named a
+`no-network.test.ts` guard "not written yet". `src/main/breach/no-network.test.ts` now
+exists, and a fresh sweep confirms **exactly one `fetch` call site in the repository**, in
+`https-transport.ts`, with nothing outside `src/main/breach/` importing it.
+
+---
+
 ## Summary
 
 **The thing this codebase is most afraid of is not happening.** The secret boundary —
@@ -44,6 +67,8 @@ happens.
 ## Findings, by impact
 
 ### S1 — HIGH · A second window-open handler replaces the hardened one
+
+**STATUS: FIXED.** The duplicate handler is gone from `window.ts`, which now carries a comment saying why there must not be one, and both paths route through a single `openExternally` predicate in `security.ts`. The guard this finding asked for now exists: `security.test.ts` invokes the handler `applyWebContentsHardening` actually _installs_, rather than asserting the configuration object. Fault-injected by calling `shell.openExternal` directly in the handler, which fails it.
 
 `src/main/window.ts:53-56` against `src/main/security.ts:95-100`
 
@@ -93,6 +118,8 @@ it asserts the _configuration object_ and never the _installed handlers_.
 
 ### S2 — HIGH · `will-navigate` opens any scheme externally, with no check at all
 
+**STATUS: FIXED.** `will-navigate` cancels unconditionally and then offers the URL to `openExternally`, the same predicate the window-open handler uses. `security.test.ts` covers both paths against the same table of hostile schemes.
+
 `src/main/security.ts:88-93`
 
 ```ts
@@ -121,6 +148,8 @@ guard test as S1.
 ---
 
 ### S3 — MEDIUM · `ELECTRON_RENDERER_URL` is honoured in packaged builds
+
+**STATUS: FIXED.** `const devServerUrl = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL;`
 
 `src/main/window.ts:58-63`
 
@@ -153,6 +182,8 @@ much shorter step than it should be, and the fix is one clause.
 
 ### S4 — MEDIUM · The smoke harness ships in packaged builds and is armed by an env var
 
+**STATUS: FIXED.** `isSmokeRun()` is now `!app.isPackaged && process.env.KEYHOLD_SMOKE === '1'`. Gated rather than excluded from the bundle, because `tools/smoke.mjs` launches `electron .` where `isPackaged` is false — so the gate costs the smoke runner nothing.
+
 `src/main/index.ts:108`, `src/main/smoke.ts:40-41`, `smoke.ts:106`, `smoke.ts:394-430`
 
 `runSmokeCheck` is imported unconditionally by the main entry point, so it is in the
@@ -175,6 +206,8 @@ on `app.isPackaged` costs nothing.
 ---
 
 ### S5 — MEDIUM · `netsh` is invoked by bare program name
+
+**STATUS: FIXED.** `netshPath()` builds `%SystemRoot%\System32\netsh.exe`, falling back to `C:\Windows`, and the macOS path is now the named constant `SYSTEM_PROFILER_PATH`. New guard `src/main/history/network-name.test.ts` mocks `execFile` and asserts what the probe actually spawns. Fault-injected by reverting to `runCommand('netsh', ...)`, which fails it.
 
 `src/main/history/network-name.ts:153`
 
@@ -202,6 +235,8 @@ existing null-on-failure behaviour covering a missing binary.
 ---
 
 ### S6 — LOW · The failed-attempt wipe leaves recoverable copies behind
+
+**STATUS: FIXED.** `atomic-write.ts` gained `listVaultCopyPaths()`, which enumerates the directory for the vault, its `.tmp`, every `.bak.N` and every `.recovered-*` — all four derived from the exported constants, so there is no second list. `#maybeWipe` deletes what it returns, best-effort per file so one locked handle cannot stop the rest. Guarded by five tests in `atomic-write.test.ts`, fault-injected by dropping the `.tmp` clause. Note that `docs/02-Security/02-Session-Model.md:180` ('the vault **and its backups**') is now an understatement rather than an overstatement.
 
 `src/main/session/session-controller.ts:289-300`
 
@@ -234,6 +269,8 @@ setting's own copy. This is worth deciding before the settings screen exposes it
 
 ### S7 — LOW · Unguarded `new URL()` inside the window-open handler
 
+**STATUS: FIXED.** `openExternally` parses inside a `try` and returns `false` from the `catch`; `'not a url at all'` is in the guard test's table.
+
 `src/main/security.ts:98`
 
 `new URL(url)` throws on a string that is not a valid URL, and the throw is inside a handler
@@ -247,6 +284,8 @@ already the answer on every path, so failing closed costs nothing.
 ---
 
 ### S8 — LOW · No IPC sender validation
+
+**STATUS: OPEN, deliberately not attempted this pass.** The fix belongs in `src/main/ipc/register.ts`, which another agent is actively editing. The finding's own reasoning still holds — `nodeIntegrationInSubFrames` false, `frame-src 'none'`, `webviewTag: false`, and a navigation allow-list mean there is no second frame to defend against — so this remains optional defence in depth rather than a hole.
 
 `src/main/ipc/register.ts:97`
 
@@ -271,6 +310,8 @@ in the `handle` wrapper — one place, all channels.
 
 ### S9 — LOW · The one subprocess-spawning channel has no rate limit
 
+**STATUS: FIXED**, in `origin.ts` rather than in the IPC layer, so the limit holds for every caller and not only for that one channel. `refreshNetwork()` now enforces `FORCED_REFRESH_MIN_INTERVAL_MS` (3 s); inside the window it returns the last probe's answer without starting a process, joining an in-flight refresh first so the caller never receives a value that is about to change under it. Three tests in `origin.test.ts`, fault-injected by deleting the guard — 51 spawns instead of 1. One pre-existing test needed an injected clock as a consequence, which its comment now explains.
+
 `src/main/ipc/register.ts:405-408` → `src/main/history/origin.ts:172` →
 `network-name.ts:50`
 
@@ -288,6 +329,8 @@ same broker-style counter the reveal path uses.
 ---
 
 ### S10 — LOW · `preferences.json` is written non-atomically and without a restrictive mode
+
+**STATUS: FIXED.** New `src/main/config-file.ts` exports `writeJsonFileSync`, which opens a temp `0o600`, `fsync`s it, and renames into place, removing the temp on either failure path. Both `preferences.ts` and `window-state.ts` route through it and neither imports `writeFileSync` any more. Seven tests in `config-file.test.ts` — the mode assertion is POSIX-only, because Windows does not implement the permission bits and asserting them there would be asserting a lie. Fault-injected by removing the temp cleanup.
 
 `src/main/session/preferences.ts:152`, and the same pattern in
 `src/main/window-state.ts:117`
@@ -316,6 +359,8 @@ temp file plus `renameSync`.
 
 ### S11 — INFORMATIONAL · `MAX_STRING_BYTES` counts UTF-16 code units, not bytes
 
+**STATUS: OPEN on the code side** — `src/shared/ipc/validation.ts` belongs to another agent this session. The documentation half **is fixed**: `docs/01-Architecture/00-Process-Model.md` now states the cap as 1,048,576 UTF-16 code units and says plainly that the constant's name overstates its precision.
+
 `src/shared/ipc/validation.ts:52,58`
 
 ```ts
@@ -336,6 +381,8 @@ and keep the name.
 
 ### S12 — INFORMATIONAL · A no-op ternary that reads as a security check
 
+**STATUS: FIXED.** `return field.value;`, with an expanded comment recording that it is unconditional on purpose, why disclosing a non-secret custom value on this path costs nothing, and that the gate which actually matters is in `projection.ts`.
+
 `src/main/vault/vault-service.ts:441`
 
 ```ts
@@ -354,6 +401,8 @@ positive answer. Behaviour is correct; the code lies about why.
 
 ### S13 — INFORMATIONAL · `ICON_KINDS` is declared twice
 
+**STATUS: OPEN on the code side, GUARDED.** The one-line `import` belongs in `src/shared/ipc/credential-validation.ts`, owned by another agent this session. `tools/limit-parity.test.ts` parses the validator's literal out of the source and compares it to the model's exported `ICON_KINDS`. Fault-injected by adding `'svg'` to the model, which fails it. Delete that assertion when the import lands.
+
 `src/shared/ipc/credential-validation.ts:118` duplicates `src/shared/model/credential.ts:344`.
 Hard rule 8 ("no second list") applied to a list that decides what a validator accepts. They
 agree today. Nothing would fail if they stopped agreeing — an icon kind added to the model
@@ -365,6 +414,8 @@ as a UI bug rather than a validation bug.
 ---
 
 ### S14 — INFORMATIONAL · Array caps are duplicated as literals with no guard
+
+**STATUS: OPEN on the code side, GUARDED** — same file, same reason as S13. `tools/limit-parity.test.ts` parses all four caps out of both files and compares them as whole objects, so a failure names every cap that drifted rather than only the first. Fault-injected by setting `MAX_TAGS` to 65 in `credential-ops.ts`.
 
 `src/shared/ipc/credential-validation.ts:39-42` (`MAX_URLS` 32, `MAX_TAGS` 64,
 `MAX_CUSTOM_FIELDS` 128, `MAX_SECURITY_QUESTIONS` 32) and
@@ -381,6 +432,8 @@ the real limit and the ops cap would never fire.
 ---
 
 ### S15 — LOW (correctness, security-adjacent) · The renderer's plain-copy path relies on a denied permission
+
+**STATUS: FIXED, and the finding was right.** `applySessionHardening` now allow-lists exactly one permission — `clipboard-sanitized-write`, which is write-only and sanitised and therefore cannot read what the user copied elsewhere — through a single `isPermissionAllowed` predicate consulted by _both_ the request handler and the check handler, since answering those two differently is how a permission ends up effectively granted or denied depending on which path Chromium takes. `clipboard-read` and everything else stay denied. `PlainField` gained the missing rejection handler and now shows the generator's wording instead of failing silently. Eleven assertions in `security.test.ts`, fault-injected by allow-listing `clipboard-read`.
 
 `src/renderer/src/vault/SecretField.tsx:197`, against `src/main/security.ts:131-135`
 

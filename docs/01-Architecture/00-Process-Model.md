@@ -27,25 +27,62 @@ DOM. That is decision D13, and everything below follows from it.
 
 ```
 src/
-  shared/                  compiled for BOTH environments — types and pure logic only
-    ipc/api.ts             the contract: channel names + the window.keyhold shape
-    ipc/validation.ts      runtime validators used on both sides
-    model/credential.ts    the record model AND the declaration of what counts as secret
-    model/vault-document.ts the decrypted vault body, settings, summaries
-    format/types.ts        KEEP container constants and types
+  shared/                    compiled for BOTH environments — types and pure logic only
+    ipc/api.ts               the contract: channel names + the window.keyhold shape
+    ipc/*-validation.ts      runtime validators used on both sides
+    model/                   credential.ts (the record model AND the declaration of what
+                             counts as secret) · vault-document.ts · health.ts · history.ts
+                             · import.ts · export.ts · sync.ts · totp.ts · attachment.ts ·
+                             activity.ts · breach.ts · recovery.ts · generator.ts ·
+                             strength.ts · settings-plan.ts · import-plan.ts · export-plan.ts
+    format/types.ts          KEEP container constants and types
+    search/                  the one ranked matcher: query.ts · filter.ts · sort.ts
+    theme/                   themes.ts · tokens.ts · contrast.ts · accent.ts · appearance.ts
+                             · keeptheme.ts
 
-  main/                    everything that touches keys or the filesystem
-    crypto/                secret.ts · random.ts · kdf.ts · aead.ts · envelope.ts · errors.ts
-    format/                container.ts · header.ts · migrations.ts
-    vault/                 vault-service.ts · projection.ts · secret-broker.ts · atomic-write.ts
-    ipc/register.ts        handler registration, validation, error scrubbing
-    security.ts            CSP, hardened webPreferences, navigation lockdown
-    window.ts · index.ts · smoke.ts
+  main/                      everything that touches keys or the filesystem
+    crypto/                  secret.ts · random.ts · kdf.ts · kdf-runner.ts · kdf-worker.ts ·
+                             aead.ts · envelope.ts · errors.ts
+    format/                  container.ts · header.ts · migrations.ts
+    vault/                   vault-service.ts · projection.ts ◄ BOUNDARY ·
+                             secret-broker.ts · atomic-write.ts · credential-ops.ts
+    history/                 versioning.ts · origin.ts · network-name.ts (the one subprocess)
+                             · diff-projection.ts ◄ BOUNDARY
+    session/                 session-controller.ts · auto-lock.ts · clipboard.ts ·
+                             quick-unlock.ts · preferences.ts · unlock-throttle.ts ·
+                             strength.ts
+    health/rules.ts          the offline health engine
+    generator/               generator.ts · wordlist.ts
+    import/                  twelve parsers, the CSV reader, and the column mapper
+    export/                  the four export formats and their writers
+    organisation/            folder-ops.ts · tag-ops.ts · folder-tree.ts · integrity.ts ·
+                             tag-colours.ts
+    attachments/             store.ts · digest.ts · sniff.ts · references.ts · audit.ts ·
+                             filename.ts · limits.ts
+    sync/                    the merge engine: merge-document.ts · merge-record.ts ·
+                             merge-collections.ts · merge-history.ts · merge-values.ts ·
+                             conflict-projection.ts
+    recovery/                survey.ts · file-inspection.ts · document-diagnosis.ts ·
+                             repair-plan.ts · report.ts
+    totp/                    totp.ts · uri.ts · base32.ts · parameters.ts · secret-field.ts
+    breach/                  the opt-in HIBP k-anonymity client — the only network code
+    activity/                activity-log.ts · session-activity.ts
+    theme/                   theme-service.ts · keeptheme-file.ts · theme-dialogs.ts
+    shell/                   menus, tray, power events, window placement
+    ipc/register.ts          handler registration, validation, error scrubbing
+    security.ts              CSP, hardened webPreferences, navigation lockdown, permissions
+    config-file.ts           atomic 0o600 writes for preferences.json / window-state.json
+    window.ts · window-state.ts · index.ts · smoke.ts
 
-  preload/index.ts         the contextBridge. The only channel between the two.
+  preload/index.ts           the contextBridge. The only channel between the two.
 
-  renderer/                React. No Node, no secrets.
+  renderer/                  React. No Node, no secrets.
 ```
+
+The two **◄ BOUNDARY** markers are the safe projection and its history twin. They are the
+only two places in the tree where a decrypted record is turned into something the renderer
+may hold, and a field added to either without thought is the failure mode decision D13
+exists to prevent. Nothing else in `main/` returns record content across the bridge.
 
 **Why crypto is in `main/` and not `shared/`** (decision D22): `@shared` is compiled by the
 renderer's tsconfig, so anything there importing `node:crypto` fails to type-check — and,
@@ -156,7 +193,11 @@ TypeScript is erased at runtime. A handler typed `(path: string)` will cheerfull
 `undefined`, an object, or a 500 MB string. `src/shared/ipc/validation.ts` is the actual
 type check:
 
-- every string is length-capped (1 MiB) — an uncapped string is a trivial OOM
+- every string is length-capped at 1,048,576 **UTF-16 code units** — an uncapped string is a
+  trivial OOM. The constant is named `MAX_STRING_BYTES`, which overstates its precision: it
+  is measured with `String.prototype.length`, so a string of astral-plane characters at the
+  limit is closer to 4 MiB of UTF-8. The cap still bounds the attack; the name is the part
+  that is wrong, and correcting it is security audit S11
 - ids match a strict allow-list pattern, so one can never carry a path traversal or a
   separator that changes meaning when interpolated
 - paths are rejected if they contain a NUL byte

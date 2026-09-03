@@ -10,7 +10,7 @@
 
 ```
 Credential
-├── id                 UUID v7 — time-sortable, so creation order is free
+├── id                 UUID v4 from the platform CSPRNG (`crypto.randomUUID`)
 ├── type               'login' (v1; the discriminator exists for the backlog's item types)
 ├── title, favorite, folderId, tags[], icon
 ├── fields
@@ -26,6 +26,18 @@ Credential
 ├── history            enabled · maxVersions · versions[]
 └── trashedAt          soft delete, and the sync tombstone
 ```
+
+### Ids are v4, and carry no order
+
+`uuid()` is `crypto.randomUUID()`, which is a **v4** — random, not time-ordered. This page
+used to claim v7 and that "creation order is free"; it never was. Nothing depends on it
+today, because every ordering in the app goes through `src/shared/search/sort.ts` and sorts
+on real timestamp fields, and that is the arrangement to keep: **never sort by id and expect
+chronology.**
+
+Switching to v7 would make the claim true and is not obviously wrong, but ids go into the
+file format and into every sync tombstone, so it is a decision-log entry rather than a
+one-line change. It is not currently proposed.
 
 ### `passwordUpdatedAt` is separate from `updatedAt`
 

@@ -20,7 +20,7 @@ diagnostic, never a target.
 | **The KEEP container**     | Serialise/parse roundtrip, version gating, migration, truncated and corrupt files, orphaned temp files                                                  |
 | **Atomic writes**          | Crash-during-write simulation. Goal G1 is "never lose a credential"                                                                                     |
 | **The merge engine**       | The full conflict matrix, plus a property test asserting no merge ever loses a record                                                                   |
-| **Import parsers**         | One fixture per format, plus malformed input. Eighteen formats is eighteen chances to silently drop a field                                             |
+| **Import parsers**         | One fixture per format, plus malformed input. Twelve formats is twelve chances to silently drop a field                                                 |
 | **Export**                 | Roundtrip through every own-format; KDBX export must re-import losslessly                                                                               |
 | **Password generator**     | Charset guarantees, exclusion correctness, entropy maths                                                                                                |
 | **Health rules**           | Each rule's boundary conditions                                                                                                                         |
