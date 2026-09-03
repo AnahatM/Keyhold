@@ -9,54 +9,32 @@ Last updated: 2026-09-03
 
 ---
 
-## 🔴 M1 — Create the private GitHub repository and push
+## ~~M1~~ — Create the private GitHub repository and push — **DONE**
 
-**Blocks:** the explicit request _"setup a git repo in this codebase and push it online to GitHub
-privately for now"_ (decision D12). Local git is already initialised and committed — only the remote
-is missing.
+**Done 2026-09-03.** `AnahatM/Keyhold`, private, `main` tracking `origin/main`.
 
-**Status:** GitHub CLI is **still not installed** (re-checked 2026-09-03: `gh` is on neither the
-Git Bash PATH nor the PowerShell one). Git itself is fine and the identity is already set to
-`Anahat <61635745+AnahatM@users.noreply.github.com>`.
+The blocker was wrong rather than real: `gh` **was** installed — at
+`C:\Program Files\GitHub CLI\gh.exe`, already authenticated as `AnahatM` with `repo` scope —
+and simply not on the PATH of either shell. Two earlier passes checked `gh --version` and
+`which gh`, got nothing, and concluded it was absent. Invoking the executable by its full path
+worked immediately.
 
-**The repository is push-ready.** Everything is committed, the working tree is clean, and
-`.gitignore` refuses `*.keep`, `*.keepx`, `*.keepbak`, `*.kdbx`, `*.csv`, `*.1pux`, `.env*` and
-private-key extensions, with an explicit allow-list for `tests/**/fixtures/`. Verified that no
-vault file, export or preferences file is tracked. The only thing missing is the remote.
+**Worth carrying forward:** on Windows, "not on PATH" and "not installed" are different facts,
+and only one of them blocks anything. Check the usual install locations —
+`C:\Program Files\<tool>\`, `%LOCALAPPDATA%\Programs\`,
+`%LOCALAPPDATA%\Microsoft\WinGet\Links\`, `C:\ProgramData\chocolatey\bin\`,
+`~\scoop\shims\` — before recording a tool as missing.
 
-Installing a system tool and completing a browser login are both yours by CLAUDE.md §7, which is
-why this has not been done for you rather than an oversight.
+**Checked before pushing**, since a push is outward-facing and hard to take back:
 
-### Option A — install the GitHub CLI (recommended; then Claude can do the rest)
+- no `.keep`, `.keepx` or `.kdbx` anywhere in the history, not only in the working tree;
+- no `.csv` or `.env` tracked, and no credential-shaped strings (`gh*_`, `sk-`, `AKIA`, PEM
+  private-key headers) in tracked content;
+- 737 files, 3.16 MiB packed, nothing over 1 MB;
+- the working tree clean, on `main`.
 
-```powershell
-winget install --id GitHub.cli -e
-```
-
-Close and reopen the terminal, then:
-
-```powershell
-gh auth login
-# → GitHub.com → HTTPS → authenticate with a browser
-```
-
-Tell Claude once that is done and it will run the repo creation and push itself.
-
-### Option B — create it in the browser (works fine from a phone)
-
-1. Go to <https://github.com/new>
-2. **Repository name:** `Keyhold`
-3. **Visibility:** **Private**
-4. **Do not** initialise with a README, `.gitignore`, or a licence — the local repo already has them
-5. Create, then tell Claude. It will run:
-
-```bash
-git remote add origin https://github.com/AnahatM/Keyhold.git
-git branch -M main
-git push -u origin main
-```
-
-_(If a credential prompt appears on the push, Git Credential Manager will open a browser window.)_
+Nothing further is needed here. **M5** (flip it public at v1) is the next step for this repo, and
+it stays green.
 
 ---
 

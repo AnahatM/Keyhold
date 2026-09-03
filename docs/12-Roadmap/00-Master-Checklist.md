@@ -44,8 +44,9 @@ _Goal: `npm run dev` opens a hardened, empty Electron window on Windows and macO
 reports `SMOKE-PASS window created, renderer loaded, preload bridge present`.
 All three guards fault-injected and confirmed to fail on the defect they claim to catch.
 
-**Blocked:** the GitHub remote does not exist yet — GitHub CLI is not installed. See
-`MANUAL-BACKLOG.md` M1. Commits are landing locally; the push happens the moment the remote exists.
+**Unblocked 2026-09-03:** the remote exists — `AnahatM/Keyhold`, private, `main` tracking
+`origin/main`. `gh` had been installed all along and was simply not on either shell's PATH; two
+earlier passes read that as "not installed". See `MANUAL-BACKLOG.md` M1.
 
 ## Phase 1 — Crypto core & the KEEP container ✅
 
@@ -541,9 +542,10 @@ Reports: `docs/14-Audits/`._
 
 ## Phase 18 — Packaging, CI & release ~ CONFIGURED, NEVER RUN
 
-_Config and workflows are written and schema-valid. **No packaged build has ever been
-produced and no workflow has ever run** — there is no remote yet. Full notes:
-`docs/13-Packaging/00-Building-And-Releasing.md`._
+_Config and workflows are written and schema-valid. **No packaged build has ever been produced.**
+The remote now exists, so a workflow can run for the first time — but nothing has, and packaging
+needs a machine to run on and a Mac for the macOS half (`MANUAL-BACKLOG.md` M-PKG, M-CI, M2).
+Full notes: `docs/13-Packaging/00-Building-And-Releasing.md`._
 
 - [x] `electron-builder.yml`: NSIS + portable (Windows), universal DMG + zip (macOS), asar on,
       an allow-list `files` block so no source, test, fixture or source map ships
