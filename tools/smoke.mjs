@@ -112,7 +112,23 @@ if (smokeRoot !== undefined && vaultIndex === -1) {
   mkdirSync(join(smokeRoot, 'Dropbox'), { recursive: true });
 }
 
-const child = spawn(electronBinary, ['.'], {
+/**
+ * A throwaway profile, so the run starts where a new user starts.
+ *
+ * Without this the run inherits whatever this machine's Keyhold profile happens to hold —
+ * onboarding already seen, preferences already set, a recent-vaults list already populated —
+ * and none of that is true on a CI runner or on anybody's first launch. That divergence hid a
+ * real failure for several rounds: the first-run setup flow covered the whole window on every
+ * runner and never once appeared here, so the checks that look inside the vault screen failed
+ * there and passed here for a reason no output mentioned.
+ *
+ * Fresh every run, and removed with the vault afterwards. It also means the run genuinely
+ * exercises first launch, which is the state most users see exactly once and the one least
+ * likely to be tried by hand.
+ */
+const profileDir = mkdtempSync(join(tmpdir(), 'keyhold-smoke-profile-'));
+
+const child = spawn(electronBinary, ['.', `--user-data-dir=${profileDir}`], {
   env: {
     ...process.env,
     KEYHOLD_SMOKE: '1',
@@ -143,6 +159,7 @@ const killTimer = setTimeout(() => {
 function removeTempVault() {
   // The whole root, not the vault's own parent: the vault now sits one level down inside a
   // `Dropbox` folder, and removing only that would leave the root behind on every run.
+  rmSync(profileDir, { recursive: true, force: true });
   if (vaultIndex !== -1 || smokeRoot === undefined) return;
   rmSync(smokeRoot, { recursive: true, force: true });
 }

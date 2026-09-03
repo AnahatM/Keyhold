@@ -727,9 +727,41 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // them said why. Waiting for the rows to exist makes the dependency explicit and the
         // failure, if it ever comes back, a timeout on this line rather than a mystery further
         // down.
+        // First run shows the setup flow, over the whole window.
+        //
+        // On a developer machine it never appears — that profile went through it long ago — and
+        // on every CI runner the profile is fresh, so it always does. It covered the app for the
+        // entire run, and every check that looks inside the vault screen found nothing.
+        //
+        // The check meant to catch this looked for `.kh-onboarding`. The class is `.kh-onb`. So
+        // it asked whether a class that exists nowhere was absent, which is always true, and it
+        // passed on both machines for the same wrong reason.
+        //
+        // Dismissed rather than suppressed: skipping is a path a real person takes, so driving
+        // it here covers it instead of arranging for it not to happen.
+        const onboardingHandled = await waitFor(
+          window,
+          `(() => {
+             if (document.querySelector('.kh-onb') === null) return 'not-shown';
+             const skip = [...document.querySelectorAll('.kh-onb button')]
+               .find((element) => element.textContent?.trim() === 'Skip setup');
+             if (!skip) return false;
+             skip.click();
+             return 'skipped';
+           })()`,
+          { timeoutMs: 15_000 }
+        );
+        emit(`SMOKE-NOTE onboarding-path ${String(onboardingHandled)}`);
+        emit(
+          `SMOKE-CHECK onboarding-handled-before-the-vault-checks ${String(
+            onboardingHandled === 'skipped' || onboardingHandled === 'not-shown'
+          )}`
+        );
+
         const listReady = await waitFor(
           window,
-          `document.querySelectorAll('.kh-row').length > 0 ? 'rows' : false`,
+          `document.querySelector('.kh-onb') === null &&
+             document.querySelectorAll('.kh-row').length > 0 ? 'rows' : false`,
           { timeoutMs: 20_000 }
         );
         emit(
@@ -901,11 +933,18 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // it were on screen, and because both directions are bad: a returning user handed a
         // tour, or a new user who never sees one. At this point the probe has created and
         // unlocked a real vault, so this machine is emphatically a returning one.
+        // `.kh-onb`, which is the class the component actually renders. This asked about
+        // `.kh-onboarding` until now — a class that exists nowhere — so it was asking whether
+        // nothing was absent, and answering yes, on every machine and every run.
+        //
+        // It still earns its place: by this point setup has been skipped and a vault is open,
+        // so the flow reappearing would mean the "seen it" state did not stick, which is a real
+        // bug and one a user would meet on their second launch rather than their first.
         const onboarding: unknown = await window.webContents.executeJavaScript(
-          `document.querySelector('.kh-onboarding') !== null`,
+          `document.querySelector('.kh-onb') !== null`,
           true
         );
-        emit(`SMOKE-CHECK onboarding-absent-for-a-returning-user ${String(onboarding === false)}`);
+        emit(`SMOKE-CHECK onboarding-stays-gone-once-past-it ${String(onboarding === false)}`);
 
         // The external-change banner, driven by pushing the event the watcher pushes.
         //
