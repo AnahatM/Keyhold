@@ -35,7 +35,7 @@ import { calibrateKdf, newKdfParams } from '../crypto/kdf.js';
 import { uuid } from '../crypto/random.js';
 import { SecretBytes } from '../crypto/secret.js';
 import { readContainer, readPreamble, writeContainer } from '../format/container.js';
-import { newHeader } from '../format/header.js';
+import { bodyDigest, newHeader } from '../format/header.js';
 import {
   appendVersion,
   assertValidHistory,
@@ -409,26 +409,28 @@ export class VaultService {
     // would mean reopening after a long break silently purges a trash the user never saw.
     const document = purgeExpiredTrash(opened.document, Date.now());
 
-    const header: KeepHeader = {
-      ...opened.header,
-      modifiedAt: Date.now(),
-      generation: opened.header.generation + 1,
-      deviceId: this.#deviceId,
-      recordCount: document.records.length,
-      attachmentCount: pruneUnreferencedChunks(document, opened.attachments).length,
-    };
-
     // Chunks nothing references are dropped here rather than accumulating forever. This is
     // the *only* place data is removed without the user naming it, and it is safe precisely
     // because the condition is "no record points at this" — a trashed record still points,
     // so a chunk survives until its last referrer is permanently purged.
     const attachments = pruneUnreferencedChunks(document, opened.attachments);
+    const body = serialiseVaultDocument(document);
 
-    const bytes = writeContainer(
-      header,
-      { body: serialiseVaultDocument(document), attachments },
-      opened.dek
-    );
+    const header: KeepHeader = {
+      ...opened.header,
+      modifiedAt: Date.now(),
+      generation: opened.header.generation + 1,
+      deviceId: this.#deviceId,
+      // Of the plaintext body, before it is sealed. The ciphertext differs on every save
+      // whatever the content, because a fresh nonce is drawn each time — hashing that would
+      // answer "was this saved again", which `generation` already says. This answers "is
+      // this file's content different from mine", which is the question sync has.
+      contentHash: bodyDigest(body),
+      recordCount: document.records.length,
+      attachmentCount: attachments.length,
+    };
+
+    const bytes = writeContainer(header, { body, attachments }, opened.dek);
 
     await writeVaultFileAtomically(opened.path, bytes);
 

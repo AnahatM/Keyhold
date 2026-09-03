@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { CIPHER_ID, KDF_ID, type KeepHeader } from '@shared/format/types.js';
 import { describe, expect, it } from 'vitest';
+import { VaultError } from '../crypto/errors.js';
 import { newHeader, parseHeader, serialiseHeader } from './header.js';
 
 /**
@@ -279,5 +280,64 @@ describe('no header field reaches a message', () => {
     const message = messageFor(bytes);
 
     expect(message).not.toContain(MARKER);
+  });
+});
+
+describe('the content hash field', () => {
+  const base = {
+    formatVersion: 1,
+    vaultId: 'v',
+    deviceId: 'd',
+    // The real ids, from the constants, so this fixture cannot drift from what the parser
+    // accepts — the point here is the one field being added, not the eleven around it.
+    kdf: { alg: KDF_ID, memoryKib: 19_456, iterations: 2, parallelism: 1, salt: 'AAAA' },
+    cipher: CIPHER_ID,
+    wrappedDek: { nonce: 'AAAA', ciphertext: 'AAAA', tag: 'AAAA' },
+    createdAt: 1,
+    modifiedAt: 1,
+    generation: 1,
+    recordCount: 0,
+    attachmentCount: 0,
+  };
+
+  const parse = (raw: Record<string, unknown>): unknown =>
+    parseHeader(new Uint8Array(Buffer.from(JSON.stringify(raw), 'utf8')));
+
+  it('accepts a real digest', () => {
+    expect(parse({ ...base, contentHash: 'a'.repeat(64) })).toMatchObject({
+      contentHash: 'a'.repeat(64),
+    });
+  });
+
+  it('accepts a header that has none', () => {
+    // Every vault written before the field existed. A required field here would have broken
+    // all of them, silently, at the moment of opening.
+    //
+    // `not.toHaveProperty` rather than `toMatchObject({ contentHash: undefined })`: with
+    // `exactOptionalPropertyTypes`, absent and present-but-undefined are different things,
+    // and only the first serialises back to the bytes the tag was computed over.
+    expect(parse(base)).not.toHaveProperty('contentHash');
+  });
+
+  it('refuses anything that is not a digest', () => {
+    // The header is plaintext and whoever hands you a `.keep` chose every byte of it. The
+    // value is only ever compared against one we compute, so a wrong shape can only mean
+    // "does not match" — checking it here reports a malformed field instead of a spurious
+    // content difference that would send someone into a merge for nothing.
+    for (const bad of [
+      '',
+      'a'.repeat(63),
+      'a'.repeat(65),
+      'A'.repeat(64),
+      `${'a'.repeat(63)}z`,
+      `${'a'.repeat(62)}
+
+`,
+      42,
+      null,
+      ['a'.repeat(64)],
+    ]) {
+      expect(() => parse({ ...base, contentHash: bad }), JSON.stringify(bad)).toThrow(VaultError);
+    }
   });
 });

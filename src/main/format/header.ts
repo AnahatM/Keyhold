@@ -7,6 +7,7 @@ import {
   type KdfParams,
   type SealedBox,
 } from '@shared/format/types.js';
+import { createHash } from 'node:crypto';
 import { malformed } from '../crypto/errors.js';
 
 /**
@@ -172,6 +173,23 @@ function parseKdfParams(value: unknown): KdfParams {
  * against the fixed-width field in the binary preamble, so an unreadable future header
  * never reaches a parser written for today's shape.
  */
+/**
+ * A SHA-256 digest, as the header spells one: 64 lowercase hex characters.
+ *
+ * Validated rather than accepted as any string, because the header is plaintext and
+ * attacker-writable in the sense that matters — someone who hands you a `.keep` chose every
+ * byte of it. The value is compared against a digest we compute, so a wrong shape can only
+ * ever mean "does not match"; checking it here means the mismatch is reported as a malformed
+ * field rather than as a spurious content difference that sends a user into a merge.
+ */
+function requireDigest(source: Record<string, unknown>, key: string): string {
+  const value = requireString(source, key);
+  if (!/^[0-9a-f]{64}$/.test(value)) {
+    throw malformed(`${key} is not a SHA-256 digest`);
+  }
+  return value;
+}
+
 export function parseHeader(bytes: Uint8Array): KeepHeader {
   let raw: unknown;
   try {
@@ -199,6 +217,7 @@ export function parseHeader(bytes: Uint8Array): KeepHeader {
     createdAt: requireNonNegativeInteger(raw, 'createdAt'),
     modifiedAt: requireNonNegativeInteger(raw, 'modifiedAt'),
     generation: requireNonNegativeInteger(raw, 'generation'),
+    ...(raw.contentHash === undefined ? {} : { contentHash: requireDigest(raw, 'contentHash') }),
     recordCount: requireNonNegativeInteger(raw, 'recordCount'),
     attachmentCount: requireNonNegativeInteger(raw, 'attachmentCount'),
   };
@@ -234,6 +253,15 @@ export function serialiseHeader(header: KeepHeader): Uint8Array {
     createdAt: header.createdAt,
     modifiedAt: header.modifiedAt,
     generation: header.generation,
+    // Omitted entirely when absent, rather than written as `null`.
+    //
+    // The header is the AAD, so its exact bytes are what the tag covers — and a vault
+    // written before this field existed must keep serialising to the bytes it was sealed
+    // with. A `"contentHash": null` would be different bytes and would break the tag on
+    // every one of them. This is also why the field is optional in the type rather than
+    // nullable: `exactOptionalPropertyTypes` makes "absent" and "present but empty" two
+    // different things, which here is the difference between opening a vault and not.
+    ...(header.contentHash === undefined ? {} : { contentHash: header.contentHash }),
     recordCount: header.recordCount,
     attachmentCount: header.attachmentCount,
   };
@@ -263,4 +291,16 @@ export function newHeader(input: {
     recordCount: 0,
     attachmentCount: 0,
   };
+}
+
+/**
+ * The digest that goes in `KeepHeader.contentHash`.
+ *
+ * Here rather than at the call site so there is one definition of what "the content" is —
+ * a second `createHash('sha256')` somewhere else is a second answer waiting to disagree
+ * about whether it covers the attachments, the header, or the sealed bytes. It covers the
+ * plaintext body and nothing else.
+ */
+export function bodyDigest(body: Uint8Array): string {
+  return createHash('sha256').update(body).digest('hex');
 }

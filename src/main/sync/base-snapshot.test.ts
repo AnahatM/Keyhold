@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  compareVaultContent,
   createBaseSnapshotStore,
   serialiseSnapshot,
   snapshotIsSafeToStore,
@@ -142,5 +143,57 @@ describe('serialisation', () => {
 
     expect(serialiseSnapshot(document)).toEqual(serialiseSnapshot(document));
     expect(JSON.parse(Buffer.from(serialiseSnapshot(document)).toString('utf8'))).toEqual(document);
+  });
+});
+
+describe('comparing two vault files', () => {
+  const HASH_A = 'a'.repeat(64);
+  const HASH_B = 'b'.repeat(64);
+
+  it('says identical for the same content, whatever the generations', () => {
+    // The case that stops every cloud-client touch becoming a resolver prompt. A file copied
+    // and copied back has a higher generation and identical content, and merging it would
+    // cost a mandatory backup, a full three-way pass and a dialog — for nothing.
+    expect(
+      compareVaultContent(
+        { contentHash: HASH_A, generation: 3 },
+        { contentHash: HASH_A, generation: 91 }
+      )
+    ).toBe('identical');
+  });
+
+  it('says differs for different content, even at the same generation', () => {
+    // The case a generation counter gets wrong. Two devices editing from the same ancestor
+    // both reach 8 and disagree completely — equal generations are not evidence of equal
+    // content, which is the whole reason the hash exists.
+    expect(
+      compareVaultContent(
+        { contentHash: HASH_A, generation: 8 },
+        { contentHash: HASH_B, generation: 8 }
+      )
+    ).toBe('differs');
+  });
+
+  it('says unknown when either side predates the field', () => {
+    // Correct-but-noisy, and noisy in the safe direction. Reporting `identical` here would
+    // skip a merge and lose an edit; reporting `unknown` costs a comparison the caller can
+    // choose to pay for.
+    expect(compareVaultContent({ generation: 1 }, { contentHash: HASH_A, generation: 2 })).toBe(
+      'unknown'
+    );
+    expect(compareVaultContent({ contentHash: HASH_A, generation: 1 }, { generation: 2 })).toBe(
+      'unknown'
+    );
+    expect(compareVaultContent({ generation: 1 }, { generation: 1 })).toBe('unknown');
+  });
+
+  it('never claims identical without evidence', () => {
+    // The property that matters, stated as one: a false `identical` skips a merge and loses
+    // an edit, and there is no input that should produce one without two matching hashes.
+    for (const ours of [{ generation: 1 }, { contentHash: HASH_A, generation: 1 }]) {
+      for (const theirs of [{ generation: 1 }, { contentHash: HASH_B, generation: 1 }]) {
+        expect(compareVaultContent(ours, theirs)).not.toBe('identical');
+      }
+    }
   });
 });
