@@ -78,6 +78,14 @@ export function isSmokeRun(): boolean {
  *
  * Returns the last value seen either way, so a caller can report what it actually got rather
  * than only that it timed out.
+ *
+ * **The expression is re-run on every tick, so it must be safe to run twice.** A probe that
+ * types into a box, clicks something, or otherwise changes the page is being replayed from a
+ * different starting state each time, and the second run is not the one that was reasoned
+ * about. Where a probe must act, have it return a distinct string per outcome rather than
+ * `false`: a string is truthy, so it settles on the first attempt and reports what happened
+ * instead of silently retrying. That is not a style preference — a stateful probe returning
+ * `false` cost a debugging round here.
  */
 async function waitFor(
   window: BrowserWindow,
@@ -800,6 +808,61 @@ export function runSmokeCheck(window: BrowserWindow): void {
           })()`,
           true
         );
+        // The query help. Both halves had existed in the parser and neither was ever shown:
+        // the diagnostics, so a typo looked like an empty vault rather than a misread query,
+        // and the prefix list, which `QUERY_FIELDS` says in its own comment it exists for.
+        const queryHelp = await waitFor(
+          window,
+          `(async () => {
+             const box = document.querySelector('.kh-list__search input');
+             if (!box) return false;
+             const setValue = Object.getOwnPropertyDescriptor(
+               window.HTMLInputElement.prototype, 'value'
+             ).set;
+
+             // Two probes, because they are two different queries. A partial prefix has
+             // completions and no diagnostic; an unterminated quote has a diagnostic and no
+             // completions, since the broken token matches no prefix. Demanding both from one
+             // query was the first version of this check, and it failed for that reason rather
+             // than because anything was wrong.
+             box.focus();
+             setValue.call(box, 'tit');
+             box.dispatchEvent(new Event('input', { bubbles: true }));
+             await new Promise((done) => setTimeout(done, 400));
+             const offered = document.querySelector('.kh-query-help__suggestion') !== null;
+
+             // A query the parser recovers from and reports on. Silence here is the failure
+             // this check exists for: a misread query looking like an empty vault.
+             setValue.call(box, 'tit "unterminated');
+             box.dispatchEvent(new Event('input', { bubbles: true }));
+             await new Promise((done) => setTimeout(done, 400));
+             const help = document.querySelector('.kh-query-help');
+             const said = (help?.textContent ?? '').toLowerCase().includes('quote');
+
+             if (!offered) return 'no-suggestions';
+             if (!said) return 'no-diagnostic';
+             return 'both';
+           })()`
+        );
+        emit(`SMOKE-NOTE query-help-said ${String(queryHelp)}`);
+        emit(`SMOKE-CHECK query-help-explains-and-suggests ${String(queryHelp === 'both')}`);
+
+        // The box put back, so the list is unfiltered for everything after this.
+        await window.webContents.executeJavaScript(
+          `(() => {
+             const box = document.querySelector('.kh-list__search input');
+             const setValue = Object.getOwnPropertyDescriptor(
+               window.HTMLInputElement.prototype, 'value'
+             ).set;
+             setValue.call(box, '');
+             box.dispatchEvent(new Event('input', { bubbles: true }));
+             box.blur();
+             return true;
+           })()`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 400));
+
         // The sort control, which had an engine with eight keys and no way to choose one.
         // Driven, not just found: picking a key must actually reorder the list, and a control
         // that renders but changes nothing is the failure this whole session keeps meeting.

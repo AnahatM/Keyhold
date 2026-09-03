@@ -851,3 +851,84 @@
   outline: 2px solid var(--kh-color-focus-ring);
   outline-offset: 2px;
 }
+
+/* ── The query help: what was understood, and what else is accepted ────────── */
+
+.kh-query-help {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: 0 var(--kh-space-3) var(--kh-space-2);
+  min-width: 0;
+}
+
+/*
+ * A diagnostic is not an error — the query still ran. Warning tone rather than danger, so it
+ * reads as "here is what I made of that" instead of "you broke it".
+ */
+.kh-query-help__diagnostics {
+  margin: 0;
+  padding: var(--kh-space-2);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  border: 1px solid var(--kh-color-warning);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-warning-subtle);
+  color: var(--kh-color-text);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-query-help__suggestions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kh-query-help__suggestion,
+.kh-query-help__dismiss {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-1) var(--kh-space-2);
+  border: 0;
+  border-radius: var(--kh-radius-sm);
+  background: transparent;
+  color: var(--kh-color-text);
+  font: inherit;
+  font-size: var(--kh-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.kh-query-help__suggestion:hover,
+.kh-query-help__dismiss:hover {
+  background: var(--kh-color-surface-hover);
+}
+
+.kh-query-help__suggestion:focus-visible,
+.kh-query-help__dismiss:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: -2px;
+}
+
+.kh-query-help__token {
+  font-family: var(--kh-font-mono);
+  color: var(--kh-color-accent);
+  white-space: nowrap;
+}
+
+.kh-query-help__hint {
+  color: var(--kh-color-text-muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.kh-query-help__dismiss {
+  color: var(--kh-color-text-muted);
+}
