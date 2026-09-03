@@ -45,6 +45,17 @@ export interface Preferences {
    * some threat models want it, and it is off, opt-in, and type-to-confirm.
    */
   readonly wipeAfterFailedAttempts: number | null;
+  /**
+   * The global network kill-switch. **Off, and this is the default that matters.**
+   *
+   * Machine-scoped, and deliberately not a vault setting: vault settings travel inside the
+   * `.keep` file, and a vault carried to a friend's laptop must not be able to turn that
+   * machine's network on. See `src/main/network-policy.ts` for the whole argument.
+   *
+   * Named positively so no call site reads a double negative. `NetworkPolicy` is the only
+   * thing that reads it — hard rule 8 — and the coercion below is fail-closed.
+   */
+  readonly networkAllowed: boolean;
   /** Quick-unlock enrolments, keyed by vault id. */
   readonly quickUnlock: Readonly<Record<string, QuickUnlockRecord>>;
 }
@@ -54,6 +65,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   autoLock: coerceAutoLockSettings(undefined),
   clipboardClearMs: 30_000,
   wipeAfterFailedAttempts: null,
+  networkAllowed: false,
   quickUnlock: {},
 };
 
@@ -129,6 +141,11 @@ export function coercePreferences(value: unknown): Preferences {
     autoLock: coerceAutoLockSettings(raw.autoLock),
     clipboardClearMs,
     wipeAfterFailedAttempts,
+    // `=== true`, not truthiness and not a fallback to the default. Every other field here
+    // falls back to what the user most likely wanted; this one falls back to off. A missing
+    // key, `null`, the string "true", a truncated file or one written by a future build all
+    // read as false, because a kill-switch that fails open on corruption is not one.
+    networkAllowed: raw.networkAllowed === true,
     quickUnlock,
   };
 }

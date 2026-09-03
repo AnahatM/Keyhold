@@ -90,6 +90,7 @@ export class SessionController {
       clipboardClearMs: preferences.clipboardClearMs,
       wipeAfterFailedAttempts: preferences.wipeAfterFailedAttempts,
       secretReveal: DEFAULT_SECRET_REVEAL_LIMITS,
+      networkAllowed: preferences.networkAllowed,
     };
   }
 
