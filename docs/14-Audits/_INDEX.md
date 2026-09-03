@@ -4,10 +4,11 @@ Phase 17's findings. Each page is a **dated snapshot**, not current reference: i
 what was true on the day it was written, so that a later reader can tell what has since been
 fixed rather than re-deriving the whole sweep.
 
-| Page                                             | Date       | What it covers                                                                                                                                                                                  |
-| ------------------------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`00-Security-Audit.md`](./00-Security-Audit.md) | 2026-09-02 | The secret boundary, secrets in logs and errors, Electron hardening, the preload bridge, IPC validation, cryptographic use, the filesystem and the one subprocess call, and the dependency tree |
-| [`01-Doc-Code-Audit.md`](./01-Doc-Code-Audit.md) | 2026-09-02 | Every page under `docs/` and every root markdown file, checked against the code it describes: stale numbers, moved paths, and absence claims that have rotted                                   |
+| Page                                               | Date       | What it covers                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`00-Security-Audit.md`](./00-Security-Audit.md)   | 2026-09-02 | The secret boundary, secrets in logs and errors, Electron hardening, the preload bridge, IPC validation, cryptographic use, the filesystem and the one subprocess call, and the dependency tree                                                                                                     |
+| [`01-Doc-Code-Audit.md`](./01-Doc-Code-Audit.md)   | 2026-09-02 | Every page under `docs/` and every root markdown file, checked against the code it describes: stale numbers, moved paths, and absence claims that have rotted                                                                                                                                       |
+| [`02-Subsystem-Audit.md`](./02-Subsystem-Audit.md) | 2026-09-02 | The nine main-process subsystems that landed after the first sweep — `activity`, `attachments`, `breach`, `organisation`, `recovery`, `shell`, `sync`, `theme`, `totp` — plus the eleven renderer modules that landed with them. `breach/`, the project's only network code, gets a pass of its own |
 
 ---
 
@@ -24,11 +25,16 @@ nobody "fixes" a deliberate choice into a defect.
 **Nothing was changed.** These audits were read-only over `src/`; every fix named here is
 still outstanding unless a later commit says otherwise.
 
-**Both pages have a scope note at the top, and it matters.** `src/` was being written while
-they ran: nine main-process subsystems — `activity`, `attachments`, `breach`, `organisation`,
-`recovery`, `shell`, `sync`, `theme`, `totp` — landed after the sweep and are **not
-covered**. `breach/` in particular is the project's first network code and needs an audit of
-its own before it ships.
+**Every page has a scope note at the top, and it matters.** `src/` was being written while
+each ran. The first two pages do **not** cover nine main-process subsystems — `activity`,
+`attachments`, `breach`, `organisation`, `recovery`, `shell`, `sync`, `theme`, `totp` — which
+landed after their sweep; **`02-Subsystem-Audit.md` covers exactly those**, plus the renderer
+modules that landed with them, and carries a plain verdict on whether `breach/` is safe to
+wire up.
+
+**The gap none of the three pages covers:** `src/main/ipc/register.ts` has grown from 40
+handlers to 58, and the 18 that landed since have not been read against the secret-boundary
+checklist by any audit. That is the next pass.
 
 ---
 
