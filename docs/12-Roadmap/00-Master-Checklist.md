@@ -249,8 +249,13 @@ and the query-bar UI are not. Full notes: `docs/05-Features/03-Search-Sort-Filte
 - [x] Trashed records excluded by default; `is:trashed` lifts it, `-is:trashed` does not
 - [x] Folder-descendant filtering with a cycle guard
 - [x] **The renderer's second, weaker implementation folded into this one**
-- [ ] Folder tree and tag sidebar, drag-to-file, favourites
+- [x] Folder tree and tag sidebar, drag-to-file, favourites — `organisation/FolderTree.tsx`,
+      `TagFilterList.tsx`, the drag handlers in the sidebar, and Favourites as a smart view in
+      `smart-views.ts` rather than a second code path (its count comes from the same place
+      every other count does)
 - [ ] Query-bar UI: prefix autocomplete from `QUERY_FIELDS`, the diagnostics line, saved searches
+      — the parser and `QUERY_FIELDS` are done and unit-tested; no `.tsx` imports either, so
+      none of the three is built
 - [ ] A user-facing sort control
 - [x] **Tests (79)** and nine fault injections, two of which exposed guards weaker than they
       looked
@@ -273,10 +278,11 @@ _Full notes: `docs/05-Features/00-Password-Generator.md`._
 - [ ] Per-site rule memory, and generate-and-replace that auto-versions the old password
 - [x] `docs/05-Features/00-Password-Generator.md` written
 
-## Phase 9 — Encrypted attachments ~ ENGINE DONE
+## Phase 9 — Encrypted attachments ~ MOUNTED, MINUS DRAG-AND-DROP
 
-_The engine is built and tested; reading files, IPC, previews and drag-and-drop are not.
-Full notes: `docs/05-Features/04-Attachments.md`._
+_Engine, channels, panel and preview are all in: both dialogs open in the main process, the
+bytes never cross the bridge, and the preview judges by sniffed type. What is left is
+drag-and-drop and a lightbox. Full notes: `docs/05-Features/04-Attachments.md`._
 
 - [x] Attach a file → its own encrypted chunk, **content-addressed and shared** between
       records that attach the same file
@@ -292,17 +298,23 @@ Full notes: `docs/05-Features/04-Attachments.md`._
       viewer; filenames sanitised, `evil.pdf.exe` flagged rather than renamed
 - [x] **Fixed a latent data loss in `purgeCredential`** — it deleted every chunk the record
       listed, which with shared chunks deletes files other records still display
-- [ ] Reading a file from disk, IPC channels, drag-and-drop, export to disk with its warning
-- [ ] In-app preview: images, PDF, plain text; a lightbox
-- [ ] `VaultSettings` carrying the caps, so they travel with the vault
+- [x] Reading a file from disk, IPC channels, export to disk with its warning — both dialogs
+      open in the main process, the bytes never cross the bridge, and there is deliberately
+      no `read` channel
+- [ ] Drag-and-drop onto the attachments panel — the only part of that line not built
+- [x] In-app preview: images, PDF, plain text — `AttachmentViewer.tsx`, judged on the
+      **sniffed** type rather than the claimed one
+- [ ] A lightbox for the preview (also Phase 15)
+- [x] `VaultSettings` carrying the caps, so they travel with the vault
 - [x] **Tests (80)** and nine fault injections, all caught
 - [x] `docs/05-Features/04-Attachments.md` written
 
-## Phase 10 — Import ~ BUILT, NOT MOUNTED
+## Phase 10 — Import ~ MOUNTED, MORE FORMATS TO COME
 
-_Both halves are built and tested: the parser registry, and the import service with its six
-`kh:import:*` channels. Nothing mounts `ImportWizard`. Full notes:
-`docs/09-Import-Export/00-Import-Formats.md` and `02-Import-Service.md`._
+_The parser registry, the import service with its six `kh:import:*` channels, and the wizard
+itself — reachable from the File menu and the palette. What is left is more source formats
+and the activity-log entry. Full notes: `docs/09-Import-Export/00-Import-Formats.md` and
+`02-Import-Service.md`._
 
 - [x] Bitwarden CSV and unencrypted JSON (encrypted exports refused with a reason)
 - [x] LastPass, Chromium (Chrome/Edge/Brave), Firefox, Safari/Apple, 1Password 8, Dashlane,
@@ -323,17 +335,20 @@ _Both halves are built and tested: the parser registry, and the import service w
 - [x] **Undo**, guarded on the expected generation, the batch's own generation **and** no unsaved
       changes — the third is what a generation-only check would miss
 - [ ] The activity-log entry (`ACTIVITY_KINDS` already declares an `import` kind)
-- [ ] Mount `ImportWizard`: `menu-bridge.ts` has no case for `vault.import`
+- [x] Mount `ImportWizard` — `menu-bridge.ts` routes `vault.import`, the palette offers the
+      row, and `smoke.ts` asserts it is there. The line's stated reason went stale before the
+      line did
 - [ ] KDBX 3/4, KeePass XML, 1PUX, Proton Pass, Enpass, Keeper, RoboForm, Dashlane JSON, and
       Keyhold's own `.keep`/`.keepx`
 - [x] **Tests** across the parsers, the service and the wizard, and six fault injections, two of
       which found real holes
 - [x] `docs/09-Import-Export/00-Import-Formats.md` and `02-Import-Service.md` written
 
-## Phase 11 — Export & the transfer parcel ~ ENGINE AND IPC DONE
+## Phase 11 — Export & the transfer parcel ~ MOUNTED, TWO FORMATS TO COME
 
-_The serialisers, the preview and the three `kh:export:*` channels are built and tested, and
-Keyhold's own JSON export re-imports. The dialog is written but not yet mounted. Full notes:
+_The serialisers, the preview and the three `kh:export:*` channels are built and tested,
+Keyhold's own JSON export re-imports, and the dialog is mounted with its shred reminder. What
+is left is KDBX 4 and Bitwarden JSON export. Full notes:
 `docs/09-Import-Export/01-Export-Formats.md`._
 
 - [x] Lossless Keyhold JSON — every field, folders, tags, settings, **and history with its
@@ -362,7 +377,8 @@ Keyhold's own JSON export re-imports. The dialog is written but not yet mounted.
       buffer zeroed after the write
 - [x] **The preview runs the real exporter** and discards the bytes, so the loss list the
       dialog shows is the list the file would carry — guarded, for all four formats
-- [ ] Mount the export dialog, with the shred reminder (`PLAINTEXT_AFTERMATH_REMINDER`) — `menu-bridge.ts` has no case for `vault.export`
+- [x] Mount the export dialog, with the shred reminder (`PLAINTEXT_AFTERMATH_REMINDER`) —
+      `menu-bridge.ts` routes `vault.export` and the palette offers the row
 - [ ] KDBX 4 export; Bitwarden JSON export
 - [x] **Tests** and sixteen engine fault injections (one of which found a guard that was not
       the one doing the work), plus six on the preview and six on the IPC boundary
@@ -474,7 +490,8 @@ writes. Full notes: `docs/06-UI-Design-System/01-Layout-And-Components.md` §1._
       must be atomic against a real vault file, so they are a slice of their own;
       `REQUIRED_CHANNELS` in `settings-gateway.ts` names them, and a test fails if an entry there
       names a channel the contract already has
-- [ ] A UI control for `networkAllowed`, the global network kill-switch (D23). The preference is
+- [x] A UI control for `networkAllowed`, the global network kill-switch (D23) —
+      `settings/SecuritySessionSection.tsx`, with the weakened-trade-off marker. The preference is
       persisted and writable over `kh:settings:update-machine`; nothing renders a toggle
 - [x] **Tests** over the settings plan, the copy, the gateway and the channel inventory
 
@@ -516,7 +533,7 @@ generated pages — changelog, about, the licence list — are not built._
 - [ ] First-run onboarding tour, skippable and re-runnable
 - [ ] **Guard test:** the licence list is generated from `package.json`, not hand-written
 
-## Phase 17 — Accessibility, performance & quality audits ~ FIRST PASS DONE
+## Phase 17 — Accessibility, performance & quality audits ✅
 
 _Two written audits plus an adversarially-verified review workflow.
 Reports: `docs/14-Audits/`._
@@ -536,8 +553,11 @@ Reports: `docs/14-Audits/`._
   documentation catch-up pass; `PRIVACY.md` and the CHANGELOG still need a hand
 - [x] Audit the nine subsystems that landed _after_ the sweep — `docs/14-Audits/02-Subsystem-Audit.md`,
       N1–N39, with `breach/` given a pass of its own and a plain verdict on wiring it up
-- [ ] Work the subsystem findings. N1, N2, N3, N4, N7, N10, N11, N17 and N18 are fixed and N38 is
-      half fixed; the rest are open. Every status line there was written against read code
+- [x] Work the findings. **Every finding in `docs/14-Audits/` is now closed** — no file in that
+      directory carries a `STATUS: OPEN` line. This line used to name which findings were fixed
+      and which were not, which is a snapshot: it was wrong within days and stayed wrong for
+      weeks. It is not restated here, deliberately — grep the audit directory, which is the only
+      place that can answer it truthfully
 - [x] `docs/14-Audits/` written
 
 ## Phase 18 — Packaging, CI & release ~ CONFIGURED, NEVER RUN
