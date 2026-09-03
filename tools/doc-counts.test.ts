@@ -19,12 +19,17 @@ import { PARSERS } from '../src/main/import/index.js';
  * read as text because that is the point — a number nobody parses is a number nobody
  * checks.
  *
- * ## What is deliberately not covered
+ * ## The exclusion that closed itself, and the better answer
  *
- * `docs/05-Features/_INDEX.md` says "the eight offline rules" and there are nine. That file
- * belongs to another agent's working set right now and was not edited, so asserting it here
- * would ship a failing suite. It is written up in `docs/14-Audits/01-Doc-Code-Audit.md` F6
- * as still open, and this file should gain a row for it the moment it is corrected.
+ * `docs/05-Features/_INDEX.md` used to say "the eight offline rules" when there were nine,
+ * and this header recorded it as a known gap awaiting a row here. It was fixed differently
+ * and better: the sentence now names `HEALTH_RULE_IDS` instead of counting, so there is no
+ * number left to rot and nothing for this file to assert.
+ *
+ * That is worth preferring generally. A guarded count is a count that fails loudly when it
+ * drifts; a named symbol is a count that cannot drift at all. Reach for a row in this file
+ * when prose genuinely needs the number — "twelve parsers" reads better than "one parser per
+ * entry in `PARSERS`" — and reach for the symbol name when it does not.
  *
  * Fault injection performed: changing "twelve parsers" back to "eleven parsers" in
  * `00-Import-Formats.md` fails "the import doc's parser count matches the registry";

@@ -378,15 +378,24 @@ that set agree on every well-formed tree, so they cannot drift apart.
 
 ## 10. Tests
 
-96 in `src/main/organisation/`, plus 18 for the renderer's tree model.
+No count, on purpose. Six per-file numbers lived here and every one of them rotted the
+moment a test was added — `folder-ops.test.ts` was recorded as 47 and had become 49, and a
+whole file was missing a row. Hard rule 9 says a number in prose needs a test that parses it
+back out, and `tools/doc-counts.test.ts` is where the numbers worth keeping live. These are
+not worth keeping: what each file _covers_ is the useful half, and it changes only when
+somebody decides it should.
 
-| File                                   | Tests | Covers                                                                                                                                                                           |
-| -------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `folder-ops.test.ts`                   | 47    | Name validation and the separator ban · depth and count limits · the cycle refusal including self-parenting · both delete policies · `findOrCreateFolderPath`'s three properties |
-| `tag-ops.test.ts`                      | 29    | That a rename rewrites records · `tagKey` agreeing with `normaliseTags` · merge, colour and limits                                                                               |
-| `integrity.test.ts`                    | 14    | Each of the seven kinds, that a healthy document reports nothing, and that the document comes back untouched                                                                     |
-| `tag-colours.test.ts`                  | 6     | That the palette is a subset of `ColourToken` and that `isTagColour` is the only door in                                                                                         |
-| `folder-tree-model.test.ts` (renderer) | 18    | Broken folders still rendered and flagged · agreement with `collectDescendantFolderIds` · the visible/collapsed projection                                                       |
+Run `npx vitest run src/main/organisation src/renderer/src/organisation` for the current
+figures.
+
+| File                                   | Covers                                                                                                                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `folder-ops.test.ts`                   | Name validation and the separator ban · depth and count limits · the cycle refusal including self-parenting · both delete policies · `findOrCreateFolderPath`'s three properties |
+| `folder-tree.test.ts`                  | The two shared indexes agreeing with the walks they replace · `findFolderCycles` naming the loop and not the tail that points into it · the cost of a sweep over a wide tree     |
+| `tag-ops.test.ts`                      | That a rename rewrites records · `tagKey` agreeing with `normaliseTags` · merge, colour and limits                                                                               |
+| `integrity.test.ts`                    | Each issue kind, that a healthy document reports nothing, and that the document comes back untouched                                                                             |
+| `tag-colours.test.ts`                  | That the palette is a subset of `ColourToken` and that `isTagColour` is the only door in                                                                                         |
+| `folder-tree-model.test.ts` (renderer) | Broken folders still rendered and flagged · agreement with `collectDescendantFolderIds` · the visible/collapsed projection                                                       |
 
 ---
 
