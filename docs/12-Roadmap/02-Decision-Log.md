@@ -600,6 +600,61 @@ the way the entropy threshold beside it already did.
 
 ---
 
+### D29 — A dropped file is an intent, not a transfer
+
+**Decision:** dragging a file onto the attachments panel does not attach it. It raises a
+prompt with a "Choose a file" action that opens the existing main-process file dialog.
+Nothing about the dropped file is read, named, or forwarded. Keyhold will not add an IPC
+channel that accepts a filesystem path from the renderer.
+
+**The two routes a drop offers, and why both were refused.**
+
+A `drop` event gives the renderer exactly two ways to reach the file:
+
+1. `File.arrayBuffer()` / `DataTransferItem.getAsFile()` — the attachment's bytes land in
+   the renderer. A straight D13 violation: an attachment can be a photograph of a passport,
+   and the renderer is the process that must never hold secret material.
+2. `webUtils.getPathForFile(file)` plus a new path-taking `add` channel. No bytes cross the
+   bridge, which is why this one looks acceptable.
+
+**Route 2 is refused because of what it composes into, not because of what it is.**
+`kh:attachments:preview` returns *real bytes* to the renderer for `image/*`,
+`application/pdf` and `text/plain`, gated on the type detected from the bytes themselves.
+That is safe today precisely because the renderer can only ever ask about attachments a
+human chose in an OS dialog. Add a channel that lets the renderer name the file main reads
+and encrypts, and the pair becomes a general **arbitrary-file-read primitive**: attach the
+user's passport scan out of their Documents folder, then preview it straight back. Both
+channels are individually defensible; the composition is not, and it is invisible in the
+diff that adds the second one, because the danger lives in a file that diff does not touch.
+
+**Why the existing dialog is not a workaround but the point.** A path chosen in an OS file
+dialog is a genuine act of consent by the person at the keyboard — the same rule that
+governs opening a vault. A path chosen by the renderer is attacker-controlled the moment
+the renderer is. One extra click buys the difference between "the user picked this file"
+and "something in the window picked this file".
+
+**Rejected: allow-list the droppable directories.** It shrinks the primitive rather than
+removing it, needs a policy nobody can state correctly — is `~/Documents` safe? it is
+exactly where people keep scans of their passport — and leaves the composition intact for
+everything inside the list.
+
+**Rejected: drop the preview channel instead, and take route 2.** Viewing an attachment
+without leaving the app is worth more than dropping a file to attach one, and trading a
+finished feature for a convenience is a bad exchange.
+
+**Consequence:** the drop target is still built, and still worth having — it answers the
+obvious gesture, and it tells someone who tries it that attachments exist and where the
+button is. `attachment-drop.ts` is a pure state machine over the drag events with the file
+deliberately out of reach: its `DraggedItemLike` type carries only `kind`, so widening it
+to `getAsFile` is a change a reviewer has to make on purpose rather than one that arrives
+with an autocomplete.
+
+**If this is ever revisited**, the safe shape is a main-process drop target — Electron can
+receive the drop against the browser window and resolve the path itself, without the
+renderer ever naming it — not a channel that trusts a renderer-supplied path.
+
+---
+
 ## Decisions deferred to implementation
 
 Recorded so they are consciously decided rather than accidentally defaulted.

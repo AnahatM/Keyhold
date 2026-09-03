@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { AttachmentMeta } from '@shared/model/credential.js';
-import { useState } from 'react';
+import { useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
 import { formatBytes } from '../activity/vault-statistics.js';
+import {
+  IDLE_DROP_ZONE,
+  dropZoneLabel,
+  reduceDropZone,
+  summariseDrag,
+  type DropZoneRules,
+  type DropZoneState,
+} from './attachment-drop.js';
 import { addNotes } from './attachment-notes.js';
 import { AttachmentViewer } from './AttachmentViewer.js';
 import { ConfirmDialog, useToast } from '../chrome/index.js';
@@ -37,6 +45,35 @@ import { Button } from '../components/Button.js';
  * Reporting them is the whole point of computing them — an `invoice.pdf.exe` renamed
  * silently is a rename the user never learns about, and a mime mismatch nobody sees is a
  * check that may as well not run.
+ *
+ * ## A drop cannot carry the file, and says so rather than pretending
+ *
+ * The panel is a drop target, and releasing a file on it does **not** attach that file. It
+ * cannot. A drop hands the renderer either the bytes (`File.arrayBuffer()`) or a filesystem
+ * path (`webUtils.getPathForFile()`), and there is no third option — the browser gives the
+ * window the file precisely because it assumes the window is allowed to read it. Sending
+ * either onwards would mean the renderer choosing which file the main process reads and
+ * encrypts, and `src/main/ipc/register.ts` refuses that in as many words: a path the renderer
+ * picked is attacker-controlled if the renderer is ever compromised; a path a person picked
+ * in an OS dialog is consent.
+ *
+ * So the drop is treated as an *intent* and answered with a sentence saying why one more
+ * click is needed, plus the click itself — the same main-process dialog the "Attach a file"
+ * button opens, unchanged. Silently opening that dialog on release would be smoother and
+ * would also be a small lie: the dialog would come up on the wrong folder with the wrong file
+ * unselected, and the user would be left to work out why. A gesture that cannot do what it
+ * looks like it does is better named than papered over.
+ *
+ * The consequence is worth stating because it is not obvious. Attachment preview returns real
+ * bytes to the renderer for images, PDFs and plain text. An add-by-path channel next to it
+ * would compose into an arbitrary-file-read primitive — a compromised renderer attaches
+ * `~/.ssh/id_rsa.pub` or a photo from Documents, then previews it back. Two individually
+ * defensible channels, one that is not. Which is why the shortest path here is a dialog and
+ * not a new channel.
+ *
+ * `attachment-drop.ts` holds every part of this that is decidable without the file: whether
+ * the drag carries files at all, how many, and the enter/over/leave/drop bookkeeping that
+ * keeps the target lit when the pointer crosses a child.
  */
 
 export interface AttachmentsPanelProps {
@@ -58,6 +95,7 @@ export function AttachmentsPanel({
   const [busy, setBusy] = useState(false);
   const [pendingRemove, setPendingRemove] = useState<AttachmentMeta | null>(null);
   const [viewing, setViewing] = useState<AttachmentMeta | null>(null);
+  const [dropZone, setDropZone] = useState<DropZoneState>(IDLE_DROP_ZONE);
 
   const run = async (work: () => Promise<void>): Promise<void> => {
     setBusy(true);
@@ -87,9 +125,90 @@ export function AttachmentsPanel({
       toast.success(`Attached ${result.value.meta.name}`, {
         ...(notes.length === 0 ? {} : { description: notes.join(' ') }),
         // Findings need reading, so they stay until dismissed. A bare success does not.
-        ...(notes.length === 0 ? {} : { duration: null }),
+        //
+        // `durationMs`, not `duration`. It was `duration` until now — a key `ToastInput` does
+        // not have, so the toast took the default lifetime and slid away mid-sentence. The
+        // spread is why nothing caught it: excess-property checking applies to object
+        // literals assigned directly, and a literal spread into another object is exempt, so
+        // the misspelling type-checked cleanly and silently did nothing.
+        ...(notes.length === 0 ? {} : { durationMs: null }),
       });
     });
+  };
+
+  /**
+   * The pending "choose a file" toast, so it can be taken away with the record it belongs to.
+   *
+   * Its action attaches to whichever `credentialId` was on screen when the drop happened. A
+   * toast outliving that record means a button that quietly files a passport scan against the
+   * wrong login — silent, plausible, and only discovered later. `toast` is memoised by its
+   * provider, so this cleanup fires on a record change and on unmount, and not on every
+   * render.
+   */
+  const dropPromptId = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      if (dropPromptId.current !== null) {
+        toast.dismiss(dropPromptId.current);
+        dropPromptId.current = null;
+      }
+    },
+    [credentialId, toast]
+  );
+
+  // Recomputed every render, and read inside the handlers below — which are recreated with
+  // it, so a drag in flight when the record is trashed sees the refusal on its next event.
+  const rules: DropZoneRules = readOnly
+    ? { accepting: false, refusal: 'read-only' }
+    : busy
+      ? { accepting: false, refusal: 'busy' }
+      : { accepting: true };
+
+  /**
+   * `preventDefault` on every file drag, accepted or refused.
+   *
+   * Not only to mark this a drop target. An unhandled file drop anywhere in an Electron
+   * window makes the window *navigate to the file* — the renderer replaced by a `file://`
+   * page, the vault UI gone, and no way back short of a reload. Refusing a drop therefore
+   * still means swallowing the event, and "refusing" is a state that draws rather than a
+   * branch that returns early.
+   */
+  const dragHandlers = {
+    onDragEnter: (event: ReactDragEvent<HTMLElement>): void => {
+      const drag = summariseDrag(event.dataTransfer);
+      if (!drag.hasFiles) return;
+      event.preventDefault();
+      setDropZone((current) => reduceDropZone(current, { type: 'enter', drag }, rules));
+    },
+    onDragOver: (event: ReactDragEvent<HTMLElement>): void => {
+      const drag = summariseDrag(event.dataTransfer);
+      if (!drag.hasFiles) return;
+      event.preventDefault();
+      // The cursor. `copy` because nothing is moved off the user's disk — the original file
+      // stays where it is, and `move` would say otherwise.
+      event.dataTransfer.dropEffect = rules.accepting ? 'copy' : 'none';
+      setDropZone((current) => reduceDropZone(current, { type: 'over', drag }, rules));
+    },
+    onDragLeave: (): void => {
+      setDropZone((current) => reduceDropZone(current, { type: 'leave' }, rules));
+    },
+    onDrop: (event: ReactDragEvent<HTMLElement>): void => {
+      const drag = summariseDrag(event.dataTransfer);
+      if (!drag.hasFiles) return;
+      event.preventDefault();
+      setDropZone((current) => reduceDropZone(current, { type: 'drop' }, rules));
+      if (!rules.accepting) return;
+
+      // Nothing about the dropped file is read, named or forwarded — not `files`, not
+      // `items[i].getAsFile()`, not `webUtils.getPathForFile`. The count comes from `items`
+      // metadata and is the only thing this branch knows.
+      dropPromptId.current = toast.warning('Keyhold cannot take a file straight from a drop', {
+        description:
+          'Files are read in the background process that holds the vault key, never in this window — so the file has to be picked in a dialog. One click.',
+        dedupeKey: 'attachment-drop',
+        action: { label: 'Choose a file', onAct: add },
+      });
+    },
   };
 
   const save = (attachment: AttachmentMeta): void => {
@@ -113,7 +232,23 @@ export function AttachmentsPanel({
   };
 
   return (
-    <section className="kh-attachments" aria-labelledby="kh-attachments-heading">
+    <section className="kh-attachments" aria-labelledby="kh-attachments-heading" {...dragHandlers}>
+      {/*
+        Drawn only while a file drag is over the panel, and `aria-hidden` because it is
+        feedback for a gesture that needs a pointer. A screen-reader user reaches attachments
+        through the "Attach a file" button, which is the same destination and is already
+        labelled; announcing a drop target they cannot aim at would be noise. The refusal
+        reasons it shows — trashed, busy — are both visible elsewhere in the panel.
+      */}
+      {dropZone.status !== 'idle' && (
+        <div
+          aria-hidden="true"
+          className={`kh-attachments__dropzone kh-attachments__dropzone--${dropZone.status}`}
+        >
+          <span className="kh-attachments__dropzone-label">{dropZoneLabel(dropZone)}</span>
+        </div>
+      )}
+
       <div className="kh-attachments__header">
         <h3 className="kh-attachments__heading" id="kh-attachments-heading">
           Attachments

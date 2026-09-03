@@ -184,6 +184,12 @@ export function toCssVariables(resolved: ResolvedAppearance): Record<string, str
 
   variables['--kh-font-body'] = resolved.fontStack;
   variables['--kh-font-secret'] = SECRET_FONT_STACK;
+  // The same stack under a name that is not about secrets. Code, file paths, log output and
+  // search-syntax tokens all want monospace and none of them are secret, and three
+  // stylesheets were already reading `--kh-font-mono` as though it existed — it did not, so
+  // they were silently rendering in the body face. Two names for one value on purpose: if
+  // the secret face ever becomes user-configurable, a log excerpt must not follow it.
+  variables['--kh-font-mono'] = FONT_STACKS.mono;
   variables['--kh-font-scale'] = String(resolved.fontScale);
   variables['--kh-space-scale'] = String(metrics.spaceScale);
   variables['--kh-row-height'] = metrics.rowHeight;
