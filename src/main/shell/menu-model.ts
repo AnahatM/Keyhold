@@ -215,6 +215,7 @@ function fileSection(state: ShellState): MenuSection {
       separator,
       command(state, 'vault.import'),
       command(state, 'vault.export'),
+      command(state, 'vault.merge'),
       separator,
       ...tail,
     ],

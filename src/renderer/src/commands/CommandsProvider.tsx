@@ -156,7 +156,8 @@ export function CommandsProvider({
       'nav.toggleSidebar': toggleSidebar,
       'search.focus': focusSearch,
       'help.shortcuts': openHelp,
-      // Both need an open vault: one writes into it, the other reads all of it.
+      // All three need an open vault: one writes into it, one reads all of it, and the third
+      // opens a second copy with this one's key.
       'vault.import': locked
         ? undefined
         : (): void => {
@@ -166,6 +167,11 @@ export function CommandsProvider({
         ? undefined
         : (): void => {
             openTransfer('export');
+          },
+      'vault.merge': locked
+        ? undefined
+        : (): void => {
+            openTransfer('merge');
           },
       // Built from the same table the palette entries are, so a fifth tool view gets its
       // handler for free rather than becoming a row that does nothing when clicked — which

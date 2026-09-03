@@ -44,6 +44,7 @@ export type CommandId =
   | 'help.shortcuts'
   | 'vault.import'
   | 'vault.export'
+  | 'vault.merge'
   /**
    * One per tool view, generated rather than listed.
    *
@@ -248,6 +249,17 @@ export const COMMANDS: readonly CommandDefinition[] = [
     // command that damages the vault, and an export changes nothing in it. The danger of a
     // plaintext export is to the *copy*, and that is guarded where it belongs — by the
     // type-to-confirm step in the dialog, checked again in the main process.
+    destructive: false,
+  },
+  {
+    id: 'vault.merge',
+    title: 'Merge another copy of this vault',
+    section: 'Vault',
+    keywords: ['sync', 'combine', 'reconcile', 'conflict', 'copy', 'other', 'device', 'dropbox'],
+    requiresSelection: false,
+    // Not `destructive`: a merge takes a mandatory backup of this vault before it changes
+    // anything, and every conflict is settled by the user rather than by a rule. The
+    // irreversible-looking part is guarded by the backup, not by a confirmation.
     destructive: false,
   },
   ...TOOL_COMMANDS,

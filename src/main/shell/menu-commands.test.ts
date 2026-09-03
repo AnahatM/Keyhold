@@ -49,6 +49,7 @@ const MUST_BE_LOCKED: readonly MenuCommandId[] = [
   'vault.close',
   'vault.import',
   'vault.export',
+  'vault.merge',
   'credential.new',
   'search.focus',
   'palette.open',

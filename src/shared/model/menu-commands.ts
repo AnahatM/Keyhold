@@ -31,6 +31,7 @@ export const MENU_COMMAND_IDS = [
   'vault.close',
   'vault.import',
   'vault.export',
+  'vault.merge',
   'credential.new',
   'search.focus',
   'palette.open',
