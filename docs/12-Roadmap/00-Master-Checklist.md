@@ -367,12 +367,13 @@ Keyhold's own JSON export re-imports. The dialog is written but not yet mounted.
       the one doing the work), plus six on the preview and six on the IPC boundary
 - [x] `docs/09-Import-Export/01-Export-Formats.md` written
 
-## Phase 12 — Sync & merge ~ ENGINE DONE, PLUMBING LANDING
+## Phase 12 — Sync & merge ~ REACHABLE, MINUS THE REPORT AND CLOUD DETECTION
 
-_Goal: two devices, one cloud folder, and never a lost edit. The engine is built and tested and
-`mergeDocuments` is still called only by its own tests. The header, the base-snapshot store and
-the content comparison are in; there is no `kh:sync:*` channel and no resolver UI. Full notes:
-`docs/07-Sync-And-Merge/00-Merge-Engine.md`._
+_Goal: two devices, one cloud folder, and never a lost edit. The engine, the header, the
+base-snapshot store, the watcher, the four `kh:sync:*` channels and the resolver are all in,
+and a user can reach a merge from the palette or the File menu. What is left is the reload
+prompt, the saved report and cloud-folder awareness. Full notes:
+`docs/07-Sync-And-Merge/00-Merge-Engine.md` and `01-The-Merge-Flow.md`._
 
 - [x] Generation counter **and content hash** in the header — the counter answers "was this
       written again", the hash answers "is this content different from mine", and sync needs the
@@ -391,7 +392,16 @@ the content comparison are in; there is no `kh:sync:*` channel and no resolver U
       anything is read (D26)
 - [x] Tombstones so a deletion never resurrects
 - [x] Conflict detection matrix (both changed · one changed · one deleted · both deleted · both created)
-- [ ] Field-level conflict resolver UI: mine / theirs / merge, with a diff
+- [x] Field-level conflict resolver UI: mine / theirs, with a diff — and **mounted**, which
+      was the gap that mattered: it was finished, tested and rendered by nothing at all
+- [x] **The `kh:sync:*` channels** — prepare · resolve · commit · discard, with no file path
+      crossing in either direction and an unrecognised side refused rather than defaulted
+- [x] **The step in front of the resolver** — `prepare` is one call so a file can never be
+      picked without the backup being taken, which means the window waits for a KDF; the wait
+      is indeterminate and says so
+- [ ] **A KDF progress channel, shared with unlock** — CLAUDE.md asks for determinate progress
+      during Argon2 and there is none anywhere: not on unlock, not on merge. One channel, two
+      callers; building it only for merge would be the second list
 - [x] **Mandatory pre-merge backup** — enforced rather than requested: a private-constructor
       receipt only the backup path can mint, minted after the copy is verified on disk, and
       required by every step that follows. Named, dated and retained, because the rolling

@@ -16,11 +16,18 @@ import { useSession } from './session-store.js';
  *
  * ## Why one store for two flows rather than two booleans
  *
- * They are mutually exclusive by nature and by consequence. Both are modal, both take over
- * the window, and both act on the whole vault — an export dialog opening over a
- * half-finished import wizard would be a plaintext file written from a vault mid-mutation,
+ * They are mutually exclusive by nature and by consequence. All three are modal, all three
+ * take over the window, and all three act on the whole vault — an export dialog opening over
+ * a half-finished import wizard would be a plaintext file written from a vault mid-mutation,
  * which is not a state worth being able to represent. A single `active` field makes that
  * unrepresentable rather than merely discouraged.
+ *
+ * Merging is the third, and it belongs here rather than in a store of its own for exactly
+ * that reason: a merge running over a half-finished import is the same hazard wearing a
+ * different name, and it is holding a decrypted copy of a *second* vault while it does it.
+ * A separate store with an identical shape and its own lock subscription would be the second
+ * list this codebase keeps refusing to grow — and it would make the one state that must not
+ * be representable representable again.
  *
  * ## What closing means
  *
@@ -30,7 +37,7 @@ import { useSession } from './session-store.js';
  * second place that knows about the wizard's lifecycle, and the one that gets forgotten.
  */
 
-export type TransferFlow = 'import' | 'export';
+export type TransferFlow = 'import' | 'export' | 'merge';
 
 interface TransferState {
   readonly active: TransferFlow | null;
@@ -56,7 +63,8 @@ export const useTransfer = create<TransferState>((set) => ({
  * nobody is rendering for.
  *
  * The reason it must run at all is sharper than tidiness. An import wizard left open across
- * a lock is holding a decrypted file and a plan built against a vault whose key is gone, and
+ * a lock is holding a decrypted file and a plan built against a vault whose key is gone, a
+ * merge is holding a decrypted copy of an entire second vault, and
  * an export dialog is one confirmation away from writing a readable copy of a vault that is
  * no longer unlocked. Both must be gone before the lock screen appears.
  */

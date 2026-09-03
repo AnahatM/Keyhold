@@ -51,9 +51,33 @@ export class FakeSyncGateway implements SyncGateway {
     return this.#latest;
   }
 
-  prepare(): Promise<MergePreview | null> {
+  /**
+   * What `prepare` does next.
+   *
+   * `MergeResolver` is handed a preview and never calls `prepare` at all, so for its tests
+   * this is always the default. `MergeFlow` is the component that owns the call, and its
+   * three outcomes — a preview, a dismissed file dialog, and a file that would not open —
+   * are three different screens. They live here rather than in a second double so that the
+   * fake stays the one description of what the real channel can do.
+   */
+  prepareOutcome: 'preview' | 'cancelled' | { readonly error: SyncGatewayError } = 'preview';
+
+  /**
+   * Held open until resolved, for the one case that is about timing rather than outcome:
+   * the vault locking, or the user cancelling, while Argon2 is still running. Without a way
+   * to stop `prepare` mid-flight there is no way to unmount during it, and the plan-leak
+   * that closes is invisible.
+   */
+  prepareGate: Promise<void> | null = null;
+
+  async prepare(): Promise<MergePreview | null> {
     this.prepareCalls += 1;
-    return Promise.resolve(this.#preview);
+    if (this.prepareGate !== null) await this.prepareGate;
+
+    const outcome = this.prepareOutcome;
+    if (outcome === 'cancelled') return null;
+    if (outcome !== 'preview') throw outcome.error;
+    return this.#preview;
   }
 
   resolve(request: MergeResolveRequest): Promise<MergeReport> {

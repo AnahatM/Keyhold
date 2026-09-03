@@ -141,6 +141,18 @@ export const MENU_COMMANDS: readonly MenuCommand[] = [
     // the clearest example of something that must never be one right-click from the tray.
     exposesCredentialData: true,
   },
+  {
+    id: 'vault.merge',
+    label: 'Merge Another Copy…',
+    // The other copy is opened with *this* vault's key, so there has to be one open.
+    needsUnlockedVault: true,
+    // False, and the distinction is worth stating because a merge plainly touches secrets.
+    // The flag marks a command that puts credential data somewhere the user can read it —
+    // an export file, a revealed field. A merge shows lengths where a value would be, writes
+    // only an encrypted backup, and re-runs every decision in the main process. Nothing it
+    // does is legible to anyone who has not already unlocked this vault.
+    exposesCredentialData: false,
+  },
 
   // ── Edit / Vault ───────────────────────────────────────────────────────────
   {

@@ -662,3 +662,53 @@
   font-family: var(--kh-font-secret);
   word-break: break-all;
 }
+
+/* ── Before the resolver ───────────────────────────────────────────────────── */
+
+/*
+ * The two states in front of a merge: waiting for `prepare`, and its failure.
+ *
+ * Both are centred in the same column the resolver uses rather than in the window, so
+ * arriving at the resolver is not a jump. Neither declares a colour of its own beyond a
+ * token — the progress bar brings its own, including the reduced-motion fallback.
+ */
+
+.kh-merge-preparing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-6) var(--kh-space-4);
+}
+
+.kh-merge-failed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-4);
+  border: 1px solid var(--kh-color-danger);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-color-danger-subtle);
+}
+
+.kh-merge-failed__title {
+  font-size: var(--kh-text-xl);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-danger-text);
+  margin: 0;
+}
+
+.kh-merge-failed__detail {
+  color: var(--kh-color-text);
+  margin: 0;
+}
+
+.kh-merge-failed__hint {
+  color: var(--kh-color-text-muted);
+  margin: 0;
+}
+
+.kh-merge-failed__actions {
+  display: flex;
+  gap: var(--kh-space-2);
+  flex-wrap: wrap;
+}

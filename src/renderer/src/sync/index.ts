@@ -13,6 +13,7 @@
  * them by path, which makes every use of them visible in a search.
  */
 
+export { MergeFlow, type MergeFlowProps } from './MergeFlow.js';
 export { MergeResolver, type MergeResolverProps } from './MergeResolver.js';
 
 export { createIpcSyncGateway } from './ipc-sync-gateway.js';

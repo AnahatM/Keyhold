@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { Button } from '../components/Button.js';
 import { ContentViewer } from '../content/index.js';
@@ -10,6 +10,13 @@ import { exportGatewayFrom } from '../export/export-gateway.js';
 import { ImportWizard } from '../import/ImportWizard.js';
 import { createIpcImportGateway } from '../import/ipc-gateway.js';
 import { OrganisationSidebar } from '../organisation/index.js';
+import { useOrganisation } from '../organisation/organisation-store.js';
+import {
+  MergeFlow,
+  createIpcSyncGateway,
+  targetNamesFrom,
+  type MergeTargetNames,
+} from '../sync/index.js';
 import { SettingsScreen } from '../settings/SettingsScreen.js';
 import {
   AppShell,
@@ -57,6 +64,19 @@ export function VaultScreen({
   // keeps only what it still owns.
   const { selectedId, editing, select, setShowTrash } = useCredentials();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const folders = useOrganisation((state) => state.folders);
+  const tags = useOrganisation((state) => state.tags);
+
+  // Names for the merge resolver, built from lists this screen already has. Memoised because
+  // the resolver renders one row per conflict and a fresh map each render would rebuild every
+  // one of them; a large merge is exactly where that stops being free.
+  //
+  // Titles, folder names and tag names only — the resolver is shown lengths where a value
+  // would be, and this is the safe projection it draws its labels from.
+  const mergeNames = useMemo(
+    () => targetNamesFrom({ records: credentials, folders, tags }),
+    [credentials, folders, tags]
+  );
 
   const activeToolId = useToolView((state) => state.active);
   const closeTool = useToolView((state) => state.close);
@@ -179,6 +199,10 @@ export function VaultScreen({
         onImported={() => {
           void refresh();
         }}
+        names={mergeNames}
+        onOpenRecord={(recordId) => {
+          select(recordId);
+        }}
       />
     </>
   );
@@ -219,9 +243,14 @@ export function VaultScreen({
 function TransferFlows({
   selectedIds,
   onImported,
+  names,
+  onOpenRecord,
 }: {
   readonly selectedIds: readonly string[];
   readonly onImported: () => void;
+  /** Built by the caller, which is the component that already holds the vault's lists. */
+  readonly names: MergeTargetNames;
+  readonly onOpenRecord: (recordId: string) => void;
 }): React.JSX.Element | null {
   const active = useTransfer((state) => state.active);
   const close = useTransfer((state) => state.close);
@@ -253,6 +282,22 @@ function TransferFlows({
         )}
         selectedIds={selectedIds}
         onClose={close}
+      />
+    );
+  }
+
+  if (active === 'merge') {
+    return (
+      <MergeFlow
+        gateway={createIpcSyncGateway(window.keyhold.sync)}
+        names={names}
+        onClose={close}
+        onApplied={() => {
+          // A merge rewrites the vault body, so every projection the renderer holds is stale
+          // — not just the list. Same refresh the import wizard uses, for the same reason.
+          onImported();
+        }}
+        onOpenRecord={onOpenRecord}
       />
     );
   }

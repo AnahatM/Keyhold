@@ -66,6 +66,9 @@ export function startMenuBridge(): () => void {
       case 'vault.export':
         useTransfer.getState().open('export');
         return;
+      case 'vault.merge':
+        useTransfer.getState().open('merge');
+        return;
       default:
         console.warn('[menu] the renderer has no handler for:', command);
     }
