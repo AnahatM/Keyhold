@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { readFile, writeFile } from 'node:fs/promises';
-import { basename, extname } from 'node:path';
+import { basename, dirname, extname } from 'node:path';
 import {
   dialog,
   ipcMain,
@@ -13,6 +13,7 @@ import {
   requireCredentialEdit,
   requireCredentialInput,
 } from '@shared/ipc/credential-validation.js';
+import { requireExportPlan, requireExportPreviewRequest } from '@shared/ipc/export-validation.js';
 import { requireGeneratorOptions } from '@shared/ipc/generator-validation.js';
 import {
   requireMachineSettingsPatch,
@@ -34,7 +35,21 @@ import {
   requireVersionedField,
   requireVersionNumber,
 } from '@shared/ipc/validation.js';
+import type { ExportFormatDescriptor } from '@shared/model/export.js';
+import {
+  matchesPlaintextConfirmation,
+  PLAINTEXT_CONFIRMATION_PHRASE,
+  type ExportOutcome,
+} from '@shared/model/export-plan.js';
 import { VaultError } from '../crypto/errors.js';
+import {
+  EXPORT_FORMATS,
+  findExportFormat,
+  previewExport,
+  runExport,
+  type ExportRequest,
+} from '../export/index.js';
+import { reportOf } from '../export/types.js';
 import {
   estimateEntropyBits,
   GENERATOR_DEFAULTS,
@@ -63,6 +78,23 @@ import type { SessionController } from '../session/session-controller.js';
  * **3. Handlers return results, never throw.** The renderer gets a discriminated union it
  * has to look at, rather than a rejected promise it might not catch.
  */
+
+/**
+ * The name the save dialog opens on.
+ *
+ * Dated, because what a person most often has is several of these and no memory of which is
+ * which. Not timed: a second-resolution name is noise, and two exports in one day are
+ * exactly the case the OS's own "(1)" already handles.
+ *
+ * The extension comes from the registry and is never written out here -- rule 8, and the
+ * specific failure it prevents is a parcel saved as `.keep`, which is the one file-name
+ * mistake in this app a person could not recover from by renaming, because they would then
+ * try to open it as their vault.
+ */
+function defaultExportFileName(descriptor: ExportFormatDescriptor): string {
+  const date = new Date().toISOString().slice(0, 10);
+  return `keyhold-export-${date}${descriptor.extension}`;
+}
 
 /**
  * The claimed type for a file, from its extension.
@@ -434,6 +466,150 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.historyClear, (credentialId) =>
     vault.clearHistory(requireId(CHANNELS.historyClear, credentialId, 'credentialId'))
   );
+
+  // ── export ─────────────────────────────────────────────────────────────────
+  //
+  // Three handlers, no path in either direction, and no channel that returns bytes. The
+  // save dialog opens here, the file is written here, and the renderer learns only where it
+  // landed. See `EXPORT_CHANNELS` for why that is the whole surface.
+
+  handle(CHANNELS.exportFormats, () => EXPORT_FORMATS);
+
+  handle(CHANNELS.exportPreview, (raw) => {
+    const request = requireExportPreviewRequest(CHANNELS.exportPreview, raw);
+    return previewExport(vault.documentUnsafe(), {
+      format: request.format,
+      scope: request.scope,
+      now: Date.now(),
+      // The chunks, so a parcel preview can say honestly how many attachments would ride
+      // along. Only their ids are read; nothing about them crosses the bridge.
+      attachments: vault.attachmentChunksUnsafe(),
+    });
+  });
+
+  handle(CHANNELS.exportRun, async (raw): Promise<ExportOutcome> => {
+    const plan = requireExportPlan(CHANNELS.exportRun, raw);
+
+    const descriptor = findExportFormat(plan.format);
+    if (descriptor === null) {
+      throw new IpcValidationError(CHANNELS.exportRun, `unknown export format: ${plan.format}`);
+    }
+
+    // The registry decides whether a format is encrypted; the plan only *claims* it. A plan
+    // whose claim disagrees is either a bug or a renderer trying to walk a plaintext dump
+    // past the confirmation, and neither should get a best guess.
+    if (descriptor.encrypted !== (plan.kind === 'encrypted')) {
+      throw new IpcValidationError(
+        CHANNELS.exportRun,
+        `plan claims ${plan.kind} for ${plan.format}, which the registry does not agree with`
+      );
+    }
+
+    // THE gate. Checked here, on the raw text the user typed, by the one matcher -- never on
+    // a boolean the renderer computed, which would make this exactly as strong as the
+    // renderer. Reported as an outcome rather than thrown: the dialog needs to say "that is
+    // not the phrase", which is something the user can act on, not an error.
+    if (plan.kind === 'plaintext' && !matchesPlaintextConfirmation(plan.confirmation)) {
+      return {
+        status: 'failed',
+        code: 'CONFIRMATION_REQUIRED',
+        message: `Type ${PLAINTEXT_CONFIRMATION_PHRASE} exactly to write a readable copy of your vault.`,
+      };
+    }
+
+    const document = vault.documentUnsafe();
+    const scope = {
+      includeTrashed: plan.scope.includeTrashed,
+      ...(plan.scope.recordIds === null ? {} : { recordIds: plan.scope.recordIds }),
+    };
+
+    const window = context.getWindow();
+    const options: SaveDialogOptions = {
+      title: descriptor.encrypted ? 'Save encrypted parcel' : 'Export vault',
+      defaultPath: defaultExportFileName(descriptor),
+      filters: [
+        { name: descriptor.name, extensions: [descriptor.extension.replace(/^\./, '')] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+      // macOS only, and exactly right for this dialog: the file about to be written is a
+      // copy of the vault, and the OS should be the one asking before it replaces something
+      // already there.
+      properties: ['showOverwriteConfirmation'],
+    };
+    const chosen =
+      window === null
+        ? await dialog.showSaveDialog(options)
+        : await dialog.showSaveDialog(window, options);
+
+    // Not a failure. Dismissing a save dialog is the system working, and reporting it as an
+    // error is how people learn to ignore export errors.
+    // `filePath` is typed non-optional but is the empty string on a dismissed dialog on
+    // some platforms, so both are treated as the cancel they are.
+    if (chosen.canceled || chosen.filePath.length === 0) return { status: 'cancelled' };
+
+    // Built by naming each format rather than spreading `plan.format` into one options bag.
+    // `ExportRequest` is a discriminated union precisely so that "a parcel with no
+    // passphrase" cannot be constructed, and a spread would widen the discriminant and hand
+    // that guarantee straight back.
+    //
+    // Branched on `plan.kind` first, so the passphrase is reachable only on the branch that
+    // is typed as having one -- rather than on a format switch, where it would have to be
+    // fished back out with a check the compiler already knows is dead.
+    const request: ExportRequest = ((): ExportRequest => {
+      const now = Date.now();
+      if (plan.kind === 'encrypted') {
+        return {
+          format: 'keyhold-parcel',
+          ...scope,
+          now,
+          password: plan.secretPassphrase,
+          attachments: vault.attachmentChunksUnsafe(),
+          // The vault's own cost parameters. A parcel derived under weaker settings than the
+          // vault it came from would be the easier of the two to attack, which is not a
+          // trade-off anyone chose by clicking "export".
+          kdf: vault.kdfParams(),
+        };
+      }
+      switch (plan.format) {
+        case 'keyhold-json':
+          return { format: 'keyhold-json', ...scope, now };
+        // The two flat formats carry no timestamped envelope, so they take no `now`.
+        case 'keyhold-csv':
+          return { format: 'keyhold-csv', ...scope };
+        case 'compatible-csv':
+          return { format: 'compatible-csv', ...scope };
+        case 'keyhold-parcel':
+          // Refused twice already -- by the validator, and by the registry cross-check.
+          // Thrown rather than sealed under an empty passphrase, because that would be a
+          // file that looks encrypted and is not, and "unreachable" is a claim that expires.
+          throw new IpcValidationError(CHANNELS.exportRun, 'a parcel requires a passphrase');
+      }
+    })();
+
+    const output = await runExport(document, request);
+
+    const bytes = output.containsSecrets ? output.secretBytes : output.bytes;
+    try {
+      // `mode` 0o600 on the readable formats: that file is the vault in the clear, and on a
+      // shared machine the default umask would hand it to every other account. It is a
+      // no-op on Windows, where the ACL comes from the directory -- which is why the dialog,
+      // and not this code, chose the directory.
+      await writeFile(chosen.filePath, bytes, output.containsSecrets ? { mode: 0o600 } : {});
+      return {
+        status: 'written',
+        report: reportOf(output),
+        location: {
+          fileName: basename(chosen.filePath),
+          directory: dirname(chosen.filePath),
+          byteLength: bytes.byteLength,
+        },
+      };
+    } finally {
+      // The one reference we control, dropped. A readable export is a complete copy of every
+      // password in scope; leaving it in a buffer past the write buys nothing.
+      if (output.containsSecrets) output.secretBytes.fill(0);
+    }
+  });
 
   // ── attachments ────────────────────────────────────────────────────────────
   //

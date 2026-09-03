@@ -16,6 +16,23 @@ import {
   type SessionStatusView,
 } from '@shared/ipc/api.js';
 import type { AttachmentAddView, AttachmentAudit } from '@shared/model/attachment.js';
+import type { ExportFormatDescriptor } from '@shared/model/export.js';
+import type {
+  ExportOutcome,
+  ExportPlan,
+  ExportPreview,
+  ExportPreviewRequest,
+} from '@shared/model/export-plan.js';
+import type { ImportFormatDescriptor } from '@shared/model/import.js';
+import type {
+  ImportCommitRequest,
+  ImportCommitResult,
+  ImportPreview,
+  ImportPreviewRequest,
+  ImportSource,
+  ImportUndoRequest,
+  ImportUndoResult,
+} from '@shared/model/import-plan.js';
 import type { CredentialProjection, SecretRef, VersionedField } from '@shared/model/credential.js';
 import type { GeneratedPassword, GeneratorOptions } from '@shared/model/generator.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '@shared/model/health.js';
@@ -262,6 +279,40 @@ const api: KeyholdApi = {
       >,
     audit: () =>
       ipcRenderer.invoke(CHANNELS.attachmentsAudit) as Promise<IpcResult<AttachmentAudit>>,
+  },
+
+  exporter: {
+    formats: () =>
+      ipcRenderer.invoke(CHANNELS.exportFormats) as Promise<
+        IpcResult<readonly ExportFormatDescriptor[]>
+      >,
+    preview: (request: ExportPreviewRequest) =>
+      ipcRenderer.invoke(CHANNELS.exportPreview, request) as Promise<IpcResult<ExportPreview>>,
+    // The plan carries a passphrase for a parcel and the typed confirmation for a plaintext
+    // dump. Both travel renderer -> main only, which is the direction secrets are allowed to
+    // go: the user typed them. Nothing comes back but a location.
+    run: (plan: ExportPlan) =>
+      ipcRenderer.invoke(CHANNELS.exportRun, plan) as Promise<IpcResult<ExportOutcome>>,
+  },
+
+  importer: {
+    formats: () =>
+      ipcRenderer.invoke(CHANNELS.importerFormats) as Promise<
+        IpcResult<readonly ImportFormatDescriptor[]>
+      >,
+    // No argument, and no path in the result. The dialog opens on the other side.
+    chooseFile: () =>
+      ipcRenderer.invoke(CHANNELS.importerChooseFile) as Promise<IpcResult<ImportSource | null>>,
+    preview: (request: ImportPreviewRequest) =>
+      ipcRenderer.invoke(CHANNELS.importerPreview, request) as Promise<IpcResult<ImportPreview>>,
+    commit: (request: ImportCommitRequest) =>
+      ipcRenderer.invoke(CHANNELS.importerCommit, request) as Promise<
+        IpcResult<ImportCommitResult>
+      >,
+    undo: (request: ImportUndoRequest) =>
+      ipcRenderer.invoke(CHANNELS.importerUndo, request) as Promise<IpcResult<ImportUndoResult>>,
+    discard: (sourceId: string) =>
+      ipcRenderer.invoke(CHANNELS.importerDiscard, sourceId) as Promise<IpcResult<null>>,
   },
 };
 

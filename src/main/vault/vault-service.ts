@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { basename } from 'node:path';
-import type { KdfParams, KeepHeader, VaultContents } from '@shared/format/types.js';
+import type {
+  AttachmentChunk,
+  KdfParams,
+  KeepHeader,
+  VaultContents,
+} from '@shared/format/types.js';
 import {
   isCustomFieldValueSecret,
   type AuditPrivacyLevel,
@@ -1142,6 +1147,18 @@ export class VaultService {
   /** Main-process only. Never call this from anything that talks to the renderer. */
   documentUnsafe(): VaultDocument {
     return this.#requireOpen().document;
+  }
+
+  /**
+   * The attachment chunks the open container holds. **Main-process only.**
+   *
+   * Exists for the encrypted export, which must carry the bytes of the attachments belonging
+   * to the records it seals. Named `Unsafe` for the same reason as `documentUnsafe`: these
+   * are file contents, they can be a photograph of a passport, and nothing that talks to the
+   * renderer may call this.
+   */
+  attachmentChunksUnsafe(): readonly AttachmentChunk[] {
+    return this.#requireOpen().attachments;
   }
 
   #requireOpen(): OpenVault {
