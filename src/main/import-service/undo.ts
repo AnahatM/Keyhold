@@ -68,11 +68,28 @@ export function undoImport(document: VaultDocument, batch: ImportBatchRecord): U
   }
 
   const removedFolderPaths: string[] = [];
+
+  // Built once, not once per folder.
+  //
+  // The loop only removes folders it has verified hold no records and no children, and
+  // removing a childless leaf cannot change any other folder's path — so a map read before
+  // the loop is as accurate on the last iteration as on the first.
+  //
+  // This used to rebuild inside the loop, guarding against reading paths that "would go stale
+  // if that ever stopped being true". It cost a full walk of every folder in the vault per
+  // created folder, which was the only thing making the most expensive call in the
+  // organisation code quadratic.
+  //
+  // **No test distinguishes the two, and that was measured rather than assumed** — putting
+  // the rebuild back fails nothing. It cannot: `isFolderEmpty` forces a nested folder to be
+  // removed before its parent, so the rebuilt map and the hoisted one always agree. The
+  // hoisted version is nonetheless the one that stays right if that ordering ever changes,
+  // because it reports the path a folder had when the import created it, which is what an
+  // undo is describing.
+  const folderPaths = folderPathsById(current.folders);
+
   for (const folderId of batch.createdFolderIds) {
-    // Paths are read from the document as it stands at this moment, because removing a
-    // deeper folder first cannot change a shallower one's path but reading them all up front
-    // would go stale if that ever stopped being true.
-    const path = folderPathsById(current.folders).get(folderId);
+    const path = folderPaths.get(folderId);
     if (findFolderIn(current, folderId) === null) continue;
     if (!isFolderEmpty(current, folderId)) continue;
 
