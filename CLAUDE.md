@@ -167,7 +167,7 @@ test could never fail. No coverage target is chased.
 
 ## Version control
 
-Git, on `main`. Remote: `AnahatM/Keyhold`, **private for now**.
+Git, on `main`. Remote: `AnahatM/Keyhold` — created and pushed, **private for now**.
 
 - Commit per completed slice, once lint, typecheck and tests are green.
 - **Stage by explicit path. Never `git add -A` or `git add .`.**
