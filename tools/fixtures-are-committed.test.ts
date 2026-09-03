@@ -51,7 +51,10 @@ function filesUnder(directory: string): string[] {
 }
 
 const asRepoPath = (absolute: string): string =>
-  absolute.slice(ROOT.length + 1).split(sep).join('/');
+  absolute
+    .slice(ROOT.length + 1)
+    .split(sep)
+    .join('/');
 
 /** What git believes is in the repository under the fixture tree, or `null` if it cannot say. */
 function trackedFixtures(): ReadonlySet<string> | null {
