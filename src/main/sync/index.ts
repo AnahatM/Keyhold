@@ -38,3 +38,19 @@ export type { MergeOptions, MergeOutcome } from './merge-document.js';
  */
 export { DuplicateIdError } from './merge-document.js';
 export type { DocumentSide, DuplicatedEntity } from './merge-document.js';
+
+/**
+ * The ancestor a three-way merge reads.
+ *
+ * Step 1 of the sequence above — "the stored base snapshot if there is one" — and step 6's
+ * second half, which is what turns the *next* merge from two-way into three-way. Machine
+ * scoped and never travelling with the vault: a snapshot that arrived from another device
+ * is not this device's last-agreed state, and that is the one input a three-way merge
+ * cannot survive being wrong about.
+ */
+export {
+  createBaseSnapshotStore,
+  serialiseSnapshot,
+  snapshotIsSafeToStore,
+  type BaseSnapshotStore,
+} from './base-snapshot.js';
