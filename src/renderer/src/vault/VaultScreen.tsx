@@ -2,7 +2,13 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { Button } from '../components/Button.js';
-import { ContentViewer } from '../content/index.js';
+import { AboutView, ContentViewer, type AboutLicence } from '../content/index.js';
+
+// Both are supplied by `electron.vite.config.ts`'s `define`, so they are compile-time
+// constants rather than imports — declared here because the About view is the only thing in
+// the renderer that reads either.
+declare const APP_VERSION: string;
+declare const THIRD_PARTY_LICENCES: readonly AboutLicence[];
 import { GeneratorScreen } from '../generator/index.js';
 import { HealthDashboard } from '../health/HealthDashboard.js';
 import { ExportDialog } from '../export/ExportDialog.js';
@@ -354,6 +360,17 @@ function ToolPane({
       return <SettingsScreen hideTitle />;
     case 'help':
       return <ContentViewer hideTitle />;
+    case 'about':
+      // `APP_VERSION` and `THIRD_PARTY_LICENCES` are both baked in by
+      // `electron.vite.config.ts`. Neither goes over IPC: the version because the define
+      // already exists and a channel would be a second route to one number, and the licence
+      // list because `tools/` is not packaged, so a runtime handler would have nothing to
+      // call in a real build.
+      //
+      // No `onOpenArticle`. The page renders its cross-reference to the manual only when a
+      // handler is supplied, so omitting it means the link is absent rather than dead —
+      // wiring it needs the help view to accept a pending article id, which it does not yet.
+      return <AboutView hideTitle appVersion={APP_VERSION} licences={THIRD_PARTY_LICENCES} />;
   }
 }
 

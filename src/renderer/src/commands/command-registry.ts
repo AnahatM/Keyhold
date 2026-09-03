@@ -99,6 +99,7 @@ const TOOL_SECTION: Readonly<Record<ToolViewId, CommandSection>> = {
   health: 'Vault',
   settings: 'Navigate',
   help: 'Help',
+  about: 'Help',
 };
 
 /**

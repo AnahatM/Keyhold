@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
+import { collectLicences } from './tools/licences.js';
 
 const pkg = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as { version: string };
 
@@ -20,6 +21,24 @@ const alias = {
 
 /** Baked in at build time so the app can report its version without reading a file. */
 const define = { APP_VERSION: JSON.stringify(pkg.version) };
+
+/**
+ * The third-party licence list, baked into the renderer at build time.
+ *
+ * **Build time is the only route that works.** `electron-builder.yml`'s `files` block is an
+ * allow-list of `out/**` plus `package.json`, so `tools/` never ships and a runtime
+ * `kh:app:licences` handler would have no module to call — it would work in `npm run dev`
+ * and return nothing from an installed app, which is the worst of the two failures because
+ * only the users see it.
+ *
+ * Derived from the production dependency closure rather than written down. `tools/licences.ts`
+ * carries a guard that fails if the module ever hard-codes a package name, version or
+ * licence, because a hand-maintained list of legal notices is a list that goes quietly wrong.
+ */
+const RENDERER_DEFINE = {
+  ...define,
+  THIRD_PARTY_LICENCES: JSON.stringify(collectLicences(resolve('.'))),
+};
 
 export default defineConfig({
   main: {
@@ -66,7 +85,7 @@ export default defineConfig({
     root: resolve('src/renderer'),
     plugins: [react()],
     resolve: { alias },
-    define,
+    define: RENDERER_DEFINE,
     build: {
       rollupOptions: { input: { index: resolve('src/renderer/index.html') } },
     },
