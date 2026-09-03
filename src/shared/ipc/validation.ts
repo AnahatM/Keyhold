@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { isLocalPath } from '../model/local-path.js';
 import {
   SECRET_REF_KINDS,
   VERSIONED_FIELDS,
@@ -177,8 +178,6 @@ export function requireListOptions(channel: string, value: unknown): ListOptions
   };
 }
 
-/** A Windows drive path, a UNC share, or a POSIX root. Anything else is relative. */
-const ABSOLUTE_PATH = /^(?:[A-Za-z]:[\\/]|\\\\|\/)/;
 const VAULT_EXTENSION = /\.keep$/i;
 
 /**
@@ -205,11 +204,14 @@ export function requireVaultPath(channel: string, value: unknown): string {
   // anywhere the user can write: a Startup folder, a dotfile, a config path. The dialog
   // handler already produces absolute `.keep` paths, so this costs the real flow nothing.
   //
-  // Checked with a regex rather than `node:path`, because this module is compiled into
-  // the renderer's project too and must stay free of Node built-ins. Windows drive
-  // letters, UNC shares and POSIX roots all count as absolute.
-  if (!ABSOLUTE_PATH.test(path)) {
-    throw new IpcValidationError(channel, 'path must be absolute');
+  // `isLocalPath`, not "is it absolute": this used to accept a UNC share, and a UNC share
+  // is not a place on this machine. Opening one makes the main process dial an SMB host the
+  // sender chose and hand over an NTLMv2 handshake -- which a compromised renderer replaying
+  // this channel would find a very cheap way to exfiltrate the user's Windows credentials.
+  // One predicate, shared with the OS-side check in `src/main/shell/file-open-request.ts`,
+  // because two answers to "is this path safe to touch" is two answers to disagree.
+  if (!isLocalPath(path)) {
+    throw new IpcValidationError(channel, 'path must be an absolute path on this machine');
   }
   if (!VAULT_EXTENSION.test(path)) {
     throw new IpcValidationError(channel, 'path must name a .keep vault file');

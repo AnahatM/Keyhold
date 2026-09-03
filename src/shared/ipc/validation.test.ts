@@ -121,6 +121,25 @@ describe('vault paths', () => {
     expect(() => requireVaultPath(CHANNEL, '/home/anahat/vault.keep')).not.toThrow();
   });
 
+  it('rejects a path that names another machine', () => {
+    // The same finding as `src/main/shell/file-open-request.test.ts`, reached from the other
+    // direction. A UNC path is absolute, and absolute is not local: on Windows, opening one
+    // makes the main process dial an SMB host the sender chose and hand over an NTLMv2
+    // handshake with the logged-in user's credentials. This validator's whole stated purpose
+    // is the case where a compromised renderer replays a channel directly, and until this
+    // was written, replaying `kh:vault:unlock` with `\\attacker\s\v.keep` was a one-line
+    // Windows credential exfiltration.
+    for (const path of [
+      String.raw`\\attacker.example\share\vault.keep`,
+      '//attacker.example/share/vault.keep',
+      String.raw`\\?\UNC\attacker.example\s\vault.keep`,
+      String.raw`\\.\pipe\vault.keep`,
+      String.raw`\Users\me\vault.keep`,
+    ]) {
+      expect(() => requireVaultPath(CHANNEL, path), path).toThrow(/on this machine/);
+    }
+  });
+
   it('rejects a NUL byte, which truncates a path inside some native calls', () => {
     // The classic way to make a validated string mean something different by the time it
     // reaches the filesystem.
@@ -152,9 +171,14 @@ describe('vault paths', () => {
     expect(() => requireVaultPath(CHANNEL, '/home/a/.bashrc')).toThrow(/\.keep/);
   });
 
-  it('accepts a UNC share and is case-insensitive about the extension', () => {
-    expect(() => requireVaultPath(CHANNEL, '//server/share/vault.KEEP')).not.toThrow();
-    expect(() => requireVaultPath(CHANNEL, '\\\\server\\share\\vault.keep')).not.toThrow();
+  it('is case-insensitive about the extension', () => {
+    // This test used to read "accepts a UNC share and is case-insensitive about the
+    // extension", and asserted both halves. The UNC half was the vulnerability written down
+    // as an expectation, which is why it survived a security pass: a reviewer reading the
+    // suite would have seen UNC support as intended behaviour rather than as a hole. The
+    // extension half was always right and is kept.
+    expect(() => requireVaultPath(CHANNEL, 'C:/Users/me/vault.KEEP')).not.toThrow();
+    expect(() => requireVaultPath(CHANNEL, '/home/me/vault.Keep')).not.toThrow();
   });
 });
 

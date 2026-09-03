@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { posix, win32 } from 'node:path';
 import type { Platform } from '@shared/ipc/api.js';
+import { isLocalPathOn } from '@shared/model/local-path.js';
 
 /**
  * Validating a path the operating system hands us.
@@ -31,6 +32,9 @@ import type { Platform } from '@shared/ipc/api.js';
  * - **Traversal segments.** A `..` in input we did not construct has no legitimate meaning
  *   here and is the signature of an attempt to escape a directory the sender expected us to
  *   stay inside. Resolving it away would silently accept the attempt.
+ * - **Local storage only.** The check that matters most, and the one that was missing: on
+ *   Windows an absolute path can name another machine, and merely *stat*ing it dials out
+ *   over SMB and hands over an NTLMv2 handshake. See `@shared/model/local-path.ts`.
  * - **Absolute only.** A relative path resolves against the process working directory, which
  *   for a double-clicked file is whatever the shell felt like and for a packaged app is
  *   frequently `C:\Windows\System32`. "Open the vault next to wherever we happen to be" is
@@ -73,6 +77,8 @@ export type FileOpenRejection =
   | 'looks-like-a-url'
   | 'traversal'
   | 'not-absolute'
+  /** A UNC share, a device path, or a drive-less root. See `isLocalPathOn`. */
+  | 'not-local-storage'
   | 'unsupported-extension'
   | 'not-a-file';
 
@@ -130,6 +136,17 @@ export function parseFileOpenRequest(raw: unknown, options: FileOpenOptions): Fi
   // the tests on the other OS, wrong.
   const path = options.platform === 'win32' ? win32 : posix;
   if (!path.isAbsolute(value)) return reject('not-absolute');
+
+  // Absolute is not the same as local, and on Windows the gap between them is a network
+  // connection. `\host\sharev.keep` satisfies every check above and every check below,
+  // and `statSync` on it opens an SMB session to `host` with an NTLMv2 handshake carrying
+  // the logged-in user's credentials -- from an app whose hard rule 5 is zero network by
+  // default, before a window has even been created. `isLocalPathOn` is an allow-list of the
+  // shapes that name local storage, for the reason given in full in that module: a
+  // deny-list of the UNC forms is one Windows path syntax away from being wrong again.
+  if (!isLocalPathOn(value, options.platform === 'win32' ? 'win32' : 'posix')) {
+    return reject('not-local-storage');
+  }
 
   const kind = FILE_OPEN_EXTENSIONS[path.extname(value).toLowerCase()];
   if (kind === undefined) return reject('unsupported-extension');
