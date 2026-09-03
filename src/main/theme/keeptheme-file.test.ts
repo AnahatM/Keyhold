@@ -11,7 +11,7 @@ import {
   themeDirectoryOf,
   writeKeepThemeFile,
 } from './keeptheme-file.js';
-import { exportKeepTheme, importKeepTheme } from './theme-service.js';
+import { importKeepTheme, prepareKeepThemeExport } from './theme-service.js';
 
 /** Real files in a real directory: the failure modes here are all filesystem ones. */
 
@@ -115,8 +115,10 @@ describe('the import / export service', () => {
     const path = join(directory, 'exported.keeptheme');
     const theme = keepThemeFromDefinition(FALLBACK_THEME, 'Exported');
 
-    const exported = await exportKeepTheme(path, theme);
-    expect(exported.ok, JSON.stringify(exported)).toBe(true);
+    const prepared = prepareKeepThemeExport(theme);
+    expect(prepared.ok, JSON.stringify(prepared)).toBe(true);
+    if (!prepared.ok) return;
+    expect((await writeKeepThemeFile(path, prepared.contents)).ok).toBe(true);
 
     const imported = await importKeepTheme(path);
     expect('result' in imported).toBe(true);
@@ -127,14 +129,17 @@ describe('the import / export service', () => {
     expect(imported.result.theme).toEqual(theme);
   });
 
-  it('refuses to export a theme it could not import back', async () => {
-    const path = join(directory, 'bad.keeptheme');
+  it('refuses to prepare a theme it could not import back, before any dialog opens', async () => {
     const theme = keepThemeFromDefinition(FALLBACK_THEME, 'Bad');
     // Text one shade off its background: below the legibility floor, so unexportable.
     const illegible = { ...theme, palette: { ...theme.palette, text: '#131419' } };
 
-    const exported = await exportKeepTheme(path, illegible);
-    expect(exported.ok).toBe(false);
+    const prepared = prepareKeepThemeExport(illegible);
+    expect(prepared.ok).toBe(false);
+    if (prepared.ok) return;
+    expect(prepared.rejection.kind).toBe('illegible');
+    // Nothing was written and nothing could have been: the verification happens before a
+    // path exists, which is the reason it is a separate function from the write.
     expect(await readdir(directory)).toEqual([]);
   });
 
@@ -156,5 +161,9 @@ describe('the import / export service', () => {
 
     const imported = await importKeepTheme(path);
     expect('ok' in imported && !imported.ok).toBe(true);
+    if (!('ok' in imported)) return;
+    // The code, not a phrase out of the message: the IPC layer maps this onto a
+    // `ThemeErrorCode`, and matching words in human copy is a mapping that silently rots.
+    expect(imported.code).toBe('too-large');
   });
 });

@@ -29,6 +29,7 @@ import {
   type ExportPreviewRequest,
 } from '../model/export-plan.js';
 import type { ImporterApi } from '../model/import-plan.js';
+import { THEME_CHANNELS, THEME_EVENTS, type ThemeApi } from '../theme/theme-channels.js';
 import { IMPORT_CHANNELS, IMPORT_EVENTS } from '../model/import-plan.js';
 
 /**
@@ -478,6 +479,15 @@ export interface ExporterApi {
  */
 export type { ImporterApi };
 
+/**
+ * Themes — the namespace declared in `@shared/theme/theme-channels.ts`, beside its payloads.
+ *
+ * Re-exported rather than restated, for the reason `ImporterApi` is: it was written out here
+ * once, the two copies diverged before anything used both, and the divergence was a method
+ * the preload never exposed.
+ */
+export type { ThemeApi };
+
 export interface KeyholdApi {
   app: AppApi;
   session: SessionApi;
@@ -491,6 +501,7 @@ export interface KeyholdApi {
   attachments: AttachmentsApi;
   exporter: ExporterApi;
   importer: ImporterApi;
+  theme: ThemeApi;
 }
 
 /** IPC channel names. Never build one by string concatenation at a call site. */
@@ -567,6 +578,7 @@ export const CHANNELS = {
   // carry, and a name that exists in two places is a name that will disagree with itself.
   ...EXPORT_CHANNELS,
   ...IMPORT_CHANNELS,
+  ...THEME_CHANNELS,
 } as const;
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
@@ -589,6 +601,7 @@ export const EVENTS = {
    */
   menuCommand: 'kh:event:menu-command',
   ...IMPORT_EVENTS,
+  ...THEME_EVENTS,
 } as const;
 
 /** Every channel name, for the allow-list check in the main process. */

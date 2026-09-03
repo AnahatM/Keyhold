@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { useCallback, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import {
   admitPalette,
   evaluateEscapeFloor,
   evaluatePaletteContrast,
   keepThemeFromDefinition,
   normaliseColour,
-  parseKeepTheme,
-  serialiseKeepTheme,
-  suggestKeepThemeFileName,
-  type KeepThemeWarning,
 } from '@shared/theme/keeptheme.js';
 import { ACCENT_PRESETS } from '@shared/theme/accent.js';
+import { THEME_ERROR_CODES, type ThemeNotice } from '@shared/theme/theme-channels.js';
 import {
   DEFAULT_DARK_THEME_ID,
   DEFAULT_LIGHT_THEME_ID,
@@ -29,7 +26,7 @@ import {
   hasInvalidColours,
   themeDraftReducer,
 } from './theme-draft.js';
-import { createThemeFileBridge } from './theme-file-bridge.js';
+import { createThemeGateway, type ThemeImportOutcome } from './theme-gateway.js';
 import './theme-studio.css';
 
 /**
@@ -48,12 +45,38 @@ import './theme-studio.css';
  * Below the legibility floor there is no box to tick. See `admitPalette` for that decision
  * in full; the short version is that consent to a theme you can no longer read is consent
  * you cannot revoke.
+ *
+ * ## Where an imported theme is judged
+ *
+ * **In the main process, before the studio sees it.** `parseKeepTheme` runs there over the
+ * file's bytes; this screen never receives the file's text, only the projection in
+ * `theme-projection.ts`. That means:
+ *
+ *  - A theme below the legibility floor arrives as `theme/illegible` with **no palette**. It
+ *    cannot be loaded, previewed, or nudged into shape, because the one thing it must not be
+ *    able to do is make the screen that changes it back unreadable.
+ *  - A theme that merely fails AA arrives as `needs-review` *with* its palette, loads into
+ *    the draft, and meets the same gate below that a hand-edited theme meets. The report is
+ *    the point: refusing it outright would take away the failing pairs it is meant to show.
+ *  - The gate below still recomputes `admitPalette` locally, and it must. The palette can be
+ *    edited after an import, so a verdict computed at import time would be stale by the next
+ *    keystroke. Both sides run the same function over the same canonical palette.
  */
 
 interface StudioStatus {
   readonly tone: 'info' | 'warning' | 'danger' | 'success';
   readonly message: string;
 }
+
+/**
+ * Shown when `window.keyhold.theme` is missing.
+ *
+ * There is deliberately no fallback to a browser file input. A worse transport that quietly
+ * takes over is a transport that hides the fact the real one is not there, which is how the
+ * `<input type="file">` this screen used to carry survived for as long as it did.
+ */
+const THEME_FILES_UNAVAILABLE =
+  'Theme files are unavailable in this build — everything else on this screen still works.';
 
 export interface ThemeStudioProps {
   /** The built-in to open with. Defaults to the app's dark default. */
@@ -72,9 +95,9 @@ export function ThemeStudio({ initialThemeId }: ThemeStudioProps): React.JSX.Ele
 
   const updateAppearance = useAppearance((state) => state.update);
 
-  // Created once. A new bridge per render would be harmless but pointless, and this way the
-  // "which transport am I on" line below is stable.
-  const bridge = useMemo(() => createThemeFileBridge(), []);
+  // Created once. A new gateway per render would be harmless but pointless, and this way
+  // `available` is stable across the screen's lifetime.
+  const gateway = useMemo(() => createThemeGateway(), []);
 
   const report = useMemo(() => evaluatePaletteContrast(draft.palette), [draft.palette]);
   const floor = useMemo(() => evaluateEscapeFloor(draft.palette), [draft.palette]);
@@ -116,67 +139,120 @@ export function ThemeStudio({ initialThemeId }: ThemeStudioProps): React.JSX.Ele
     });
   }, [accentInput]);
 
-  const importTheme = useCallback(async (): Promise<void> => {
-    const opened = await bridge.openTheme();
+  /**
+   * Handles one import outcome, whichever route brought it.
+   *
+   * Shared by the Import button and by the theme the OS hands us on double-click, so the two
+   * cannot drift into telling the user different things about the same file.
+   */
+  const receiveImport = useCallback((outcome: ThemeImportOutcome): void => {
+    if (outcome.kind === 'cancelled') return;
 
-    if (opened.kind === 'cancelled') return;
-    if (opened.kind === 'too-large') {
-      setStatus({ tone: 'danger', message: `“${opened.name}” is too large to be a theme file.` });
+    if (outcome.kind === 'unavailable') {
+      setStatus({ tone: 'danger', message: THEME_FILES_UNAVAILABLE });
       return;
     }
-    if (opened.kind === 'failed') {
+
+    if (outcome.kind === 'failed') {
       setStatus({ tone: 'danger', message: 'That file could not be read.' });
       return;
     }
 
-    const result = parseKeepTheme(opened.file.contents);
-
-    if (result.ok) {
-      dispatch({
-        type: 'load',
-        theme: result.theme,
-        source: opened.file.name,
-        notices: result.warnings,
-      });
+    if (outcome.kind === 'refused') {
       setStatus({
-        tone: result.warnings.length === 0 ? 'success' : 'warning',
+        tone: 'danger',
+        // `message` is written by the main process from constants, field names and token
+        // names — never from the file — so it is safe to show verbatim. See
+        // `theme-projection.ts` for what that guarantee rests on.
         message:
-          result.warnings.length === 0
-            ? `Imported “${result.theme.name}”.`
-            : `Imported “${result.theme.name}” with ${result.warnings.length} note${result.warnings.length === 1 ? '' : 's'}.`,
+          outcome.code === THEME_ERROR_CODES.illegible
+            ? `${outcome.message} There is no way to override this one: a theme you cannot read is a theme you cannot undo.`
+            : outcome.message,
       });
       return;
     }
 
-    if (result.rejection.kind === 'contrast') {
-      // Loaded rather than discarded: the whole point is to show the user what is wrong
-      // with it. The gate below still blocks applying or exporting it until they say so.
-      dispatch({
-        type: 'load',
-        theme: result.rejection.theme,
-        source: opened.file.name,
-        notices: result.rejection.warnings,
+    // Both `imported` and `needs-review` load. The second is a theme that fails AA but
+    // clears the legibility floor, and loading it is the whole point — the report above
+    // lists what is wrong and the gate below keeps it off the app until the user says so.
+    dispatch({
+      type: 'load',
+      theme: outcome.theme,
+      source: outcome.fileName,
+      notices: outcome.notices,
+    });
+
+    if (outcome.kind === 'needs-review') {
+      setStatus({
+        tone: 'warning',
+        message: `Imported “${outcome.theme.name}”, which fails some contrast checks. Review them below before using it.`,
       });
-      setStatus({ tone: 'warning', message: result.rejection.message });
       return;
     }
 
-    setStatus({ tone: 'danger', message: result.rejection.message });
-  }, [bridge]);
+    setStatus({
+      tone: outcome.notices.length === 0 ? 'success' : 'warning',
+      message:
+        outcome.notices.length === 0
+          ? `Imported “${outcome.theme.name}”.`
+          : `Imported “${outcome.theme.name}” with ${outcome.notices.length} note${outcome.notices.length === 1 ? '' : 's'}.`,
+    });
+  }, []);
+
+  const importTheme = useCallback(async (): Promise<void> => {
+    receiveImport(await gateway.importTheme());
+  }, [gateway, receiveImport]);
+
+  /**
+   * Collects a theme the OS handed the app, on mount and whenever one arrives.
+   *
+   * Both, because either alone loses a case: the event only fires while this screen is
+   * mounted, and a poll only on mount would miss a file double-clicked while it is open.
+   * `take` clears the slot on the main side, so the two cannot deliver the same file twice.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const collect = (): void => {
+      void gateway.takeOpenedTheme().then((outcome) => {
+        if (cancelled || outcome === null) return;
+        receiveImport(outcome);
+      });
+    };
+
+    collect();
+    const unsubscribe = gateway.onFileOpened(collect);
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [gateway, receiveImport]);
 
   const exportTheme = useCallback(async (): Promise<void> => {
-    const theme = draftToKeepTheme(draft);
-    const outcome = await bridge.saveTheme(
-      suggestKeepThemeFileName(theme.name),
-      serialiseKeepTheme(theme)
-    );
+    // The draft, not the palette: the main process re-validates and re-serialises it, so the
+    // bytes that land in the user's file are ones Keyhold wrote. The acknowledgement travels
+    // with it because a theme that fails AA is refused on the way out too — an export is how
+    // a theme reaches somebody else, and it should not carry failures its author never saw.
+    const outcome = await gateway.exportTheme(draftToKeepTheme(draft), draft.acknowledgement);
 
-    if (outcome === 'saved') {
-      setStatus({ tone: 'success', message: `Exported “${theme.name}”.` });
-    } else if (outcome === 'failed') {
-      setStatus({ tone: 'danger', message: 'That theme could not be saved.' });
+    if (outcome.kind === 'cancelled') return;
+
+    if (outcome.kind === 'saved') {
+      setStatus({ tone: 'success', message: `Exported as “${outcome.fileName}”.` });
+      return;
     }
-  }, [bridge, draft]);
+
+    setStatus({
+      tone: 'danger',
+      message:
+        outcome.kind === 'unavailable'
+          ? THEME_FILES_UNAVAILABLE
+          : outcome.kind === 'failed'
+            ? 'That theme could not be saved.'
+            : outcome.message,
+    });
+  }, [gateway, draft]);
 
   const applyToApp = useCallback((): void => {
     const base = findTheme(draft.basedOn);
@@ -448,7 +524,7 @@ export function ThemeStudio({ initialThemeId }: ThemeStudioProps): React.JSX.Ele
           </Button>
           <Button
             variant="secondary"
-            disabled={!canLeaveTheScreen}
+            disabled={!canLeaveTheScreen || !gateway.available}
             onClick={() => {
               void exportTheme();
             }}
@@ -457,6 +533,7 @@ export function ThemeStudio({ initialThemeId }: ThemeStudioProps): React.JSX.Ele
           </Button>
           <Button
             variant="secondary"
+            disabled={!gateway.available}
             onClick={() => {
               void importTheme();
             }}
@@ -474,6 +551,8 @@ export function ThemeStudio({ initialThemeId }: ThemeStudioProps): React.JSX.Ele
           </Button>
         </div>
 
+        {!gateway.available && <p className="kh-panel__hint">{THEME_FILES_UNAVAILABLE}</p>}
+
         {/*
          * The one live region on the screen. Action outcomes are discrete and infrequent —
          * unlike the contrast summary, which recomputes on every frame of a colour drag and
@@ -487,10 +566,17 @@ export function ThemeStudio({ initialThemeId }: ThemeStudioProps): React.JSX.Ele
   );
 }
 
+function noticeKey(notice: ThemeNotice): string {
+  // Keyed off our own vocabulary rather than anything the file chose. `unknown-tokens` and
+  // `unknown-base` occur at most once each — the projection collapses them — so their kind
+  // alone is unique.
+  return notice.kind === 'missing-token' ? `missing:${notice.token}` : notice.kind;
+}
+
 function ImportNotices({
   notices,
 }: {
-  readonly notices: readonly KeepThemeWarning[];
+  readonly notices: readonly ThemeNotice[];
 }): React.JSX.Element {
   return (
     <details className="kh-studio-notices">
@@ -499,11 +585,7 @@ function ImportNotices({
       </summary>
       <ul>
         {notices.map((notice) => (
-          <li
-            key={`${notice.kind}:${notice.kind === 'unknown-base' ? notice.requested : notice.token}`}
-          >
-            {notice.message}
-          </li>
+          <li key={noticeKey(notice)}>{notice.message}</li>
         ))}
       </ul>
     </details>

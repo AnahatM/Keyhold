@@ -24,11 +24,20 @@ import { KEEPTHEME_MAX_BYTES } from '@shared/theme/keeptheme.js';
 
 export const THEME_TEMP_SUFFIX = '.tmp';
 
+/**
+ * Why a file could not be read.
+ *
+ * Named rather than inlined because the IPC layer maps it onto a `ThemeErrorCode`, and a
+ * mapping keyed off words in a human-readable message is one that silently becomes wrong the
+ * day somebody improves the copy.
+ */
+export type ThemeFileReadFailure = 'too-large' | 'not-a-file' | 'unreadable';
+
 export type ThemeFileReadResult =
   | { readonly ok: true; readonly contents: string }
   | {
       readonly ok: false;
-      readonly code: 'too-large' | 'not-a-file' | 'unreadable';
+      readonly code: ThemeFileReadFailure;
       readonly message: string;
     };
 

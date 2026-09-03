@@ -55,6 +55,7 @@ import {
   type ExportRequest,
 } from '../export/index.js';
 import { reportOf } from '../export/types.js';
+import { createThemeIpcHandlers } from '../theme/index.js';
 import { createElectronImportFilePicker } from '../import-service/file-picker.js';
 import {
   createVaultImportAccess,
@@ -625,6 +626,21 @@ export function registerIpcHandlers(context: IpcContext): void {
     importer.discard(requireId(CHANNELS.importerDiscard, sourceId, 'sourceId'));
     return null;
   });
+
+  // ── themes ─────────────────────────────────────────────────────────────────
+  //
+  // Three handlers and no path in either direction: the dialogs open in `theme-ipc.ts`, the
+  // file is parsed there, and the renderer is handed a projection rather than the file's own
+  // text. A `.keeptheme` used to be the one file in the app that moved through the browser —
+  // an `<input type="file">` and an `<a download>` — which made it the exception to the rule
+  // the vault, attachment, import and export paths all follow, and the only untrusted file
+  // parsed inside the renderer.
+
+  const themeFiles = createThemeIpcHandlers({ getWindow: context.getWindow });
+
+  handle(CHANNELS.themeImport, () => themeFiles.importTheme());
+  handle(CHANNELS.themeExport, (raw) => themeFiles.exportTheme(raw));
+  handle(CHANNELS.themeTakeOpened, () => themeFiles.takeOpenedTheme());
 
   // ── export ─────────────────────────────────────────────────────────────────
   //
