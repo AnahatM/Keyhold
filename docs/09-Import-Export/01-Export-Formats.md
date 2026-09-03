@@ -177,14 +177,99 @@ a fixture makes it stop being what it claims to be.
 
 ---
 
-## 8. Not built
+## 8. The IPC channel
 
-- **The IPC channel (`kh:export:*`) and the export dialog** — including the type-to-confirm
-  step, restrictive file permissions, and the shred reminder. All three are caller and
-  filesystem concerns, and the engine writing no files is what makes "no plaintext export to
-  a default path" structurally true rather than a rule someone has to remember. The engine
-  hands the caller everything those need: `containsSecrets`, the mandatory `warning`, and
-  the itemised loss list.
+Three channels, in `src/main/ipc/register.ts`, over the shared names in
+`EXPORT_CHANNELS`. What is absent from that list matters more than what is in it.
+
+| Channel             | Does                                                       |
+| ------------------- | ---------------------------------------------------------- |
+| `kh:export:formats` | Returns the registry. The dropdown has no list of its own. |
+| `kh:export:preview` | What this export would cost, computed without writing.     |
+| `kh:export:run`     | Opens the save dialog, writes the file, reports where.     |
+
+**No channel returns bytes.** The save dialog opens in the main process, the file is
+written in the main process, and the renderer learns only the file name, the directory and
+the byte length. A channel that handed the bytes back would put a plaintext copy of the
+whole vault in the renderer for as long as the garbage collector felt like keeping it,
+which is decision D13's prohibition arrived at from the other direction. It is also why
+there is no path anywhere in an `ExportPlan`: a path travelling renderer → main would be
+attacker-controlled if the renderer were ever compromised, while a path the user chose in
+an OS dialog is a genuine act of consent.
+
+### The confirmation is checked in main
+
+`PLAINTEXT_CONFIRMATION_PHRASE` is matched by `matchesPlaintextConfirmation`, in the
+handler, against **the raw text the user typed** — which is why `PlaintextExportPlan`
+carries `confirmation: string` and not `confirmed: boolean`. A boolean would make the gate
+exactly as strong as the renderer, and the renderer is the part decision D13 declines to
+trust. The renderer runs the same matcher, but as an affordance: it greys out a button.
+The main process's check is the gate.
+
+A mismatch comes back as `{ status: 'failed', code: 'CONFIRMATION_REQUIRED' }` rather than
+as a thrown error, because "that is not the phrase" is something a person can act on and an
+`INVALID_REQUEST` is not.
+
+### Two cross-checks a hostile renderer has to get past
+
+1. **The plan's `kind` must agree with the registry** about whether that format is
+   encrypted. `kind` is redundant with `format` on purpose, so the two can be compared: a
+   plan claiming `plaintext` for the parcel, or `encrypted` for a CSV, is either a bug or an
+   attempt to route a readable dump around the confirmation. Both are refused rather than
+   guessed at.
+2. **`scope.includeTrashed` must be present and boolean.** The engine's `ExportSelection`
+   makes it optional so a forgetful caller gets the safe behaviour; at this boundary a
+   person is choosing, so an omission is a bug, and silently reading it as `false` would
+   export less than was asked for while looking like it worked.
+
+`requireExportPlan` shapes; the handler decides. That split is why an empty confirmation
+_parses_ — the handler needs to be able to report it as an outcome the dialog can render.
+
+### Writing the file
+
+`mode: 0o600` on the three readable formats. That file is the vault in the clear, and on a
+shared machine the default umask hands it to every other account. It is a no-op on Windows,
+where the ACL comes from the directory — which is the other reason the dialog, not this
+code, chose the directory. The plaintext buffer is zeroed after the write: it does not
+reach the copies V8 may have made, and it does remove the one reference we control.
+
+Cancelling is `{ status: 'cancelled' }`, not a failure. Dismissing a save dialog is the
+system working, and reporting it as an error is how people learn to ignore export errors.
+
+The default file name is `keyhold-export-<date><extension>`, with the extension read from
+the registry and never written out at the call site. The specific mistake that prevents is
+a parcel saved as `.keep` — the one file-name error in this app a person could not recover
+from by renaming, because they would then try to open it as their vault.
+
+---
+
+## 9. The preview runs the real export
+
+`previewExport` does the entire export in memory for the three readable formats and throws
+the bytes away, zeroing them first.
+
+That is wasteful and it is the point. The loss list the dialog shows is then _literally_
+the list the file would carry, produced by the same code on the same records. The promise
+this whole feature rests on — "it is impossible to export a CSV and be surprised that
+history is gone" — is only true if the two are one computation. A preview that
+reimplemented "CSV drops history" in its own words would be right until someone changed
+what CSV drops, and would then go on confidently describing the old behaviour with nothing
+to catch it.
+
+**The parcel is the one exception.** Sealing it means an Argon2id derivation: a second of
+deliberate work for a result that is discarded, and a computation with no bearing on what
+is lost. So `parcelPlan` is split out of `exportEncrypted`, both call it, and the only
+thing the preview skips is the key.
+
+`ExportPreview.trashedInScope` is reported **whether or not those records would be
+written**. "12 records in the Trash are being left out" and "12 will be included" are the
+same fact, and the user is owed it in both directions — a dialog that could only say
+"excluded" would go silent at the moment the number matters most.
+
+---
+
+## 10. Not built
+
 - **KDBX 4 export** (roadmap Phase 11) — needs `kdbxweb` plus our WASM Argon2, and
   verification against a real KeePassXC.
 - **Bitwarden _JSON_ export.** The compatible CSV covers the leaving-Keyhold path; the JSON
@@ -195,12 +280,32 @@ a fixture makes it stop being what it claims to be.
 
 ---
 
-## 9. Tests
+## 11. Tests
 
-89 in `src/main/export/`, 13 in `src/main/import/keyhold-json.test.ts`, plus the shared
-parser contract.
+Every serialiser in `src/main/export/`, the preview in `preview.test.ts`, the IPC boundary
+in `src/shared/ipc/export-validation.test.ts`, the JSON round trip in
+`src/main/import/keyhold-json.test.ts`, and the shared parser contract.
 
-**Sixteen fault injections, fifteen caught, and the sixteenth is the interesting one.**
+No count is written here on purpose. A total in prose is true on the day it is typed and
+silently false a week later, with nothing that fails when it drifts — this page previously
+claimed 89 and was wrong by twelve. Run `npx vitest run src/main/export src/shared/ipc` for
+the current number; what is worth stating in prose is _what is covered_, which changes only
+when someone decides it should.
+
+`preview.test.ts` asserts the one claim the dialog makes: that the preview and the run
+agree, for every format in the registry, in both trash directions. Six fault injections,
+all six caught — an empty loss list, `trashedInScope` read only one way round, the
+discarded plaintext bytes riding along in the result, `unknownIds` zeroed, the parcel
+claiming to contain secrets, and an unknown format falling through to "no losses".
+
+`export-validation.test.ts` is written from the other side: every case is a plan a
+**compromised renderer** would want to send. A parcel with no passphrase, a `kind` that
+disagrees with its format, a `confirmed: true` boolean where the typed phrase belongs, an
+absent `includeTrashed`, an unknown format id, an unknown `kind` falling through to
+plaintext. Six injections, six caught.
+
+**Sixteen fault injections in the engine, fifteen caught, and the sixteenth is the
+interesting one.**
 Making `serialiseIcon` assign `value` unconditionally failed _nothing_: `JSON.stringify`
 drops keys whose value is `undefined`, so the conditional assignment on the **writing** side
 is defence in depth, not the thing keeping the round trip honest. The load-bearing guard is
