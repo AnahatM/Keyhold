@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import type { AttachmentMeta } from './credential.js';
 import { MAX_CHUNK_BYTES } from '../format/types.js';
 
 /**
@@ -214,3 +215,23 @@ export type AttachmentErrorCode =
   | 'INVALID_ATTACHMENT_LIMIT'
   /** Chunk bytes did not hash to the digest the metadata recorded. */
   | 'ATTACHMENT_INTEGRITY';
+
+/**
+ * What attaching a file reports back to the renderer.
+ *
+ * `AttachmentMeta` is already safe-projection material — name, size, mime, digest — so it
+ * crosses as it is. The bytes never do. The three checks alongside it are the honest half: a
+ * MIME claim that disagreed with the file, a filename that had to be sanitised, a size past
+ * the warning threshold. Each is a thing to tell the user, not a reason to refuse.
+ *
+ * Declared here rather than beside `VaultService`, because `@shared` may never import from
+ * `src/main` — the renderer compiles this file, and pulling main-process code in behind a
+ * type would drag the whole module graph with it.
+ */
+export interface AttachmentAddView {
+  readonly meta: AttachmentMeta;
+  readonly deduped: boolean;
+  readonly mime: AttachmentMimeCheck;
+  readonly name: AttachmentNameCheck;
+  readonly warnLarge: boolean;
+}

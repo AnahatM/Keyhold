@@ -78,6 +78,9 @@ const SECRET_KIND_LABELS: Readonly<Record<SecretRef['kind'], string>> = {
   'custom-value': 'a custom field',
   'historic-password': 'a past password',
   'historic-notes': 'a past note',
+  // Never the filename. An attachment's name is often the most descriptive thing about it —
+  // "Passport.pdf" — and the activity log is read over a shoulder.
+  attachment: 'an attachment',
   'historic-answer': 'a past security answer',
   'historic-custom': 'a past custom field',
 };

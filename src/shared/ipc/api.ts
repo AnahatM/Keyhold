@@ -24,6 +24,7 @@ import type {
   VaultSummary,
 } from '../model/vault-document.js';
 import type { MachineSettings } from '../model/settings-plan.js';
+import type { AttachmentAddView, AttachmentAudit } from '../model/attachment.js';
 
 /**
  * The IPC contract — one source of truth for what the renderer can ask the main process
@@ -392,6 +393,30 @@ export interface SettingsView {
   readonly historyVersionCount: number;
 }
 
+/**
+ * Attachments.
+ *
+ * The renderer never names a path, in either direction. `add` opens a file dialog in the main
+ * process and reads the bytes there; `save` opens a save dialog and writes them there. A path
+ * chosen by the renderer would be attacker-controlled if the renderer were ever compromised,
+ * and a path the user picked in an OS dialog is a genuine act of consent — the same rule that
+ * governs opening a vault.
+ *
+ * **The bytes never cross this bridge.** There is deliberately no `read`: an attachment can be
+ * tens of megabytes and can be a photograph of a passport, and moving it into the renderer
+ * would put it in a process that must not hold secret material, to no end — the two things a
+ * user does with an attachment are look at it and save it, and both can happen in main.
+ */
+export interface AttachmentsApi {
+  /** Opens a file dialog, reads the file, and attaches it. `null` if the user cancelled. */
+  add: (credentialId: string) => Promise<IpcResult<AttachmentAddView | null>>;
+  remove: (credentialId: string, attachmentId: string) => Promise<IpcResult<boolean>>;
+  /** Opens a save dialog and writes the file. Resolves to the basename written, or `null`. */
+  save: (credentialId: string, attachmentId: string) => Promise<IpcResult<string | null>>;
+  /** Orphans in both directions. Reported, never repaired. */
+  audit: () => Promise<IpcResult<AttachmentAudit>>;
+}
+
 export interface KeyholdApi {
   app: AppApi;
   session: SessionApi;
@@ -402,6 +427,7 @@ export interface KeyholdApi {
   history: HistoryApi;
   organisation: OrganisationApi;
   settings: SettingsApi;
+  attachments: AttachmentsApi;
 }
 
 /** IPC channel names. Never build one by string concatenation at a call site. */
@@ -467,6 +493,11 @@ export const CHANNELS = {
   settingsUpdateMachine: 'kh:settings:update-machine',
   settingsUpdateVault: 'kh:settings:update-vault',
   settingsClearAllHistory: 'kh:settings:clear-all-history',
+
+  attachmentsAdd: 'kh:attachments:add',
+  attachmentsRemove: 'kh:attachments:remove',
+  attachmentsSave: 'kh:attachments:save',
+  attachmentsAudit: 'kh:attachments:audit',
 } as const;
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
