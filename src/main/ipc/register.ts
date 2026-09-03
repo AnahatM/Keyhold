@@ -16,6 +16,7 @@ import {
 import { requireExportPlan, requireExportPreviewRequest } from '@shared/ipc/export-validation.js';
 import { requireGeneratorOptions } from '@shared/ipc/generator-validation.js';
 import {
+  requireKdfCost,
   requireMachineSettingsPatch,
   requireVaultSettingsPatch,
 } from '@shared/ipc/settings-validation.js';
@@ -1222,6 +1223,91 @@ export function registerIpcHandlers(context: IpcContext): void {
    * from DESKTOP-A, at 14:02" would defeat the point of the button.
    */
   handle(CHANNELS.settingsClearAllHistory, () => vault.clearAllHistory());
+
+  /**
+   * Changes the master password on the open vault.
+   *
+   * **The new password is held to the same bar as a new vault's, and that check has to be
+   * here.** Onboarding refuses a master password that fails `meetsMasterMinimum`, but that
+   * refusal lives in the renderer. Without the same gate on this channel, the settings
+   * screen would be a supported route to a four-character master password on a vault that
+   * was created properly — the whole strength gate bypassed by a later screen. Same shape
+   * as the KDF floor in `requireKdfCost`: the renderer's version is a courtesy, this one is
+   * the rule.
+   *
+   * The *current* password is deliberately not strength-checked. It is whatever the vault
+   * already has, and refusing to let someone off a weak password because it is weak would
+   * be exactly backwards.
+   *
+   * Answers `null`. Nothing the screen renders changes, and a handler that returns key
+   * material's neighbours invites a caller to log them.
+   */
+  handle(CHANNELS.settingsChangeMasterPassword, async (currentSecret, nextSecret) => {
+    const current = requireNonEmptyString(
+      CHANNELS.settingsChangeMasterPassword,
+      currentSecret,
+      'currentSecret'
+    );
+    const next = requireNonEmptyString(
+      CHANNELS.settingsChangeMasterPassword,
+      nextSecret,
+      'nextSecret'
+    );
+
+    const strength = await session.estimateStrength(next);
+    if (!strength.meetsMasterMinimum) {
+      // The score and the label, never the password and never its length. `label` is
+      // zxcvbn's own word for the score, so this says "Weak" without saying why.
+      throw new IpcValidationError(
+        CHANNELS.settingsChangeMasterPassword,
+        `that password is too weak to protect a vault (${strength.label}). Nothing was changed.`
+      );
+    }
+
+    await vault.changeMasterPassword({ currentPassword: current, newPassword: next });
+
+    // Quick unlock is revoked, and the reason is worth stating because it is not obvious
+    // from the crypto. The enrolment stores the *data key*, not the password, so it would
+    // keep working perfectly well after a password change — nothing about it is stale. It
+    // is revoked because of what a password change means: somebody changing their master
+    // password is asserting that the old way in should stop working, and a stored key that
+    // opens the vault without any password at all is a way in. Leaving it would satisfy the
+    // cryptography and defeat the intent.
+    session.revokeQuickUnlock();
+    return null;
+  });
+
+  /**
+   * Re-derives the key-encryption key at a new Argon2 cost.
+   *
+   * The same operation as a password change with the password unchanged: the data key is
+   * re-wrapped, the body is re-sealed, and the records are never re-encrypted. What differs
+   * is only which half of the header the user asked to move.
+   *
+   * The current password is required and verified even though the vault is already open,
+   * for the same reason it is on a password change — see `VaultService.changeMasterPassword`.
+   */
+  handle(CHANNELS.settingsRekey, async (currentSecret, cost) => {
+    const current = requireNonEmptyString(CHANNELS.settingsRekey, currentSecret, 'currentSecret');
+    const kdf = requireKdfCost(CHANNELS.settingsRekey, cost);
+
+    await vault.changeMasterPassword({
+      currentPassword: current,
+      // Unchanged. The one case where reusing the secret is right: this operation is
+      // defined as "same password, different cost".
+      newPassword: current,
+      kdf,
+    });
+
+    // Revoked for a sharper reason here than on a password change. The enrolment holds the
+    // data key directly, so it opens the vault *without deriving anything* — the Argon2
+    // cost is bypassed entirely. A user who raises that cost has asked for exactly one
+    // thing, and leaving a KDF-skipping copy of the key in the OS keystore would give them
+    // almost none of it. The dialog has always promised this; until this slice nothing did
+    // it.
+    session.revokeQuickUnlock();
+    return settingsView();
+  });
 
   // ── folders and tags ───────────────────────────────────────────────────────
   //

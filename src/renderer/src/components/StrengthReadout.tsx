@@ -5,7 +5,7 @@ import type { PasswordStrength } from '@shared/model/strength.js';
 import '../vault/vault-screens.css';
 
 /**
- * The strength readout on the master-password step.
+ * The password-strength readout, wherever a master password or passphrase is chosen.
  *
  * **Everything it shows comes from the estimator.** The score, the word, the crack-time
  * estimate, the warning and the suggestions are all produced by `src/main/session/strength.ts`
@@ -17,13 +17,17 @@ import '../vault/vault-screens.css';
  * The word comes before the bar, and the bar is never the only signal, because "Weak" is
  * unambiguous in a way a shade of orange is not (WCAG 1.4.1).
  *
- * ### Known duplication, deliberately left alone
+ * ### One copy, and how it got here
  *
- * The score-to-tone map below is a second copy of the one inside `CreateVaultScreen.tsx`'s
- * private `StrengthMeter`. The right fix is to lift that component out of the create screen
- * so both surfaces share it — which means editing a file this work does not own, so it is
- * reported rather than done. If you are reading this because you are about to add a third
- * copy: extract instead.
+ * This lived in `onboarding/` with a note saying its score-to-tone map was a second copy of
+ * `CreateVaultScreen.tsx`'s private `StrengthMeter`, and that a third surface should extract
+ * rather than copy again. The settings screen's change-master-password dialog was that third
+ * surface. The two were byte-identical apart from a comment, so this is now the only one and
+ * both call sites import it.
+ *
+ * Keep it that way. Three surfaces now show a password's strength and they must agree, not
+ * because agreement is tidy but because a meter that says "Strong" on one screen and "Fair"
+ * on another teaches the user that the meter means nothing.
  */
 
 function toneFor(score: PasswordStrength['score']): 'success' | 'info' | 'warning' | 'danger' {

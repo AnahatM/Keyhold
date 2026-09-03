@@ -20,7 +20,7 @@ import type { Folder, Tag, VaultLockedInfo, VaultSummary } from '../model/vault-
 import type { MenuCommandId } from '../model/menu-commands.js';
 import type { KdfProgressView } from '../model/kdf-progress.js';
 import type { VaultChangedExternally } from '../model/vault-change.js';
-import type { SettingsSnapshot } from '../model/settings-plan.js';
+import type { KdfCost, SettingsSnapshot } from '../model/settings-plan.js';
 import type { AttachmentAddView, AttachmentAudit, AttachmentPreview } from '../model/attachment.js';
 import type { ExportFormatDescriptor } from '../model/export.js';
 import {
@@ -429,6 +429,28 @@ export interface SettingsApi {
   updateVault: (patch: Record<string, unknown>) => Promise<IpcResult<SettingsView>>;
   /** Returns how many versions were removed, so the UI can say what it cost. */
   clearAllHistory: () => Promise<IpcResult<number>>;
+  /**
+   * Re-wraps the data key under a new master password.
+   *
+   * Both secrets cross the bridge, which is the one direction that is safe: a password
+   * typed by the user is already in the renderer, and the alternative — a main-process
+   * prompt window — would be a second place that collects master passwords. Neither is
+   * stored, neither is logged, and nothing about either comes back.
+   *
+   * Returns nothing on purpose. The only thing this changes that the screen renders is the
+   * KDF salt, which is not shown; answering with a snapshot would imply there is something
+   * to look at. The `null` also means a mistaken `console.log` of the result cannot print
+   * anything about the vault's keys.
+   */
+  changeMasterPassword: (currentSecret: string, nextSecret: string) => Promise<IpcResult<null>>;
+  /**
+   * Re-derives the key-encryption key at a new Argon2 cost, under the same password.
+   *
+   * Needs the current password because the cost lives in the header the password derives
+   * against: there is no way to raise it without deriving once at the old cost to prove the
+   * password, and once at the new one to store it.
+   */
+  rekey: (currentSecret: string, cost: KdfCost) => Promise<IpcResult<SettingsView>>;
 }
 
 /**
@@ -617,6 +639,8 @@ export const CHANNELS = {
   settingsUpdateMachine: 'kh:settings:update-machine',
   settingsUpdateVault: 'kh:settings:update-vault',
   settingsClearAllHistory: 'kh:settings:clear-all-history',
+  settingsChangeMasterPassword: 'kh:settings:change-master-password',
+  settingsRekey: 'kh:settings:rekey',
 
   attachmentsAdd: 'kh:attachments:add',
   attachmentsRemove: 'kh:attachments:remove',

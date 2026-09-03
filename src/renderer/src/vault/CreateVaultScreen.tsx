@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { PasswordStrength } from '@shared/model/strength.js';
 import { Button } from '../components/Button.js';
 import { Input } from '../components/Input.js';
+import { StrengthReadout } from '../components/StrengthReadout.js';
 import { useSession } from './session-store.js';
 import './vault-screens.css';
 
@@ -117,7 +118,7 @@ export function CreateVaultScreen(): React.JSX.Element {
           }
         />
 
-        {strength !== null && <StrengthMeter strength={strength} />}
+        {strength !== null && <StrengthReadout strength={strength} />}
 
         <Input
           label="Confirm master password"
@@ -181,56 +182,3 @@ export function CreateVaultScreen(): React.JSX.Element {
  * Shows the score as a bar **and** a word, never colour alone (WCAG 1.4.1) — and the word
  * comes first, because "Weak" is unambiguous in a way a shade of orange is not.
  */
-function StrengthMeter({ strength }: { readonly strength: PasswordStrength }): React.JSX.Element {
-  const tone =
-    strength.score >= 4
-      ? 'success'
-      : strength.score === 3
-        ? 'info'
-        : strength.score === 2
-          ? 'warning'
-          : 'danger';
-
-  return (
-    <div className="kh-strength">
-      <div className="kh-strength__head">
-        <span className={`kh-strength__label kh-strength__label--${tone}`}>{strength.label}</span>
-        {strength.crackTime !== '' && (
-          <span className="kh-strength__time">
-            {/* Framed against Argon2, not a fast hash — see strength.ts. Called an estimate
-                because it is one, and a crack-time figure that pretends to precision is
-                worse than one that admits its assumptions. */}
-            Estimated time to crack offline: {strength.crackTime}
-          </span>
-        )}
-      </div>
-
-      <div
-        className="kh-strength__bar"
-        role="meter"
-        aria-valuenow={strength.score}
-        aria-valuemin={0}
-        aria-valuemax={4}
-        aria-label={`Password strength: ${strength.label}`}
-      >
-        {[0, 1, 2, 3].map((index) => (
-          <span
-            key={index}
-            className={`kh-strength__segment${index < strength.score ? ` kh-strength__segment--${tone}` : ''}`}
-          />
-        ))}
-      </div>
-
-      {strength.warning !== null && strength.warning !== '' && (
-        <p className="kh-strength__warning">{strength.warning}</p>
-      )}
-      {strength.suggestions.length > 0 && (
-        <ul className="kh-strength__suggestions">
-          {strength.suggestions.map((suggestion) => (
-            <li key={suggestion}>{suggestion}</li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}

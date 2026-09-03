@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { CHANNELS } from '@shared/ipc/api.js';
+import { KDF_UI_FLOOR, type SettingsGateway } from '@shared/model/settings-plan.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  createBridgeGateway,
-  REQUIRED_CHANNELS,
-  SettingsUnavailableError,
-} from './settings-gateway.js';
+import { createBridgeGateway, REQUIRED_CHANNELS } from './settings-gateway.js';
 
 /**
  * Guard: the gateway never reports a failure for something that succeeded.
@@ -63,6 +60,8 @@ function installBridge(overrides: Record<string, unknown> = {}): Recorded {
       updateMachine: () => Promise.resolve({ ok: true, value: SNAPSHOT }),
       updateVault: () => Promise.resolve({ ok: true, value: SNAPSHOT }),
       clearAllHistory: () => Promise.resolve({ ok: true, value: 7 }),
+      changeMasterPassword: () => Promise.resolve({ ok: true, value: null }),
+      rekey: () => Promise.resolve({ ok: true, value: SNAPSHOT }),
     },
     history: { networkName: () => Promise.resolve({ ok: true, value: 'Home' }) },
     ...overrides,
@@ -130,6 +129,49 @@ describe('the channels that exist', () => {
     await expect(gateway.updateMachine({})).resolves.toBeDefined();
     await expect(gateway.updateVault({})).resolves.toBeDefined();
     await expect(gateway.clearAllHistory()).resolves.toBe(7);
+    await expect(gateway.changeMasterPassword('old', 'new')).resolves.toBeUndefined();
+    await expect(gateway.rekey('old', KDF_UI_FLOOR)).resolves.toBeDefined();
+  });
+
+  /**
+   * Every method reaches the bridge — no stub survives here.
+   *
+   * This replaces what `REQUIRED_CHANNELS` used to guard. While the list had entries, an
+   * unwired method was visible in the list itself; now that it is empty that test can no
+   * longer fail, so the property moves to where it still has teeth. Driven off
+   * `Object.keys` rather than a written-out list, so a method added to `SettingsGateway`
+   * and stubbed rather than wired is caught without anyone remembering to add it here —
+   * which is the failure this file exists for.
+   */
+  it('leaves no method unwired, whatever is added to the gateway later', async () => {
+    installBridge();
+    const gateway = createBridgeGateway();
+
+    const args: Record<keyof SettingsGateway, readonly unknown[]> = {
+      read: [],
+      updateMachine: [{}],
+      updateVault: [{}],
+      networkName: [],
+      changeMasterPassword: ['old', 'new'],
+      rekey: ['old', KDF_UI_FLOOR],
+      clearAllHistory: [],
+      setQuickUnlock: [true],
+    };
+
+    // Every key on the object, not every key in `args`: a method missing from `args` fails
+    // as an undefined lookup rather than being quietly skipped.
+    for (const method of Object.keys(gateway) as (keyof SettingsGateway)[]) {
+      const call = gateway[method] as (...rest: readonly unknown[]) => Promise<unknown>;
+      // Settled to a string rather than asserted with `.resolves`, because the methods do
+      // not agree on a return value — `changeMasterPassword` resolves to `undefined` on
+      // purpose — and any matcher loose enough to accept all of them is loose enough to
+      // pass on a rejection too.
+      const settled = await call(...args[method]).then(
+        () => 'resolved',
+        (error: unknown) => `rejected: ${String(error)}`
+      );
+      expect(settled, `${method} did not reach the bridge`).toBe('resolved');
+    }
   });
 
   it('surface the main process message rather than a vaguer one', async () => {
@@ -143,22 +185,13 @@ describe('the channels that exist', () => {
   });
 });
 
-describe('the channels that do not exist yet', () => {
-  it('refuse by name rather than pretending', async () => {
-    installBridge();
-    const gateway = createBridgeGateway();
-    await expect(gateway.changeMasterPassword('a', 'b')).rejects.toBeInstanceOf(
-      SettingsUnavailableError
-    );
-    await expect(
-      gateway.rekey('a', { memoryKib: 1, iterations: 1, parallelism: 1 })
-    ).rejects.toBeInstanceOf(SettingsUnavailableError);
-  });
-
-  it('are exactly the ones REQUIRED_CHANNELS still lists as missing', () => {
-    // The list is meant to shrink one line at a time as handlers land. This is what stops
-    // it from becoming a stale inventory that describes a gap closed months ago — every
-    // entry naming a channel the contract already has is an entry that should be gone.
+describe('the inventory of missing channels', () => {
+  it('names nothing the contract already has', () => {
+    // The list shrank one line at a time as handlers landed, and is now empty. It stays,
+    // rather than being deleted, so the next gap is recorded the same way — but note this
+    // assertion cannot fail while the list is empty. The property it used to carry lives in
+    // 'leaves no method unwired' above; this one only guards against a future entry being
+    // added and then left behind after its channel lands.
     const registered = new Set<string>(Object.values(CHANNELS));
     const stale = REQUIRED_CHANNELS.filter((entry) => registered.has(entry.channel));
 

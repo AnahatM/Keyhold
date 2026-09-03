@@ -21,17 +21,17 @@ import type { ConfigurableVaultSettings, SettingsSnapshot } from '@shared/model/
 /**
  * The IPC surface still missing, and the payload each would carry.
  *
- * Data rather than prose so the failure message names the exact channel, and so the list
- * shrinks one line at a time as handlers land. It began with six; four have been deleted as
- * their channels appeared, and `settings-gateway.test.ts` fails if an entry here names a
- * channel `CHANNELS` already has — otherwise this becomes a stale inventory describing a
- * gap that closed months ago, which is the failure mode of every "still to do" list kept
- * next to the code rather than inside it.
+ * **Empty, and deliberately kept.** It began with six entries; all six have been deleted as
+ * their handlers landed, the last two — changing the master password and re-keying — in the
+ * slice that made them real. The list is data rather than prose so a failure message names
+ * the exact channel, and `settings-gateway.test.ts` fails if an entry here names a channel
+ * `CHANNELS` already has, which is what stopped it becoming a stale inventory describing a
+ * gap that closed months ago.
  *
- * The two that remain are not settings writes. Both re-wrap the DEK, both must be atomic
- * against a real vault file, and both need their own slice with the re-wrap tested against
- * one — which is exactly why they are still here rather than quietly bundled in with a
- * boolean toggle.
+ * The type and the machinery stay because the next gap will want them, and because an empty
+ * list is a stronger statement than a deleted one: it says the screen was audited against
+ * the contract and nothing is stubbed, rather than leaving the reader to wonder whether the
+ * inventory was removed because it was finished or because it was inconvenient.
  */
 export interface RequiredChannel {
   readonly method: keyof SettingsGateway;
@@ -40,49 +40,16 @@ export interface RequiredChannel {
   readonly returns: string;
 }
 
-export const REQUIRED_CHANNELS: readonly RequiredChannel[] = [
-  {
-    method: 'changeMasterPassword',
-    channel: 'kh:settings:change-master-password',
-    payload: '(currentSecret: string, nextSecret: string)',
-    returns: 'IpcResult<null>',
-  },
-  {
-    method: 'rekey',
-    channel: 'kh:settings:rekey',
-    payload: '(currentSecret: string, cost: KdfCost)',
-    returns: 'IpcResult<SettingsSnapshot>',
-  },
-];
-
-/** Raised when the screen asks for something whose IPC handler is not registered yet. */
-export class SettingsUnavailableError extends Error {
-  readonly channel: string;
-
-  constructor(method: keyof SettingsGateway) {
-    const required = REQUIRED_CHANNELS.find((entry) => entry.method === method);
-    const channel = required?.channel ?? `kh:settings:${method}`;
-    super(
-      `Settings are not wired up yet: this needs the ${channel} IPC channel, which Phase 14 has not registered. Nothing was changed.`
-    );
-    this.name = 'SettingsUnavailableError';
-    this.channel = channel;
-  }
-}
-
-function unavailable(method: keyof SettingsGateway): Promise<never> {
-  return Promise.reject(new SettingsUnavailableError(method));
-}
+export const REQUIRED_CHANNELS: readonly RequiredChannel[] = [];
 
 /**
  * The real gateway, over the preload bridge.
  *
- * Four of the six channels exist now. The two that do not — changing the master password
- * and re-keying — are envelope-crypto operations rather than settings writes: both re-wrap
- * the DEK and both must be atomic against a real vault file, which is a slice of its own.
- * They still refuse by name, which is the point of {@link REQUIRED_CHANNELS}: the list
- * shrinks one line at a time and the gap stays visible instead of being stubbed into
- * something that looks like it works.
+ * Every channel the screen needs now exists. The last two to arrive — changing the master
+ * password and re-keying — were held back deliberately: they are envelope-crypto operations
+ * rather than settings writes, both re-wrap the data key, and both had to be atomic against
+ * a real vault file, so they were a slice of their own rather than something bundled in
+ * beside a boolean toggle.
  */
 export function createBridgeGateway(): SettingsGateway {
   /**
@@ -114,10 +81,12 @@ export function createBridgeGateway(): SettingsGateway {
       return result.ok ? result.value : null;
     },
 
-    changeMasterPassword: (_currentSecret: string, _nextSecret: string) =>
-      unavailable('changeMasterPassword'),
+    changeMasterPassword: async (currentSecret: string, nextSecret: string): Promise<void> => {
+      unwrap(await window.keyhold.settings.changeMasterPassword(currentSecret, nextSecret));
+    },
 
-    rekey: (_currentSecret: string, _cost: KdfCost) => unavailable('rekey'),
+    rekey: async (currentSecret: string, cost: KdfCost) =>
+      unwrap(await window.keyhold.settings.rekey(currentSecret, cost)),
 
     clearAllHistory: async () => unwrap(await window.keyhold.settings.clearAllHistory()),
 
