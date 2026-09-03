@@ -510,6 +510,13 @@ describe('undo', () => {
     });
 
     expect(undone).toMatchObject({ undone: true, removedCount: 2, restoredCount: 0 });
+    // Both paths are read from the document as it stood *before* any folder was removed.
+    //
+    // That is the property the hoisted path map buys, and it is stronger than what it
+    // replaced: the previous code rebuilt the map inside the loop, so a nested folder
+    // removed after its parent would have been reported by its post-unfiling name — `Deep`
+    // rather than `Imported/Deep`. It happened to be safe only because `isFolderEmpty`
+    // forces the deeper folder to go first, which is an ordering nothing asserted.
     expect([...undone.removedFolderPaths]).toEqual(['Imported', 'Imported/Deep']);
     expect(vault.document.records).toEqual(before);
     expect(vault.document.records[0]?.id).toBe(untouched.id);
