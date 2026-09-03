@@ -49,3 +49,19 @@ export {
   type UnbuiltFeatureId,
 } from './feature-status.js';
 export { SHORTCUT_COUNT, SHORTCUT_SCOPE_ROWS } from './shortcuts-source.js';
+
+export { AboutView, type AboutViewProps } from './AboutView.js';
+export {
+  ABOUT_SUMMARY,
+  ABOUT_TITLE,
+  PROJECT,
+  VERSION_UNAVAILABLE,
+  aboutBlocks,
+  isUnresolved,
+  licenceCounts,
+  licenceRow,
+  licenceSummarySentence,
+  type AboutFactsInput,
+  type AboutLicence,
+  type LicenceCounts,
+} from './about-facts.js';

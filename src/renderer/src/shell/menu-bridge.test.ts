@@ -98,14 +98,22 @@ describe('the menu bridge', () => {
     // arriving with nowhere to go means the two sides disagree about what this build can do.
     // Worth saying out loud rather than discovering as a menu item that does nothing.
     //
-    // `help.about` because it genuinely has no home yet. This case previously used
-    // `vault.export`, and it failed the moment the export dialog was mounted — which is the
-    // guard doing its job: an unhandled-command test whose example quietly becomes handled
-    // stops testing anything, and this one said so instead.
+    // A command this build does not know, rather than a real id that happens to be unhandled
+    // today. Two real ones have been used here and both stopped working as examples the
+    // moment their feature landed — `vault.export` when the export dialog was mounted, then
+    // `help.about` when the About view got a row in `TOOL_VIEWS`. Each time the test failed
+    // loudly, which is the guard working, but an example that expires on every feature is a
+    // maintenance tax with no extra coverage: the property is "a command with nowhere to go
+    // is reported", not "this particular command has nowhere to go".
+    //
+    // No cast is needed, and that is worth noticing: the listener takes a plain string,
+    // because the id arrives over IPC from a process that may be a different version. A main
+    // process newer than the renderer it drives sends exactly this — a well-formed id the
+    // renderer has never heard of — and the bridge's job is to say so rather than shrug.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const stop = startMenuBridge();
 
-    listener?.('help.about');
+    listener?.('help.somethingThisBuildHasNeverHeardOf');
     expect(warn).toHaveBeenCalledOnce();
     stop();
     warn.mockRestore();

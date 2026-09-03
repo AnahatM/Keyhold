@@ -34,7 +34,7 @@
  */
 
 /**
- * All four, now that Settings has somewhere to go.
+ * All five, now that About has somewhere to go.
  *
  * `settings` was briefly absent from this list. `SettingsScreen` was written and
  * mount-ready, but its gateway still refused every read with "Phase 14 has not registered
@@ -46,7 +46,7 @@
  * `REQUIRED_CHANNELS` names a channel the contract already has — which is what stops the
  * same gap from re-opening quietly the next time a channel lands.
  */
-export const TOOL_VIEW_IDS = ['generator', 'health', 'settings', 'help'] as const;
+export const TOOL_VIEW_IDS = ['generator', 'health', 'settings', 'help', 'about'] as const;
 
 export type ToolViewId = (typeof TOOL_VIEW_IDS)[number];
 
@@ -111,6 +111,17 @@ export const TOOL_VIEWS: readonly ToolViewDefinition[] = [
     menuCommandId: 'help.docs',
     fills: true,
   },
+  {
+    id: 'about',
+    // 'About', not 'About Keyhold': the frame owns the <h1> and the page's own <h2> is
+    // 'Keyhold', so the longer title would say the name twice on one screen.
+    title: 'About',
+    summary: 'Version, licence, credits, and the licence of every library Keyhold ships.',
+    // Already in MENU_COMMAND_IDS and already emitted by the Help menu on Windows and Linux,
+    // where it has been a menu item that did nothing. This row is what makes it work.
+    menuCommandId: 'help.about',
+    fills: false,
+  },
 ];
 
 export const TOOL_VIEW_BY_ID: ReadonlyMap<ToolViewId, ToolViewDefinition> = new Map(
@@ -121,7 +132,7 @@ export const TOOL_VIEW_BY_ID: ReadonlyMap<ToolViewId, ToolViewDefinition> = new 
  * The menu command a native menu item carries, turned into a view.
  *
  * Returns `null` for every other command rather than throwing: the menu has two dozen
- * entries and only four of them are tool views, so "not one of mine" is the normal answer,
+ * entries and only five of them are tool views, so "not one of mine" is the normal answer,
  * not an error.
  */
 export function toolViewForMenuCommand(menuCommandId: string): ToolViewId | null {
