@@ -63,7 +63,20 @@ Every Keyhold file type, what it holds, and whether it is encrypted.
 | **`.keepx`**     | KEEPX — Keyhold Encrypted **Exchange** Package | A _subset_ of records, packaged for transfer to another device or person | **Yes**                          | Its **own** passphrase, independent of the master password |
 | **`.keeptheme`** | Keyhold Theme                                  | An exported custom theme — a small JSON token map                        | No                               | — (contains no secrets)                                    |
 | **`.keepbak`**   | Keyhold Backup                                 | A rolling automatic backup of a `.keep`                                  | **Yes**                          | Identical to its source vault                              |
+| `.keep.bak.N`    | _(rolling slot)_                               | The vault as it was before one of the last five saves; rotated out       | **Yes**                          | Identical to its source vault                              |
+| `.pre-merge-…`   | Pre-merge backup                               | A named, dated copy taken before a merge — kept, never rotated out       | **Yes**                          | Identical to its source vault                              |
 | `.keep.tmp`      | _(transient)_                                  | Atomic-write staging file, renamed over the target after `fsync`         | **Yes**                          | —                                                          |
+
+A pre-merge backup ends in `.keep` rather than an extension of its own, and that is
+deliberate: it is a whole vault, the file association should open it, and the same master
+password should unlock it. The full name is
+`<vault>.keep.pre-merge-<timestamp>-<random>.keep` — the vault's own name first so it sorts
+beside it, then what it is and when, then a random tail so two merges in the same millisecond
+cannot produce one name and silently overwrite each other.
+
+`.keepbak` is a **legacy** name the app no longer writes; the rolling slots are `.keep.bak.N`.
+Both are still recognised when found beside a vault, because a file the app once created is a
+file a user may still have.
 
 ### Why `.keep` and `.keepx` are different things
 

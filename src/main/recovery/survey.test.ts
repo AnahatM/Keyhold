@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { BACKUP_INFIX, TEMP_SUFFIX } from '../vault/atomic-write.js';
+import { BACKUP_INFIX, QUARANTINE_INFIX, TEMP_SUFFIX } from '../vault/atomic-write.js';
+import { PRE_MERGE_INFIX } from '../sync/pre-merge-backup.js';
 import { surveyVaultFiles, type DirectoryEntry } from './survey.js';
 import { buildContainer, truncatedTo } from './test-support.js';
 
@@ -67,6 +68,40 @@ describe('what a filename is', () => {
     expect(result.bestCandidate).toBe('vault.keep');
     // It sorts last, after every real candidate.
     expect(result.files.at(-1)?.name).toBe('work.keep');
+  });
+
+  it('ranks a pre-merge backup as a copy of this vault, not a different one', () => {
+    // It ends in `.keep` and used to fall through to the catch-all, so it was classified
+    // `other-vault` — listed, but never ranked as a candidate. That is the copy a user most
+    // wants after a merge went wrong, and the survey was steering them away from it.
+    const name = `vault.keep${PRE_MERGE_INFIX}2026-09-03T01-00-00-000Z-abcdef12.keep`;
+    const result = survey([entry('vault.keep'), entry(name)]);
+    const backup = result.files.find((file) => file.name === name);
+
+    expect(backup?.role).toBe('pre-merge-backup');
+  });
+
+  it('outranks a genuinely unrelated vault in the same folder', () => {
+    // The load-bearing half. `other-vault` is the one role excluded from ranking, so the
+    // whole fix is that a pre-merge backup is no longer classified as one — and the way to
+    // show that is to put a real `other-vault` beside it and check which the survey prefers.
+    const name = `vault.keep${PRE_MERGE_INFIX}2026-09-03T01-00-00-000Z-abcdef12.keep`;
+    const result = survey([entry(name), entry('work.keep')]);
+
+    const order = result.files.map((file) => file.name);
+    expect(order.indexOf(name)).toBeLessThan(order.indexOf('work.keep'));
+  });
+
+  it('outranks a quarantined temp of the same age, being a verified copy', () => {
+    // Only breaks a tie — `generation` carries age and decides first. Where two files are
+    // otherwise equal, a copy that was read back and digest-matched when it was written
+    // should beat one that was merely moved out of the way.
+    const name = `vault.keep${PRE_MERGE_INFIX}2026-09-03T01-00-00-000Z-abcdef12.keep`;
+    const quarantined = `vault.keep${QUARANTINE_INFIX}2026-09-03T01-00-00-000Z`;
+    const result = survey([entry(quarantined), entry(name)]);
+
+    const order = result.files.map((file) => file.name);
+    expect(order.indexOf(name)).toBeLessThan(order.indexOf(quarantined));
   });
 
   it('ignores files that are nothing to do with a vault', () => {

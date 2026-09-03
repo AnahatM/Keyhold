@@ -7,6 +7,7 @@ import type {
   VaultFileSurvey,
 } from '@shared/model/recovery.js';
 import { BACKUP_INFIX, QUARANTINE_INFIX, TEMP_SUFFIX } from '../vault/atomic-write.js';
+import { PRE_MERGE_INFIX } from '../sync/pre-merge-backup.js';
 import { inspectVaultFile } from './file-inspection.js';
 import { formatCount } from './text.js';
 
@@ -76,9 +77,15 @@ const ROLE_ORDER: Readonly<Record<SurveyedFileRole, number>> = {
   vault: 0,
   'orphaned-temp': 1,
   backup: 2,
-  'quarantined-temp': 3,
-  'legacy-backup': 4,
-  'other-vault': 5,
+  // Above the two salvage roles and below an ordinary backup. It is a verified, complete
+  // copy — read back and digest-matched when it was written, which no other file here can
+  // claim — but it is older than the rolling backups by construction, and `generation`
+  // already carries age. This order only breaks a tie between files of the same generation,
+  // and there the deliberate copy should win over a quarantined temp.
+  'pre-merge-backup': 3,
+  'quarantined-temp': 4,
+  'legacy-backup': 5,
+  'other-vault': 6,
 };
 
 /** Everything except a file belonging to a different vault is a candidate copy of this one. */
@@ -116,6 +123,14 @@ function classify(name: string, vaultName: string): Classified | null {
   if (lower.startsWith(`${vault}${QUARANTINE_INFIX}`)) {
     return { role: 'quarantined-temp', backupIndex: null };
   }
+
+  // Before the `.keep` catch-all below, and that order is the whole fix: a pre-merge backup
+  // ends in the vault extension, so it used to fall through and be classified `other-vault`
+  // — listed, but never ranked as a copy of *this* vault. It is the copy a user most wants
+  // after a merge went wrong, and the survey was quietly steering them away from it.
+  if (lower.startsWith(`${vault}${PRE_MERGE_INFIX}`)) {
+    return { role: 'pre-merge-backup', backupIndex: null };
+  }
   if (lower.endsWith(LEGACY_BACKUP_EXTENSION)) return { role: 'legacy-backup', backupIndex: null };
 
   // Anything else that is recognisably vault-shaped is listed rather than dropped, so a user
@@ -137,6 +152,9 @@ const TEMP_NOTE =
 const QUARANTINE_NOTE =
   'A temp file that has already been moved aside. Quarantine got it out of the way; it did not decide the file was worthless, so it is still ranked as a candidate copy.';
 
+const PRE_MERGE_NOTE =
+  'The copy taken automatically just before a merge, and the one to reach for if a merge went wrong. It was read back and checked against its own digest when it was written, which no other file here can claim. It opens with the same master password as the vault.';
+
 const OTHER_VAULT_NOTE =
   'A different vault in the same folder. Listed so it is not mistaken for a copy of this one, and never ranked as one.';
 
@@ -146,6 +164,8 @@ function noteFor(role: SurveyedFileRole): string | null {
       return TEMP_NOTE;
     case 'quarantined-temp':
       return QUARANTINE_NOTE;
+    case 'pre-merge-backup':
+      return PRE_MERGE_NOTE;
     case 'other-vault':
       return OTHER_VAULT_NOTE;
     case 'vault':

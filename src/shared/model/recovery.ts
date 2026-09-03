@@ -445,6 +445,12 @@ export interface VaultFileInspection {
  * `quarantined-temp` is a temp file that has already been renamed aside by
  * `quarantineOrphanedTemp`. It is listed because it is still a candidate copy — quarantine
  * moves a file out of the way, it does not decide the file was worthless.
+ *
+ * `pre-merge-backup` is the copy taken before a merge. It exists as its own role because it
+ * was classified as `other-vault` until this was added — listed, but never *ranked* as a copy
+ * of this vault — and it is the one copy a user most wants after a merge went wrong. It is
+ * also the most trustworthy of them: unlike a rolling `.bak.N`, it was read back and
+ * digest-matched at the moment it was written.
  */
 export const SURVEYED_FILE_ROLES = [
   'vault',
@@ -452,6 +458,7 @@ export const SURVEYED_FILE_ROLES = [
   'legacy-backup',
   'orphaned-temp',
   'quarantined-temp',
+  'pre-merge-backup',
   'other-vault',
 ] as const;
 export type SurveyedFileRole = (typeof SURVEYED_FILE_ROLES)[number];
