@@ -2,7 +2,10 @@
 import { HEALTH_RULE_IDS } from '@shared/model/health.js';
 import { DEFAULT_ATTACHMENT_SETTINGS } from '@shared/model/attachment.js';
 import { DEFAULT_BREACH_CHECK_SETTINGS } from '@shared/model/breach.js';
-import { DEFAULT_VAULT_HEALTH_SETTINGS } from '@shared/model/vault-document.js';
+import {
+  DEFAULT_VAULT_HEALTH_SETTINGS,
+  DEFAULT_VAULT_SETTINGS,
+} from '@shared/model/vault-document.js';
 import { AUDIT_PRIVACY_LEVELS, type Credential } from '@shared/model/credential.js';
 import type { ExportFormatId } from '@shared/model/export.js';
 import {
@@ -412,6 +415,15 @@ function parseSettings(raw: unknown): VaultSettings {
       source.historyEnabledByDefault,
       'settings.historyEnabledByDefault'
     ),
+    // Tolerant where its neighbours are strict, and the asymmetry is deliberate: this setting
+    // did not exist when older exports were written, so demanding it would make this parser
+    // refuse files Keyhold itself produced. A missing key takes the shipped default; a key
+    // that is present but not a boolean is still an error, because that is corruption rather
+    // than age.
+    historyRecordsMerges:
+      source.historyRecordsMerges === undefined
+        ? DEFAULT_VAULT_SETTINGS.historyRecordsMerges
+        : requireBoolean(source.historyRecordsMerges, 'settings.historyRecordsMerges'),
     historyMaxVersions: requireNullableNumber(
       source.historyMaxVersions,
       'settings.historyMaxVersions'

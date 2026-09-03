@@ -262,6 +262,36 @@ busiest, which is when a conflicted copy has just appeared.
 
 ---
 
+## 5d · What a merge leaves behind
+
+A merge rewrites records the user did not individually touch. It must not also be the one
+operation their audit trail cannot see — the same argument that makes a restore versioned.
+
+**The report is the vault's own history, not a file.** Each record a merge changed gets a
+history version with `action: 'merge'` and the full provenance the user's audit level allows, so
+the account of what happened is per-record, encrypted, travels with the vault, and is already
+visible in the timeline that shows every other change.
+
+The alternative — a report written next to the vault — was rejected. It would be a plaintext
+index of record titles sitting beside the ciphertext, which is the thing the whole file format
+exists to avoid, and it would need its own view, its own retention rule and its own place in the
+threat model to say what a report does that the timeline does not.
+
+**`historyRecordsMerges`** turns it off (hard rule 7). A large first merge can put a version on
+hundreds of records at once, and somebody who would rather their timeline not fill that way can
+say so; it costs the account of the merge and nothing else. When two vaults disagree about it,
+**off wins** — the privacy argument that governs `historyEnabledByDefault`, plus one specific to
+this setting: it decides what _this_ merge writes, so resolving it toward "record" would let a
+merge decide to record itself on the strength of the other device's preference.
+
+The engine has supported this since it was written; `mergeDocuments` takes a `mergeOrigin` and
+its own comment ties omitting it to writing no merge versions. **Nothing supplied one.** Every
+merge in the app wrote no history at all, and the engine's own tests could not notice, because
+they call the engine directly and pass in the thing under test. The guard for it therefore lives
+at the session layer, which is where "nobody supplies it" is visible.
+
+---
+
 ## 6 · Guards
 
 | Claim                                                                 | Held by                                                                                                                                        |
@@ -281,6 +311,8 @@ busiest, which is when a conflicted copy has just appeared.
 | A conflicted copy is found, and a backup or a stranger's vault is not | `conflict-candidates.test.ts`                                                                                                                  |
 | The copy that was picked is the one merged                            | `MergeFlow.test.tsx`, asserting the id `prepare` was called with                                                                               |
 | No path reaches the renderer                                          | `smoke.ts` → `conflicted-copy-listed-without-a-path`, against a real copy of the run's own vault                                               |
+| A merge is recorded in each changed record's history                  | `merge-session.test.ts` — at the session layer, because the engine's own tests pass the origin they are testing                                |
+| The setting turns that off, and off wins a disagreement               | `merge-session.test.ts` and `merge-collections.test.ts`                                                                                        |
 
 Every one of these was fault-injected with the bug it claims to catch before being trusted;
 each test file names its injections in its own header.

@@ -112,9 +112,7 @@ async function readHeaderSafely(
  * that gives up on the first `EBUSY` would find nothing precisely when the client is busiest —
  * which is exactly when a conflicted copy has just appeared.
  */
-export async function scanForConflictCandidates(
-  options: ScanOptions
-): Promise<{
+export async function scanForConflictCandidates(options: ScanOptions): Promise<{
   readonly candidates: readonly ConflictCandidate[];
   readonly paths: Map<string, string>;
 }> {

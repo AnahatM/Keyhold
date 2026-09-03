@@ -91,6 +91,7 @@ const VERSIONED_FIELD_LABELS: Readonly<Record<VersionedField, string>> = {
  */
 const SETTING_LABELS: Readonly<Record<keyof VaultSettings, string>> = {
   historyEnabledByDefault: 'Keep history for new records',
+  historyRecordsMerges: 'Record merges in each record’s history',
   historyMaxVersions: 'Versions kept per record',
   auditPrivacyLevel: 'Detail recorded in the activity log',
   passwordAgeWarningDays: 'Age at which a password counts as old',

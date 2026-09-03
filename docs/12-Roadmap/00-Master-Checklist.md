@@ -367,12 +367,13 @@ Keyhold's own JSON export re-imports. The dialog is written but not yet mounted.
       the one doing the work), plus six on the preview and six on the IPC boundary
 - [x] `docs/09-Import-Export/01-Export-Formats.md` written
 
-## Phase 12 — Sync & merge ~ REACHABLE, MINUS THE REPORT AND CLOUD DETECTION
+## Phase 12 — Sync & merge ~ COMPLETE
 
-_Goal: two devices, one cloud folder, and never a lost edit. The engine, the header, the
-base-snapshot store, the watcher, the four `kh:sync:*` channels and the resolver are all in,
-and a user can reach a merge from the palette or the File menu. What is left is the reload
-prompt, the saved report and cloud-folder awareness. Full notes:
+_Goal: two devices, one cloud folder, and never a lost edit. Every line below is done. A user
+can merge from the palette or the File menu, is offered the conflicted copies their sync client
+left rather than having to find them, is told when the vault file changed underneath them and
+offered only what does not destroy something, and gets a per-record account of every merge in
+the vault's own encrypted history. Full notes:
 `docs/07-Sync-And-Merge/00-Merge-Engine.md` and `01-The-Merge-Flow.md`._
 
 - [x] Generation counter **and content hash** in the header — the counter answers "was this
@@ -413,7 +414,11 @@ prompt, the saved report and cloud-folder awareness. Full notes:
       `.bak.N` slots are rotated out by the very next save
 - [x] The merge report itself — a conflict carries lengths, never values, and a resolution never
       sends a value back
-- [ ] Saving a merge report, and a view for it
+- [x] Saving a merge report, and a view for it — as the vault's **own history** rather than a
+      file: a version with `action: 'merge'` and full provenance on each record the merge
+      changed, encrypted, travelling with the vault, and already visible in the timeline. A
+      report written beside the vault would have been a plaintext index of record titles next
+      to the ciphertext. `historyRecordsMerges` turns it off; off wins a disagreement
 - [x] Cloud-folder detection with guidance — ten providers, recognised from the path alone and
       shown where the vault is described rather than as an alert. Whole-segment matching, because
       a false positive costs more than a miss: the merge engine recovers a miss, and telling

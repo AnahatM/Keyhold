@@ -47,6 +47,19 @@ export interface VaultSettings {
   /** Default for new records. Each record can override it — the per-credential checkbox. */
   readonly historyEnabledByDefault: boolean;
   readonly historyMaxVersions: number | null;
+  /**
+   * Whether a merge writes a history version on each record it changed.
+   *
+   * **On**, and this is the default that matters. A merge is the one operation that rewrites
+   * records the user did not individually touch, and it must not also be the one operation the
+   * audit trail cannot see — the same argument that makes a restore versioned.
+   *
+   * It is a setting because a large first merge can put a version on hundreds of records at
+   * once, and somebody who would rather their timeline not fill up that way should be able to
+   * say so (hard rule 7). Turning it off loses the account of what the merge did; it does not
+   * lose the merge, and the pre-merge backup is unaffected either way.
+   */
+  readonly historyRecordsMerges: boolean;
   readonly auditPrivacyLevel: AuditPrivacyLevel;
   /** Days after which a password counts as "old" in the health dashboard. */
   readonly passwordAgeWarningDays: number;
@@ -111,6 +124,7 @@ export const DEFAULT_VAULT_HEALTH_SETTINGS: VaultHealthSettings = {
 export const DEFAULT_VAULT_SETTINGS: VaultSettings = {
   historyEnabledByDefault: true,
   historyMaxVersions: 50,
+  historyRecordsMerges: true,
   auditPrivacyLevel: 'device',
   passwordAgeWarningDays: 365,
   trashRetentionDays: 30,

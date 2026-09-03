@@ -428,6 +428,15 @@ function breakCycles(folders: readonly Folder[]): {
 export const SETTING_POLICY = {
   /** Off wins: recording history is a privacy decision, and the quieter answer cannot surprise. */
   historyEnabledByDefault: 'history-off',
+  /**
+   * Off wins, for the same reason and one more.
+   *
+   * Same privacy argument as above — a merge may not start recording more about somebody than
+   * either of their devices was. The extra reason is that this setting is about what *this*
+   * merge writes, so resolving it toward "record" would mean a merge deciding to record itself
+   * on the strength of a preference the other device holds.
+   */
+  historyRecordsMerges: 'history-off',
   /** The larger cap wins (`null` is unlimited): keeping more history destroys nothing. */
   historyMaxVersions: 'larger-cap',
   /** The less revealing level wins: capture is irreversible, and the file travels. */
@@ -586,6 +595,13 @@ export function mergeSettings(
         ours.historyEnabledByDefault,
         theirs.historyEnabledByDefault,
         base?.historyEnabledByDefault,
+        false
+      ),
+      historyRecordsMerges: settle(
+        'historyRecordsMerges',
+        ours.historyRecordsMerges,
+        theirs.historyRecordsMerges,
+        base?.historyRecordsMerges,
         false
       ),
       historyMaxVersions: settle(

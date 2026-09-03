@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { ChangeOrigin } from '@shared/model/credential.js';
 import { MergeSessionError, MergeSessionStore } from './merge-session.js';
 import { doc, NOW, record } from './test-fixtures.js';
 import { writeVaultFileAtomically } from '../vault/atomic-write.js';
@@ -197,5 +198,59 @@ describe('discarding', () => {
 
     sessions.discardAll();
     expect(sessions.openPlanId).toBeNull();
+  });
+});
+
+describe('what a merge leaves in the audit trail', () => {
+  /*
+   * A merge rewrites records the user did not individually touch. It must not also be the one
+   * operation their history cannot see — the same argument that makes a restore versioned.
+   *
+   * The engine has supported this since it was written: `mergeDocuments` takes a `mergeOrigin`
+   * and its own comment ties omitting it to "write no merge versions". Nothing passed one. So
+   * every merge in the app wrote no history at all, and the engine's tests could not notice
+   * because they call the engine directly and pass what they are testing.
+   *
+   * That is the gap these two tests hold: the *session* is where the wiring lives, and this is
+   * the layer where "nobody supplies it" is visible.
+   *
+   * Fault injection performed:
+   *  1. Dropping `...this.#mergeOriginOption()` from either `mergeDocuments` call — fails
+   *     "stamps the merge on every record it changed". This is the state the code was in.
+   *  2. Returning the origin regardless of the setting — fails "writes nothing when the user
+   *     has asked it not to".
+   */
+
+  const withOrigin = (origin: ChangeOrigin | null): MergeSessionStore =>
+    new MergeSessionStore({ now: () => NOW, mergeOrigin: () => origin });
+
+  it('stamps the merge on every record it changed', async () => {
+    const merges = withOrigin({ action: 'merge', deviceName: 'the-laptop' });
+    const preview = await merges.prepare({ vaultPath, ...AGREEABLE });
+    const { document } = merges.commit(preview.planId);
+
+    const merged = document.records.find((candidate) => candidate.id === 'r1');
+    expect(merged).toBeDefined();
+
+    const versions = merged?.history.versions ?? [];
+    const fromMerge = versions.filter((version) => version.origin.action === 'merge');
+    expect(fromMerge).toHaveLength(1);
+    // The provenance the user chose to record, carried through rather than reduced to the verb.
+    expect(fromMerge[0]?.origin.deviceName).toBe('the-laptop');
+  });
+
+  it('writes nothing when the user has asked it not to', async () => {
+    // Hard rule 7. A large first merge can put a version on hundreds of records at once, and
+    // somebody who would rather their timeline not fill up that way can say so — it costs the
+    // account of what the merge did, and nothing else.
+    const merges = withOrigin(null);
+    const preview = await merges.prepare({ vaultPath, ...AGREEABLE });
+    const { document } = merges.commit(preview.planId);
+
+    const merged = document.records.find((candidate) => candidate.id === 'r1');
+    const versions = merged?.history.versions ?? [];
+    expect(versions.filter((version) => version.origin.action === 'merge')).toEqual([]);
+    // And the merge still happened, which is the half that must not be lost with it.
+    expect(merged?.title).toBe('Bank - joint');
   });
 });
