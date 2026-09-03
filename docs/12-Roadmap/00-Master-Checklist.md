@@ -507,25 +507,25 @@ produced and no workflow has ever run** — there is no remote yet. Full notes:
 > mostly integration, not construction.** `MANUAL-BACKLOG.md` §M-IPC lists every channel
 > group still owed.
 
-| Phase                            | Status        |
-| -------------------------------- | ------------- |
-| 0 · Scaffold                     | ✅ **Done**   |
-| 1 · Crypto & KEEP format         | ✅ **Done**   |
-| 2 · Vault service & IPC          | ✅ **Done**   |
-| 3 · Shell, design system, themes | ✅ **Done**   |
-| 4 · Unlock, lock, session        | ✅ **Done**   |
-| 5 · CRUD & fields                | ✅ **Done**   |
-| 6 · History & audit trail        | ~ Nearly done |
-| 7 · Organisation & search        | ~ Not mounted |
-| 8 · Password generator           | ~ Not mounted |
-| 9 · Attachments                  | ~ Engine done |
-| 10 · Import                      | ~ Needs IPC   |
-| 11 · Export & transfer bundle    | ~ Needs IPC   |
-| 12 · Sync & merge                | ~ Engine done |
-| 13 · Health dashboard            | ~ Not mounted |
-| 14 · Settings                    | ~ Needs IPC   |
-| 15 · Chrome & QoL                | ~ Mostly done |
-| 16 · In-app content              | ~ Not mounted |
-| 17 · Audits                      | ~ First pass  |
-| 18 · Packaging & CI              | ~ Configured  |
-| 19 · Docs & README               | Not started   |
+| Phase                            | Status         |
+| -------------------------------- | -------------- |
+| 0 · Scaffold                     | ✅ **Done**    |
+| 1 · Crypto & KEEP format         | ✅ **Done**    |
+| 2 · Vault service & IPC          | ✅ **Done**    |
+| 3 · Shell, design system, themes | ✅ **Done**    |
+| 4 · Unlock, lock, session        | ✅ **Done**    |
+| 5 · CRUD & fields                | ✅ **Done**    |
+| 6 · History & audit trail        | ~ Nearly done  |
+| 7 · Organisation & search        | ~ IPC done     |
+| 8 · Password generator           | ~ Not mounted  |
+| 9 · Attachments                  | ~ IPC done     |
+| 10 · Import                      | ~ Needs IPC    |
+| 11 · Export & transfer bundle    | ~ Needs IPC    |
+| 12 · Sync & merge                | ~ Engine done  |
+| 13 · Health dashboard            | ~ Not mounted  |
+| 14 · Settings                    | ~ IPC done     |
+| 15 · Chrome & QoL                | ~ Palette live |
+| 16 · In-app content              | ~ Not mounted  |
+| 17 · Audits                      | ~ First pass   |
+| 18 · Packaging & CI              | ~ Configured   |
+| 19 · Docs & README               | Not started    |
