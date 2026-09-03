@@ -191,6 +191,17 @@ export function runSmokeCheck(window: BrowserWindow): void {
 
         const id = made.value.id;
 
+        // The attachment preview channel, on an id that does not exist. Cannot attach a real
+        // file from here — that needs an OS dialog — but the refusal path is the one worth
+        // proving unattended: it must answer ok-with-a-null-value rather than throwing, and
+        // must not take a broker grant for a record it could not find. No backticks in this
+        // comment on purpose -- the whole probe is a template literal, and one would end it.
+        const noSuchPreview = await window.keyhold.attachments.preview(id, 'f'.repeat(32));
+        steps.push([
+          'attachment-preview-refuses-unknown',
+          noSuchPreview.ok === true && noSuchPreview.value === null,
+        ]);
+
         // THE boundary check, made against the live IPC surface rather than a unit test:
         // nothing the list returns may contain the password or the note.
         const after = await window.keyhold.credentials.list();

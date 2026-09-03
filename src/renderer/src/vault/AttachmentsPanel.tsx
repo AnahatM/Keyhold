@@ -3,6 +3,7 @@ import type { AttachmentMeta } from '@shared/model/credential.js';
 import { useState } from 'react';
 import { formatBytes } from '../activity/vault-statistics.js';
 import { addNotes } from './attachment-notes.js';
+import { AttachmentViewer } from './AttachmentViewer.js';
 import { ConfirmDialog, useToast } from '../chrome/index.js';
 import { Button } from '../components/Button.js';
 
@@ -56,6 +57,7 @@ export function AttachmentsPanel({
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [pendingRemove, setPendingRemove] = useState<AttachmentMeta | null>(null);
+  const [viewing, setViewing] = useState<AttachmentMeta | null>(null);
 
   const run = async (work: () => Promise<void>): Promise<void> => {
     setBusy(true);
@@ -143,6 +145,20 @@ export function AttachmentsPanel({
                 </span>
               </div>
               <div className="kh-attachments__actions">
+                {/* Offered for every file, not only the previewable kinds. The main process
+                    decides what will render, and hiding the button for the rest would mean
+                    the renderer keeping its own opinion about which types are safe — the
+                    second list, in the one place it must not exist. The viewer says plainly
+                    when it cannot show something. */}
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setViewing(attachment);
+                  }}
+                  disabled={busy}
+                >
+                  View
+                </Button>
                 <Button
                   variant="ghost"
                   onClick={() => {
@@ -167,6 +183,17 @@ export function AttachmentsPanel({
             </li>
           ))}
         </ul>
+      )}
+
+      {viewing !== null && (
+        <AttachmentViewer
+          open
+          credentialId={credentialId}
+          attachmentId={viewing.id}
+          onClose={() => {
+            setViewing(null);
+          }}
+        />
       )}
 
       <ConfirmDialog

@@ -156,6 +156,61 @@ export interface AttachmentNameCheck {
   readonly disguised: boolean;
 }
 
+/**
+ * The kinds a preview will render, and the reason it is not simply "all of them".
+ *
+ * A preview hands the file's bytes to the renderer, so each entry here is a deliberate
+ * widening of what the renderer holds. Three earn it, because for each the alternative is a
+ * user saving a copy to disk purely to look at it — which puts a decrypted file on their
+ * filesystem, permanently, to answer a question that took two seconds.
+ *
+ * Everything else is refused, and the refusals matter more than the allowances:
+ *
+ *  - **archives** would need unpacking to show anything, and unpacking untrusted input in
+ *    the renderer is a whole attack surface bought for a directory listing;
+ *  - **executables** have nothing to show, and rendering one implies the app understands it;
+ *  - **unrecognised types** are unrecognised — a preview would be guessing, and guessing at
+ *    the format of untrusted bytes is how a viewer becomes an exploit.
+ *
+ * Keyed off the **detected** kind rather than the claimed one, because the claim is the
+ * attacker's to write. `AttachmentMimeCheck.kind` is already the sniffed answer.
+ *
+ * A `satisfies readonly AttachmentPreviewKind[]` subset, not a parallel list: renaming a
+ * kind in `ATTACHMENT_PREVIEW_KINDS` is then a compile error here rather than a preview that
+ * silently stops matching and falls through to "cannot show this".
+ */
+export const PREVIEWABLE_ATTACHMENT_KINDS = [
+  'image',
+  'pdf',
+  'text',
+] as const satisfies readonly AttachmentPreviewKind[];
+
+export type PreviewableAttachmentKind = (typeof PREVIEWABLE_ATTACHMENT_KINDS)[number];
+
+export function isPreviewableKind(kind: string): kind is PreviewableAttachmentKind {
+  return (PREVIEWABLE_ATTACHMENT_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * One attachment's bytes, on their way to a preview.
+ *
+ * `bytes` rather than a data URL or a base64 string, deliberately. Base64 inflates a file by
+ * a third and would be built, copied across the bridge and parsed again — for a 20 MB scan
+ * that is three copies of somebody's passport in memory instead of one. A `Uint8Array`
+ * survives structured clone as a transferable and the renderer turns it into a blob URL it
+ * revokes the moment the viewer closes.
+ *
+ * The name travels because the viewer titles itself with it. Nothing else does: no path, no
+ * digest, no record fields.
+ */
+export interface AttachmentPreview {
+  readonly name: string;
+  /** The **detected** type, never the claimed one. */
+  readonly mime: string;
+  readonly kind: PreviewableAttachmentKind;
+  readonly bytes: Uint8Array;
+}
+
 // ── Audit ────────────────────────────────────────────────────────────────────
 
 export const ATTACHMENT_ISSUE_CODES = [
