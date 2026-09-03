@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { app, BrowserWindow } from 'electron';
 import { EVENTS } from '@shared/ipc/api.js';
+import { DEFAULT_BREACH_CHECK_SETTINGS } from '@shared/model/breach.js';
+import { BreachService } from './breach/service.js';
+import { NetworkPolicy } from './network-policy.js';
 import {
   notifySessionChanged,
   registerIpcHandlers,
@@ -38,6 +41,40 @@ const originCapture = new OriginCapture({
 });
 
 const session = new SessionController(new VaultService(undefined, originCapture));
+
+/**
+ * The network kill-switch, and the one place a breach client is built.
+ *
+ * Both switches read through on every question rather than being captured: the machine's
+ * `networkAllowed` from `machineSettings()`, and the open vault's `breachCheck` from its
+ * settings. Flipping either takes effect at the next question, not the next restart.
+ *
+ * `settings()` throws when no vault is open, which is the common case at startup and every
+ * time the vault is locked. Answered as "off" rather than allowed to throw: no vault means
+ * no passwords to check, so there is nothing the check could be permitted to do.
+ */
+const networkPolicy = new NetworkPolicy({
+  networkAllowed: () => session.machineSettings().networkAllowed,
+});
+
+const breach = new BreachService({
+  policy: networkPolicy,
+  settings: () => {
+    try {
+      return session.vault.settings().breachCheck;
+    } catch {
+      return DEFAULT_BREACH_CHECK_SETTINGS;
+    }
+  },
+});
+
+// The obligation the audit found written in a comment and waiting for a composition root.
+// The range cache outlives a sweep on purpose, so it would outlive a lock too — and its keys
+// are the 20-bit prefixes of the open vault's passwords, which is a partial fingerprint of
+// it. Registered here rather than called from `session.lock()` so nothing has to remember.
+session.onLock(() => {
+  breach.reset();
+});
 
 /**
  * The shell, once the app is ready. Held at module scope so `before-quit` and `will-quit`

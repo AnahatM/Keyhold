@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { AuditPrivacyLevel, Credential } from './credential.js';
 import { DEFAULT_ATTACHMENT_SETTINGS, type AttachmentSettings } from './attachment.js';
+import { DEFAULT_BREACH_CHECK_SETTINGS, type BreachCheckSettings } from './breach.js';
 import {
   DEFAULT_HEALTH_RULE_TOGGLES,
   DEFAULT_HEALTH_THRESHOLDS,
@@ -74,6 +75,19 @@ export interface VaultSettings {
    * only place that catches all three.
    */
   readonly attachments: AttachmentSettings;
+  /**
+   * Whether this vault's passwords may be checked against Have I Been Pwned, and how.
+   *
+   * Vault-scoped, and off. It is a property of *this collection of passwords* rather than of
+   * the machine looking at them — someone may want it on for their own vault and off for a
+   * shared one, on the same computer, and a machine-scoped answer cannot express that.
+   *
+   * It is only ever half the decision. `NetworkPolicy` ANDs it with the machine-scoped
+   * kill-switch, with the kill-switch dominant, because this setting travels inside the
+   * `.keep` file: a vault carried to a friend's laptop must not be able to turn that
+   * machine's network on. See `src/main/network-policy.ts`.
+   */
+  readonly breachCheck: BreachCheckSettings;
 }
 
 /**
@@ -102,6 +116,7 @@ export const DEFAULT_VAULT_SETTINGS: VaultSettings = {
   trashRetentionDays: 30,
   health: DEFAULT_VAULT_HEALTH_SETTINGS,
   attachments: DEFAULT_ATTACHMENT_SETTINGS,
+  breachCheck: DEFAULT_BREACH_CHECK_SETTINGS,
 };
 
 export interface VaultDocument {

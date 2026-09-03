@@ -458,6 +458,19 @@ export const SETTING_POLICY = {
    * maxima are too.
    */
   attachments: 'larger-cap',
+  /**
+   * Off wins, and the pacing settles toward the gentler number.
+   *
+   * The opposite direction from every cap above, and deliberately: enabling a network
+   * feature is not something a merge may do on a user's behalf. If either device says no,
+   * the answer is no — the same reasoning as `historyEnabledByDefault`, where the quieter
+   * answer is the one that cannot surprise anybody.
+   *
+   * The two timings take the *slower* interval and the *longer* timeout, because both spend
+   * someone else's free, unauthenticated API and the merge should not silently make a vault
+   * more demanding of it than either device was.
+   */
+  breachCheck: 'off-and-gentler',
 } as const satisfies Readonly<Record<keyof VaultSettings, string>>;
 
 export interface SettingsMerge {
@@ -516,6 +529,22 @@ export function mergeSettings(
   // choose between two configurations would be putting a question in front of them that has
   // already been answered correctly on their behalf. No conflict entry, deliberately —
   // `ConflictSide` carries a scalar, and there is no scalar question here.
+  // The third compound setting, settled field by field like the other two and with no
+  // conflict entry for the same reason: `ConflictSide` carries a scalar, and every field
+  // here has an answer that cannot cost the user anything.
+  const mergedBreachCheck: VaultSettings['breachCheck'] = {
+    // `&&`, not `||`. Either device saying no is a no.
+    enabled: ours.breachCheck.enabled && theirs.breachCheck.enabled,
+    requestIntervalMs: Math.max(
+      ours.breachCheck.requestIntervalMs,
+      theirs.breachCheck.requestIntervalMs
+    ),
+    requestTimeoutMs: Math.max(
+      ours.breachCheck.requestTimeoutMs,
+      theirs.breachCheck.requestTimeoutMs
+    ),
+  };
+
   const mergedAttachments: VaultSettings['attachments'] = {
     maxAttachmentBytes: Math.max(
       ours.attachments.maxAttachmentBytes,
@@ -551,6 +580,7 @@ export function mergeSettings(
     settings: {
       health: mergedHealth,
       attachments: mergedAttachments,
+      breachCheck: mergedBreachCheck,
       historyEnabledByDefault: settle(
         'historyEnabledByDefault',
         ours.historyEnabledByDefault,
