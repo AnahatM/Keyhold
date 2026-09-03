@@ -12,6 +12,7 @@ import { createIpcImportGateway } from '../import/ipc-gateway.js';
 import { OrganisationSidebar } from '../organisation/index.js';
 import { useOrganisation } from '../organisation/organisation-store.js';
 import {
+  CloudFolderNotice,
   ExternalChangeBanner,
   MergeFlow,
   createIpcSyncGateway,
@@ -470,6 +471,14 @@ function VaultOverview(): React.JSX.Element | null {
           <code className="kh-path">{vault.path}</code>
         </p>
       </header>
+
+      {/*
+        Where the vault is described, deliberately, and not as an alert. Nothing is wrong when
+        this appears — a vault in a cloud folder is a supported arrangement — and interrupting
+        someone to say their setup is fine but has a caveat is how a warning gets trained away
+        before the day it matters.
+      */}
+      <CloudFolderNotice vaultPath={vault.path} />
 
       <dl className="kh-vault-facts">
         <div>

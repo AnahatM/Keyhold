@@ -182,20 +182,60 @@ document is a reveal nobody asked for.
 
 ---
 
+## 5b · Noticing the cloud folder
+
+A `.keep` in Dropbox or iCloud is how Keyhold does multi-device without a server, and it is the
+arrangement the whole merge engine is for. It has one sharp edge that is invisible until it
+cuts: **the vault is one file, and a sync client copies whole files.** Two devices that both
+save while one is offline do not produce a merged vault — the client picks a winner and keeps
+the other as a conflicted copy, and the edits on the losing side exist only in that copy.
+
+`shared/model/cloud-folder.ts` recognises the situation from the vault's path and
+`CloudFolderNotice` says so, in the vault panel where the vault is described.
+
+**Not an alert, deliberately.** Nothing is wrong when it appears; interrupting somebody to say
+their setup is supported but has a caveat is how a warning gets trained away before the day it
+matters. It names the remedy — the merge flow — because a warning without one is only something
+to worry about.
+
+**In `shared`, and there is no channel.** Detection is a question about a string and the vault's
+path is already in the safe projection, so the renderer answers it itself. A channel would have
+been a round trip, a validator, and a second home for the provider table.
+
+The matching is **whole-segment**, and that is the part with a cost attached. A miss loses the
+user a warning, which is recoverable — the merge engine works either way. A false positive
+tells somebody with a folder called `Megabytes` that their vault is inside MEGA, which is the
+app being wrong about something they can see, and it makes every later warning cheaper. Prefix
+matching is allowed only where a client genuinely generates suffixed names: `OneDrive - Contoso`
+and `GoogleDrive-someone@example.com` are real, `googledrive-` on its own is not.
+
+Syncthing is the exception: it syncs whatever folder it is pointed at, so there is no name to
+look for. It is recognised by the `.stfolder` marker it leaves, which needs a directory listing
+rather than a string — so that check is separate, for a caller willing to pay for the read.
+
+`looksLikeConflictedCopy` recognises the names the real clients write for a losing side. It is a
+hint rather than a rule: a match is offered as a merge candidate, a non-match is excluded from
+nothing, and the patterns are allowed to be generous because a false positive costs one
+unnecessary suggestion.
+
+---
+
 ## 6 · Guards
 
-| Claim                                                 | Held by                                                                                         |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| No secret value reaches the screen                    | `MergeResolver.test.tsx`, driven from a report with a planted value                             |
-| Nothing is written while conflicts remain             | `MergeResolver.test.tsx` → `FakeSyncGateway`, which refuses exactly as `MergeSessionStore` does |
-| A plan arriving after the screen is gone is discarded | `MergeFlow.test.tsx`                                                                            |
-| A dismissed dialog is not an error                    | `MergeFlow.test.tsx`                                                                            |
-| An unrecognised side is refused, not defaulted        | `register.test.ts`                                                                              |
-| The merge row exists in the palette                   | `smoke.ts` → `palette-offers-every-transfer`                                                    |
-| The menu command is lock-gated                        | `menu-commands.test.ts`, which compares both directions                                         |
-| Reload is offered only when it loses nothing          | `external-change.test.ts`, over every combination of the flags                                  |
-| A reload never runs over unsaved edits                | `vault-service.test.ts`                                                                         |
-| The banner reaches the screen at all                  | `smoke.ts` → `external-change-banner-offers-a-reload`                                           |
+| Claim                                                    | Held by                                                                                                                                        |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| No secret value reaches the screen                       | `MergeResolver.test.tsx`, driven from a report with a planted value                                                                            |
+| Nothing is written while conflicts remain                | `MergeResolver.test.tsx` → `FakeSyncGateway`, which refuses exactly as `MergeSessionStore` does                                                |
+| A plan arriving after the screen is gone is discarded    | `MergeFlow.test.tsx`                                                                                                                           |
+| A dismissed dialog is not an error                       | `MergeFlow.test.tsx`                                                                                                                           |
+| An unrecognised side is refused, not defaulted           | `register.test.ts`                                                                                                                             |
+| The merge row exists in the palette                      | `smoke.ts` → `palette-offers-every-transfer`                                                                                                   |
+| The menu command is lock-gated                           | `menu-commands.test.ts`, which compares both directions                                                                                        |
+| Reload is offered only when it loses nothing             | `external-change.test.ts`, over every combination of the flags                                                                                 |
+| A reload never runs over unsaved edits                   | `vault-service.test.ts`                                                                                                                        |
+| The banner reaches the screen at all                     | `smoke.ts` → `external-change-banner-offers-a-reload`                                                                                          |
+| A cloud folder is recognised, and an ordinary one is not | `cloud-folder.test.ts`, whose larger half is what must **not** be detected                                                                     |
+| The notice reaches the screen                            | `smoke.ts` → `cloud-folder-notice-names-the-provider`, with the run's own vault placed inside a `Dropbox` folder so there is something to find |
 
 Every one of these was fault-injected with the bug it claims to catch before being trusted;
 each test file names its injections in its own header.

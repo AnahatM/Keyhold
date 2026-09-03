@@ -658,6 +658,27 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // it claims to show — regenerating them is one command.
         await captureNamedShot(window, 'Keyhold-Screenshot-01');
 
+        // The cloud-folder notice. The harness puts the smoke vault inside a folder called
+        // `Dropbox` precisely so this has something to find — a notice nothing renders looks
+        // identical to one that correctly decided not to appear, and that is the failure this
+        // whole session keeps turning up.
+        const cloudNotice: unknown = await window.webContents.executeJavaScript(
+          `(() => {
+            const element = document.querySelector('.kh-cloud-notice');
+            if (!element) return 'missing';
+            const text = element.textContent ?? '';
+            if (!text.includes('Dropbox')) return 'unnamed';
+            // The remedy has to be named, or the notice is only something to worry about.
+            if (!text.includes('Merge another copy of this vault')) return 'no-remedy';
+            return 'shown';
+          })()`,
+          true
+        );
+        emit(
+          `SMOKE-CHECK cloud-folder-notice-names-the-provider ${String(cloudNotice === 'shown')}`
+        );
+        await captureNamedShot(window, 'Keyhold-Screenshot-11');
+
         // Open the record that has history, and expand its newest change — by clicking the
         // real controls rather than through a test-only hook on `window`. A backdoor would
         // be production code that exists for the harness, and it would not prove the list

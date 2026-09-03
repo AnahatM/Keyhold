@@ -13,6 +13,7 @@
  * them by path, which makes every use of them visible in a search.
  */
 
+export { CloudFolderNotice, type CloudFolderNoticeProps } from './CloudFolderNotice.js';
 export { ExternalChangeBanner, type ExternalChangeBannerProps } from './ExternalChangeBanner.js';
 export {
   EXTERNAL_CHANGE_LABELS,
