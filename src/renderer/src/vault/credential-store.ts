@@ -38,6 +38,16 @@ interface CredentialState {
   readonly selectedId: string | null;
   readonly editing: boolean;
   readonly showTrash: boolean;
+  /**
+   * The chosen order, or `null` for the automatic one.
+   *
+   * `null` is not "no sorting" — `visibleCredentials` falls back to title on an empty search box
+   * and to relevance once there is a query, which is right often enough to be the default.
+   * Choosing explicitly pins it against that switch, which is the reason the control exists: a
+   * list that silently reorders itself when you start typing is one you cannot keep your place
+   * in.
+   */
+  readonly sort: SortOptions | null;
   readonly query: string;
   /** Ids matched by a deep search of secret material, which the renderer cannot search. */
   readonly deepMatches: readonly string[] | null;
@@ -47,6 +57,7 @@ interface CredentialState {
   select: (credentialId: string | null) => void;
   setEditing: (editing: boolean) => void;
   setShowTrash: (show: boolean) => void;
+  setSort: (sort: SortOptions | null) => void;
   setQuery: (query: string) => Promise<void>;
 
   create: (input: CredentialInput) => Promise<CredentialProjection | null>;
@@ -110,6 +121,7 @@ export const useCredentials = create<CredentialState>((set) => ({
   selectedId: null,
   editing: false,
   showTrash: false,
+  sort: null,
   query: '',
   deepMatches: null,
   busy: false,
@@ -121,6 +133,10 @@ export const useCredentials = create<CredentialState>((set) => ({
 
   setEditing: (editing) => {
     set({ editing });
+  },
+
+  setSort: (sort) => {
+    set({ sort });
   },
 
   setShowTrash: (showTrash) => {

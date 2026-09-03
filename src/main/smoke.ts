@@ -800,6 +800,50 @@ export function runSmokeCheck(window: BrowserWindow): void {
           })()`,
           true
         );
+        // The sort control, which had an engine with eight keys and no way to choose one.
+        // Driven, not just found: picking a key must actually reorder the list, and a control
+        // that renders but changes nothing is the failure this whole session keeps meeting.
+        const sorted = await waitFor(
+          window,
+          `(() => {
+             const select = document.querySelector('#kh-sort-key');
+             if (!select) return false;
+             const before = [...document.querySelectorAll('.kh-row')].map((r) => r.textContent);
+             if (before.length < 2) return false;
+             // Name Z-A: the exact reverse of the default, so the check cannot pass on a list
+             // that happens to already be in the chosen order.
+             select.value = 'title';
+             select.dispatchEvent(new Event('change', { bubbles: true }));
+             return JSON.stringify(before);
+           })()`
+        );
+
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const flip = [...document.querySelectorAll('.kh-sort button')][0];
+            flip?.click();
+            return flip !== undefined;
+          })()`,
+          true
+        );
+
+        // Compared against what the list was before the flip, embedded as a literal so the
+        // poll can return as soon as the order genuinely differs rather than after a fixed wait.
+        const reordered = await waitFor(
+          window,
+          `(() => {
+             const now = JSON.stringify(
+               [...document.querySelectorAll('.kh-row')].map((r) => r.textContent)
+             );
+             return now !== ${JSON.stringify(String(sorted))} ? now : false;
+           })()`
+        );
+        emit(
+          `SMOKE-CHECK sort-control-reorders-the-list ${String(
+            typeof sorted === 'string' && typeof reordered === 'string' && sorted !== reordered
+          )}`
+        );
+
         await noteScreen(window, 'before-cloud-notice');
         emit(
           `SMOKE-CHECK cloud-folder-notice-names-the-provider ${String(cloudNotice === 'shown')}`
