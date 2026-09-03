@@ -367,6 +367,12 @@ describe('arbitrary bytes', () => {
   it('does not repeat file content in an issue detail', () => {
     // A header full of a recognisable marker. `parseHeader`'s message is borrowed into the
     // detail, so the marker must not ride along with it.
+    //
+    // Worth knowing what this one does and does not prove: `{"x":"…"}` has no `cipher` field,
+    // so it is rejected by `requireString` — a message that quotes only the field-name
+    // literal `"cipher"` and never had the marker anywhere near it. It is a real assertion
+    // about the *first* rejection path and it passed vacuously as a statement about the
+    // others. The block below reaches the two that actually interpolated.
     const marker = 'MARKERMARKERMARKER';
     const bytes = buildContainer();
     const poisoned = overwrittenAt(
@@ -398,6 +404,132 @@ describe('arbitrary bytes', () => {
     const before = Uint8Array.from(bytes);
     inspectVaultFile(bytes);
     expect(bytes).toEqual(before);
+  });
+});
+
+/**
+ * The header's own message, as it arrives in a report.
+ *
+ * `parseHeader`'s message is borrowed verbatim through `sanitiseDetail`, and the report exists
+ * to be pasted into an issue tracker. Two of its messages used to interpolate a string read
+ * straight out of the header — the `kdf.alg` and `cipher` fields — with a 200-character cap as
+ * the only thing behind them. A cap bounds how much a crafted file gets to say; it says nothing
+ * about what.
+ *
+ * These fixtures are the adversarial half: a claimed algorithm carrying a quote, one carrying
+ * newlines, and one 300 characters long. `header.test.ts` asserts on the message directly;
+ * these assert on the whole `VaultFileInspection`, because the borrowing is what makes the
+ * message a *report* problem rather than a dialog one.
+ */
+describe('a header claiming a hostile algorithm name', () => {
+  /**
+   * A real container whose header JSON has been rewritten.
+   *
+   * Built from `buildContainer` rather than by hand, then re-framed: the header length field is
+   * rewritten to match, and everything after the original header is kept. Inspection halts at
+   * `header-json` long before any of it is read, which is exactly the path under test.
+   */
+  const withHeaderJson = (mutate: (header: Record<string, unknown>) => void): Uint8Array => {
+    const bytes = buildContainer();
+    const length = headerLengthOf(bytes);
+    const original = Buffer.from(bytes).subarray(HEADER_OFFSET, HEADER_OFFSET + length);
+    const header = JSON.parse(original.toString('utf8')) as Record<string, unknown>;
+    mutate(header);
+
+    const replacement = Buffer.from(JSON.stringify(header), 'utf8');
+    const lengthField = Buffer.alloc(4);
+    lengthField.writeUInt32LE(replacement.length, 0);
+
+    return new Uint8Array(
+      Buffer.concat([
+        Buffer.from(bytes).subarray(0, HEADER_LENGTH_OFFSET),
+        lengthField,
+        replacement,
+        Buffer.from(bytes).subarray(HEADER_OFFSET + length),
+      ])
+    );
+  };
+
+  const detailFor = (bytes: Uint8Array): string => {
+    const inspection = inspectVaultFile(bytes);
+    expect(inspection.reachedStage).toBe('header-bytes');
+    expect(inspection.stoppedAt?.stage).toBe('header-json');
+    expect(inspection.issues.map((issue) => issue.code)).toEqual(['header-unreadable']);
+    return inspection.issues[0]?.detail ?? '';
+  };
+
+  const HOSTILE: readonly (readonly [name: string, claimed: string])[] = [
+    ['a quote of its own', 'argon2id" and definitely "unlocked'],
+    ['newlines that forge a second finding', 'argon2id\n\nCRITICAL: vault seized\n'],
+    ['300 characters of junk', 'Z'.repeat(300)],
+    ['an ANSI escape', '\u001b[31margon2id\u001b[0m'],
+    ['a NUL byte', 'argon2id\u0000injected'],
+  ];
+
+  it('never reproduces the claimed key-derivation algorithm', () => {
+    for (const [what, claimed] of HOSTILE) {
+      const bytes = withHeaderJson((header) => {
+        header.kdf = { ...(header.kdf as Record<string, unknown>), alg: claimed };
+      });
+
+      const detail = detailFor(bytes);
+      expect(detail, what).toContain('does not recognise');
+      expect(detail, what).not.toContain(claimed);
+      expect(JSON.stringify(inspectVaultFile(bytes)), what).not.toContain(claimed);
+    }
+  });
+
+  it('never reproduces the claimed cipher', () => {
+    for (const [what, claimed] of HOSTILE) {
+      const bytes = withHeaderJson((header) => {
+        header.cipher = claimed;
+      });
+
+      const detail = detailFor(bytes);
+      expect(detail, what).toContain('does not recognise');
+      expect(detail, what).not.toContain(claimed);
+      expect(JSON.stringify(inspectVaultFile(bytes)), what).not.toContain(claimed);
+    }
+  });
+
+  it('is short because the message was composed, not because it was truncated', () => {
+    // The distinction the old cap could not make. `sanitiseDetail` still runs and still ends a
+    // long borrowed message with an ellipsis; a detail that needs it is a detail that carried
+    // 200 characters of somebody else's choosing up to that point.
+    const bytes = withHeaderJson((header) => {
+      header.cipher = 'Q'.repeat(4096);
+    });
+    const detail = detailFor(bytes);
+
+    expect(detail).not.toContain('…');
+    expect(detail.length).toBeLessThan(200);
+    expect(detail).toContain('4096 character(s)');
+  });
+
+  it('still names an algorithm that is on the allow-list, because that is the useful case', () => {
+    // The cost of the fix, stated as a test: a recognised name is still reported by name, so a
+    // user holding a file from another manager is told which one rather than being told
+    // nothing. Only unrecognised names lose their spelling.
+    const bytes = withHeaderJson((header) => {
+      header.cipher = 'ChaCha20-Poly1305';
+    });
+
+    expect(detailFor(bytes)).toContain('"ChaCha20-Poly1305"');
+  });
+
+  it('reports the same finding whatever the claimed name is', () => {
+    // A crafted file must not be able to change *which* problem the report describes, only
+    // whether its own name appears in it.
+    const codes = HOSTILE.map(([, claimed]) => {
+      const bytes = withHeaderJson((header) => {
+        header.cipher = claimed;
+      });
+      return inspectVaultFile(bytes)
+        .issues.map((issue) => issue.code)
+        .join(',');
+    });
+
+    expect(new Set(codes).size).toBe(1);
   });
 });
 
