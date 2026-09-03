@@ -71,7 +71,7 @@ SPDX rule the first time it was applied.
 - One coherent change per PR. Say **why**, not just what.
 - Run `npm run verify` and paste the result.
 - Update the matching page in `docs/` in the same PR. A stale doc is worse than no doc.
-- If you touched `src/main/security.ts`, `src/shared/crypto/`, `src/shared/format/`, or the
+- If you touched `src/main/security.ts`, `src/main/crypto/`, `src/main/format/`, `src/shared/format/types.ts`, or the
   IPC contract, say so — those get a closer read.
 - **Never edit `docs/superpowers/specs/`.** Those are frozen point-in-time design records.
   A spec that has drifted from the code is history, not a bug.

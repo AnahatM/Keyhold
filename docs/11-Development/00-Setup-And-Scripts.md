@@ -15,18 +15,18 @@ D14.
 
 ## Scripts
 
-| Script                                            | What it does                                                                                     |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `npm run dev`                                     | electron-vite dev server with hot reload for the renderer and restart-on-change for main/preload |
-| `npm run build`                                   | Typecheck, then build main, preload and renderer into `out/`                                     |
-| `npm start`                                       | Preview the production build                                                                     |
-| `npm run verify`                                  | **lint + typecheck + test.** The gate. Must be green before any commit                           |
-| `npm run lint` / `lint:fix`                       | ESLint                                                                                           |
-| `npm run format` / `format:check`                 | Prettier                                                                                         |
-| `npm run typecheck`                               | `tsc --noEmit` against both tsconfigs                                                            |
-| `npm test` / `test:watch` / `test:ui`             | Vitest                                                                                           |
-| `npm run test:smoke`                              | Launches the real built app and verifies the preload bridge. **Run after `npm run build`**       |
-| `npm run package` / `package:win` / `package:mac` | electron-builder (Phase 18)                                                                      |
+| Script                                                            | What it does                                                                                                                                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run dev`                                                     | electron-vite dev server with hot reload for the renderer and restart-on-change for main/preload                                                                               |
+| `npm run build`                                                   | Typecheck, then build main, preload and renderer into `out/`                                                                                                                   |
+| `npm start`                                                       | Preview the production build                                                                                                                                                   |
+| `npm run verify`                                                  | **lint + typecheck + test.** The gate. Must be green before any commit                                                                                                         |
+| `npm run lint` / `lint:fix`                                       | ESLint                                                                                                                                                                         |
+| `npm run format` / `format:check`                                 | Prettier                                                                                                                                                                       |
+| `npm run typecheck`                                               | `tsc --noEmit` against both tsconfigs                                                                                                                                          |
+| `npm test` / `test:watch` / `test:ui`                             | Vitest                                                                                                                                                                         |
+| `npm run test:smoke`                                              | Launches the real built app and verifies the preload bridge. **Run after `npm run build`**                                                                                     |
+| `npm run package` / `package:win` / `package:mac` / `package:dir` | electron-builder, configured in `electron-builder.yml`. `package:dir` skips the installer and leaves an unpacked build, which is what you want when debugging packaging itself |
 
 ## Project layout
 

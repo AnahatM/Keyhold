@@ -287,13 +287,14 @@ newest data, and nothing can tell without the password.
 
 ## 11. The extension family
 
-| Extension                  | Contents                                   | Passphrase                      |
-| -------------------------- | ------------------------------------------ | ------------------------------- |
-| `.keep`                    | The vault                                  | The master password             |
-| `.keepx`                   | A chosen subset, for transfer              | Its own, independent passphrase |
-| `.keeptheme`               | An exported theme (plain JSON, no secrets) | —                               |
-| `.keepbak` / `.keep.bak.N` | A rolling backup                           | Same as its source vault        |
-| `.keep.tmp`                | Transient write staging                    | —                               |
+| Extension     | Contents                                                                                                                                                                                  | Passphrase                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `.keep`       | The vault                                                                                                                                                                                 | The master password             |
+| `.keepx`      | A chosen subset, for transfer                                                                                                                                                             | Its own, independent passphrase |
+| `.keeptheme`  | An exported theme (plain JSON, no secrets)                                                                                                                                                | —                               |
+| `.keep.bak.N` | A rolling backup, written by `atomic-write.ts`                                                                                                                                            | Same as its source vault        |
+| `.keepbak`    | **Read, never written.** A legacy single-backup name kept only so `src/main/recovery/survey.ts` still recognises one left by an older build. A conforming implementation must not emit it | Same as its source vault        |
+| `.keep.tmp`   | Transient write staging                                                                                                                                                                   | —                               |
 
 `.keepx` uses the same container format. It is distinguished by its content, not its bytes.
 

@@ -6,7 +6,7 @@
 
 ---
 
-## 1. The three files, and why it takes three
+## 1. The four files, and why it takes four
 
 | File                             | Owns                                                                     |
 | -------------------------------- | ------------------------------------------------------------------------ |
@@ -22,15 +22,15 @@ channel string itself would be one typo away from a silent no-op.
 
 ## 2. The channel groups
 
-| Group         | Needs an open vault | Notes                                                              |
-| ------------- | ------------------- | ------------------------------------------------------------------ |
-| `app`         | no                  | Version and platform                                               |
-| `session`     | no                  | Unlock, lock, file dialogs, clipboard, quick unlock                |
-| `vault`       | mixed               | Inspect, create, unlock, save, summary                             |
-| `credentials` | yes                 | List, get, reveal, deep search, full CRUD                          |
-| `generator`   | **no**              | Generation is pure; choosing a password before unlocking is normal |
-| `health`      | yes                 | The offline analysis                                               |
-| `history`     | yes                 | Diffs, restores, clearing, and the network-name probe              |
+| Group         | Needs an open vault | Notes                                                                                                                                                      |
+| ------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app`         | no                  | Version and platform                                                                                                                                       |
+| `session`     | no                  | Unlock, lock, file dialogs, clipboard, quick unlock                                                                                                        |
+| `vault`       | mixed               | Inspect, create, unlock, save, summary                                                                                                                     |
+| `credentials` | yes                 | List, get, reveal, deep search, full CRUD                                                                                                                  |
+| `generator`   | **no**              | Generation is pure; choosing a password before unlocking is normal                                                                                         |
+| `health`      | yes                 | The offline analysis                                                                                                                                       |
+| `history`     | mixed               | Diffs, restores and clearing need one; `history:networkName` does not — it probes the machine for the settings screen and is callable on the unlock screen |
 
 ---
 

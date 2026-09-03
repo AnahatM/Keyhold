@@ -53,7 +53,7 @@ needed to reproduce, say so and a sanitised reproduction will be worked out with
 
 ## For contributors
 
-If a pull request touches `src/main/security.ts`, `src/shared/crypto/`, `src/shared/format/`,
+If a pull request touches `src/main/security.ts`, `src/main/crypto/`, `src/main/format/`, `src/shared/format/types.ts`,
 or the IPC contract, say so in the description. Those files carry guard tests that must
 keep passing, and changes there get a closer read.
 
