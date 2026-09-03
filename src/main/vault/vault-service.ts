@@ -177,11 +177,28 @@ export class VaultService {
   #saving: Promise<void> = Promise.resolve();
   #broker = new SecretBroker();
   readonly #deviceId: string;
+  #writeGuard: (() => () => void) | null = null;
   readonly #origin: OriginSource;
 
   constructor(deviceId: string = uuid(), origin: OriginSource = NO_ORIGIN) {
     this.#deviceId = deviceId;
     this.#origin = origin;
+  }
+
+  /**
+   * Something to bracket every write with — the vault watcher, in production.
+   *
+   * A settable hook rather than a constructor argument, because the watcher needs the vault
+   * *path*, which only exists once a vault is open, and the service is constructed before
+   * that. Default is a no-op, so nothing else has to know this exists.
+   *
+   * It lives here, wrapping the one call to `writeVaultFileAtomically`, rather than in
+   * `SessionController.save()` — which is not the only save. The import service calls
+   * `VaultService.save()` directly in three places and `createVault` saves internally, and
+   * bracketing at the session layer would have left all four unbracketed and looking correct.
+   */
+  setWriteGuard(guard: (() => () => void) | null): void {
+    this.#writeGuard = guard;
   }
 
   get state(): VaultState {
@@ -432,7 +449,16 @@ export class VaultService {
 
     const bytes = writeContainer(header, { body, attachments }, opened.dek);
 
-    await writeVaultFileAtomically(opened.path, bytes);
+    // Bracketed so a watcher can tell our own write from somebody else's. The release is in
+    // a `finally`: a write that throws must still close the window, or the watcher stays
+    // deaf to real external changes for the rest of the session — which is a worse failure
+    // than the one that caused it.
+    const release = this.#writeGuard?.() ?? null;
+    try {
+      await writeVaultFileAtomically(opened.path, bytes);
+    } finally {
+      release?.();
+    }
 
     // ── Writing back, without discarding whatever happened during the await ──
     //

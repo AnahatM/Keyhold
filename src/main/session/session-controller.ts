@@ -9,6 +9,7 @@ import { DEFAULT_SECRET_REVEAL_LIMITS, type MachineSettings } from '@shared/mode
 import { KdfRunner, type KdfProvider } from '../crypto/kdf-runner.js';
 import { VaultError } from '../crypto/errors.js';
 import { listVaultCopyPaths } from '../vault/atomic-write.js';
+import { listPreMergeBackups } from '../sync/index.js';
 import { VaultService } from '../vault/vault-service.js';
 import { AutoLock, type LockReason } from './auto-lock.js';
 import { SecretClipboard, type ClipboardState } from './clipboard.js';
@@ -60,6 +61,7 @@ export class SessionController {
   #window: BrowserWindow | null = null;
   #onStatusChange: (() => void) | null = null;
   readonly #lockListeners = new Set<() => void>();
+  readonly #openListeners = new Set<(vaultPath: string) => void>();
 
   constructor(vault: VaultService = new VaultService(), kdf: KdfProvider = new KdfRunner()) {
     this.#vault = vault;
@@ -249,6 +251,19 @@ export class SessionController {
    * Listeners run in registration order, and one that throws does not stop the others: a
    * failed cleanup must not leave the rest of the app unlocked.
    */
+  /**
+   * Registers something to be started when a vault is opened, with its path.
+   *
+   * The mirror of {@link onLock}, and it takes the path because the things that need this
+   * need it — a file watcher has nothing to watch until there is a file. Same failure mode
+   * as its counterpart: one that throws does not stop the others, because a failed setup
+   * must not leave the vault half-open.
+   */
+  onOpen(listener: (vaultPath: string) => void): () => void {
+    this.#openListeners.add(listener);
+    return () => this.#openListeners.delete(listener);
+  }
+
   onLock(listener: () => void): () => void {
     this.#lockListeners.add(listener);
     return () => this.#lockListeners.delete(listener);
@@ -349,6 +364,18 @@ export class SessionController {
     });
     this.#autoLock.configure(this.#preferences.get().autoLock);
     this.#autoLock.arm(this.#window ?? undefined);
+
+    // The path only exists now, which is why the watcher is started here rather than in the
+    // composition root: there is nothing to watch until a vault is open. Symmetrical with the
+    // `onLock` teardown — a watch left running over a locked vault holds an open handle on
+    // its directory, which on Windows stops that folder being renamed or moved.
+    for (const listener of this.#openListeners) {
+      try {
+        listener(summary.path);
+      } catch (error) {
+        console.error('[session] an open listener threw:', error);
+      }
+    }
   }
 
   /**
@@ -377,7 +404,20 @@ export class SessionController {
     // The vault itself is removed explicitly as well as through the listing, so a directory
     // that cannot be read still loses the file the user actually pointed at.
     await rm(path, { force: true });
-    for (const copy of await listVaultCopyPaths(path)) {
+    // Pre-merge backups too, and this is the reason they are folded in here rather than
+    // taught to `atomic-write.ts`: that module owns the rolling `.bak.N` naming and knows
+    // nothing about merges, and teaching it would make `vault/` import `sync/`, which
+    // already imports `vault/`. So the caller unions the two listings instead.
+    //
+    // Without this, a wipe leaves a fully openable copy of the vault on disk under the same
+    // master password — which is the one outcome the whole feature exists to prevent, and it
+    // would have looked correct in every test that only checked the `.bak.N` slots.
+    const copies = [
+      ...(await listVaultCopyPaths(path)),
+      ...(await listPreMergeBackups(path)).map((file) => file.path),
+    ];
+
+    for (const copy of copies) {
       await rm(copy, { force: true }).catch(() => undefined);
     }
     this.#preferences.forgetVault(path);
