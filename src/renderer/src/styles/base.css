@@ -101,6 +101,25 @@ body,
   height: 100%;
   margin: 0;
   padding: 0;
+
+  /*
+   * The window itself must never scroll. The panes carry their own `overflow-y: auto` and
+   * are the only things that should move.
+   *
+   * **This is defence in depth, not the fix.** Neither `hidden` nor `clip` here prevented
+   * the real bug — a `scrollIntoView` deep in the settings screen dragged the whole shell up
+   * even with `overflow: clip` computed on `documentElement`. What actually caused it was a
+   * `.kh-visually-hidden` live region leaking its static position into the document height;
+   * see that rule below. With that fixed, the document is exactly the height of the window
+   * and there is nothing to scroll, which is why the guard in `smoke.ts` asserts
+   * `scrollHeight === clientHeight` rather than trusting this declaration.
+   *
+   * `clip` over `hidden` because it creates no scroll container at all, so a future leak of
+   * the same shape cannot be scrolled programmatically either. It is kept for that reason
+   * and not because it is currently doing any work — swapping it back to `hidden` today
+   * fails nothing, which was measured rather than assumed.
+   */
+  overflow: clip;
 }
 
 body {
@@ -116,8 +135,9 @@ body {
    * A desktop app, not a web page: the window itself must never scroll or rubber-band,
    * and text selection is opt-in per element. Selecting the whole chrome by dragging is
    * a browser behaviour that reads as broken inside an app window.
+   *
+   * Scrolling is refused on `html`, `body` and `#root` together — see the rule above.
    */
-  overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -215,8 +235,28 @@ textarea {
  * Visible to screen readers, invisible on screen. Used for the skip link and for labels
  * that would be redundant next to a clear icon but are essential without sight of it.
  */
+/*
+ * Hidden from sight, present to a screen reader.
+ *
+ * The `top`/`left` are not cosmetic and were added to fix a real bug. `position: absolute`
+ * with neither offset leaves the box at its *static* position, resolved against the nearest
+ * positioned ancestor — and these regions have none, so the containing block is the document
+ * itself. A live region rendered deep inside the settings screen therefore landed roughly
+ * 3,900px down the document, and although the box is 1×1 and clipped, its offset still
+ * counted toward `documentElement.scrollHeight`.
+ *
+ * The result was a viewport with 3,870px of scroll height in a 695px window, so a single
+ * `scrollIntoView` on any control below the fold slid the entire shell up — sidebar header
+ * off the top, band of nothing at the bottom, and no scrollbar to drag it back. Measured,
+ * not guessed: the element was found by listing every box whose bottom exceeded the window.
+ *
+ * Pinning to the origin costs nothing. A screen reader announces in DOM order and does not
+ * care where the box sits, and the box is invisible either way.
+ */
 .kh-visually-hidden {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   padding: 0;

@@ -127,6 +127,12 @@ export const SETTING_COPY: Readonly<Record<SettingId, SettingCopy>> = {
     help: 'Stores a second, independently wrapped copy of this vault’s data key in your operating system’s key store. Your master password is never stored, in any form, and re-keying the vault turns this off automatically.',
     tradeOff: null,
   },
+  networkAllowed: {
+    label: 'Let Keyhold make network requests',
+    help: 'Off. Keyhold works entirely offline and has exactly one optional feature that would use a connection — checking your passwords against Have I Been Pwned, which is itself off by default. With this off, that code is not merely disabled: no connection can be opened at all, because nothing that could open one is ever built. Opening a link in your browser is not affected; that request is made by your browser, as you.',
+    tradeOff:
+      'Turning this on lets the breach check reach the internet, if you also turn that on. Nothing else in Keyhold will use it.',
+  },
   historyEnabledByDefault: {
     label: 'Keep history for new records',
     help: 'Each record can override this on its own. History stores the values a change replaced, so a previous password is recoverable — and is protected exactly like the current one.',
