@@ -2,6 +2,7 @@
 import { app, BrowserWindow } from 'electron';
 import { EVENTS } from '@shared/ipc/api.js';
 import { DEFAULT_BREACH_CHECK_SETTINGS } from '@shared/model/breach.js';
+import type { KdfProgressView } from '@shared/model/kdf-progress.js';
 import type { VaultChangedExternally } from '@shared/model/vault-change.js';
 import { BreachService } from './breach/service.js';
 import { NetworkPolicy } from './network-policy.js';
@@ -136,6 +137,15 @@ const breach = new BreachService({
 // it. Registered here rather than called from `session.lock()` so nothing has to remember.
 session.onLock(() => {
   breach.reset();
+});
+
+// The Argon2 estimate, pushed at ~10 Hz while a derivation runs.
+//
+// Registered here beside the other cross-cutting wiring rather than inside the session, for
+// the same reason the lock teardown is: the composition root is the one place that knows both
+// that a session exists and that a window does.
+session.onKdfProgress((progress) => {
+  mainWindow?.webContents.send(EVENTS.kdfProgress, progress satisfies KdfProgressView);
 });
 
 /**

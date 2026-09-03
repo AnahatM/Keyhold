@@ -780,3 +780,8 @@
   flex-wrap: wrap;
   align-items: center;
 }
+
+.kh-merge-preparing__note {
+  margin: 0;
+  color: var(--kh-color-text-muted);
+}

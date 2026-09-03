@@ -170,6 +170,17 @@ export function runSmokeCheck(window: BrowserWindow): void {
         const password = 'a-smoke-test-master-passphrase';
         const steps = [];
 
+        // Every Argon2 report this run produces, collected from the first derivation onward.
+        //
+        // The chain being checked is runner -> session -> composition root -> preload ->
+        // renderer, and every link in it fails silently: a bar that is never told anything
+        // simply does not appear, which looks identical to a fast machine. The unit tests
+        // cover the prediction and the emitting; only this covers the wiring between them.
+        const kdfReports = [];
+        const stopKdf = window.keyhold.app.onKdfProgress((progress) => {
+          kdfReports.push(progress);
+        });
+
         const created = await window.keyhold.vault.create(path, password);
         steps.push(['create', created.ok]);
         if (!created.ok) return { stage: 'cycle', ok: false, steps, detail: created.message };
@@ -185,6 +196,16 @@ export function runSmokeCheck(window: BrowserWindow): void {
 
         const reopened = await window.keyhold.vault.unlock(path, password);
         steps.push(['unlock', reopened.ok]);
+
+        stopKdf();
+        steps.push(['kdf-progress-reaches-the-renderer', kdfReports.length > 0]);
+        steps.push([
+          'kdf-progress-never-claims-to-be-finished',
+          kdfReports.every(
+            (report) =>
+              typeof report.fraction === 'number' && report.fraction >= 0 && report.fraction < 1
+          ),
+        ]);
         if (!reopened.ok) return { stage: 'cycle', ok: false, steps, detail: reopened.message };
 
         // Auto-lock off for the rest of the run, and said out loud rather than done quietly.

@@ -5,6 +5,7 @@ import { mountReact, type MountedTree } from '../chrome/test-dom.js';
 import { FakeSyncGateway } from './fake-sync-gateway.js';
 import { MergeFlow } from './MergeFlow.js';
 import { SyncGatewayError } from './sync-gateway.js';
+import type { KdfProgressView } from '@shared/model/kdf-progress.js';
 import { names, preview, report } from './test-fixtures.js';
 
 /**
@@ -52,27 +53,64 @@ async function settle(): Promise<void> {
 
 const noop = (): void => undefined;
 
+/** No bridge in a unit test, and no reports either: the bar simply never appears. */
+const noKdfProgress = (): (() => void) => () => undefined;
+
 function textOf(container: HTMLElement): string {
   return container.textContent;
 }
 
 describe('waiting for prepare', () => {
-  it('says what the wait is for, without inventing a percentage', async () => {
+  it('says what the wait is for while the bar has nothing to report yet', async () => {
     const gateway = new FakeSyncGateway(preview(report()));
     // Held open, so the waiting state is the one on screen when the assertion runs.
     gateway.prepareGate = new Promise<void>(() => undefined);
 
-    tree = mountReact(<MergeFlow gateway={gateway} names={names()} onClose={noop} />);
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={noKdfProgress}
+      />
+    );
     await settle();
 
-    const text = textOf(tree.container);
-    expect(text).toContain('Reading the other copy');
-    expect(text).toContain('backing this one up');
-    // An indeterminate bar reports no value. A percentage here would be a number the app
-    // cannot know, which is the whole reason this state is worded the way it is.
+    // The sentence is there from the first frame. The bar is not, and that is deliberate: it
+    // appears when the main process has something to report rather than showing a position
+    // nothing has reported yet.
+    expect(textOf(tree.container)).toContain('backing this one up');
+    expect(tree.container.querySelector('[role="progressbar"]')).toBeNull();
+  });
+
+  it('shows the shared Argon2 bar once the main process reports one', async () => {
+    const gateway = new FakeSyncGateway(preview(report()));
+    gateway.prepareGate = new Promise<void>(() => undefined);
+
+    let emit: ((progress: KdfProgressView) => void) | null = null;
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={(listener) => {
+          emit = listener;
+          return () => undefined;
+        }}
+      />
+    );
+    await settle();
+
+    await act(async () => {
+      emit?.({ fraction: 0.42, elapsedMs: 420, estimatedMs: 1_000, overdue: false });
+      await Promise.resolve();
+    });
+
     const bar = tree.container.querySelector('[role="progressbar"]');
     expect(bar).not.toBeNull();
-    expect(bar?.getAttribute('aria-valuenow')).toBeNull();
+    // The position is the predicted one, as a percentage, because the bar speaks its value.
+    expect(bar?.getAttribute('aria-valuenow')).toBe('42');
+    expect(textOf(tree.container)).toContain('Reading the other copy');
   });
 });
 
@@ -86,6 +124,7 @@ describe('a dismissed file dialog', () => {
       <MergeFlow
         gateway={gateway}
         names={names()}
+        subscribeToKdfProgress={noKdfProgress}
         onClose={() => {
           closed += 1;
         }}
@@ -108,7 +147,14 @@ describe('a file that would not open', () => {
       error: new SyncGatewayError('sync/unreadable', 'That file could not be decrypted.', true),
     };
 
-    tree = mountReact(<MergeFlow gateway={gateway} names={names()} onClose={noop} />);
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={noKdfProgress}
+      />
+    );
     await settle();
 
     const text = textOf(tree.container);
@@ -125,7 +171,14 @@ describe('a file that would not open', () => {
       error: new SyncGatewayError('sync/unreadable', 'Not a vault.', true),
     };
 
-    tree = mountReact(<MergeFlow gateway={gateway} names={names()} onClose={noop} />);
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={noKdfProgress}
+      />
+    );
     await settle();
     expect(gateway.prepareCalls).toBe(1);
 
@@ -158,7 +211,14 @@ describe('unmounting while Argon2 is still running', () => {
       release = resolve;
     });
 
-    tree = mountReact(<MergeFlow gateway={gateway} names={names()} onClose={noop} />);
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={noKdfProgress}
+      />
+    );
     await settle();
     expect(gateway.discardCalls).toEqual([]);
 

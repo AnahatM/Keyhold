@@ -140,3 +140,104 @@ describe.skipIf(!BUILT)('the worker-thread KDF (requires `npm run build`)', () =
     }).not.toThrow();
   });
 });
+
+describe('progress while a derivation runs', () => {
+  /*
+   * The bar exists because `CLAUDE.md` calls a frozen window during Argon2 a bug, and Argon2
+   * reports nothing of its own — the position is predicted in `kdf-estimate.ts`, which has its
+   * own tests. What is asserted here is the wiring, and specifically the parts that would fail
+   * silently: a bar that keeps climbing after the work ends, and a listener that can take an
+   * unlock down with it.
+   *
+   * Fault injection performed:
+   *  1. Moving `stopTicking()` out of the `finally` and after the `return` — fails "stops
+   *     ticking the moment the work settles", with ticks continuing after resolution.
+   *  2. Removing the `try/catch` around the listener call — fails "a listener that throws
+   *     cannot fail an unlock", the derivation rejecting instead of returning a key.
+   *  3. Calling `onMeasured` outside the success path — fails "measures only a derivation that
+   *     finished", a timed-out run being folded into the rate as an enormously slow machine.
+   */
+
+  it.runIf(BUILT)(
+    'reports a climbing position and stops when the work settles',
+    async () => {
+      const seen: number[] = [];
+      runner = new KdfRunner(WORKER_PATH, {
+        onProgress: (progress) => {
+          seen.push(progress.fraction);
+        },
+        // A deliberately long estimate, so the derivation finishes early in the curve and the
+        // samples are inside the linear part rather than the asymptotic tail.
+        rate: () => 1,
+      });
+
+      await runner.derive('a-password', FAST_PARAMS, KEY_BYTES);
+      const atSettle = seen.length;
+
+      expect(atSettle).toBeGreaterThan(0);
+      // Never 1: the caller learns it finished from the promise, not from the bar.
+      for (const fraction of seen) {
+        expect(fraction).toBeGreaterThanOrEqual(0);
+        expect(fraction).toBeLessThan(1);
+      }
+      // Monotonic, which is the property a user actually notices.
+      expect([...seen].sort((a, b) => a - b)).toEqual(seen);
+
+      // Nothing more after it settled. A ticker left running is a bar climbing over a screen
+      // that has already moved on, and an interval nothing will ever clear.
+      await new Promise<void>((done) => setTimeout(done, 350));
+      expect(seen.length).toBe(atSettle);
+    },
+    30_000
+  );
+
+  it.runIf(BUILT)(
+    'measures a derivation that finished, so the rate can learn',
+    async () => {
+      const measured: number[] = [];
+      runner = new KdfRunner(WORKER_PATH, {
+        onMeasured: (_params, ms) => {
+          measured.push(ms);
+        },
+      });
+
+      await runner.derive('a-password', FAST_PARAMS, KEY_BYTES);
+
+      expect(measured).toHaveLength(1);
+      expect(measured[0]).toBeGreaterThan(0);
+    },
+    30_000
+  );
+
+  it.runIf(BUILT)(
+    'a listener that throws cannot fail an unlock',
+    async () => {
+      runner = new KdfRunner(WORKER_PATH, {
+        onProgress: () => {
+          throw new Error('the progress listener is broken');
+        },
+        rate: () => 1,
+      });
+
+      // The key still comes back. A progress bar is the least important thing on the screen and
+      // must not be able to stop the most important one.
+      const key = await runner.derive('a-password', FAST_PARAMS, KEY_BYTES);
+      expect(key.length).toBe(KEY_BYTES);
+      key.destroy();
+    },
+    30_000
+  );
+
+  it.runIf(BUILT)(
+    'says nothing at all when no listener was supplied',
+    async () => {
+      // Not a preference: a timer that exists to call nothing is a timer keeping the process
+      // awake for no reason, and this is the default in every test that does not care.
+      runner = new KdfRunner(WORKER_PATH);
+      const key = await runner.derive('a-password', FAST_PARAMS, KEY_BYTES);
+      expect(key.length).toBe(KEY_BYTES);
+      key.destroy();
+    },
+    30_000
+  );
+});

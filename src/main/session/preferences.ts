@@ -58,6 +58,17 @@ export interface Preferences {
   readonly networkAllowed: boolean;
   /** Quick-unlock enrolments, keyed by vault id. */
   readonly quickUnlock: Readonly<Record<string, QuickUnlockRecord>>;
+  /**
+   * How many milliseconds one KiB-iteration of Argon2 takes on this machine.
+   *
+   * `null` until a derivation has been timed here. It is what makes the unlock bar
+   * determinate — Argon2 reports no progress of its own, so the position is predicted from
+   * this and corrected by every derivation that completes. See `crypto/kdf-estimate.ts`.
+   *
+   * Machine-scoped and emphatically not a vault setting: it describes this computer, and a
+   * vault carried to a slower laptop must not bring the fast machine's timing with it.
+   */
+  readonly kdfMsPerCostUnit: number | null;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -67,6 +78,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   wipeAfterFailedAttempts: null,
   networkAllowed: false,
   quickUnlock: {},
+  kdfMsPerCostUnit: null,
 };
 
 const MAX_RECENT = 10;
@@ -147,6 +159,16 @@ export function coercePreferences(value: unknown): Preferences {
     // read as false, because a kill-switch that fails open on corruption is not one.
     networkAllowed: raw.networkAllowed === true,
     quickUnlock,
+    // A finite positive number or nothing. A stored `0`, a negative, a `NaN` round-tripped
+    // through JSON as `null`, or a string all fall back to "not measured yet" — which costs
+    // one badly-estimated unlock, where trusting them would divide by zero or predict
+    // instantaneous.
+    kdfMsPerCostUnit:
+      typeof raw.kdfMsPerCostUnit === 'number' &&
+      Number.isFinite(raw.kdfMsPerCostUnit) &&
+      raw.kdfMsPerCostUnit > 0
+        ? raw.kdfMsPerCostUnit
+        : null,
   };
 }
 

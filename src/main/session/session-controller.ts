@@ -6,6 +6,7 @@ import type { SecretRef } from '@shared/model/credential.js';
 import type { PasswordStrength } from '@shared/model/strength.js';
 import type { VaultLockedInfo, VaultSummary } from '@shared/model/vault-document.js';
 import { DEFAULT_SECRET_REVEAL_LIMITS, type MachineSettings } from '@shared/model/settings-plan.js';
+import { learnRate, type KdfProgress } from '../crypto/kdf-estimate.js';
 import { KdfRunner, type KdfProvider } from '../crypto/kdf-runner.js';
 import { VaultError } from '../crypto/errors.js';
 import { listVaultCopyPaths } from '../vault/atomic-write.js';
@@ -63,9 +64,47 @@ export class SessionController {
   readonly #lockListeners = new Set<() => void>();
   readonly #openListeners = new Set<(vaultPath: string) => void>();
 
-  constructor(vault: VaultService = new VaultService(), kdf: KdfProvider = new KdfRunner()) {
+  readonly #kdfProgressListeners = new Set<(progress: KdfProgress) => void>();
+
+  /**
+   * Built here rather than as a parameter default, because the hooks it needs point back at
+   * this object: the learned rate lives in these preferences, and the progress it emits goes
+   * to this session's listeners. A default evaluated in the parameter list cannot see `this`.
+   *
+   * A caller supplying its own provider — every test that does — gets no progress and no
+   * learning, which is correct: `InProcessKdf` blocks the thread it is on, so there would be
+   * nothing to report progress *to*.
+   */
+  constructor(vault: VaultService = new VaultService(), kdf?: KdfProvider) {
     this.#vault = vault;
-    this.#kdf = kdf;
+    this.#kdf =
+      kdf ??
+      new KdfRunner(undefined, {
+        onProgress: (progress) => {
+          for (const listener of this.#kdfProgressListeners) {
+            try {
+              listener(progress);
+            } catch (error) {
+              console.error('[session] a KDF progress listener threw:', error);
+            }
+          }
+        },
+        rate: () => this.#preferences.get().kdfMsPerCostUnit,
+        onMeasured: (params, measuredMs) => {
+          // Written straight through to preferences. It is one number, it is not secret, and
+          // the alternative — holding it in memory and persisting on quit — loses the
+          // measurement in exactly the case that matters most: the first unlock on a new
+          // machine, where the estimate is at its worst and the app may well be closed again
+          // before anything else writes.
+          this.#preferences.update({
+            kdfMsPerCostUnit: learnRate(
+              this.#preferences.get().kdfMsPerCostUnit,
+              params,
+              measuredMs
+            ),
+          });
+        },
+      });
     this.#autoLock = new AutoLock((reason) => {
       this.lock(reason);
       // The renderer has to be told, or it keeps rendering a vault that is no longer open.
@@ -267,6 +306,19 @@ export class SessionController {
   onLock(listener: () => void): () => void {
     this.#lockListeners.add(listener);
     return () => this.#lockListeners.delete(listener);
+  }
+
+  /**
+   * Subscribes to the Argon2 progress estimate.
+   *
+   * Emitted for every derivation this session runs — unlocking, creating, changing a master
+   * password, and reading the other copy during a merge — because every one of them is a wait
+   * a person is looking at. Nothing waits on these; a listener that throws is logged and the
+   * derivation carries on.
+   */
+  onKdfProgress(listener: (progress: KdfProgress) => void): () => void {
+    this.#kdfProgressListeners.add(listener);
+    return () => this.#kdfProgressListeners.delete(listener);
   }
 
   lock(reason: LockReason = 'manual'): void {
