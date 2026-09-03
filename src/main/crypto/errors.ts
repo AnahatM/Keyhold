@@ -32,7 +32,11 @@ export type VaultErrorCode =
   /** A declared size exceeds the safety ceiling — a decompression or allocation bomb. */
   | 'TOO_LARGE'
   /** Attachment bytes did not match their recorded hash. */
-  | 'CHUNK_INTEGRITY';
+  | 'CHUNK_INTEGRITY'
+  /** A reload would have thrown away edits that are only in memory. */
+  | 'UNSAVED_CHANGES'
+  /** A different vault is at the path this one was opened from. */
+  | 'DIFFERENT_VAULT';
 
 export class VaultError extends Error {
   readonly code: VaultErrorCode;
@@ -92,6 +96,35 @@ export function tooLarge(what: string, size: number, limit: number): VaultError 
   return new VaultError(
     'TOO_LARGE',
     `Refusing to read ${what}: it declares ${size} bytes, above the ${limit}-byte safety limit.`
+  );
+}
+
+/**
+ * Refuses to re-read a file over edits that exist only in memory.
+ *
+ * The caller is expected to have checked already — the reload prompt only offers the button
+ * when there is nothing to lose. This is the layer that makes "never lose data" true rather
+ * than intended: a caller that forgets, or a race in which an edit lands between the check
+ * and the call, gets an error instead of a silent deletion.
+ */
+export function unsavedChanges(): VaultError {
+  return new VaultError(
+    'UNSAVED_CHANGES',
+    'This vault has changes that have not been saved yet, so it cannot be reloaded from disk.'
+  );
+}
+
+/**
+ * A different vault at the same path.
+ *
+ * Not "the file changed" — a different `vaultId` means the file was replaced by somebody
+ * else's vault, or restored from an unrelated backup. Reading it into this session would put
+ * two people's credentials behind one master password.
+ */
+export function differentVault(): VaultError {
+  return new VaultError(
+    'DIFFERENT_VAULT',
+    'The file at this path is a different vault from the one that is open.'
   );
 }
 

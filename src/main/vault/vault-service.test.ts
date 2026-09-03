@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { mkdtemp, rm } from 'node:fs/promises';
+import { copyFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -459,5 +459,131 @@ describe('the content hash in the header', () => {
     const before = bodyDigest(new Uint8Array(Buffer.from('{"a":1}', 'utf8')));
     const after = bodyDigest(new Uint8Array(Buffer.from('{"a":2}', 'utf8')));
     expect(before).not.toBe(after);
+  });
+});
+
+describe('reloading from disk after another device wrote the file', () => {
+  /*
+   * The response to what the watcher reports. There is no password prompt because there is
+   * nothing to prove: the DEK belongs to the vault rather than to a session, so a second
+   * `VaultService` unlocking the same file with the same password holds the same key and
+   * writes a body this one can read.
+   *
+   * Fault injection performed:
+   *  1. Deleting `if (open.dirty) throw unsavedChanges()` — fails "refuses while there are
+   *     unsaved changes", and the record added in memory is silently gone.
+   *  2. Deleting the `header.vaultId` comparison — fails "refuses a different vault at the
+   *     same path"; the read then succeeds and this session holds somebody else's records.
+   *  3. Deleting `this.#broker.revokeAll()` — fails "drops secret grants issued against the
+   *     old document".
+   */
+
+  /** A second service over the same file, standing in for the other device. */
+  const otherDevice = async (): Promise<VaultService> => {
+    const other = new VaultService('other-device');
+    await other.unlock(vaultPath, PASSWORD);
+    return other;
+  };
+
+  it('picks up what the other device wrote, without a password', async () => {
+    await create();
+    await withRecords(record('rec-1', { title: 'Only mine' }));
+
+    const other = await otherDevice();
+    other.replaceDocument({
+      ...emptyVaultDocument(),
+      records: [record('rec-1', { title: 'Only mine' }), record('rec-2', { title: 'Theirs' })],
+    });
+    await other.save();
+    other.lock();
+
+    // Still the old story in memory, which is the whole situation.
+    expect(service.documentUnsafe().records).toHaveLength(1);
+
+    const summary = await service.reloadFromDisk();
+
+    expect(summary.recordCount).toBe(2);
+    expect(service.documentUnsafe().records.map((r) => r.title)).toEqual(['Only mine', 'Theirs']);
+    // Freshly read, so nothing is owed to disk.
+    expect(service.hasUnsavedChanges).toBe(false);
+  });
+
+  it('refuses while there are unsaved changes, rather than discarding them', async () => {
+    await create();
+    await withRecords(record('rec-1', { title: 'Saved' }));
+
+    const other = await otherDevice();
+    other.replaceDocument({
+      ...emptyVaultDocument(),
+      records: [record('rec-9', { title: 'Theirs' })],
+    });
+    await other.save();
+    other.lock();
+
+    // An edit that exists only in memory. A reload is a read that destroys: there is no undo
+    // and no tombstone for a record that was never written.
+    service.replaceDocument({
+      ...emptyVaultDocument(),
+      records: [record('rec-1', { title: 'Saved' }), record('rec-2', { title: 'Not saved yet' })],
+    });
+    expect(service.hasUnsavedChanges).toBe(true);
+
+    const error = await service.reloadFromDisk().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(VaultError);
+    expect((error as VaultError).code).toBe('UNSAVED_CHANGES');
+    // And the edit is still there — refusing has to mean keeping.
+    expect(service.documentUnsafe().records.map((r) => r.title)).toContain('Not saved yet');
+  });
+
+  it('refuses a different vault at the same path', async () => {
+    await create();
+    await withRecords(record('rec-1'));
+    service.lock();
+
+    // Somebody else's vault, written over the path this session opened. Same password, so it
+    // would decrypt — which is exactly why the id is what decides and not the key.
+    const replacement = new VaultService('third-device');
+    await replacement.createVault({ path: vaultPath, password: PASSWORD, kdf: FAST_KDF });
+    replacement.lock();
+
+    // Reopen the *original* by unlocking, then swap the file underneath again.
+    const original = join(dir, 'original.keep');
+    await service.unlock(vaultPath, PASSWORD);
+    const openedId = service.summary().vaultId;
+
+    const another = new VaultService('fourth-device');
+    await another.createVault({ path: original, password: PASSWORD, kdf: FAST_KDF });
+    another.lock();
+    await copyFile(original, vaultPath);
+
+    const error = await service.reloadFromDisk().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(VaultError);
+    expect((error as VaultError).code).toBe('DIFFERENT_VAULT');
+    // Unchanged: the session still holds the vault it opened.
+    expect(service.summary().vaultId).toBe(openedId);
+  });
+
+  it('drops secret grants issued against the old document', async () => {
+    await create();
+    await withRecords(record('rec-1', { title: 'Mine' }));
+
+    // A grant against the document as it stands. After a reload the same id means a different
+    // record or none at all, and a grant that outlived its document is a reveal nobody asked
+    // for.
+    const ref = { kind: 'password', credentialId: 'rec-1' } as const;
+    expect(service.revealSecret(ref)).not.toBeNull();
+    expect(service.broker.isGranted(ref)).toBe(true);
+
+    const other = await otherDevice();
+    other.replaceDocument({
+      ...emptyVaultDocument(),
+      records: [record('rec-1', { title: 'Mine' })],
+    });
+    await other.save();
+    other.lock();
+
+    await service.reloadFromDisk();
+
+    expect(service.broker.isGranted(ref)).toBe(false);
   });
 });

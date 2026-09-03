@@ -133,6 +133,55 @@ backup, and re-runs every decision in the main process.
 
 ---
 
+## 5a · When the file changed underneath you
+
+The watcher reports an external change; `ExternalChangeBanner` is what the user sees, and
+`external-change.ts` decides what it may offer.
+
+**The decision is a table, tested over every combination of the flags, and separate from the
+component that renders it.** That split is the whole point: "the file changed" has an obvious
+response, and the obvious response is wrong in three of the four cases.
+
+| Situation                                   | Offered                      | Why not reload                                                 |
+| ------------------------------------------- | ---------------------------- | -------------------------------------------------------------- |
+| A different `vaultId` at this path          | Lock · dismiss               | It is not a version of this vault; reading it would mix two    |
+| Disk is _older_ than memory                 | Merge · dismiss              | It would replace what you have with something that predates it |
+| Disk is newer, unsaved edits in this window | Merge · dismiss              | It would discard edits that exist in no file at all            |
+| Disk is newer, nothing unsaved              | **Reload** · merge · dismiss | —                                                              |
+
+A withheld reload is always explained. A missing button with no reason reads as a bug and
+sends the user looking for another way to do the thing being prevented.
+
+The banner lives in `AppShell`'s full-width `banner` slot rather than inside the detail pane.
+That is a layout fact, not a preference: below the narrow breakpoint the detail pane is shown
+only when a record is selected, so a notice mounted there vanishes in a narrow window with
+nothing selected — which is exactly the wrong person to hide it from.
+
+### Reloading
+
+`kh:vault:reload` takes no argument. There is one vault open, one path it came from, and the
+renderer knows neither. There is no password prompt either: the DEK belongs to the vault rather
+than to a session, so another device that unlocked with the same password unwrapped the _same_
+key and sealed a body this session can read. It is also why changing the master password is
+instant.
+
+`VaultService.reloadFromDisk` refuses in two cases, and both are enforced there rather than at
+the caller so the rule holds for every caller:
+
+- **Unsaved changes** → `UNSAVED_CHANGES`. The banner already avoids offering the button, and
+  the service refuses anyway. A reload is a read that destroys: the in-memory document is
+  replaced wholesale, and a record that was never written has no tombstone, no history entry
+  and no undo. The repeated check is what makes "never lose data" survive a caller that
+  forgets, and an edit landing between the check and the call.
+- **A different vault id** → `DIFFERENT_VAULT`. Read from the plaintext header before the body
+  is unsealed, so it costs nothing.
+
+Outstanding secret grants are revoked on the way through. They are keyed by record id, and
+after a reload an id either means a different record or nothing — a grant that outlived its
+document is a reveal nobody asked for.
+
+---
+
 ## 6 · Guards
 
 | Claim                                                 | Held by                                                                                         |
@@ -144,6 +193,9 @@ backup, and re-runs every decision in the main process.
 | An unrecognised side is refused, not defaulted        | `register.test.ts`                                                                              |
 | The merge row exists in the palette                   | `smoke.ts` → `palette-offers-every-transfer`                                                    |
 | The menu command is lock-gated                        | `menu-commands.test.ts`, which compares both directions                                         |
+| Reload is offered only when it loses nothing          | `external-change.test.ts`, over every combination of the flags                                  |
+| A reload never runs over unsaved edits                | `vault-service.test.ts`                                                                         |
+| The banner reaches the screen at all                  | `smoke.ts` → `external-change-banner-offers-a-reload`                                           |
 
 Every one of these was fault-injected with the bug it claims to catch before being trusted;
 each test file names its injections in its own header.

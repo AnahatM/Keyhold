@@ -382,7 +382,10 @@ prompt, the saved report and cloud-folder awareness. Full notes:
       one save is a dozen directory mutations, and a watcher that reported each would teach
       people to dismiss the prompt that matters. Decides from the plaintext header, never from
       an event, so it needs no key and no unlocked vault
-- [ ] Reload prompt when the on-disk vault changed and there are no local edits
+- [x] Reload prompt when the on-disk vault changed — and, more to the point, **not** a reload
+      prompt in the three cases where reloading destroys something: a replaced vault, an older
+      file on disk, and unsaved edits in this window. The decision is a table tested over every
+      combination of the flags, and `reloadFromDisk` refuses independently of it
 - [x] **Base-snapshot storage** — the last-synced state, machine-scoped and never travelling
       with the vault: a snapshot arriving from another device is not this device's last-agreed
       state, which is the one input a three-way merge cannot survive being wrong about

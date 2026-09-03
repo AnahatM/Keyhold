@@ -2,6 +2,7 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { app, type BrowserWindow } from 'electron';
+import { EVENTS } from '@shared/ipc/api.js';
 import { notifySessionChanged } from './ipc/register.js';
 
 /**
@@ -707,6 +708,54 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         emit(`SMOKE-CHECK onboarding-absent-for-a-returning-user ${String(onboarding === false)}`);
+
+        // The external-change banner, driven by pushing the event the watcher pushes.
+        //
+        // Sent from here rather than by touching the file, because the watcher is deliberately
+        // hard to fool: it decides from the plaintext header and brackets this app's own
+        // writes, so provoking a genuine report inside a smoke run means racing a debounce.
+        // What is being checked is the half that was missing anyway — the event reached the
+        // renderer, something rendered, and the right buttons were chosen. The decision itself
+        // has its own tests over every combination of the flags.
+        window.webContents.send(EVENTS.vaultChangedExternally, {
+          knownGeneration: 1,
+          currentGeneration: 2,
+          differentVault: false,
+          wentBackwards: false,
+        });
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+
+        const banner: unknown = await window.webContents.executeJavaScript(
+          `(() => {
+            const element = document.querySelector('.kh-external-change');
+            if (!element) return 'missing';
+            const text = element.textContent ?? '';
+            // Nothing was edited in this run, so reloading loses nothing and must be offered.
+            if (!text.includes('Reload from disk')) return 'no-reload-offered';
+            if (!text.includes('Merge the two copies')) return 'no-merge-offered';
+            return 'offered';
+          })()`,
+          true
+        );
+        emit(`SMOKE-CHECK external-change-banner-offers-a-reload ${String(banner === 'offered')}`);
+        await captureNamedShot(window, 'Keyhold-Screenshot-10');
+
+        // Dismissed again, so it does not sit over every screenshot after this point.
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const button = [...document.querySelectorAll('.kh-external-change button')]
+              .find((element) => element.textContent === 'Dismiss');
+            button?.click();
+            return button !== undefined;
+          })()`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 200));
+        const bannerGone: unknown = await window.webContents.executeJavaScript(
+          `document.querySelector('.kh-external-change') === null`,
+          true
+        );
+        emit(`SMOKE-CHECK external-change-banner-dismisses ${String(bannerGone === true)}`);
 
         emit(`SMOKE-CHECK palette-opens-on-its-shortcut ${String(paletteOpen === true)}`);
 

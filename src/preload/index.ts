@@ -206,6 +206,15 @@ const api: KeyholdApi = {
       ipcRenderer.invoke(CHANNELS.vaultSummary) as Promise<IpcResult<VaultSummary | null>>,
     hasUnsavedChanges: () =>
       ipcRenderer.invoke(CHANNELS.vaultHasUnsavedChanges) as Promise<IpcResult<boolean>>,
+    /**
+     * Re-reads the open vault from disk after another device wrote it.
+     *
+     * No path and no password: the file is the one already open, and the key is already
+     * held. Refused by the main process when there are unsaved changes or when a different
+     * vault is at the path — both come back as failures with a code rather than as a
+     * surprise, because both mean something the user has to be told.
+     */
+    reload: () => ipcRenderer.invoke(CHANNELS.vaultReload) as Promise<IpcResult<VaultSummary>>,
   },
 
   credentials: {

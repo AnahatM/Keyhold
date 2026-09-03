@@ -12,6 +12,7 @@ import { createIpcImportGateway } from '../import/ipc-gateway.js';
 import { OrganisationSidebar } from '../organisation/index.js';
 import { useOrganisation } from '../organisation/organisation-store.js';
 import {
+  ExternalChangeBanner,
   MergeFlow,
   createIpcSyncGateway,
   targetNamesFrom,
@@ -59,11 +60,12 @@ export function VaultScreen({
 }: {
   readonly appearancePanel: ReactNode;
 }): React.JSX.Element {
-  const { status, credentials, lock } = useSession();
+  const { status, credentials, lock, reloadFromDisk } = useSession();
   // `showTrash` moved to the sidebar with the rest of the view selection; this screen
   // keeps only what it still owns.
   const { selectedId, editing, select, setShowTrash } = useCredentials();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const openTransfer = useTransfer((state) => state.open);
   const folders = useOrganisation((state) => state.folders);
   const tags = useOrganisation((state) => state.tags);
 
@@ -104,6 +106,21 @@ export function VaultScreen({
   return (
     <>
       <AppShell
+        banner={
+          <ExternalChangeBanner
+            hasUnsavedChanges={status?.hasUnsavedChanges ?? false}
+            subscribe={(listener) => window.keyhold.app.onVaultChangedExternally(listener)}
+            onReload={() => {
+              void reloadFromDisk();
+            }}
+            onMerge={() => {
+              openTransfer('merge');
+            }}
+            onLock={() => {
+              void lock();
+            }}
+          />
+        }
         sidebarCollapsed={sidebarCollapsed}
         onSidebarCollapsedChange={setSidebarCollapsed}
         main={

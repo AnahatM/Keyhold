@@ -712,3 +712,71 @@
   gap: var(--kh-space-2);
   flex-wrap: wrap;
 }
+
+/* ── The external-change banner ────────────────────────────────────────────── */
+
+/*
+ * Three tones, one layout. The tone tokens are the same ones the toasts use, so an urgent
+ * banner and an urgent toast are urgent in the same colour — a second palette for the same
+ * meaning is how two parts of an app end up disagreeing about what red means.
+ */
+
+.kh-external-change {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--kh-space-3);
+  flex-wrap: wrap;
+  padding: var(--kh-space-3) var(--kh-space-4);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-color-surface-sunken);
+}
+
+.kh-external-change--info {
+  border-color: var(--kh-color-info);
+  background: var(--kh-color-info-subtle);
+}
+
+.kh-external-change--warning {
+  border-color: var(--kh-color-warning);
+  background: var(--kh-color-warning-subtle);
+}
+
+.kh-external-change--danger {
+  border-color: var(--kh-color-danger);
+  background: var(--kh-color-danger-subtle);
+}
+
+.kh-external-change__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  min-width: 0;
+  flex: 1 1 24rem;
+}
+
+.kh-external-change__headline {
+  margin: 0;
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-external-change__detail {
+  margin: 0;
+  color: var(--kh-color-text);
+}
+
+/* Set apart from the detail: it explains an absence, which is easy to miss in a paragraph. */
+.kh-external-change__withheld {
+  margin: 0;
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-external-change__actions {
+  display: flex;
+  gap: var(--kh-space-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
