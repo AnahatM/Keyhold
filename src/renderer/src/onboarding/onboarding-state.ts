@@ -183,6 +183,50 @@ export function canGoBackFrom(state: OnboardingState): boolean {
   return true;
 }
 
+/**
+ * Whether a step is one of the ones that exist to *get* you a vault.
+ *
+ * **Not a second list** (hard rule 8): the boundary is `canonicalStepFor`'s own, read back
+ * out of it. That function clamps a vault-less flow to the last step it may legitimately sit
+ * on, so a step it leaves alone when `vaultCreated` is false is — by definition — a step
+ * that comes before the vault. Move the boundary in `onboarding-steps.ts` and this moves
+ * with it, with nothing here to find and update.
+ */
+function isPreVaultStep(stepId: OnboardingStepId): boolean {
+  return canonicalStepFor(stepId, false) === stepId;
+}
+
+/**
+ * A step with nothing left to say: it is about acquiring a vault, and one already exists.
+ *
+ * The master-password step is the reason this exists. Its only control creates the vault, so
+ * putting it in front of somebody who has one is at best a dead form and at worst an
+ * invitation to point `onCreateVault` at a file full of passwords. {@link canGoBackFrom}
+ * already refuses to walk *backwards* onto it; this is the same rule applied to the other two
+ * ways of arriving there — resuming a record that points at it, and re-running the tour.
+ */
+function isSpentStep(stepId: OnboardingStepId, vaultCreated: boolean): boolean {
+  return vaultCreated && isPreVaultStep(stepId);
+}
+
+/**
+ * Walks forward off any spent step. `null` only if the walk runs off the end of the list.
+ *
+ * A loop rather than a single hop, so a second pre-vault step added later is stepped over
+ * too — the failure of a one-hop version would be a create form rendered to somebody who
+ * already has a vault, which is precisely the thing being prevented.
+ */
+function firstLiveStepFrom(
+  stepId: OnboardingStepId | null,
+  vaultCreated: boolean
+): OnboardingStepId | null {
+  let candidate = stepId;
+  while (candidate !== null && isSpentStep(candidate, vaultCreated)) {
+    candidate = nextStepId(candidate);
+  }
+  return candidate;
+}
+
 export function onboardingReducer(
   state: OnboardingState,
   action: OnboardingAction
@@ -213,7 +257,10 @@ export function onboardingReducer(
     case 'advance': {
       if (!canAdvanceFrom(state)) return state;
       if (isLastStep(state.stepId)) return state;
-      const next = nextStepId(state.stepId);
+      // Not `nextStepId` directly: the step after this one may be spent — a re-run of the
+      // tour starts with a vault already in hand, so the create-vault step must be walked
+      // over rather than landed on.
+      const next = firstLiveStepFrom(nextStepId(state.stepId), state.vaultCreated);
       return next === null ? state : { ...state, stepId: next };
     }
 
@@ -242,10 +289,87 @@ export function onboardingReducer(
  * Pulls a resumed state back onto a step it is actually allowed to be on.
  *
  * Stored progress is validated on the way in, but validation only proves the shape is
- * right. This proves the *position* is right: a record pointing at "what next" with no
- * vault created would otherwise render a summary of a setup that never happened.
+ * right. This proves the *position* is right, and it is wrong in both directions:
+ *
+ * - **Too far forward.** A record pointing at "what next" with no vault created would
+ *   render a summary of a setup that never happened. {@link canonicalStepFor} clamps it back.
+ * - **Not far enough.** A record pointing at the master-password step *with* a vault
+ *   created would render the create form to somebody whose vault already exists. This is
+ *   not hypothetical: progress is written on every state change, so `vault-created` is
+ *   persisted at that step a moment before `advance` moves off it, and a crash, a kill or a
+ *   power cut in that window leaves exactly this record behind. {@link firstLiveStepFrom}
+ *   walks it forward to the first step that describes the vault they now have.
  */
 export function reconcileResumedState(state: OnboardingState): OnboardingState {
-  const stepId = canonicalStepFor(state.stepId, state.vaultCreated);
+  const clamped = canonicalStepFor(state.stepId, state.vaultCreated);
+  const stepId = firstLiveStepFrom(clamped, state.vaultCreated) ?? clamped;
   return stepId === state.stepId ? state : { ...state, stepId };
+}
+
+// ── Running the tour a second time ───────────────────────────────────────────
+
+/**
+ * Which run of the flow this is.
+ *
+ * The roadmap asks for a tour that is *skippable and re-runnable*, and the two halves need
+ * different behaviour from the same component rather than a second component: a first run
+ * resumes, persists, and begins by creating a vault; a re-run does none of those things.
+ * Expressing it as one prop keeps a single flow, a single reducer and a single set of gates
+ * — the alternative is a copy of all three that drifts.
+ *
+ * It is deliberately **not** part of {@link OnboardingState}: the mode belongs to the mount,
+ * not to the progress, and `onboarding-storage.ts` must never be able to write it down.
+ */
+export type OnboardingMode = 'first-run' | 'revisit';
+
+/**
+ * Where a re-run begins: the first step that describes a vault you already have.
+ *
+ * Derived, not written down. The steps before it are the ones {@link isPreVaultStep}
+ * identifies from `canonicalStepFor`'s own boundary, so nothing here names a step id and
+ * inserting a step changes this automatically.
+ *
+ * A re-run therefore skips the welcome screen. That is the honest reading rather than a
+ * shortcut: that screen's copy is written for somebody deciding whether to commit ("Setting
+ * it up takes about a minute", "The next step covers it properly") and every sentence of it
+ * is false for a returning user. The step indicator agrees — it shows the two steps behind
+ * this one as already done, which for a person with a vault they created is exactly true.
+ */
+export const REVISIT_START_STEP_ID: OnboardingStepId =
+  firstLiveStepFrom(FIRST_STEP_ID, true) ?? FIRST_STEP_ID;
+
+/**
+ * The state a re-run starts from.
+ *
+ * The two `true`s are **facts about the world, not claims about this run.** A vault exists —
+ * that is the precondition for offering a re-run at all — and no vault can exist without the
+ * no-recovery acknowledgement having been given first, on this flow's own master-password
+ * step or on the ordinary create screen, which carries the same one. Setting them is what
+ * makes {@link canGoBackFrom} and {@link canAdvanceFrom} refuse to walk a returning user onto
+ * the create form, and what lets the last step's Finish button work at all.
+ *
+ * **Nothing about a re-run is ever written down.** `OnboardingFlow` persists only in
+ * first-run mode, so this state cannot reach `localStorage` and cannot forge a record
+ * claiming a setup was completed. That is the property that makes the two `true`s safe, and
+ * it is asserted in `OnboardingFlow.test.tsx` rather than left as a comment.
+ */
+export const REVISIT_ONBOARDING_STATE: OnboardingState = {
+  stepId: REVISIT_START_STEP_ID,
+  acknowledgedNoRecovery: true,
+  vaultCreated: true,
+  firstCredentialSaved: false,
+  outcome: 'active',
+};
+
+/**
+ * The state a mount of the flow begins in, as a pure function of the mode and what storage
+ * had to offer.
+ *
+ * A re-run **ignores the stored record entirely** rather than resuming it. Resuming would
+ * mean "run the tour again" landing on the summary screen for anyone who finished it once —
+ * the flow would open, say "your vault is set up", and offer a Finish button, which is not a
+ * tour. A re-run is always the whole of the re-run.
+ */
+export function initialStateFor(mode: OnboardingMode, resumed: OnboardingState): OnboardingState {
+  return mode === 'revisit' ? REVISIT_ONBOARDING_STATE : reconcileResumedState(resumed);
 }

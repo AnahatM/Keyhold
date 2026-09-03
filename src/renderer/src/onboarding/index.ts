@@ -20,8 +20,10 @@ export {
   isFirstRunOnThisMachine,
   shouldOfferFirstRun,
   useFirstRunGate,
+  useTourGate,
   type FirstRunGate,
   type FirstRunSession,
+  type TourGate,
 } from './onboarding-visibility.js';
 
 export {
@@ -32,5 +34,5 @@ export {
   storageKeyFor,
 } from './onboarding-storage.js';
 
-export type { FirstCredentialDraft, OnboardingState } from './onboarding-state.js';
+export type { FirstCredentialDraft, OnboardingMode, OnboardingState } from './onboarding-state.js';
 export type { OnboardingStepId } from './onboarding-steps.js';

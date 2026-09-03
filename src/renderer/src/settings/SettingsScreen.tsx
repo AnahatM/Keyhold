@@ -8,6 +8,7 @@ import { ThemeStudio } from '../theme-studio/index.js';
 import { AppearancePanel } from './AppearancePanel.js';
 import { DangerZoneSection } from './DangerZoneSection.js';
 import { HealthRulesSection } from './HealthRulesSection.js';
+import { HelpSection } from './HelpSection.js';
 import { HistoryAuditSection } from './HistoryAuditSection.js';
 import { MasterPasswordSection } from './MasterPasswordSection.js';
 import { SecuritySessionSection } from './SecuritySessionSection.js';
@@ -228,6 +229,9 @@ export function SettingsScreen({
               hasVault
               quickUnlockEnrolled={snapshot.quickUnlock.enrolled}
             />
+            {/* Inside the open-vault branch: the tour's later steps describe a vault that
+                exists, and `App.tsx` only mounts a re-run over the vault screen anyway. */}
+            <HelpSection />
           </>
         )}
 

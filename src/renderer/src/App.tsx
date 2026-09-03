@@ -2,7 +2,13 @@
 import { useEffect, useState } from 'react';
 import { ErrorState, LoadingState } from './components/Feedback.js';
 import { AppearancePanel } from './settings/AppearancePanel.js';
-import { OnboardingFlow, useFirstRunGate, type FirstCredentialDraft } from './onboarding/index.js';
+import {
+  OnboardingFlow,
+  useFirstRunGate,
+  useTourGate,
+  type FirstCredentialDraft,
+  type OnboardingMode,
+} from './onboarding/index.js';
 import { CreateVaultScreen } from './vault/CreateVaultScreen.js';
 import { useCredentials } from './vault/credential-store.js';
 import { UnlockScreen } from './vault/UnlockScreen.js';
@@ -70,6 +76,7 @@ export function App(): React.JSX.Element {
   // see `onboarding/onboarding-visibility.ts` for why this must not be re-derived per
   // render: the flow would unmount itself during its own vault-creation step.
   const firstRun = useFirstRunGate(status);
+  const tour = useTourGate();
   const [bootError, setBootError] = useState<string | null>(null);
   const [booted, setBooted] = useState(false);
 
@@ -156,7 +163,26 @@ export function App(): React.JSX.Element {
       {/* Above the screen switch, not inside it: the flow spans the states the switch is
           made of — it begins with no vault and ends with one open — so putting it in a
           `case` would unmount it at the moment it succeeded. */}
-      {firstRun.show ? <FirstRunFlow onExit={firstRun.close} /> : <ScreenView screen={screen} />}
+      {firstRun.show ? (
+        <FirstRunFlow onExit={firstRun.close} />
+      ) : (
+        <>
+          <ScreenView screen={screen} />
+          {/*
+            Over the vault screen rather than instead of it, and only there.
+
+            Three of the five steps describe an open vault and one of them writes to it, so a
+            re-run on the welcome or unlock screen would be describing something that is not
+            on the other side of it. The guard is what the screen is, not whether a status
+            field says unlocked, because that is the same thing the screen is derived from
+            and one condition cannot disagree with itself.
+
+            The re-run writes no progress — see `initialStateFor` — so closing it cannot
+            rewrite a first run's `completed` record as `dismissed`.
+          */}
+          {tour.open && screen === 'vault' && <FirstRunFlow mode="revisit" onExit={tour.close} />}
+        </>
+      )}
     </>
   );
 }
@@ -173,12 +199,19 @@ export function App(): React.JSX.Element {
  * appears to do nothing. Left off, each card renders the sentence naming where the thing
  * lives instead, which is the honest version.
  */
-function FirstRunFlow({ onExit }: { readonly onExit: () => void }): React.JSX.Element {
+function FirstRunFlow({
+  mode = 'first-run',
+  onExit,
+}: {
+  readonly mode?: OnboardingMode;
+  readonly onExit: () => void;
+}): React.JSX.Element {
   const { status, workingPath, busy, error, estimateStrength } = useSession();
   const quickUnlock = status?.quickUnlock ?? null;
 
   return (
     <OnboardingFlow
+      mode={mode}
       // Null until the vault exists; the flow re-scopes its stored progress when it changes.
       vaultKey={status?.vault?.vaultId ?? null}
       vaultPath={status?.vault?.path ?? workingPath}

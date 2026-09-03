@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useCallback, useState } from 'react';
+import { create } from 'zustand';
 import type { SessionStatusView } from '@shared/ipc/api.js';
 import type { OnboardingState } from './onboarding-state.js';
 import { readProgress, shouldShowOnboarding } from './onboarding-storage.js';
@@ -181,3 +182,33 @@ export function useFirstRunGate(session: FirstRunSession | null): FirstRunGate {
 
   return { show: open && !closed, close };
 }
+
+/**
+ * The re-run switch.
+ *
+ * A store rather than state on a screen, because two places open the tour — a palette
+ * command and a button in Settings — and they are on opposite sides of the tree. State held
+ * by either would mean a second switch, and the two would disagree the first time somebody
+ * added a third entry point.
+ *
+ * Deliberately separate from {@link useFirstRunGate}. The first run is decided once per
+ * launch from what is on this machine, and must not be re-openable; a re-run is an explicit
+ * act, available whenever a vault is open, and writes nothing. Folding them into one flag
+ * would make "the tour is showing" ambiguous about which of the two is on screen, and the
+ * flow behaves differently in each.
+ */
+export interface TourGate {
+  readonly open: boolean;
+  readonly show: () => void;
+  readonly close: () => void;
+}
+
+export const useTourGate = create<TourGate>((set) => ({
+  open: false,
+  show: () => {
+    set({ open: true });
+  },
+  close: () => {
+    set({ open: false });
+  },
+}));
