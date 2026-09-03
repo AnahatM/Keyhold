@@ -4,6 +4,7 @@ import { EVENTS } from '@shared/ipc/api.js';
 import { DEFAULT_BREACH_CHECK_SETTINGS } from '@shared/model/breach.js';
 import { BreachService } from './breach/service.js';
 import { NetworkPolicy } from './network-policy.js';
+import { notifyThemeFileOpened, openedThemes } from './theme/index.js';
 import {
   notifySessionChanged,
   registerIpcHandlers,
@@ -180,8 +181,14 @@ if (!gotTheLock) {
   // started the app.
   installOpenFileHandler({
     platform: process.platform,
-    onOpenFile: () => {
-      // Same as above: validated, and not yet acted on.
+    onOpenFile: (request) => {
+      // Themes only. A `.keep` or `.keepx` arriving from the OS still needs the vault-open
+      // path to accept a path it did not choose, which is its own slice — but the theme
+      // extension has been in the accept list since `file-open-request.ts` was written, with
+      // nothing on the other end, so double-clicking one did nothing at all.
+      if (request.kind !== 'theme') return;
+      openedThemes.remember(request.path);
+      notifyThemeFileOpened(mainWindow);
     },
   });
 
@@ -228,10 +235,14 @@ if (!gotTheLock) {
           // here; this only refreshes state that went stale while the machine was asleep.
           notifySessionChanged(mainWindow);
         },
-        onOpenFile: () => {
-          // Accepted and validated, but nothing opens it yet: the vault-open path takes a
-          // path from a dialog the main process owned, and routing an OS-supplied one
-          // through it is its own slice. Deliberately silent rather than logging a path.
+        onOpenFile: (request) => {
+          // Themes are handled; a vault or a parcel is still accepted, validated, and not
+          // yet acted on — the vault-open path takes a path from a dialog the main process
+          // owned, and routing an OS-supplied one through it is its own slice. Deliberately
+          // silent about the rest rather than logging a path.
+          if (request.kind !== 'theme') return;
+          openedThemes.remember(request.path);
+          notifyThemeFileOpened(mainWindow);
         },
       },
     });

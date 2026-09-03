@@ -11,8 +11,9 @@
 > from the native **Settings** menu item through `menu-bridge.ts`. `OnboardingFlow` now owns
 > the decision about when a first run is a first run (`onboarding-visibility.ts`, §3a) and
 > exits on Escape as well as on Skip; what is left is the mount itself, in `App.tsx`. The
-> studio's native file dialogs also remain unwired: there is no `kh:theme:*` channel, so
-> `theme-file-bridge.ts` falls back to the browser transport. See §7.
+> studio's file transport is now the `kh:theme:*` channel group — native dialogs, opened in
+> the main process, with the parse on that side too. The `<input type="file">` fallback is
+> gone. See §6a.
 
 ---
 
@@ -394,27 +395,131 @@ next resolve.
 - **Failures sort first**, then everything else in declaration order. Someone opening this
   panel is looking for what is wrong, and making them scroll for it is the whole problem.
 
-### A theme is the one file the renderer may handle itself
+### A theme file goes through the main process, like every other file
 
-Everything else in Keyhold goes through the main process because the main process owns the
-keys and the decrypted vault (decision D13). A `.keeptheme` is the deliberate exception, and it
-is worth stating rather than leaving to look like a hole: it holds **no secret material**, it
-is not encrypted, and it is meant to be shared.
+This screen used to move `.keeptheme` files itself, with an `<input type="file">` and an
+`<a download>`, on the argument that a theme holds no secret material so the renderer may as
+well handle it. **That transport is gone.** The argument was true about secrecy and beside the
+point about everything else:
 
-`theme-file-bridge.ts` therefore has two transports and one behaviour: **native**
-(`window.keyhold.theme.*`, native dialogs, the size cap enforced by `stat` before a byte is
-read) and **browser** (a plain `<input type="file">` and a blob download — standard web APIs,
-no Node, no new dependency). The user picking a file in the OS dialog is the same act of
-consent either way. The bridge moves **raw text only**; `parseKeepTheme` runs once, in the
-studio, so the two transports cannot validate differently — and so the acknowledgement round
-trip does not need a process hop per attempt.
+- **A save dialog is the act of consent, and only the main process can open one.** Vault open,
+  vault save, attachment add and save, import and export all open theirs there, because a path
+  the renderer chose would be attacker-controlled if the renderer were ever compromised, while
+  a path the user picked in an OS dialog is a genuine act of consent and the OS — not us —
+  decides what they were allowed to reach. A theme is not exempt from that; it was cheap to
+  pretend it was.
+- **An `<a download>` in a packaged app is not a save dialog.** It drops a file in the
+  downloads folder with a name the user did not choose and no overwrite warning.
+- **An `<input type="file">` cannot be reached from a menu item**, and the OS already hands the
+  app `.keeptheme` files on double-click — `src/main/shell/file-open-request.ts` has always
+  accepted the extension. A transport that only a click inside one React screen can start has
+  nowhere to put those.
+- **The parse belongs where the bytes are.** A `.keeptheme` arrives from a download, a friend,
+  or a forum post. Putting 64 KB of it in the renderer to be parsed there is hostile text on
+  the wrong side of the boundary for no gain.
 
-The main-process half deliberately does **not** reuse `writeVaultFileAtomically`. That
-function rotates `.keepbak` backups, creates files `0o600`, and quarantines orphaned temps on
-the next launch — all three wrong for a theme, which is meant to be readable by the user's
-other tools and shared with other people. What is kept is the ordering: write, fsync, rename,
-so a crash mid-write cannot leave a half-written theme where a whole one used to be. Only a
-basename ever crosses back; an OS error carries the absolute path and is never echoed.
+---
+
+## 6a. The `kh:theme:*` bridge
+
+### The channel group
+
+Declared in [`src/shared/theme/theme-channels.ts`](../../src/shared/theme/theme-channels.ts),
+beside the payload types it carries — the same arrangement as `IMPORT_CHANNELS` and
+`EXPORT_CHANNELS`, for the same reason: a channel name that lives apart from its shape is a
+second list, and hard rule 8 says there is one. `api.ts` spreads `...THEME_CHANNELS` into
+`CHANNELS` and `...THEME_EVENTS` into `EVENTS`, so `ALL_CHANNELS` picks them up for the
+main-process allow-list automatically, and `register.test.ts` fails if a name is declared with
+no handler behind it.
+
+| Name              | Channel                      | Takes                | Returns                       |
+| ----------------- | ---------------------------- | -------------------- | ----------------------------- |
+| `themeImport`     | `kh:theme:import`            | nothing              | `ThemeImportResponse`         |
+| `themeExport`     | `kh:theme:export`            | `ThemeExportRequest` | `ThemeExportResponse`         |
+| `themeTakeOpened` | `kh:theme:take-opened`       | nothing              | `ThemeImportResponse` or null |
+| `themeFileOpened` | `kh:event:theme-file-opened` | main → renderer      | no payload                    |
+
+**No channel accepts a path, in either direction.** `themeExport` takes a _theme object_, not a
+blob of text: the main process re-validates it, re-serialises it and writes the result, so the
+bytes that land in a file the user named are ones Keyhold wrote. That closes the gap where a
+compromised renderer picks the `.keeptheme` filter in a save dialog and writes something else
+through it.
+
+### What a hostile `.keeptheme` cannot do
+
+`parseKeepTheme` runs in the main process and its rich result — including, deliberately, the
+offending colour literal so a theme author can find their typo — stops at
+[`theme-projection.ts`](../../src/main/theme/theme-projection.ts). That file is a security
+boundary in the same sense the vault's safe projection is: what it copies is what a hostile
+file gets to put on screen.
+
+| Attempt                                                  | Why it fails                                                                                                                                  |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| A colour of `url(...)`, `expression(...)`, `var(...)`    | `normaliseColour` refuses it. The theme is rejected by token name — never sanitised into a colour nobody chose                                |
+| A colour containing `}`, `;`, a newline, `/*`, `@import` | Same. A palette value becomes a CSS custom property, so a well-chosen string there is an injection                                            |
+| A colour that parses but is smuggled through verbatim    | Impossible: accepted colours are **re-formatted from parsed RGB** into `#rrggbb`. The string that reaches `style.setProperty` is one we wrote |
+| Naming a token to get an arbitrary string on screen      | Unknown keys are dropped and collapsed into a **count**; the key itself never crosses                                                         |
+| A `basedOn` naming a theme this build does not have      | The requested id is dropped; the notice names the id we actually used, which is ours                                                          |
+| An error message stuffed with the file's contents        | Refusals carry a code, an app-written message, and a list of `ColourToken`s. Nothing else                                                     |
+| A path or directory leaking into the UI                  | Only a basename crosses, and read errors never echo the OS message                                                                            |
+| A multi-megabyte "theme"                                 | `stat` refuses it before a byte is read; `parseKeepTheme` caps again for callers that never touched a file                                    |
+| A translucent colour that cannot be contrast-checked     | Refused. A ratio cannot be measured through transparency, so it would be a value the AA guard could not honestly grade                        |
+
+The two deliberate exceptions are `theme.name` and `theme.description` — the theme's identity,
+and the feature is pointless without them. They arrive length-capped (80 / 240), trimmed, free
+of control characters, and are rendered as React text nodes, never as markup and never as a
+style value. `keeptheme-transport.test.ts` plants markers in every other field a file controls
+and asserts none of them appears anywhere in the serialised response.
+
+### An imported theme cannot lock you out of Settings
+
+The three tiers of `admitPalette` apply on the way in, and the split between them is the whole
+answer to "what happens to a theme that fails contrast":
+
+1. **Passes AA** → `imported`. Loads, nothing to decide.
+2. **Fails AA, clears the 3:1 legibility floor** → `needs-review`. The palette **is** handed
+   over and the theme loads into the draft, because the studio's job here is to show the
+   failing pairs. The gate below the editor — the same `admitPalette`, recomputed locally
+   because the palette can be edited after an import — keeps it off the app until the user
+   ticks a box whose label names the failures. Refusing outright would remove the report that
+   makes the choice informed, and would push a determined user to edit `localStorage` instead,
+   where they would get the same theme with no report and no floor.
+3. **Below the floor** → refused, `theme/illegible`, and **no palette crosses at all**. It
+   cannot be loaded, previewed, or one click from being applied. This is not paternalism about
+   taste: consent to a theme you cannot read is consent you cannot revoke, because the screen
+   that undoes it is the screen the theme broke. There is no override anywhere in the app, and
+   the refusal says so.
+
+Export faces the same gate from the other side. `prepareKeepThemeExport` round-trips the theme
+through `parseKeepTheme` **before the save dialog opens** — so an unexportable theme is refused
+without first making somebody name a file — and an AA failure needs the matching
+`contrastAcknowledgement` token. The refusal deliberately does not hand that token back: a
+consent gate that answers "what would you accept?" is not a gate.
+
+### Degrading honestly when the channels are missing
+
+`theme-gateway.ts` probes for `window.keyhold.theme` structurally and, when it is absent,
+reports `unavailable`, disables the two file buttons and says so. It does **not** fall back to
+anything. A worse transport that silently takes over is how the `<input type="file">` survived
+as long as it did.
+
+### The theme the OS hands us
+
+`file-open-request.ts` accepts `.keeptheme` and used to have nothing on the other end.
+[`opened-themes.ts`](../../src/main/theme/opened-themes.ts) is that end: one slot, holding the
+validated path in the main process. The renderer asks for it with `themeTakeOpened`, which takes
+no argument — the path is never handed over, because "validated" is not the same as "chosen by
+the user in our own dialog". Taking clears the slot, so navigating away from the studio and
+back cannot re-deliver a theme over whatever the user has since been editing. The studio polls
+once on mount and subscribes to `kh:event:theme-file-opened`; either alone loses a case.
+
+### The write is durable but deliberately not the vault's
+
+`keeptheme-file.ts` does not reuse `writeVaultFileAtomically`. That function rotates `.keepbak`
+backups, creates files `0o600`, and quarantines orphaned temps on the next launch — all three
+wrong for a theme, which is meant to be readable by the user's other tools and shared with other
+people. What is kept is the ordering: write, fsync, rename, so a crash mid-write cannot leave a
+half-written theme where a whole one used to be.
 
 ---
 
@@ -438,13 +543,9 @@ basename ever crosses back; an OS error carries the absolute path and is never e
   `clearProgress` **and** `forgetFirstRunDecision()`, and it would still refuse on a machine
   that has a vault — correctly, because that is not a first run. The command palette is mounted
   now, so there is somewhere to put one; nothing has been put there.
-- **The native theme dialogs are unwired.** There is no `kh:theme:*` entry in `CHANNELS`;
-  `src/main/theme/` (`readKeepThemeFile`, `writeKeepThemeFile`, `chooseKeepThemeToOpen`,
-  `chooseKeepThemeDestination`, `importKeepTheme`, `exportKeepTheme`) is complete and has no
-  handler. `theme-file-bridge.ts` probes for `window.keyhold.theme` structurally and falls back
-  to the browser transport, so the studio works today over `<input type="file">` and picks the
-  native route up on its own when the channels land — the only edit needed then is to the
-  `KeyholdApi` type, so the cast in the bridge can be deleted.
+- **No menu item or command opens the theme dialogs.** The channels exist and the studio uses
+  them, but "Import a theme..." is not in the native menu or the command palette — the point of
+  a main-process transport is that it _can_ be, and nothing has been put there yet.
 - **A dedicated tag colour family.** Both tag-colour modules record that
   `--kh-color-tag-1 … tag-n` tokens in `tokens.ts`, each with a contrast requirement, are the
   right answer — the existing guard would then cover them for free. See
@@ -456,17 +557,19 @@ basename ever crosses back; an OS error carries the absolute path and is never e
 
 ## 8. Tests
 
-| File                                                        | Tests | Covers                                                                                                                                                          |
-| ----------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/main/theme/keeptheme-format.test.ts`                   | 41    | Every built-in round-tripping exactly · every category of hostile or broken file · the three admission tiers · that every floor pair is declared in `tokens.ts` |
-| `src/renderer/src/onboarding/onboarding-state.test.ts`      | 24    | The gates — `canCreateVault` and `canFinishOnboarding` — step arithmetic, resume reconciliation, and that an outcome is terminal                                |
-| `src/renderer/src/onboarding/onboarding-visibility.test.ts` | 22    | The show/hide condition in every session state · that nothing may cover an unlock screen · the launch latch · that a dismissal survives a restart               |
-| `src/renderer/src/theme-studio/theme-draft.test.ts`         | 23    | The two-layer palette, invalid colours, and that every palette change clears the acknowledgement                                                                |
-| `src/renderer/src/theme-studio/theme-file-bridge.test.ts`   | 17    | Both transports, the size cap, and the cancelled/failed outcomes                                                                                                |
-| `src/renderer/src/onboarding/onboarding-storage.test.ts`    | 16    | That only the six named values are written, with markers planted to prove it · every corrupt-record path starting at the beginning                              |
-| `src/main/theme/keeptheme-file.test.ts`                     | 13    | `stat`-before-read, the write ordering, and that no path reaches an error message                                                                               |
-| `src/renderer/src/onboarding/OnboardingFlow.test.tsx`       | 13    | Sequencing, focus on the heading, the skip control, and Escape — from every step, after a backdrop click, never while busy, never over a handled event          |
-| `src/renderer/src/theme-studio/token-groups.test.ts`        | 5     | That the groups cover `COLOUR_TOKENS` exactly once each                                                                                                         |
+| File                                                        | Tests | Covers                                                                                                                                                                                                |
+| ----------------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/main/theme/keeptheme-format.test.ts`                   | 41    | Every built-in round-tripping exactly · every category of hostile or broken file · the three admission tiers · that every floor pair is declared in `tokens.ts`                                       |
+| `src/shared/theme/theme-validation.test.ts`                 | 39    | Both directions of the bridge · every malformed export request · that a non-canonical palette value is refused on arrival · that no offending value reaches an error message                          |
+| `src/main/theme/keeptheme-transport.test.ts`                | 38    | The whole main-side path · nine injection payloads · that no marker planted in a file appears in the response · that an illegible theme crosses with no palette · the handlers and the OS-opened slot |
+| `src/renderer/src/onboarding/onboarding-state.test.ts`      | 24    | The gates — `canCreateVault` and `canFinishOnboarding` — step arithmetic, resume reconciliation, and that an outcome is terminal                                                                      |
+| `src/renderer/src/onboarding/onboarding-visibility.test.ts` | 22    | The show/hide condition in every session state · that nothing may cover an unlock screen · the launch latch · that a dismissal survives a restart                                                     |
+| `src/renderer/src/theme-studio/theme-draft.test.ts`         | 23    | The two-layer palette, invalid colours, and that every palette change clears the acknowledgement                                                                                                      |
+| `src/renderer/src/theme-studio/theme-gateway.test.ts`       | 16    | The unavailable path, that no browser fallback is created, and that a response this build cannot read becomes `failed` rather than an exception                                                       |
+| `src/renderer/src/onboarding/onboarding-storage.test.ts`    | 16    | That only the six named values are written, with markers planted to prove it · every corrupt-record path starting at the beginning                                                                    |
+| `src/main/theme/keeptheme-file.test.ts`                     | 13    | `stat`-before-read, the write ordering, and that no path reaches an error message                                                                                                                     |
+| `src/renderer/src/onboarding/OnboardingFlow.test.tsx`       | 13    | Sequencing, focus on the heading, the skip control, and Escape — from every step, after a backdrop click, never while busy, never over a handled event                                                |
+| `src/renderer/src/theme-studio/token-groups.test.ts`        | 5     | That the groups cover `COLOUR_TOKENS` exactly once each                                                                                                                                               |
 
 ---
 
@@ -477,4 +580,4 @@ basename ever crosses back; an OS error carries the absolute path and is never e
 - [`03-Command-Palette-And-Shortcuts.md`](./03-Command-Palette-And-Shortcuts.md) — where a "run the tour again" command would live
 - [`../00-Overview/03-Threat-Model.md`](../00-Overview/03-Threat-Model.md) — what the encryption claim may and may not say
 - [`../02-Security/02-Session-Model.md`](../02-Security/02-Session-Model.md) — the create-vault path that carries the same acknowledgement
-- [`../12-Roadmap/02-Decision-Log.md`](../12-Roadmap/02-Decision-Log.md) — D8 (theming) and D13 (why a `.keeptheme` is the one file the renderer may touch)
+- [`../12-Roadmap/02-Decision-Log.md`](../12-Roadmap/02-Decision-Log.md) — D8 (theming) and D13 (why every file operation, a `.keeptheme` included, is the main process's)

@@ -320,9 +320,9 @@ describe('loading and resetting', () => {
       source: 'friend.keeptheme',
       notices: [
         {
-          kind: 'unknown-token',
-          token: 'sparkle',
-          message: 'Ignored an unknown colour "sparkle".',
+          kind: 'unknown-tokens',
+          count: 1,
+          message: 'Ignored 1 colour this build does not recognise.',
         },
       ],
     });

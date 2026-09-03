@@ -6,8 +6,8 @@ import {
   normalisePalette,
   type ColourRejectionReason,
   type KeepTheme,
-  type KeepThemeWarning,
 } from '@shared/theme/keeptheme.js';
+import type { ThemeNotice } from '@shared/theme/theme-channels.js';
 import { FALLBACK_THEME, findTheme } from '@shared/theme/themes.js';
 import type { ColourToken, Palette } from '@shared/theme/tokens.js';
 
@@ -47,8 +47,14 @@ export interface ThemeDraft {
   readonly acknowledgement: string | null;
   /** Where this draft came from — a file name or a built-in's name. For display only. */
   readonly source: string | null;
-  /** Warnings from the last import, shown until the draft is replaced. */
-  readonly notices: readonly KeepThemeWarning[];
+  /**
+   * Notes from the last import, shown until the draft is replaced.
+   *
+   * `ThemeNotice`, not `KeepThemeWarning`: the parse happens in the main process now, and
+   * two of that type's three cases carry a string the imported file chose. `theme-projection.ts`
+   * is where they are dropped, and this type is why nothing downstream can put one back.
+   */
+  readonly notices: readonly ThemeNotice[];
 }
 
 export type ThemeDraftAction =
@@ -62,7 +68,7 @@ export type ThemeDraftAction =
       readonly type: 'load';
       readonly theme: KeepTheme;
       readonly source: string | null;
-      readonly notices: readonly KeepThemeWarning[];
+      readonly notices: readonly ThemeNotice[];
     }
   | { readonly type: 'reset' }
   | { readonly type: 'acknowledge'; readonly acknowledgement: string | null };
@@ -70,7 +76,7 @@ export type ThemeDraftAction =
 export function draftFromKeepTheme(
   theme: KeepTheme,
   source: string | null,
-  notices: readonly KeepThemeWarning[] = []
+  notices: readonly ThemeNotice[] = []
 ): ThemeDraft {
   return {
     name: theme.name,

@@ -21,6 +21,11 @@ import type {
   AttachmentPreview,
 } from '@shared/model/attachment.js';
 import { isMenuCommandId, type MenuCommandId } from '@shared/model/menu-commands.js';
+import type {
+  ThemeExportRequest,
+  ThemeExportResponse,
+  ThemeImportResponse,
+} from '@shared/theme/theme-channels.js';
 import type { ExportFormatDescriptor } from '@shared/model/export.js';
 import type {
   ExportOutcome,
@@ -376,6 +381,38 @@ const api: KeyholdApi = {
       ipcRenderer.on(EVENTS.importProgress, forward);
       return () => {
         ipcRenderer.removeListener(EVENTS.importProgress, forward);
+      };
+    },
+  },
+
+  theme: {
+    // No argument and no path in the result: the dialog opens on the other side, and the
+    // file is parsed there too. What comes back is a projection, never the file's own text.
+    importTheme: () =>
+      ipcRenderer.invoke(CHANNELS.themeImport) as Promise<IpcResult<ThemeImportResponse>>,
+    // A theme object, not a blob of text. The main process re-validates and re-serialises it,
+    // so the bytes in the file the user names are ones Keyhold wrote.
+    exportTheme: (request: ThemeExportRequest) =>
+      ipcRenderer.invoke(CHANNELS.themeExport, request) as Promise<IpcResult<ThemeExportResponse>>,
+    takeOpenedTheme: () =>
+      ipcRenderer.invoke(CHANNELS.themeTakeOpened) as Promise<
+        IpcResult<ThemeImportResponse | null>
+      >,
+    /**
+     * The OS handed the app a `.keeptheme`.
+     *
+     * Same shape as `onMenuCommand` and `onStatusChanged`: one fixed channel, an unsubscribe
+     * returned, and the `IpcRendererEvent` hidden. The event carries no payload at all, so
+     * there is nothing to shape-check and nothing a later edit could widen into a path — the
+     * listener's only job is to call `takeOpenedTheme`.
+     */
+    onFileOpened: (listener: () => void) => {
+      const forward = (): void => {
+        listener();
+      };
+      ipcRenderer.on(EVENTS.themeFileOpened, forward);
+      return () => {
+        ipcRenderer.removeListener(EVENTS.themeFileOpened, forward);
       };
     },
   },
