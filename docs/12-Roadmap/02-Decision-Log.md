@@ -618,7 +618,7 @@ A `drop` event gives the renderer exactly two ways to reach the file:
    bridge, which is why this one looks acceptable.
 
 **Route 2 is refused because of what it composes into, not because of what it is.**
-`kh:attachments:preview` returns *real bytes* to the renderer for `image/*`,
+`kh:attachments:preview` returns _real bytes_ to the renderer for `image/*`,
 `application/pdf` and `text/plain`, gated on the type detected from the bytes themselves.
 That is safe today precisely because the renderer can only ever ask about attachments a
 human chose in an OS dialog. Add a channel that lets the renderer name the file main reads
