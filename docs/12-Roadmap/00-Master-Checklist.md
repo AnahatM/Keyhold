@@ -414,7 +414,10 @@ prompt, the saved report and cloud-folder awareness. Full notes:
 - [x] The merge report itself — a conflict carries lengths, never values, and a resolution never
       sends a value back
 - [ ] Saving a merge report, and a view for it
-- [ ] Cloud-folder detection with guidance (Dropbox / OneDrive / iCloud / Google Drive / Syncthing)
+- [x] Cloud-folder detection with guidance — ten providers, recognised from the path alone and
+      shown where the vault is described rather than as an alert. Whole-segment matching, because
+      a false positive costs more than a miss: the merge engine recovers a miss, and telling
+      somebody with a `Megabytes` folder that they are inside MEGA does not
 - [ ] Handle provider "conflicted copy" files — offer to merge them in
 - [x] **Tests:** the full conflict matrix · five whole-engine properties, including that no merge loses a record · tombstone correctness · idempotent re-merge
 - [x] Documentation written — at `docs/07-Sync-And-Merge/`, not the `docs/10-Sync-And-Transfer/` this line used to name; `07-` was free when it landed and `10-` was not

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -84,11 +84,33 @@ const shotPath = shotIndex === -1 ? undefined : process.argv[shotIndex + 1];
  * a vault file.
  */
 const vaultIndex = process.argv.indexOf('--vault');
-const vaultPath = process.argv.includes('--no-vault')
+
+/**
+ * The temp vault lives inside a folder called `Dropbox`.
+ *
+ * Not decoration: a vault in a synced folder is the arrangement Keyhold's whole multi-device
+ * story rests on, and the app shows a notice explaining what it means. Running against a path
+ * no provider matches would leave that notice unexercised, and a notice nothing renders looks
+ * exactly like a notice that correctly decided not to appear.
+ *
+ * Nothing else in the run depends on the name, and the negative case — an ordinary path
+ * detecting nothing — is covered by the unit tests in `shared/model/cloud-folder.test.ts`,
+ * where every provider can be checked on every platform.
+ */
+const smokeRoot = process.argv.includes('--no-vault')
   ? undefined
-  : vaultIndex === -1
-    ? join(mkdtempSync(join(tmpdir(), 'keyhold-smoke-')), 'smoke.keep')
-    : process.argv[vaultIndex + 1];
+  : mkdtempSync(join(tmpdir(), 'keyhold-smoke-'));
+
+const vaultPath =
+  smokeRoot === undefined
+    ? undefined
+    : vaultIndex === -1
+      ? join(smokeRoot, 'Dropbox', 'smoke.keep')
+      : process.argv[vaultIndex + 1];
+
+if (smokeRoot !== undefined && vaultIndex === -1) {
+  mkdirSync(join(smokeRoot, 'Dropbox'), { recursive: true });
+}
 
 const child = spawn(electronBinary, ['.'], {
   env: {
@@ -119,8 +141,10 @@ const killTimer = setTimeout(() => {
 
 /** The temp vault and its directory, gone. Nothing in a smoke run is worth keeping. */
 function removeTempVault() {
-  if (vaultIndex !== -1 || vaultPath === undefined) return;
-  rmSync(resolve(vaultPath, '..'), { recursive: true, force: true });
+  // The whole root, not the vault's own parent: the vault now sits one level down inside a
+  // `Dropbox` folder, and removing only that would leave the root behind on every run.
+  if (vaultIndex !== -1 || smokeRoot === undefined) return;
+  rmSync(smokeRoot, { recursive: true, force: true });
 }
 
 child.on('exit', (code) => {

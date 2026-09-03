@@ -785,3 +785,49 @@
   margin: 0;
   color: var(--kh-color-text-muted);
 }
+
+/* ── The cloud-folder notice ───────────────────────────────────────────────── */
+
+/*
+ * Informational, and styled to say so. Nothing is wrong when this appears — the arrangement is
+ * a supported one with a caveat — so it uses the info tone rather than warning, and sits in the
+ * vault panel rather than interrupting anything.
+ */
+
+.kh-cloud-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-info);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-color-info-subtle);
+}
+
+.kh-cloud-notice__headline {
+  margin: 0;
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-cloud-notice__risk {
+  margin: 0;
+  color: var(--kh-color-text);
+}
+
+/*
+ * A real list, with markers. `display: flex` on a `ul` removes them in Chromium, which turned
+ * three pieces of advice into three unmarked lines that read as one paragraph — spacing is
+ * done with a sibling margin instead, so the markers survive.
+ */
+.kh-cloud-notice__advice {
+  margin: 0;
+  padding-left: var(--kh-space-4);
+  list-style: disc;
+  color: var(--kh-color-text-muted);
+}
+
+.kh-cloud-notice__advice li + li {
+  margin-top: var(--kh-space-1);
+}
