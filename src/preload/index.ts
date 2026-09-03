@@ -30,6 +30,7 @@ import type {
   ImportCommitResult,
   ImportPreview,
   ImportPreviewRequest,
+  ImportProgress,
   ImportSource,
   ImportUndoRequest,
   ImportUndoResult,
@@ -339,6 +340,33 @@ const api: KeyholdApi = {
       ipcRenderer.invoke(CHANNELS.importerUndo, request) as Promise<IpcResult<ImportUndoResult>>,
     discard: (sourceId: string) =>
       ipcRenderer.invoke(CHANNELS.importerDiscard, sourceId) as Promise<IpcResult<null>>,
+
+    /**
+     * Commit progress, pushed from the main process.
+     *
+     * This was missing, and nothing noticed because `ImporterApi` had been written out twice
+     * and only one copy declared it — so the wizard's progress bar was subscribing to a
+     * method that did not exist on the object it was handed. Folding the two declarations
+     * into one turned that into a compile error.
+     *
+     * Same shape as `onMenuCommand` and `onStatusChanged`: a fixed channel, an unsubscribe
+     * returned, and the `IpcRendererEvent` hidden — the renderer is handed the payload and
+     * nothing that would let it reach the rest of Electron.
+     */
+    onProgress: (listener: (progress: ImportProgress) => void) => {
+      const forward = (_event: unknown, progress: unknown): void => {
+        // Shape-checked before forwarding, like every other pushed payload. A progress event
+        // is cosmetic, so a malformed one is dropped rather than thrown: failing an import
+        // because its progress bar got a bad number would be the tail wagging the dog.
+        if (typeof progress === 'object' && progress !== null) {
+          listener(progress as ImportProgress);
+        }
+      };
+      ipcRenderer.on(EVENTS.importProgress, forward);
+      return () => {
+        ipcRenderer.removeListener(EVENTS.importProgress, forward);
+      };
+    },
   },
 };
 

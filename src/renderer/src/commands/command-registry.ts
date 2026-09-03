@@ -42,6 +42,8 @@ export type CommandId =
   | 'nav.toggleSidebar'
   | 'search.focus'
   | 'help.shortcuts'
+  | 'vault.import'
+  | 'vault.export'
   /**
    * One per tool view, generated rather than listed.
    *
@@ -226,6 +228,26 @@ export const COMMANDS: readonly CommandDefinition[] = [
     keywords: ['keys', 'bindings', 'hotkeys', 'accelerators', 'help'],
     shortcutId: 'shortcuts.help',
     requiresSelection: false,
+    destructive: false,
+  },
+  {
+    id: 'vault.import',
+    title: 'Import from another password manager',
+    section: 'Vault',
+    keywords: ['bitwarden', 'lastpass', '1password', 'keepass', 'chrome', 'csv', 'migrate'],
+    requiresSelection: false,
+    destructive: false,
+  },
+  {
+    id: 'vault.export',
+    title: 'Export this vault',
+    section: 'Vault',
+    keywords: ['backup', 'copy', 'csv', 'json', 'parcel', 'transfer', 'leave', 'migrate'],
+    requiresSelection: false,
+    // Not `destructive`, deliberately, and it is worth saying why: `destructive` marks a
+    // command that damages the vault, and an export changes nothing in it. The danger of a
+    // plaintext export is to the *copy*, and that is guarded where it belongs — by the
+    // type-to-confirm step in the dialog, checked again in the main process.
     destructive: false,
   },
   ...TOOL_COMMANDS,

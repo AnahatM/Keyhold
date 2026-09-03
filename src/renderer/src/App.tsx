@@ -8,6 +8,7 @@ import { VaultScreen } from './vault/VaultScreen.js';
 import { WelcomeScreen } from './vault/WelcomeScreen.js';
 import { CommandsProvider } from './commands/index.js';
 import { startMenuBridge } from './shell/menu-bridge.js';
+import { watchLockForTransfers } from './vault/transfer-store.js';
 import { watchLockForToolViews, watchSelectionForToolViews } from './shell/index.js';
 import { ClearToastsOnLock } from './vault/ClearToastsOnLock.js';
 import { useSession, watchSession, type Screen } from './vault/session-store.js';
@@ -31,6 +32,7 @@ import './App.css';
  */
 function MenuBridge(): null {
   useEffect(() => startMenuBridge(), []);
+  useEffect(() => watchLockForTransfers(), []);
   return null;
 }
 

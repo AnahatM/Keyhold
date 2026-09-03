@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { MenuCommandId } from '@shared/model/menu-commands.js';
 import { usePaletteStore } from '../commands/palette-store.js';
+import { useTransfer } from '../vault/transfer-store.js';
 import { toolViewForMenuCommand } from './tool-views.js';
 import { useToolView } from './tool-view-store.js';
 
@@ -58,6 +59,12 @@ export function startMenuBridge(): () => void {
         return;
       case 'help.shortcuts':
         usePaletteStore.getState().openHelp();
+        return;
+      case 'vault.import':
+        useTransfer.getState().open('import');
+        return;
+      case 'vault.export':
+        useTransfer.getState().open('export');
         return;
       default:
         console.warn('[menu] the renderer has no handler for:', command);

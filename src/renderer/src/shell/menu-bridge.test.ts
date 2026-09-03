@@ -2,6 +2,7 @@
 import { isMenuCommandId, MENU_COMMAND_IDS } from '@shared/model/menu-commands.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePaletteStore } from '../commands/palette-store.js';
+import { useTransfer } from '../vault/transfer-store.js';
 import { startMenuBridge } from './menu-bridge.js';
 import { TOOL_VIEWS } from './tool-views.js';
 import { useToolView } from './tool-view-store.js';
@@ -40,6 +41,7 @@ beforeEach(() => {
   useToolView.getState().close();
   usePaletteStore.getState().closePalette();
   usePaletteStore.getState().closeHelp();
+  useTransfer.getState().close();
 });
 
 afterEach(() => {
@@ -69,6 +71,18 @@ describe('the menu bridge', () => {
     stop();
   });
 
+  it('opens the transfer flows the File menu names', () => {
+    // Both were built, bound to registered channels, and rendered by nothing. The menu was
+    // the surface most obviously missing them: File > Import is where a person looks.
+    const stop = startMenuBridge();
+    listener?.('vault.import');
+    expect(useTransfer.getState().active).toBe('import');
+
+    listener?.('vault.export');
+    expect(useTransfer.getState().active).toBe('export');
+    stop();
+  });
+
   it('opens the palette and the shortcut sheet', () => {
     const stop = startMenuBridge();
     listener?.('palette.open');
@@ -83,10 +97,15 @@ describe('the menu bridge', () => {
     // The main process only forwards commands it has already decided are enabled, so one
     // arriving with nowhere to go means the two sides disagree about what this build can do.
     // Worth saying out loud rather than discovering as a menu item that does nothing.
+    //
+    // `help.about` because it genuinely has no home yet. This case previously used
+    // `vault.export`, and it failed the moment the export dialog was mounted — which is the
+    // guard doing its job: an unhandled-command test whose example quietly becomes handled
+    // stops testing anything, and this one said so instead.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const stop = startMenuBridge();
 
-    listener?.('vault.export');
+    listener?.('help.about');
     expect(warn).toHaveBeenCalledOnce();
     stop();
     warn.mockRestore();

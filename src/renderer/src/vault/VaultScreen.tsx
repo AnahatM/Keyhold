@@ -5,6 +5,10 @@ import { Button } from '../components/Button.js';
 import { ContentViewer } from '../content/index.js';
 import { GeneratorScreen } from '../generator/index.js';
 import { HealthDashboard } from '../health/HealthDashboard.js';
+import { ExportDialog } from '../export/ExportDialog.js';
+import { exportGatewayFrom } from '../export/export-gateway.js';
+import { ImportWizard } from '../import/ImportWizard.js';
+import { createIpcImportGateway } from '../import/ipc-gateway.js';
 import { OrganisationSidebar } from '../organisation/index.js';
 import { SettingsScreen } from '../settings/SettingsScreen.js';
 import {
@@ -20,6 +24,7 @@ import { CredentialEditor } from './CredentialEditor.js';
 import { CredentialList } from './CredentialList.js';
 import { useCredentials } from './credential-store.js';
 import { useSession } from './session-store.js';
+import { useTransfer } from './transfer-store.js';
 import './vault-screens.css';
 
 /**
@@ -68,6 +73,8 @@ export function VaultScreen({
    * cleared for the same reason the palette clears it: the analysis only covers live
    * records, so landing in the trash view would show an empty list and no explanation.
    */
+  const refresh = useSession((state) => state.refresh);
+
   const openRecordFromTool = (credentialId: string): void => {
     setShowTrash(false);
     select(credentialId);
@@ -75,97 +82,105 @@ export function VaultScreen({
   };
 
   return (
-    <AppShell
-      sidebarCollapsed={sidebarCollapsed}
-      onSidebarCollapsedChange={setSidebarCollapsed}
-      main={
-        activeTool === null ? undefined : (
-          <ToolView view={activeTool} onClose={closeTool}>
-            <ToolPane
-              id={activeTool.id}
-              records={credentials}
-              onSelectCredential={openRecordFromTool}
-            />
-          </ToolView>
-        )
-      }
-      sidebar={
-        <div className="kh-sidebar">
-          <header className="kh-sidebar__header">
-            <span className="kh-sidebar__mark" aria-hidden="true">
-              🔓
-            </span>
-            <div>
-              <div className="kh-sidebar__name">{vault?.displayName ?? 'Vault'}</div>
-              <div className="kh-sidebar__version">
-                {vault === null
-                  ? ''
-                  : `${vault.recordCount} item${vault.recordCount === 1 ? '' : 's'}`}
+    <>
+      <AppShell
+        sidebarCollapsed={sidebarCollapsed}
+        onSidebarCollapsedChange={setSidebarCollapsed}
+        main={
+          activeTool === null ? undefined : (
+            <ToolView view={activeTool} onClose={closeTool}>
+              <ToolPane
+                id={activeTool.id}
+                records={credentials}
+                onSelectCredential={openRecordFromTool}
+              />
+            </ToolView>
+          )
+        }
+        sidebar={
+          <div className="kh-sidebar">
+            <header className="kh-sidebar__header">
+              <span className="kh-sidebar__mark" aria-hidden="true">
+                🔓
+              </span>
+              <div>
+                <div className="kh-sidebar__name">{vault?.displayName ?? 'Vault'}</div>
+                <div className="kh-sidebar__version">
+                  {vault === null
+                    ? ''
+                    : `${vault.recordCount} item${vault.recordCount === 1 ? '' : 's'}`}
+                </div>
               </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnlyLabel="Collapse the sidebar"
-              onClick={() => {
-                setSidebarCollapsed(true);
-              }}
-            >
-              ‹
-            </Button>
-          </header>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnlyLabel="Collapse the sidebar"
+                onClick={() => {
+                  setSidebarCollapsed(true);
+                }}
+              >
+                ‹
+              </Button>
+            </header>
 
-          {/*
+            {/*
             The real sidebar, replacing the placeholder nav that used to live here.
             It owns no filtering: it produces a `SidebarSelection`, and `visibleForSelection`
             turns that into a list through the shared search engine — so there is still one
             matcher and one sort in the app.
           */}
-          <OrganisationSidebar />
+            <OrganisationSidebar />
 
-          {/*
+            {/*
             The tools, below the folders and above the lock control. A palette command and a
             menu item are both invisible until you already know they exist, and a finished
             screen nobody can find is not much better than one nobody mounted.
           */}
-          <ToolNav />
+            <ToolNav />
 
-          <div className="kh-sidebar__footer">
-            <ClipboardIndicator />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                void lock();
-              }}
-            >
-              Lock vault
-            </Button>
+            <div className="kh-sidebar__footer">
+              <ClipboardIndicator />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  void lock();
+                }}
+              >
+                Lock vault
+              </Button>
+            </div>
           </div>
-        </div>
-      }
-      hasSelection={selectedId !== null || editing}
-      onBack={() => {
-        select(null);
-      }}
-      list={<CredentialList />}
-      detail={
-        <div className="kh-detail-stack">
-          <UndoBar />
-          {editing ? (
-            <CredentialEditor credential={selected ?? null} />
-          ) : selected !== undefined ? (
-            <CredentialDetail credential={selected} />
-          ) : (
-            <>
-              <NoSelection />
-              <VaultOverview />
-              {appearancePanel}
-            </>
-          )}
-        </div>
-      }
-    />
+        }
+        hasSelection={selectedId !== null || editing}
+        onBack={() => {
+          select(null);
+        }}
+        list={<CredentialList />}
+        detail={
+          <div className="kh-detail-stack">
+            <UndoBar />
+            {editing ? (
+              <CredentialEditor credential={selected ?? null} />
+            ) : selected !== undefined ? (
+              <CredentialDetail credential={selected} />
+            ) : (
+              <>
+                <NoSelection />
+                <VaultOverview />
+                {appearancePanel}
+              </>
+            )}
+          </div>
+        }
+      />
+      <TransferFlows
+        selectedIds={selectedId === null ? [] : [selectedId]}
+        onImported={() => {
+          void refresh();
+        }}
+      />
+    </>
   );
 }
 
@@ -185,6 +200,66 @@ export function VaultScreen({
  * `use-generator.ts` — this screen never sees it and deliberately passes no `onUse`, because
  * on a standalone generator there is nowhere for a password to go.
  */
+/**
+ * The import wizard and the export dialog, mounted.
+ *
+ * Both were finished, both were bound to registered channels, and neither was rendered
+ * anywhere — the largest built-but-unreachable gap in the app. They are mounted here, in the
+ * vault screen, because both act on an open vault and neither means anything without one.
+ *
+ * Rendered only while their flow is active rather than always-mounted-with-`open={false}`.
+ * That is not a performance choice: the wizard holds a decrypted file, and a component that
+ * is merely hidden is a component still holding it. Unmounting is what makes "closed" mean
+ * the same thing as "gone", and the wizard's own discard-on-unmount is what makes that safe.
+ *
+ * The gateways are built per render and that is fine — both are stateless adapters over
+ * `window.keyhold`, holding nothing between calls, so a fresh one costs an object. The state
+ * that matters lives in the main process, which is the whole point of the split.
+ */
+function TransferFlows({
+  selectedIds,
+  onImported,
+}: {
+  readonly selectedIds: readonly string[];
+  readonly onImported: () => void;
+}): React.JSX.Element | null {
+  const active = useTransfer((state) => state.active);
+  const close = useTransfer((state) => state.close);
+
+  if (active === 'import') {
+    return (
+      <ImportWizard
+        open
+        gateway={createIpcImportGateway(window.keyhold.importer)}
+        onClose={close}
+        onImported={() => {
+          // The list is stale the moment a commit lands: the records are in the vault and the
+          // renderer's projection is not. Refreshing here rather than inside the wizard keeps
+          // the wizard ignorant of the credential store, which is what lets it be driven by a
+          // fake gateway in its own tests.
+          onImported();
+        }}
+      />
+    );
+  }
+
+  if (active === 'export') {
+    return (
+      <ExportDialog
+        open
+        gateway={exportGatewayFrom(
+          window.keyhold.exporter,
+          window.keyhold.session.estimateStrength
+        )}
+        selectedIds={selectedIds}
+        onClose={close}
+      />
+    );
+  }
+
+  return null;
+}
+
 function ToolPane({
   id,
   records,
