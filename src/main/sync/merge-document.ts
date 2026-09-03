@@ -11,6 +11,7 @@ import type { Folder, VaultDocument } from '@shared/model/vault-document.js';
 import {
   mergeFolders,
   mergeSettings,
+  mergeSavedSearches,
   mergeTagPalette,
   repairFolderTree,
 } from './merge-collections.js';
@@ -186,8 +187,13 @@ export function mergeDocuments(
     theirs.settings,
     resolutions
   );
+  const searches = mergeSavedSearches(
+    base?.savedSearches ?? null,
+    ours.savedSearches,
+    theirs.savedSearches
+  );
   conflicts.push(...folders.conflicts, ...palette.conflicts, ...settings.conflicts);
-  notes.push(...folders.notes, ...palette.notes);
+  notes.push(...folders.notes, ...palette.notes, ...searches.notes);
 
   const repaired = repairFolderTree(folders.items, mergedRecords, folderPool(base, ours, theirs));
   notes.push(...repaired.notes);
@@ -197,6 +203,7 @@ export function mergeDocuments(
     records: repaired.records,
     folders: repaired.folders,
     tags: palette.items,
+    savedSearches: searches.items,
     settings: settings.settings,
   };
 

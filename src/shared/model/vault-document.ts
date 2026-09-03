@@ -20,6 +20,8 @@ import {
 
 export const VAULT_DOCUMENT_VERSION = 1;
 
+import type { SavedSearch } from './saved-search.js';
+
 export interface Folder {
   readonly id: string;
   readonly name: string;
@@ -138,6 +140,16 @@ export interface VaultDocument {
   readonly records: readonly Credential[];
   readonly folders: readonly Folder[];
   readonly tags: readonly Tag[];
+  /**
+   * Named queries, beside the folders and tags rather than inside `settings`.
+   *
+   * A saved search is something the user made and named, not a knob describing how the vault
+   * behaves — see `saved-search.ts` for the whole argument. The practical difference is the
+   * merge: entries here survive element-wise through `mergeCollection`, whereas anything in
+   * `settings` goes through last-writer-wins, and losing a named query because the other
+   * machine saved a second later is not a trade anyone would choose.
+   */
+  readonly savedSearches: readonly SavedSearch[];
   readonly settings: VaultSettings;
 }
 
@@ -149,6 +161,7 @@ export function emptyVaultDocument(
     records: [],
     folders: [],
     tags: [],
+    savedSearches: [],
     settings,
   };
 }

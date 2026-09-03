@@ -30,6 +30,12 @@ import {
 import { parseRecord, serialiseRecord } from './record-json.js';
 import { reportSelectionLosses, selectRecords, type ExportSelection } from './select.js';
 import { LossLog, plaintextExport, type PlaintextExport } from './types.js';
+import {
+  normaliseSavedSearch,
+  savedSearchProblem,
+  SAVED_SEARCH_MAX,
+  type SavedSearch,
+} from '@shared/model/saved-search.js';
 
 /**
  * The Keyhold JSON export: everything, in a form anyone can read.
@@ -156,6 +162,7 @@ function serialiseEnvelope(
     settings: serialiseSettings(document.settings),
     folders: folders.map(serialiseFolder),
     tags: tagScope(document, records, options).map(serialiseTag),
+    savedSearches: savedSearchScope(document, options),
     records: records.map(serialiseRecord),
   };
 
@@ -260,6 +267,31 @@ function tagScope(
   return document.tags.filter((tag) => used.has(tag.name.toLowerCase()));
 }
 
+/**
+ * Saved searches, but only on a whole-vault export.
+ *
+ * This format is declared `lossless`, so a full export has to carry them or the claim is
+ * false — a backup that quietly drops the user's named queries is exactly the kind of loss
+ * nobody notices until they restore.
+ *
+ * A **scoped** export drops them, and that is the same rule `tagScope` and `folderScope`
+ * already apply one function up: do not ship metadata about records you did not ship. It
+ * matters more here than for a tag, because a saved search carries a *name the user wrote*.
+ * "Offshore accounts" travelling inside a five-record export of something unrelated is a
+ * disclosure about the rest of the vault, made by a file the user is about to hand to
+ * somebody.
+ *
+ * Scoping them by content is not an option worth reaching for: a query is text, not a set of
+ * references, so there is no honest way to ask which exported records a saved search is
+ * "about". All or nothing is the only rule that can be stated truthfully, so it is the rule.
+ */
+function savedSearchScope(
+  document: VaultDocument,
+  selection: ExportSelection
+): readonly SavedSearch[] {
+  return selection.recordIds === undefined ? document.savedSearches : [];
+}
+
 // ── Reading ──────────────────────────────────────────────────────────────────
 
 /**
@@ -315,6 +347,14 @@ export function parseKeyholdJson(source: string | Uint8Array): KeyholdJsonDocume
       tags: requireArray(envelope.tags, 'tags').map((item, index) =>
         parseTag(item, `tags[${index}]`)
       ),
+      // Absent on an export written before saved searches existed, and absent by design on a
+      // scoped one, so its absence is normal rather than malformed. Unusable entries are
+      // dropped for the reason `parseVaultDocument` gives: refusing an entire import over a
+      // malformed shortcut would cost the user their records to protect a bookmark.
+      savedSearches: (Array.isArray(envelope.savedSearches) ? envelope.savedSearches : [])
+        .filter((entry) => savedSearchProblem(entry) === null)
+        .map((entry) => normaliseSavedSearch(entry as SavedSearch))
+        .slice(0, SAVED_SEARCH_MAX),
       records: requireArray(envelope.records, 'records').map((item, index) =>
         parseRecord(item, `records[${index}]`)
       ),

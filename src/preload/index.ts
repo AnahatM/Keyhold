@@ -24,6 +24,7 @@ import type {
 import { isMenuCommandId, type MenuCommandId } from '@shared/model/menu-commands.js';
 import type { KdfProgressView } from '@shared/model/kdf-progress.js';
 import type { KdfCost } from '@shared/model/settings-plan.js';
+import type { SavedSearch } from '@shared/model/saved-search.js';
 import type { VaultChangedExternally } from '@shared/model/vault-change.js';
 import type { MergeReport } from '@shared/model/sync.js';
 import type {
@@ -405,6 +406,23 @@ const api: KeyholdApi = {
 
   activity: {
     read: () => ipcRenderer.invoke(CHANNELS.activityList) as Promise<IpcResult<ActivityView>>,
+  },
+
+  searches: {
+    read: () =>
+      ipcRenderer.invoke(CHANNELS.searchesList) as Promise<IpcResult<readonly SavedSearch[]>>,
+    create: (name: string, query: string) =>
+      ipcRenderer.invoke(CHANNELS.searchesCreate, name, query) as Promise<
+        IpcResult<readonly SavedSearch[]>
+      >,
+    update: (searchId: string, patch: { readonly name?: string; readonly query?: string }) =>
+      ipcRenderer.invoke(CHANNELS.searchesUpdate, searchId, patch) as Promise<
+        IpcResult<readonly SavedSearch[]>
+      >,
+    remove: (searchId: string) =>
+      ipcRenderer.invoke(CHANNELS.searchesDelete, searchId) as Promise<
+        IpcResult<readonly SavedSearch[]>
+      >,
   },
 
   attachments: {

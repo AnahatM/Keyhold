@@ -47,6 +47,12 @@ import { canonicallyFirst, largerCap, sameValue } from './stable-value.js';
  * dismissed. Every one is still reported.
  */
 
+import {
+  bySavedSearchOrder,
+  SAVED_SEARCH_MAX,
+  type SavedSearch,
+} from '@shared/model/saved-search.js';
+
 interface Keyed {
   readonly id: string;
 }
@@ -264,6 +270,51 @@ export function mergeTagPalette(
   );
 
   return { items, conflicts, notes };
+}
+
+/**
+ * Saved searches, merged element-wise like the tag palette.
+ *
+ * Through `mergeCollection` rather than beside it, which is the whole reason that function
+ * was factored out: the survival rules for a named thing with an id do not vary by what the
+ * thing is, and three collections answering "does absence delete?" differently would be
+ * three chances to get the hardest question in the merge wrong.
+ *
+ * **The tie-break is `updatedAt`, not `pick`.** Folders and tags resolve property by property
+ * and raise a conflict the user has to settle, because a folder edited on both machines has
+ * two names that both mean something. A saved search is one thing — a name attached to a
+ * query — and splitting it would produce the one outcome that is worse than either side:
+ * this machine's name over that machine's query, a shortcut labelled "Banking" that searches
+ * for expiring passwords. So the later edit wins whole, and the user is told it happened
+ * rather than asked which half they wanted.
+ *
+ * That is a deliberate loss of one edit, and it is affordable here for the reason the parser
+ * gives for dropping malformed entries: a saved search is a shortcut its owner can rebuild in
+ * ten seconds, and a record is not.
+ */
+export function mergeSavedSearches(
+  base: readonly SavedSearch[] | null,
+  ours: readonly SavedSearch[],
+  theirs: readonly SavedSearch[]
+): CollectionMerge<SavedSearch> {
+  const notes: MergeNote[] = [];
+
+  const items = mergeCollection<SavedSearch>(
+    base,
+    ours,
+    theirs,
+    (_id, _ancestor, mine, yours) => (yours.updatedAt > mine.updatedAt ? yours : mine),
+    (kind, id) => notes.push({ kind, targetId: id, count: null }),
+    { added: 'saved-search-added', kept: 'saved-search-kept-unmatched' }
+  );
+
+  // Capped after merging, not before. Two machines each holding a legal number can combine
+  // to exceed it, and the cap exists so the sidebar stays scannable — it is not a claim about
+  // either input being wrong. Sorted first so what survives is deterministic rather than
+  // whichever side happened to be walked first.
+  const ordered = [...items].sort(bySavedSearchOrder);
+
+  return { items: ordered.slice(0, SAVED_SEARCH_MAX), conflicts: [], notes };
 }
 
 /**

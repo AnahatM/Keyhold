@@ -176,6 +176,7 @@ describe('determinism', () => {
       'settings',
       'folders',
       'tags',
+      'savedSearches',
       'records',
     ]);
   });
@@ -270,6 +271,33 @@ describe('a subset export', () => {
   it('keeps every folder on a whole-vault export, empty ones included', () => {
     const parsed = parseKeyholdJson(serialiseKeyholdJson(document, OPTIONS));
     expect(parsed.document.folders).toHaveLength(3);
+  });
+
+  it('keeps every saved search on a whole-vault export, because this format is lossless', () => {
+    // The `lossless: true` claim in the format registry is only true if this holds. A backup
+    // that quietly drops the user's named queries is exactly the kind of loss nobody notices
+    // until they restore from it.
+    const parsed = parseKeyholdJson(serialiseKeyholdJson(document, OPTIONS));
+    expect(parsed.document.savedSearches.map((entry) => entry.name)).toEqual([
+      'Needs attention',
+      'Banking',
+    ]);
+    expect(parsed.document.savedSearches[1]?.query).toBe('folder:Finance has:totp');
+  });
+
+  it('carries no saved search at all, whatever they match', () => {
+    // The same rule the folders and tags above follow — do not ship metadata about records
+    // you did not ship — and it matters more here, because a saved search carries a *name the
+    // user wrote*. "Offshore accounts" travelling inside a two-record export of something
+    // unrelated is a disclosure about the rest of the vault, made by a file they are about to
+    // hand to somebody.
+    //
+    // All or nothing rather than a content-based scope: a query is text, not a set of
+    // references, so there is no honest way to ask which exported records one is "about".
+    const parsed = parseKeyholdJson(
+      serialiseKeyholdJson(document, { ...OPTIONS, recordIds: ['rec-1'] })
+    );
+    expect(parsed.document.savedSearches).toEqual([]);
   });
 
   it('reports an id that is no longer in the vault', () => {

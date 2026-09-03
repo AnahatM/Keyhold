@@ -166,6 +166,7 @@ function vault(records: readonly Credential[], settings?: Partial<VaultSettings>
     records,
     folders: [],
     tags: [],
+    savedSearches: [],
     settings: { ...DEFAULT_VAULT_SETTINGS, ...settings },
   };
 }

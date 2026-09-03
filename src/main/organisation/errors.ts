@@ -38,7 +38,15 @@ export type OrganisationErrorCode =
   /** `Tag.colour` must be one of `TAG_COLOUR_TOKENS`, never a raw colour. */
   | 'INVALID_TAG_COLOUR'
   /** Merging a tag into itself — almost certainly a UI wiring bug, never a user intent. */
-  | 'MERGE_INTO_SELF';
+  | 'MERGE_INTO_SELF'
+  /** The saved-search id does not name one in this document. */
+  | 'NO_SUCH_SAVED_SEARCH'
+  /** The document already holds `SAVED_SEARCH_MAX`. */
+  | 'TOO_MANY_SAVED_SEARCHES'
+  /** Two rows with the same name are two rows the user cannot tell apart. */
+  | 'DUPLICATE_SEARCH_NAME'
+  /** Empty name, empty query, or either one over its cap. */
+  | 'INVALID_SAVED_SEARCH';
 
 export class OrganisationError extends Error {
   readonly code: OrganisationErrorCode;
@@ -106,4 +114,34 @@ export function invalidTagColour(): OrganisationError {
 
 export function mergeIntoSelf(): OrganisationError {
   return new OrganisationError('MERGE_INTO_SELF', 'A tag cannot be merged into itself.');
+}
+
+export function noSuchSavedSearch(): OrganisationError {
+  return new OrganisationError(
+    'NO_SUCH_SAVED_SEARCH',
+    'That saved search no longer exists in this vault.'
+  );
+}
+
+export function tooManySavedSearches(limit: number): OrganisationError {
+  return new OrganisationError(
+    'TOO_MANY_SAVED_SEARCHES',
+    `This vault already has the maximum of ${String(limit)} saved searches.`
+  );
+}
+
+export function duplicateSearchName(): OrganisationError {
+  return new OrganisationError(
+    'DUPLICATE_SEARCH_NAME',
+    'A saved search with that name already exists.'
+  );
+}
+
+/**
+ * `reason` comes from `savedSearchProblem`, which is written to be readable at the end of
+ * this sentence and never to quote the value it is complaining about — a query can carry a
+ * fragment of a record's title, and this message ends up in a banner.
+ */
+export function invalidSavedSearch(reason: string): OrganisationError {
+  return new OrganisationError('INVALID_SAVED_SEARCH', `That search cannot be saved — ${reason}.`);
 }

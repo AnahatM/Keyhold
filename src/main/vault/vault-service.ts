@@ -36,6 +36,19 @@ import {
   unlock as unlockKeys,
   type DeriveKeyFn,
 } from '../crypto/envelope.js';
+import {
+  duplicateSearchName,
+  invalidSavedSearch,
+  noSuchSavedSearch,
+  tooManySavedSearches,
+} from '../organisation/errors.js';
+import {
+  bySavedSearchOrder,
+  normaliseSavedSearch,
+  savedSearchProblem,
+  SAVED_SEARCH_MAX,
+  type SavedSearch,
+} from '@shared/model/saved-search.js';
 import { calibrateKdf, newKdfParams } from '../crypto/kdf.js';
 import { uuid } from '../crypto/random.js';
 import { SecretBytes } from '../crypto/secret.js';
@@ -1001,6 +1014,138 @@ export class VaultService {
     return { updatedRecords: result.changedRecordIds.length };
   }
 
+  // ── Saved searches ───────────────────────────────────────────────────────────
+  //
+  // Content, like folders and tags, so they live on the document and travel inside the
+  // encrypted body. `saved-search.ts` carries the argument for that scope.
+  //
+  // Every one of these returns the whole list rather than the entry it touched. The list is
+  // small and bounded by `SAVED_SEARCH_MAX`, and a caller that has to splice a returned entry
+  // into its own copy is a caller that will eventually splice it wrong — the same reasoning
+  // the folder and tag channels already use.
+
+  savedSearches(): readonly SavedSearch[] {
+    return [...this.#requireOpen().document.savedSearches].sort(bySavedSearchOrder);
+  }
+
+  /**
+   * Saves the current query under a name.
+   *
+   * Refuses a duplicate name rather than silently making a second one. Two rows reading
+   * "Banking" in the sidebar is a state with no way out for the user: neither row says which
+   * is which, and renaming one requires guessing which one they are looking at.
+   */
+  createSavedSearch(input: { readonly name: string; readonly query: string }): SavedSearch {
+    const open = this.#requireOpen();
+    const existing = open.document.savedSearches;
+
+    if (existing.length >= SAVED_SEARCH_MAX) {
+      throw tooManySavedSearches(SAVED_SEARCH_MAX);
+    }
+
+    const candidate = normaliseSavedSearch({
+      id: uuid(),
+      name: input.name,
+      query: input.query,
+      // Appended, not inserted. A new shortcut going to the bottom is predictable; one that
+      // reorders the list the user was just looking at is not.
+      order: existing.reduce((highest, entry) => Math.max(highest, entry.order), -1) + 1,
+      updatedAt: Date.now(),
+    });
+
+    const problem = savedSearchProblem(candidate);
+    // Never quotes the name or the query: this message reaches an error banner, and a query
+    // can contain a fragment of a record's title.
+    if (problem !== null) throw invalidSavedSearch(problem);
+
+    this.#requireUniqueSearchName(existing, candidate.name, null);
+
+    this.#open = {
+      ...open,
+      document: { ...open.document, savedSearches: [...existing, candidate] },
+      dirty: true,
+    };
+    return candidate;
+  }
+
+  /** Renames a saved search, or replaces its query, or both. */
+  updateSavedSearch(
+    searchId: string,
+    patch: { readonly name?: string; readonly query?: string }
+  ): SavedSearch {
+    const open = this.#requireOpen();
+    const current = open.document.savedSearches.find((entry) => entry.id === searchId);
+    if (current === undefined) {
+      throw noSuchSavedSearch();
+    }
+
+    const candidate = normaliseSavedSearch({
+      ...current,
+      ...(patch.name === undefined ? {} : { name: patch.name }),
+      ...(patch.query === undefined ? {} : { query: patch.query }),
+      // Stamped on every edit, because this is what the merge uses to decide which of two
+      // edited copies wins. An update that left it alone would make the older edit win.
+      updatedAt: Date.now(),
+    });
+
+    const problem = savedSearchProblem(candidate);
+    if (problem !== null) throw invalidSavedSearch(problem);
+
+    this.#requireUniqueSearchName(open.document.savedSearches, candidate.name, searchId);
+
+    this.#open = {
+      ...open,
+      document: {
+        ...open.document,
+        savedSearches: open.document.savedSearches.map((entry) =>
+          entry.id === searchId ? candidate : entry
+        ),
+      },
+      dirty: true,
+    };
+    return candidate;
+  }
+
+  /**
+   * Deletes a saved search outright.
+   *
+   * No tombstone and no trash, unlike a record — and none is needed. A three-way merge reads
+   * the deletion out of the ancestor: present there, gone here, untouched on the other side
+   * is honoured as a delete, exactly as it is for a folder. The two cases where the shortcut
+   * comes back are both the right answer: a two-way merge has no ancestor and so no evidence
+   * anything was deleted, and a side that *edited* it while this one deleted it keeps it,
+   * because somebody was still using it and a shortcut is trivially deleted again.
+   *
+   * A tombstone would buy the two-way case and cost a list that grows forever to remember
+   * bookmarks nobody wants back.
+   */
+  deleteSavedSearch(searchId: string): boolean {
+    const open = this.#requireOpen();
+    const remaining = open.document.savedSearches.filter((entry) => entry.id !== searchId);
+    if (remaining.length === open.document.savedSearches.length) return false;
+
+    this.#open = {
+      ...open,
+      document: { ...open.document, savedSearches: remaining },
+      dirty: true,
+    };
+    return true;
+  }
+
+  /** Case-insensitively, because two rows differing only in case are two rows nobody can tell apart. */
+  #requireUniqueSearchName(
+    existing: readonly SavedSearch[],
+    name: string,
+    exceptId: string | null
+  ): void {
+    const clash = existing.some(
+      (entry) => entry.id !== exceptId && entry.name.toLowerCase() === name.toLowerCase()
+    );
+    if (clash) {
+      throw duplicateSearchName();
+    }
+  }
+
   // ── History ──────────────────────────────────────────────────────────────────
 
   /**
@@ -1426,6 +1571,19 @@ export function parseVaultDocument(body: Uint8Array): VaultDocument {
     records: candidate.records.map(normaliseRecord),
     folders: candidate.folders ?? [],
     tags: candidate.tags ?? [],
+    // Additive, exactly like `folders` and `tags` above, which is why saved searches needed
+    // no `documentVersion` bump: a vault written before they existed opens with none and
+    // gains the field on its next save.
+    //
+    // Unusable entries are **dropped rather than repaired**, and that is the opposite of how
+    // records are treated one line up. A record is the user's data and losing one silently is
+    // unthinkable, so `normaliseRecord` refuses the whole file instead. A saved search is a
+    // shortcut the user can recreate in ten seconds, and refusing to open a vault because one
+    // of them has a malformed name would be a self-inflicted lockout over a bookmark.
+    savedSearches: (Array.isArray(candidate.savedSearches) ? candidate.savedSearches : [])
+      .filter((entry) => savedSearchProblem(entry) === null)
+      .map((entry) => normaliseSavedSearch(entry as SavedSearch))
+      .slice(0, SAVED_SEARCH_MAX),
     // Merged rather than defaulted wholesale: a vault written before a settings field
     // existed must keep every setting it *does* carry, and gain only the missing one. A
     // `?? defaults` would silently reset the user's whole configuration on the first open

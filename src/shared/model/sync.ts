@@ -176,6 +176,10 @@ export const MERGE_NOTE_KINDS = [
   'folder-cycle-broken',
   /** A record referenced a folder that exists nowhere; the record was moved to the root. */
   'record-unfiled',
+  /** A saved search that exists only on the other side was brought in. */
+  'saved-search-added',
+  /** Present in the ancestor and on one side only. Kept — absence alone never deletes. */
+  'saved-search-kept-unmatched',
   'tag-added',
   'tag-kept-unmatched',
   /**

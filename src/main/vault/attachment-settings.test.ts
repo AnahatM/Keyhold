@@ -41,6 +41,7 @@ function documentWithRecord(caps: Partial<typeof DEFAULT_ATTACHMENT_SETTINGS> = 
     records: [record],
     folders: [],
     tags: [],
+    savedSearches: [],
     settings: {
       ...DEFAULT_VAULT_SETTINGS,
       attachments: { ...DEFAULT_ATTACHMENT_SETTINGS, ...caps },

@@ -8,6 +8,7 @@ import {
   type OpenDialogOptions,
   type SaveDialogOptions,
 } from 'electron';
+import { SAVED_SEARCH_NAME_MAX, SAVED_SEARCH_QUERY_MAX } from '@shared/model/saved-search.js';
 import { CHANNELS, EVENTS, type IpcResult, type SettingsView } from '@shared/ipc/api.js';
 import {
   requireCredentialEdit,
@@ -26,6 +27,7 @@ import {
   requireHistoryPoint,
   requireId,
   requireListOptions,
+  requireBoundedString,
   requireNonEmptyString,
   requireSecretRef,
   requireString,
@@ -1330,6 +1332,66 @@ export function registerIpcHandlers(context: IpcContext): void {
     snapshot: session.activity.snapshot(),
     lastLock: session.lastLockNotice,
   }));
+
+  // ── saved searches ─────────────────────────────────────────────────────────
+  //
+  // Named queries, stored in the vault beside the folders and tags. Like those, every handler
+  // answers with the whole list rather than the entry it touched — see `SavedSearchApi`.
+  //
+  // The name and the query are bounded here as well as in the model, because this is where an
+  // untrusted payload meets them: `requireBoundedString` refuses rather than truncating, so a
+  // renderer sending a megabyte cannot end up storing a silently shortened name the user never
+  // chose.
+
+  handle(CHANNELS.searchesList, () => vault.savedSearches());
+
+  handle(CHANNELS.searchesCreate, (name, query) => {
+    vault.createSavedSearch({
+      name: requireBoundedString(CHANNELS.searchesCreate, name, 'name', SAVED_SEARCH_NAME_MAX),
+      query: requireBoundedString(CHANNELS.searchesCreate, query, 'query', SAVED_SEARCH_QUERY_MAX),
+    });
+    return vault.savedSearches();
+  });
+
+  handle(CHANNELS.searchesUpdate, (searchId, patch) => {
+    const id = requireId(CHANNELS.searchesUpdate, searchId, 'searchId');
+    if (typeof patch !== 'object' || patch === null || Array.isArray(patch)) {
+      throw new IpcValidationError(CHANNELS.searchesUpdate, 'patch must be an object');
+    }
+
+    const fields = patch as { name?: unknown; query?: unknown };
+    // A patch: an absent field means "leave it alone", so each is validated only when present.
+    // Sending `undefined` for both is a no-op that still stamps `updatedAt`, which is correct —
+    // it is the record of somebody having touched it.
+    vault.updateSavedSearch(id, {
+      ...(fields.name === undefined
+        ? {}
+        : {
+            name: requireBoundedString(
+              CHANNELS.searchesUpdate,
+              fields.name,
+              'name',
+              SAVED_SEARCH_NAME_MAX
+            ),
+          }),
+      ...(fields.query === undefined
+        ? {}
+        : {
+            query: requireBoundedString(
+              CHANNELS.searchesUpdate,
+              fields.query,
+              'query',
+              SAVED_SEARCH_QUERY_MAX
+            ),
+          }),
+    });
+    return vault.savedSearches();
+  });
+
+  handle(CHANNELS.searchesDelete, (searchId) => {
+    vault.deleteSavedSearch(requireId(CHANNELS.searchesDelete, searchId, 'searchId'));
+    return vault.savedSearches();
+  });
 
   // ── folders and tags ───────────────────────────────────────────────────────
   //

@@ -22,6 +22,7 @@ import type { KdfProgressView } from '../model/kdf-progress.js';
 import type { VaultChangedExternally } from '../model/vault-change.js';
 import type { KdfCost, SettingsSnapshot } from '../model/settings-plan.js';
 import type { ActivityEntry, ActivitySnapshot } from '../model/activity.js';
+import type { SavedSearch } from '../model/saved-search.js';
 import type { AttachmentAddView, AttachmentAudit, AttachmentPreview } from '../model/attachment.js';
 import type { ExportFormatDescriptor } from '../model/export.js';
 import {
@@ -452,6 +453,29 @@ export interface ActivityView {
   readonly lastLock: ActivityEntry | null;
 }
 
+/**
+ * Saved searches — named queries stored in the vault.
+ *
+ * Every method answers with the **whole list**, never with just the entry it touched. The
+ * list is small and hard-capped, and a renderer that has to splice a returned entry into its
+ * own copy is a renderer that will eventually splice it wrong — an ordering bug that shows
+ * up as a shortcut appearing in the wrong place and nowhere else. The folder and tag channels
+ * settled this the same way for the same reason.
+ *
+ * Nothing here carries secret material. A query is text the user typed into the search box,
+ * and the search box has never had access to secrets — `deepSearch` runs in the main process
+ * precisely so it does not.
+ */
+export interface SavedSearchApi {
+  read: () => Promise<IpcResult<readonly SavedSearch[]>>;
+  create: (name: string, query: string) => Promise<IpcResult<readonly SavedSearch[]>>;
+  update: (
+    searchId: string,
+    patch: { readonly name?: string; readonly query?: string }
+  ) => Promise<IpcResult<readonly SavedSearch[]>>;
+  remove: (searchId: string) => Promise<IpcResult<readonly SavedSearch[]>>;
+}
+
 export interface SettingsApi {
   read: () => Promise<IpcResult<SettingsView>>;
   updateMachine: (patch: Record<string, unknown>) => Promise<IpcResult<SettingsView>>;
@@ -597,6 +621,7 @@ export interface KeyholdApi {
   organisation: OrganisationApi;
   settings: SettingsApi;
   activity: ActivityApi;
+  searches: SavedSearchApi;
   attachments: AttachmentsApi;
   exporter: ExporterApi;
   importer: ImporterApi;
@@ -673,6 +698,11 @@ export const CHANNELS = {
   settingsRekey: 'kh:settings:rekey',
 
   activityList: 'kh:activity:list',
+
+  searchesList: 'kh:searches:list',
+  searchesCreate: 'kh:searches:create',
+  searchesUpdate: 'kh:searches:update',
+  searchesDelete: 'kh:searches:delete',
 
   attachmentsAdd: 'kh:attachments:add',
   attachmentsRemove: 'kh:attachments:remove',

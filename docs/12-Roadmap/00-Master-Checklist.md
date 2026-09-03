@@ -261,8 +261,12 @@ and the query-bar UI are not. Full notes: `docs/05-Features/03-Search-Sort-Filte
 - [x] Query-bar UI: prefix autocomplete from `QUERY_FIELDS` and the diagnostics line —
       `QueryHelp`. The parser has produced user-facing diagnostics all along and nothing showed
       them, so a typo looked like an empty vault rather than a misread query
-- [ ] Saved searches — the remaining third of that line. Needs somewhere to persist them, which
-      is a decision (vault settings travel with the file; machine preferences do not)
+- [x] Saved searches — a named query, stored on `VaultDocument` beside the folders and tags.
+      The decision this line was held open on: **content, not configuration**, so it merges
+      element-wise rather than through `mergeSettings`' last-writer-wins, and it is a property
+      of the data rather than of the machine, so it travels inside the encrypted body with the
+      file. No `documentVersion` bump — the field is read additively, exactly like `folders`.
+      Saved from a button on the query bar, listed in the sidebar under the built-in views
 - [x] A user-facing sort control — `SortControl`, a key picker plus a direction toggle rather
       than one menu of every combination. The engine and `visibleCredentials`' `SortOptions`
       parameter had both existed the whole time with nothing passing one
@@ -310,7 +314,11 @@ drag-and-drop and a lightbox. Full notes: `docs/05-Features/04-Attachments.md`._
 - [x] Reading a file from disk, IPC channels, export to disk with its warning — both dialogs
       open in the main process, the bytes never cross the bridge, and there is deliberately
       no `read` channel
-- [ ] Drag-and-drop onto the attachments panel — the only part of that line not built
+- [x] Drag-and-drop onto the attachments panel — a drop raises a prompt with a
+      "Choose a file" action rather than attaching, and that is the finished shape, not a
+      stub. **D29:** the safe-looking route (a path from `webUtils.getPathForFile` plus a
+      path-taking `add` channel) composes with `kh:attachments:preview`, which returns
+      real bytes for images, PDFs and text, into an arbitrary-file-read primitive
 - [x] In-app preview: images, PDF, plain text — `AttachmentViewer.tsx`, judged on the
       **sniffed** type rather than the claimed one
 - [x] A lightbox for the preview (also Phase 15) — `chrome/Lightbox.tsx`, opened from the
@@ -553,10 +561,17 @@ generated pages — changelog, about, the licence list — are not built._
 - [x] Help & FAQ — fully offline, bundled, and reachable: `ContentViewer` is the `help` tool
       view, over the articles in `src/renderer/src/content/articles/`
 - [ ] Changelog view, rendered from `CHANGELOG.md` at build time (never a hand-maintained second copy)
-- [ ] About — version, credits, links, and an **auto-generated** third-party licence list
+- [x] About — version, credits, links, and an **auto-generated** third-party licence list.
+      `content/AboutView.tsx` over `about-facts.ts`; the licence list is baked in at build
+      time from the production dependency closure, because `electron-builder.yml` does not
+      ship `tools/` and a runtime channel would return nothing from an installed app. It
+      also gives the Help ▸ About menu item, live since the menu landed, something to open
 - [x] **Security & Threat Model** in plain English — `how-your-data-is-protected.ts`, including what Keyhold does _not_ protect against
 - [x] Keyboard shortcut reference — `keyboard-shortcuts.ts`, built from `shortcuts-source.ts` rather than hand-listed
-- [ ] First-run onboarding tour, skippable and re-runnable
+- [x] First-run onboarding tour, skippable and re-runnable — five steps, shown once on a
+      machine that has never opened a vault, and re-openable afterwards from the palette
+      (`help.tour`) or Settings ▸ Help. A re-run starts past the screens that create a
+      vault and writes nothing, so it cannot rewrite a completed record as dismissed
 - [x] **Guard test:** the licence list is generated from `package.json`, not hand-written —
       `tools/licences.ts` derives it from the production dependency closure, and the guard
       fails if the module ever hard-codes a package name, version or licence

@@ -138,6 +138,7 @@ describe('serialisation', () => {
       records: [],
       folders: [],
       tags: [],
+      savedSearches: [],
       settings: DEFAULT_VAULT_SETTINGS,
     };
 
