@@ -15,7 +15,11 @@ import {
   type KeyholdApi,
   type SessionStatusView,
 } from '@shared/ipc/api.js';
-import type { AttachmentAddView, AttachmentAudit } from '@shared/model/attachment.js';
+import type {
+  AttachmentAddView,
+  AttachmentAudit,
+  AttachmentPreview,
+} from '@shared/model/attachment.js';
 import { isMenuCommandId, type MenuCommandId } from '@shared/model/menu-commands.js';
 import type { ExportFormatDescriptor } from '@shared/model/export.js';
 import type {
@@ -306,6 +310,13 @@ const api: KeyholdApi = {
       >,
     audit: () =>
       ipcRenderer.invoke(CHANNELS.attachmentsAudit) as Promise<IpcResult<AttachmentAudit>>,
+    // The one attachment call that returns content. It travels as a `Uint8Array`, which
+    // structured clone moves without a base64 round trip — a 20 MB scan encoded as text
+    // would be three copies of somebody's passport in memory instead of one.
+    preview: (credentialId: string, attachmentId: string) =>
+      ipcRenderer.invoke(CHANNELS.attachmentsPreview, credentialId, attachmentId) as Promise<
+        IpcResult<AttachmentPreview | null>
+      >,
   },
 
   exporter: {

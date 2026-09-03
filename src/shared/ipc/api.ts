@@ -19,7 +19,7 @@ import type { PasswordStrength } from '../model/strength.js';
 import type { Folder, Tag, VaultLockedInfo, VaultSummary } from '../model/vault-document.js';
 import type { MenuCommandId } from '../model/menu-commands.js';
 import type { SettingsSnapshot } from '../model/settings-plan.js';
-import type { AttachmentAddView, AttachmentAudit } from '../model/attachment.js';
+import type { AttachmentAddView, AttachmentAudit, AttachmentPreview } from '../model/attachment.js';
 import type { ExportFormatDescriptor } from '../model/export.js';
 import {
   EXPORT_CHANNELS,
@@ -427,6 +427,24 @@ export interface AttachmentsApi {
   remove: (credentialId: string, attachmentId: string) => Promise<IpcResult<boolean>>;
   /** Opens a save dialog and writes the file. Resolves to the basename written, or `null`. */
   save: (credentialId: string, attachmentId: string) => Promise<IpcResult<string | null>>;
+  /**
+   * The bytes of one attachment, for an in-app viewer.
+   *
+   * **The one channel here that hands over content**, and it is a deliberate exception
+   * rather than a gap. `SecretRef` has carried an `'attachment'` kind since the broker was
+   * written, and `readAttachment` has always gone through it — one item per request, rate
+   * limited, every grant dropped on lock, and the digest verified before the bytes are
+   * returned. This exposes the door that was already built rather than opening a new one.
+   *
+   * `null` when the record or attachment is gone, or when the detected kind is not one a
+   * viewer will render. The refusal is the main process's to make: a renderer that decided
+   * for itself which types are safe to display would be the renderer choosing its own
+   * attack surface.
+   */
+  preview: (
+    credentialId: string,
+    attachmentId: string
+  ) => Promise<IpcResult<AttachmentPreview | null>>;
   /** Orphans in both directions. Reported, never repaired. */
   audit: () => Promise<IpcResult<AttachmentAudit>>;
 }
@@ -543,6 +561,7 @@ export const CHANNELS = {
   attachmentsRemove: 'kh:attachments:remove',
   attachmentsSave: 'kh:attachments:save',
   attachmentsAudit: 'kh:attachments:audit',
+  attachmentsPreview: 'kh:attachments:preview',
 
   // Spread, not restated. Both groups declare their names beside the payload types they
   // carry, and a name that exists in two places is a name that will disagree with itself.

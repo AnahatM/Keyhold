@@ -43,6 +43,7 @@ import {
   PLAINTEXT_CONFIRMATION_PHRASE,
   type ExportOutcome,
 } from '@shared/model/export-plan.js';
+import type { AttachmentPreview, PreviewableAttachmentKind } from '@shared/model/attachment.js';
 import type { ColumnMapping } from '@shared/model/import.js';
 import type { ImportDuplicateAction } from '@shared/model/import-plan.js';
 import { VaultError } from '../crypto/errors.js';
@@ -121,6 +122,20 @@ function requireTagList(channel: string, value: unknown): readonly string[] {
     throw new IpcValidationError(channel, 'extraTags must be an array of tag names');
   }
   return value.map((tag, index) => requireNonEmptyString(channel, tag, `extraTags[${index}]`));
+}
+
+/**
+ * The viewer kind for a stored MIME type, or `null` when nothing should render it.
+ *
+ * Derived from the type the sniffing engine stored, so a `.pdf` that is really a ZIP is
+ * offered as neither. Deliberately narrow — `text/*` covers plain text and nothing else,
+ * because `text/html` is text that executes.
+ */
+function previewKindFor(mime: string): PreviewableAttachmentKind | null {
+  if (mime.startsWith('image/')) return 'image';
+  if (mime === 'application/pdf') return 'pdf';
+  if (mime === 'text/plain') return 'text';
+  return null;
 }
 
 /**
@@ -828,6 +843,30 @@ export function registerIpcHandlers(context: IpcContext): void {
     // The basename only. The directory is the user's business and does not need to travel
     // back into a renderer that never chose it.
     return basename(chosen.filePath);
+  });
+
+  handle(CHANNELS.attachmentsPreview, (credentialId, attachmentId) => {
+    const id = requireId(CHANNELS.attachmentsPreview, credentialId, 'credentialId');
+    const attachment = requireId(CHANNELS.attachmentsPreview, attachmentId, 'attachmentId');
+
+    const projection = vault.getProjection(id);
+    const meta = projection?.attachments.find((entry) => entry.id === attachment);
+    if (meta === undefined) return null;
+
+    // The stored type, which is the **detected** one — `addAttachment` writes what the bytes
+    // are, not what the caller claimed. Refused here rather than in the renderer: a renderer
+    // deciding for itself which types are safe to display would be the renderer choosing its
+    // own attack surface, and the claim it would decide on is the attacker's to write.
+    const kind = previewKindFor(meta.mime);
+    if (kind === null) return null;
+
+    // Last, because this is the call that takes a broker grant. Refusing an unpreviewable
+    // type above means a viewer that repeatedly asks for a ZIP cannot burn the rate limit
+    // that protects passwords.
+    const bytes = vault.readAttachment(id, attachment);
+    if (bytes === null) return null;
+
+    return { name: meta.name, mime: meta.mime, kind, bytes } satisfies AttachmentPreview;
   });
 
   handle(CHANNELS.attachmentsAudit, () => vault.auditAttachments());

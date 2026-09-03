@@ -752,3 +752,64 @@
   flex: none;
   gap: var(--kh-space-1);
 }
+
+/* ── The attachment viewer ───────────────────────────────────────────────────
+ *
+ * Bounded by the viewport rather than by the file. A 6000px scan and a 40-character text
+ * file both have to fit the same dialog, and `max-height` in `vh` is the only unit that
+ * answers both — a pixel cap would crop the scan on a laptop and waste a desktop.
+ */
+
+.kh-viewer {
+  display: flex;
+  min-height: 12rem;
+  max-height: 70vh;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.kh-viewer__image {
+  max-width: 100%;
+  /* `70vh` matches the container so a tall image scrolls rather than overflowing it. */
+  max-height: 70vh;
+  object-fit: contain;
+  /* A chequerboard would be better for transparency, but it needs an image; this at least
+     stops a transparent PNG rendering as an invisible rectangle on the dark theme. */
+  background: var(--kh-color-surface-raised);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-viewer__pdf {
+  width: 100%;
+  height: 70vh;
+  border: 0;
+}
+
+.kh-viewer__text {
+  width: 100%;
+  max-height: 70vh;
+  margin: 0;
+  padding: var(--kh-space-3);
+  overflow: auto;
+  font-family: var(--kh-font-mono);
+  font-size: var(--kh-text-sm);
+  /* `pre-wrap`, not `pre`: a log file with 400-character lines should wrap rather than
+     force the dialog to scroll sideways forever. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--kh-color-surface-raised);
+  border-radius: var(--kh-radius-sm);
+  color: var(--kh-color-text);
+}
+
+.kh-viewer__note {
+  max-width: 52ch;
+  padding: var(--kh-space-4);
+  text-align: center;
+  color: var(--kh-color-text-muted);
+}
+
+.kh-viewer__note--error {
+  color: var(--kh-color-danger);
+}
