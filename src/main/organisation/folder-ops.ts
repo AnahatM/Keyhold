@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import type { FolderDeletePolicy } from '@shared/model/organisation.js';
 import { FOLDER_PATH_SEPARATOR, normaliseFolderPath } from '@shared/model/import.js';
 import type { Folder, VaultDocument } from '@shared/model/vault-document.js';
 import { collectDescendantFolderIds } from '@shared/search/filter.js';
@@ -56,22 +57,10 @@ export const MAX_FOLDER_DEPTH = 16;
  */
 export const MAX_FOLDERS = 2_000;
 
-/**
- * What a folder deletion does with everything inside it. **The caller must choose** — there
- * is no default, because both answers are reasonable and picking one silently is how
- * records end up orphaned in a way that reads as a UI glitch rather than as data loss.
- *
- *  - `reparent` — the folder alone is removed. Its child folders and its records rise to
- *    where it was. Nothing else moves. This is "delete this folder, keep its contents".
- *  - `unfile` — the folder **and its whole subtree** are removed, and every record anywhere
- *    beneath goes to no folder at all. This is "delete this branch"; the records survive,
- *    unfiled, and are still in the vault, in search, and in `is:unfiled`.
- *
- * Neither deletes a record. A record is only ever removed by `credential-ops`, through the
- * trash, with a tombstone — folder deletion is not a route around that.
- */
-export const FOLDER_DELETE_POLICIES = ['reparent', 'unfile'] as const;
-export type FolderDeletePolicy = (typeof FOLDER_DELETE_POLICIES)[number];
+// The delete policies and their meaning live in `@shared/model/organisation.ts`, because the
+// dialog that asks the user to choose one is in the renderer and briefly had its own list
+// with a different name *and* different semantics. See that file.
+export { FOLDER_DELETE_POLICIES, type FolderDeletePolicy } from '@shared/model/organisation.js';
 
 /**
  * The context the folder and tag operations need: an id source, and nothing else.

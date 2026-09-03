@@ -10,14 +10,18 @@
  * arrived from a merge or a hand edit with `colour: "#ff0000"` in it therefore renders in
  * the neutral token rather than punching a hardcoded colour through the theme.
  *
- * ## Why these six, and why they are borrowed
+ * ## Where the list comes from, and why not from here
  *
- * The palette in `@shared/theme/tokens.ts` has no tag-specific family, and that file is not
- * this module's to edit. The six names below map onto tokens that already exist and already
- * pass the contrast guard in every theme. The cost is that `warning` and `danger` overlap
- * with the health dashboard's signal colours, which the token file explicitly asks to keep
- * for meaning — so a dedicated `--kh-color-tag-*` family is the right long-term answer and
- * is recorded as such rather than smuggled in here.
+ * `@shared/model/organisation.ts`. This file briefly declared its own, offering `success`,
+ * `warning` and `danger` — the health dashboard's signal colours — with a comment
+ * acknowledging the overlap as a known cost. It was worse than a cost: the main process's
+ * validator did not accept those names, so four of the six would have been rejected at the
+ * boundary the moment the IPC channel existed, and a user picking "Red" would have got an
+ * error rather than a red tag.
+ *
+ * The shared list excludes them on the original grounds, which were right: a decorative tag
+ * wearing the same red as "this password is reused" is how a real warning stops reading as
+ * one. A dedicated `--kh-color-tag-*` family is still the way to widen the palette.
  *
  * ## Colour is never the information
  *
@@ -26,49 +30,38 @@
  * distinguishable by colour alone.
  */
 
-export const TAG_COLOUR_TOKENS = [
-  'neutral',
-  'accent',
-  'info',
-  'success',
-  'warning',
-  'danger',
-] as const;
+import {
+  DEFAULT_TAG_COLOUR,
+  TAG_COLOUR_TOKENS,
+  type TagColour,
+} from '@shared/model/organisation.js';
 
-export type TagColourToken = (typeof TAG_COLOUR_TOKENS)[number];
-
-/**
- * What an unknown, empty or malformed name becomes.
- *
- * Neutral rather than accent: an unrecognised value is missing information, and inventing
- * a loud colour for it would make a data problem look like a deliberate choice.
- */
-export const DEFAULT_TAG_COLOUR: TagColourToken = 'neutral';
+export { DEFAULT_TAG_COLOUR, TAG_COLOUR_TOKENS };
+/** The renderer's historical name for the same thing, kept so its callers do not all move. */
+export type TagColourToken = TagColour;
 
 /**
  * The only mapping from a token name to something paintable.
  *
- * `Record<TagColourToken, string>` rather than a lookup with a fallback branch, so adding a
- * name to `TAG_COLOUR_TOKENS` without giving it a variable is a compile error instead of a
- * tag that renders invisible.
+ * `Record<TagColour, string>` rather than a lookup with a fallback, so adding a name to
+ * `TAG_COLOUR_TOKENS` without giving it a variable is a compile error instead of a tag that
+ * renders invisible.
  */
-const SWATCH_VARIABLE: Readonly<Record<TagColourToken, string>> = {
-  neutral: 'var(--kh-color-text-subtle)',
-  accent: 'var(--kh-color-accent)',
+const SWATCH_VARIABLE: Readonly<Record<TagColour, string>> = {
+  'text-muted': 'var(--kh-color-text-muted)',
+  'text-subtle': 'var(--kh-color-text-subtle)',
+  'border-strong': 'var(--kh-color-border-strong)',
   info: 'var(--kh-color-info)',
-  success: 'var(--kh-color-success)',
-  warning: 'var(--kh-color-warning)',
-  danger: 'var(--kh-color-danger)',
+  accent: 'var(--kh-color-accent)',
 };
 
 /** Human labels for the colour picker. The name is what a screen reader announces. */
-const COLOUR_LABEL: Readonly<Record<TagColourToken, string>> = {
-  neutral: 'Neutral',
-  accent: 'Accent',
+const COLOUR_LABEL: Readonly<Record<TagColour, string>> = {
+  'text-muted': 'Neutral',
+  'text-subtle': 'Quiet',
+  'border-strong': 'Slate',
   info: 'Blue',
-  success: 'Green',
-  warning: 'Amber',
-  danger: 'Red',
+  accent: 'Accent',
 };
 
 export function isTagColourToken(value: string): value is TagColourToken {
