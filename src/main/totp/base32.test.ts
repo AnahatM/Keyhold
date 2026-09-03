@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { inspect } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { decodeBase32, decodeBase32Secret, encodeBase32 } from './base32.js';
 import { TotpError } from './errors.js';
@@ -8,6 +9,13 @@ import { TotpError } from './errors.js';
  * answer is silent. Everything downstream of a mis-decoded seed still works perfectly — it
  * just produces the wrong six digits forever.
  */
+
+/**
+ * `SecretBytes`'s redaction marker. Restated rather than imported because `secret.ts` keeps
+ * it module-private — `crypto/crypto.test.ts` already does the same, so this is the existing
+ * convention rather than a new second list. `secret.ts` is the authority for the string.
+ */
+const REDACTED = '[SecretBytes: redacted]';
 
 const hex = (bytes: Uint8Array): string => Buffer.from(bytes).toString('hex');
 const ascii = (text: string): Uint8Array => Uint8Array.from(Buffer.from(text, 'ascii'));
@@ -92,9 +100,26 @@ describe('real-world seeds', () => {
     try {
       expect(secret.length).toBe(10);
       expect(secret.use((bytes) => hex(bytes))).toBe(SEED_HEX);
-      // The wrapper is the point: a seed must not be able to reach a log by accident.
-      expect(String(secret)).not.toContain('Hello');
-      expect(JSON.stringify({ secret })).not.toContain('deadbeef');
+      /*
+       * **N27(d): both halves of this used to pass with the redaction deleted.** Without
+       * `toString`, `String(secret)` is `[object SecretBytes]` via the `Symbol.toStringTag`
+       * — still not `'Hello'`. Without `toJSON`, `JSON.stringify` gives `{"secret":{}}`,
+       * because `#bytes` is a `#private` field and private fields are never serialised —
+       * still not `'deadbeef'`. Neither negative was doing any work.
+       *
+       * So the marker is asserted **positively**, through all three channels a secret can
+       * reach a log by: `String`, `JSON.stringify`, and `util.inspect`, which is what
+       * `console.log` of an object actually calls and which had no assertion at all.
+       */
+      expect(String(secret)).toBe(REDACTED);
+      expect(JSON.stringify({ secret })).toBe(`{"secret":"${REDACTED}"}`);
+      expect(inspect({ secret })).toContain(REDACTED);
+      // And negatively, in the forms the bytes would actually take if it stopped working.
+      for (const sink of [String(secret), JSON.stringify({ secret }), inspect({ secret })]) {
+        expect(sink).not.toContain(SEED_HEX);
+        expect(sink).not.toContain('Hello');
+        expect(sink).not.toContain('"0":72');
+      }
     } finally {
       secret.destroy();
     }
