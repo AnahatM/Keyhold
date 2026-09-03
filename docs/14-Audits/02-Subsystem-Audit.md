@@ -682,7 +682,9 @@ it. The determinism argument in the comment is preserved and the cut lands insid
 
 ### N15 — MEDIUM · `clearCache()` has no production caller, so range prefixes would survive a lock
 
-**STATUS: OPEN.** Re-read `src/main/breach/client.ts:247` and grepped `src/` for callers: still none outside the tests. It stays open for a reason that makes it currently harmless — nothing constructs a `PwnedPasswordsClient` either, so there is no cache to survive a lock. It becomes a real defect the moment the composition root in `05-Features/07-Breach-Check.md` §7 lands, and the guard belongs with the lock path rather than with `breach/`.
+**STATUS: FIXED.** The composition root this was waiting on landed as `src/main/breach/service.ts`, and with it the only thing that ever builds a `PwnedPasswordsClient`. `BreachService.reset()` clears the cache and drops the client, and `src/main/index.ts` registers it through `SessionController.onLock` — at the root rather than inside `session.lock()`, so nothing has to remember to call it.
+
+The guard is `tools/lock-teardown.test.ts`, and it deliberately guards the **seam** rather than the behaviour. `reset()` has unit tests that pass whether or not anything calls it, which is exactly how this finding survived: the method was correct, covered, and unreachable. A test of the correct thing cannot catch that. So the guard reads the composition root as text and asserts the wire exists, with a list that grows as other vault-derived caches are built. Fault-injected twice — deleting the registration, and changing it to call something else — and both fail it.
 
 `src/main/breach/client.ts:214`, against the claim at `:78` — "dropped by `clearCache()`,
 **which the lock path should call**".
