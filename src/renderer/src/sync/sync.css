@@ -1,0 +1,664 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The merge conflict resolver.
+ *
+ * Every colour is a `--kh-color-*` token — hard rule 4, enforced by
+ * `tools/no-hardcoded-colours.test.ts`, which reads every source file and fails on a literal.
+ * The pairs used here (text/surface, text-muted/surface, accent-subtle-text/accent-subtle,
+ * warning-text/warning-subtle, info-text/info-subtle, success-text/success-subtle,
+ * border-strong/surface) are all in the contrast guard's declared list.
+ *
+ * Two rules run through the whole file:
+ *
+ *  - **Selection is never carried by colour alone** (WCAG 1.4.1). A chosen side gains a tick
+ *    glyph, a heavier border and a bolder heading as well as the accent tint, so it stays
+ *    obvious in greyscale, in the high-contrast theme, and to a colour-blind reader.
+ *  - **Nothing widens the page.** A four-hundred-conflict merge is a long column, and any row
+ *    that could push the layout sideways would take the footer buttons off-screen with it.
+ *    Long values wrap; nothing scrolls horizontally except by its own container.
+ */
+
+.kh-merge {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-5);
+  padding: var(--kh-space-5);
+  min-width: 0;
+  max-width: 940px;
+  margin-inline: auto;
+}
+
+.kh-merge__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-3);
+}
+
+.kh-merge__title {
+  font-size: var(--kh-text-xl);
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+  margin: 0;
+}
+
+/* ── The mode banner ───────────────────────────────────────────────────────── */
+
+.kh-merge-mode {
+  display: flex;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-4);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-color-info-subtle);
+  color: var(--kh-color-info-text);
+}
+
+.kh-merge-mode__symbol {
+  font-size: var(--kh-text-lg);
+  line-height: var(--kh-leading-tight);
+}
+
+.kh-merge-mode__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  min-width: 0;
+}
+
+.kh-merge-mode__headline {
+  margin: 0;
+  font-size: var(--kh-text-md);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-merge-mode__explanation,
+.kh-merge-mode__consequence,
+.kh-merge-mode__counts,
+.kh-merge-mode__backup {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-relaxed);
+}
+
+.kh-merge-mode__counts,
+.kh-merge-mode__backup {
+  color: var(--kh-color-text-muted);
+}
+
+.kh-merge-mode__backup-name {
+  font-family: var(--kh-font-secret);
+  word-break: break-all;
+}
+
+/* ── Progress and filters ──────────────────────────────────────────────────── */
+
+.kh-merge-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+}
+
+.kh-merge-progress__headline {
+  margin: 0;
+  font-size: var(--kh-text-md);
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text);
+}
+
+.kh-merge-progress__meter {
+  block-size: 6px;
+  border-radius: var(--kh-radius-full);
+  background: var(--kh-color-surface-sunken);
+  overflow: hidden;
+}
+
+.kh-merge-progress__fill {
+  display: block;
+  block-size: 100%;
+  background: var(--kh-color-accent);
+  transition: inline-size var(--kh-duration-base) var(--kh-ease);
+}
+
+.kh-merge-progress__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+}
+
+.kh-merge-filter {
+  border: 1px solid var(--kh-color-border);
+  background: var(--kh-color-surface);
+  color: var(--kh-color-text-muted);
+  border-radius: var(--kh-radius-full);
+  padding: var(--kh-space-1) var(--kh-space-3);
+  font: inherit;
+  font-size: var(--kh-text-sm);
+  cursor: pointer;
+}
+
+/* Bold as well as tinted — the pressed chip must be findable without colour. */
+.kh-merge-filter--on {
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+  border-color: var(--kh-color-accent);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-merge-filter__count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* ── The bulk bar ──────────────────────────────────────────────────────────── */
+
+.kh-merge-bulk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-3) var(--kh-space-4);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface);
+}
+
+.kh-merge-bulk__lead {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text);
+}
+
+.kh-merge-bulk__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+}
+
+/*
+ * Deliberately a secondary control, in both directions.
+ *
+ * Neither sweep button is the accent colour and neither is larger than the other: the moment one
+ * of them looks recommended it becomes the default, and a default here is a decision made for
+ * the user about their own passwords.
+ */
+.kh-merge-bulk__button,
+.kh-merge-sweep__button {
+  border: 1px solid var(--kh-color-border-strong);
+  background: var(--kh-color-surface-raised);
+  color: var(--kh-color-text);
+  border-radius: var(--kh-radius-md);
+  padding: var(--kh-space-1) var(--kh-space-3);
+  font: inherit;
+  font-size: var(--kh-text-sm);
+  cursor: pointer;
+}
+
+.kh-merge-bulk__button:disabled,
+.kh-merge-sweep__button:disabled {
+  cursor: not-allowed;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-merge-bulk__refused {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-warning-text);
+}
+
+/* ── Group cards ───────────────────────────────────────────────────────────── */
+
+.kh-merge__list-controls {
+  display: flex;
+  gap: var(--kh-space-3);
+}
+
+.kh-merge__link,
+.kh-merge-group__inspect-button,
+.kh-conflict__undo-button {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.kh-merge__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+}
+
+.kh-merge-group {
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-color-surface);
+  overflow: hidden;
+}
+
+.kh-merge-group__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-3);
+  margin: 0;
+  padding: var(--kh-space-2) var(--kh-space-3);
+  font-size: var(--kh-text-base);
+  font-weight: var(--kh-weight-medium);
+}
+
+.kh-merge-group__toggle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: var(--kh-space-1);
+  font: inherit;
+  color: var(--kh-color-text);
+  text-align: start;
+  cursor: pointer;
+}
+
+.kh-merge-group__kind {
+  font-size: var(--kh-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-merge-group__name {
+  font-weight: var(--kh-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.kh-merge-group__path {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.kh-merge-group__counts {
+  display: flex;
+  gap: var(--kh-space-2);
+  flex-shrink: 0;
+}
+
+.kh-merge-group__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  padding: 0 var(--kh-space-3) var(--kh-space-3);
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-merge-group__inspect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  margin: 0;
+}
+
+.kh-merge-group__inspect-note,
+.kh-conflict__undo-note {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-merge-sweep {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+  padding-top: var(--kh-space-3);
+}
+
+.kh-merge-sweep__label {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-merge-sweep__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.kh-merge-group__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+}
+
+/* ── One conflict ──────────────────────────────────────────────────────────── */
+
+.kh-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  margin: 0;
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface-raised);
+  min-width: 0;
+}
+
+/* A left edge that says the state, in a place colour is not the only signal — the badge in
+   the head row carries the same fact as a word and a glyph. */
+.kh-conflict--needs-choice {
+  border-inline-start: 3px solid var(--kh-color-warning);
+}
+
+.kh-conflict--chosen {
+  border-inline-start: 3px solid var(--kh-color-success);
+}
+
+.kh-conflict--auto,
+.kh-conflict--combined {
+  border-inline-start: 3px solid var(--kh-color-border-strong);
+}
+
+.kh-conflict__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-conflict__symbol {
+  color: var(--kh-color-text-muted);
+}
+
+.kh-conflict__property {
+  font-weight: var(--kh-weight-semibold);
+  color: var(--kh-color-text);
+}
+
+.kh-conflict__meaning {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-conflict__sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--kh-space-2);
+}
+
+.kh-conflict__base,
+.kh-conflict__combined {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-conflict__base-heading {
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-conflict__undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+}
+
+/* ── One side of a conflict ────────────────────────────────────────────────── */
+
+.kh-side {
+  display: flex;
+  min-width: 0;
+}
+
+.kh-side__label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  flex: 1;
+  min-width: 0;
+  padding: var(--kh-space-2) var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface);
+  cursor: pointer;
+}
+
+/* Three signals at once — border weight, tint, and the tick rendered in the heading — so the
+   chosen side survives greyscale and a colour-blind reader. */
+.kh-side--chosen .kh-side__label {
+  border-color: var(--kh-color-accent);
+  border-width: 2px;
+  padding: calc(var(--kh-space-2) - 1px) calc(var(--kh-space-3) - 1px);
+  background: var(--kh-color-accent-subtle);
+  color: var(--kh-color-accent-subtle-text);
+}
+
+/* The input is visually hidden, so its focus ring has to be drawn on the label instead —
+   otherwise a keyboard user has no idea where they are. */
+.kh-side__input:focus-visible + .kh-side__label {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.kh-side__heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kh-space-1);
+  font-size: var(--kh-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-side--chosen .kh-side__heading {
+  color: var(--kh-color-accent-subtle-text);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-side__tick {
+  inline-size: 1em;
+}
+
+.kh-side__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  min-width: 0;
+}
+
+.kh-side__value {
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+
+.kh-side__absent {
+  font-style: italic;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-side__mask {
+  font-family: var(--kh-font-secret);
+  letter-spacing: 0.14em;
+  color: var(--kh-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.kh-side__meta {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-side__entries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kh-side__entry {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--kh-text-sm);
+  min-width: 0;
+}
+
+.kh-side__entry-label {
+  overflow-wrap: anywhere;
+}
+
+.kh-side__entry-detail {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+/* ── Notes ─────────────────────────────────────────────────────────────────── */
+
+.kh-merge-notes {
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-color-surface);
+  padding: var(--kh-space-3);
+}
+
+.kh-merge-notes__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--kh-space-2);
+  cursor: pointer;
+  color: var(--kh-color-text);
+}
+
+.kh-merge-notes__title {
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-merge-notes__headline,
+.kh-merge-notes__attachments {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-merge-notes__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  margin: var(--kh-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kh-merge-note {
+  display: flex;
+  gap: var(--kh-space-2);
+  min-width: 0;
+}
+
+.kh-merge-note__symbol {
+  color: var(--kh-color-text-muted);
+}
+
+.kh-merge-note--attention .kh-merge-note__symbol {
+  color: var(--kh-color-warning-text);
+}
+
+.kh-merge-note__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  min-width: 0;
+}
+
+.kh-merge-note__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text);
+}
+
+.kh-merge-note__description {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-normal);
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────────── */
+
+.kh-merge__more {
+  border: 1px dashed var(--kh-color-border-strong);
+  background: none;
+  color: var(--kh-color-text-muted);
+  border-radius: var(--kh-radius-md);
+  padding: var(--kh-space-2);
+  font: inherit;
+  font-size: var(--kh-text-sm);
+  cursor: pointer;
+}
+
+.kh-merge__check-note {
+  margin: 0;
+  padding: var(--kh-space-3);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-info-subtle);
+  color: var(--kh-color-info-text);
+  font-size: var(--kh-text-sm);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-merge__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-3);
+  padding-top: var(--kh-space-3);
+  border-top: 1px solid var(--kh-color-border);
+  position: sticky;
+  bottom: 0;
+  background: var(--kh-color-bg);
+}
+
+.kh-merge__gate {
+  margin: 0;
+  flex: 1 1 320px;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-merge__footer-actions {
+  display: flex;
+  gap: var(--kh-space-2);
+}
+
+.kh-merge-done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+}
+
+.kh-merge-done__backup,
+.kh-merge-done__next {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-relaxed);
+  text-align: center;
+}
+
+.kh-merge-done__backup-name {
+  font-family: var(--kh-font-secret);
+  word-break: break-all;
+}

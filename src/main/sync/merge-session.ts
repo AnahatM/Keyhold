@@ -3,8 +3,35 @@ import { randomUUID } from 'node:crypto';
 import type { VaultDocument } from '@shared/model/vault-document.js';
 import type { ConflictChoice, MergeReport } from '@shared/model/sync.js';
 import type { MergeCommitResult, MergePreview } from '@shared/model/sync-plan.js';
+import type { SyncErrorCode } from '@shared/model/sync-plan.js';
 import { mergeDocuments } from './merge-document.js';
 import { PreMergeBackup } from './pre-merge-backup.js';
+
+/**
+ * A refusal the resolver can act on.
+ *
+ * Coded rather than a bare `Error`, because the resolver branches on these: a stale plan gets
+ * "start it again", an unresolved commit is a bug and is reported as one. Without a code both
+ * fall into the generic error slot and the screen loses the only thing that made them worth
+ * distinguishing — which is the same gap `ImportServiceError` was written to close, and the
+ * same shape.
+ *
+ * A message never carries a value out of either vault. The whole report is built to carry
+ * lengths rather than values, and a failure message is exactly where that guarantee would
+ * leak if nobody was watching for it.
+ */
+export class MergeSessionError extends Error {
+  readonly code: SyncErrorCode;
+  /** True when the user can do something and try again. */
+  readonly recoverable: boolean;
+
+  constructor(code: SyncErrorCode, message: string, recoverable: boolean) {
+    super(message);
+    this.name = 'MergeSessionError';
+    this.code = code;
+    this.recoverable = recoverable;
+  }
+}
 
 /**
  * A merge in progress: the other copy, the ancestor, and the choices made so far.
@@ -149,7 +176,14 @@ export class MergeSessionStore {
   commit(planId: string): { readonly document: VaultDocument; readonly result: MergeCommitResult } {
     const open = this.#require(planId);
     if (open.latest.report.requiresResolution) {
-      throw new Error('The merge still has unresolved conflicts, so it cannot be applied yet.');
+      throw new MergeSessionError(
+        'sync/unresolved',
+        'The merge still has unresolved conflicts, so it cannot be applied yet.',
+        // Not recoverable by retrying: the resolver is supposed to prevent this, so reaching
+        // here means the screen and the engine disagree about what is settled. Saying "try
+        // again" would send someone round a loop that cannot end.
+        false
+      );
     }
 
     const report = open.latest.report;
@@ -185,7 +219,11 @@ export class MergeSessionStore {
       // Named as stale rather than "not found": the honest cause is almost always that the
       // resolver was closed and reopened, and telling somebody their plan expired is more
       // useful than telling them an id was wrong.
-      throw new Error('That merge is no longer open. Start it again.');
+      throw new MergeSessionError(
+        'sync/stale-plan',
+        'That merge is no longer open. Start it again.',
+        true
+      );
     }
     return open;
   }

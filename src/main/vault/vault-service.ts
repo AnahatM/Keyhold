@@ -209,6 +209,7 @@ export class VaultService {
     return this.#broker;
   }
 
+
   // ── Opening ────────────────────────────────────────────────────────────────
 
   /**
@@ -1174,6 +1175,23 @@ export class VaultService {
   replaceDocument(document: VaultDocument): void {
     const open = this.#requireOpen();
     this.#open = { ...open, document, dirty: true };
+  }
+
+  /**
+   * Reads another copy of *this* vault, with the key already held. **Main-process only.**
+   *
+   * Uses the open vault's DEK, and that is the point rather than a convenience: a merge is
+   * between two copies of one vault, and a genuinely different vault simply fails to decrypt.
+   * The alternative — asking for a second password — would let somebody merge two unrelated
+   * vaults together, which mixes two people's credentials into one file.
+   *
+   * Named `Unsafe` like its neighbours: what comes back is a whole decrypted document.
+   */
+  async readOtherCopyUnsafe(path: string): Promise<{ readonly document: VaultDocument }> {
+    const open = this.#requireOpen();
+    const bytes = await readVaultFile(path);
+    const contents = readContainer(bytes, open.dek);
+    return { document: parseVaultDocument(contents.body) };
   }
 
   /** Main-process only. Never call this from anything that talks to the renderer. */
