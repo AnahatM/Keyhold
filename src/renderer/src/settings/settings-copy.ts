@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { AUDIT_LEVEL_FIELDS, AUDIT_PRIVACY_LEVELS } from '@shared/model/credential.js';
+import type { HealthRuleId } from '@shared/model/health.js';
 import type { AuditPrivacyLevel, ChangeOrigin } from '@shared/model/credential.js';
 import {
   DEFAULT_KDF_COST,
@@ -410,8 +411,17 @@ export function vaultWeakenings(
     weakened.add('health.weakEntropyBits');
   }
 
-  const rules = Object.values(vault.health.enabledRules);
-  if (rules.some((enabled) => !enabled)) weakened.add('health.rules');
+  // Weakened means "turned off something that ships on", not "not everything is on". Some
+  // rules ship off deliberately — `missingTotp` does, because most records legitimately have
+  // no second factor and a rule that lights up the whole vault on first run is one people
+  // switch off and stop trusting. Marking the defaults as a weakened trade-off would put a
+  // warning on a screen nobody had touched, which is how a warning stops meaning anything.
+  //
+  // Compared against `defaults` for the same reason the entropy threshold above is.
+  const weakenedRule = Object.entries(vault.health.enabledRules).some(
+    ([rule, enabled]) => !enabled && defaults.health.enabledRules[rule as HealthRuleId]
+  );
+  if (weakenedRule) weakened.add('health.rules');
 
   if (kdf !== null && kdf.memoryKib < DEFAULT_KDF_COST.memoryKib) weakened.add('kdfCost');
 

@@ -44,6 +44,7 @@ import type { StatusTone } from '../components/Feedback.js';
  * is a compile error instead of an identifier leaking onto the screen.
  */
 export const RULE_LABELS: Readonly<Record<HealthRuleId, string>> = {
+  missingTotp: 'No second factor',
   reused: 'Reused password',
   weak: 'Weak password',
   expired: 'Past its rotation date',
@@ -57,6 +58,8 @@ export const RULE_LABELS: Readonly<Record<HealthRuleId, string>> = {
 
 /** What the rule actually tests. Phrased as the check, not as the verdict. */
 export const RULE_DESCRIPTIONS: Readonly<Record<HealthRuleId, string>> = {
+  missingTotp:
+    'The record has no one-time-password secret, so the password is the only thing protecting it.',
   reused: 'The same password appears on more than one record.',
   weak: 'Estimated entropy is below the configured threshold.',
   expired: 'An expiry date or rotation interval you set has already passed.',
@@ -70,6 +73,8 @@ export const RULE_DESCRIPTIONS: Readonly<Record<HealthRuleId, string>> = {
 
 /** What to do about it. One sentence, imperative, no hedging. */
 export const RULE_ADVICE: Readonly<Record<HealthRuleId, string>> = {
+  missingTotp:
+    'Check whether the site offers two-factor authentication, and add the code to this record if it does.',
   reused:
     'Give each of these records its own generated password, starting with the one that matters most.',
   weak: 'Replace it with a generated password. Sixteen characters is comfortably past the threshold.',

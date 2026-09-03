@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import type { Credential } from '@shared/model/credential.js';
+import type { Credential, CustomFieldType } from '@shared/model/credential.js';
 import {
   DEFAULT_HEALTH_RULE_TOGGLES,
   DEFAULT_HEALTH_THRESHOLDS,
@@ -184,6 +184,45 @@ const IPV4_LOOPBACK = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
  */
 export function isLoopbackHost(host: string): boolean {
   return LOOPBACK_HOSTS.has(host) || host.endsWith('.localhost') || IPV4_LOOPBACK.test(host);
+}
+
+// ── Second factors ───────────────────────────────────────────────────────────
+
+/**
+ * Declared through `CustomFieldType` rather than as a bare string, so renaming the type in
+ * the record model breaks this line instead of silently switching the rule off for every
+ * record in every vault. `src/shared/search/filter.ts` pins the same constant the same way
+ * for the `has:totp` query flag.
+ */
+const TOTP_FIELD_TYPE: CustomFieldType = 'otp-secret';
+
+/**
+ * Whether this record can produce a second factor.
+ *
+ * There is no dedicated 2FA field on the record — the roadmap's note that `missing-2FA`
+ * "needs a model decision" predates the TOTP engine. A seed lives in a custom field of type
+ * `otp-secret`, which is what `src/main/totp/secret-field.ts` reads, what eight import
+ * parsers write into, and what the `has:totp` search flag tests. That field is the model
+ * decision, already made, and this rule keys off it.
+ *
+ * **The value is tested for emptiness and never read.** `SECRET_CUSTOM_FIELD_TYPES` in the
+ * record model classifies `otp-secret` alongside `password`, so a seed is secret material
+ * and decision D13 forbids it — or anything derived from it — from reaching a report that
+ * crosses to the renderer. That rules out the tempting extras as well as the obvious one:
+ * no issuer or account name parsed out of an `otpauth://` URI, no seed length, no prefix.
+ * This function returns a boolean, the rule attaches no `detail`, and the property test in
+ * `rules.test.ts` plants a marker in a seed to prove it.
+ *
+ * An `otp-secret` field with an empty value does not count as a second factor. It generates
+ * no codes, so the account is protected by the password alone whatever the field's presence
+ * suggests. That is deliberately stricter than the `has:totp` search flag, which answers a
+ * different question: "does this record have a TOTP field", not "does this record have a
+ * working second factor".
+ */
+function hasTotpSecret(record: Credential): boolean {
+  return record.fields.custom.some(
+    (field) => field.type === TOTP_FIELD_TYPE && field.value.trim() !== ''
+  );
 }
 
 // ── Configuration resolution ─────────────────────────────────────────────────
@@ -408,6 +447,17 @@ export function analyseVault(
       }
     }
 
+    // missingTotp — the account can be reached with a stolen password and nothing else.
+    //
+    // Gated on `hasPassword` for the same reason `weak` and `old` are: a second factor is
+    // second *to* something, and a record with no password has no first factor for one to
+    // back up. Such a record is `incomplete`, which already says the useful thing about it;
+    // adding "and it has no 2FA" would be a second finding on a record that is not yet a
+    // login at all. Off by default — see `DEFAULT_HEALTH_RULE_TOGGLES` for why.
+    if (enabledRules.missingTotp && hasPassword && !hasTotpSecret(record)) {
+      pushIssue(perRecord, index, issue('missingTotp', record.id));
+    }
+
     // incomplete — unusable as a login: nothing to type, or nobody to type it as.
     if (enabledRules.incomplete) {
       const hasIdentity = username.trim() !== '' || email.trim() !== '';
@@ -494,6 +544,7 @@ function buildReport(input: ReportInput): VaultHealthReport {
     expiring: 0,
     expired: 0,
     insecureUrl: 0,
+    missingTotp: 0,
     incomplete: 0,
     duplicate: 0,
     emptyTitle: 0,

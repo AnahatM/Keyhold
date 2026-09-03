@@ -44,6 +44,7 @@ export const HEALTH_RULE_IDS = [
   'expiring',
   'expired',
   'insecureUrl',
+  'missingTotp',
   'incomplete',
   'duplicate',
   'emptyTitle',
@@ -69,6 +70,9 @@ export const HEALTH_RULE_SEVERITY: Readonly<Record<HealthRuleId, HealthSeverity>
   expiring: 'info',
   expired: 'warning',
   insecureUrl: 'warning',
+  // `info`, not `warning`: the rule cannot see whether the site offers a second factor at
+  // all, so a flag here is a question worth asking rather than a defect worth alarming over.
+  missingTotp: 'info',
   incomplete: 'info',
   duplicate: 'info',
   emptyTitle: 'info',
@@ -95,24 +99,36 @@ export const HEALTH_RULE_SEVERITY: Readonly<Record<HealthRuleId, HealthSeverity>
  *                    scores well below `weak` — it is a prompt, not a finding.
  *   insecureUrl (10) Credentials sent over plain HTTP are readable in transit by anyone on
  *                    the path. Serious, but conditional on an attacker being there.
+ *   missingTotp (8)  A password-only account falls to one stolen password; the same account
+ *                    behind a second factor does not. Ranked below `insecureUrl` because the
+ *                    rule cannot know whether the site offers 2FA at all — it can only see
+ *                    that this record has no seed — and above the hygiene rules because what
+ *                    it describes is a live security gap rather than an untidy vault. It is
+ *                    the one rule that is off by default; see `DEFAULT_HEALTH_RULE_TOGGLES`.
  *   duplicate (6)    A hygiene problem with a real cost: edits land on one copy and the
  *                    other silently goes stale, so the user eventually trusts a dead value.
  *   incomplete (5)   The record cannot actually log anyone in. Annoying, not dangerous.
  *   expiring (3)     A reminder whose deadline has not arrived. Nearly free.
  *   emptyTitle (3)   Unfindable by search, so effectively lost — but nothing is at risk.
  *
- * They total 107, deliberately just over `MAX_PENALTY_PER_RECORD`, so that no single record
+ * They total 115, deliberately well over `MAX_PENALTY_PER_RECORD`, so that no single record
  * can cost more than one record's worth of the score. Without that cap, one catastrophic
  * record in a vault of fifty could drag the number down further than fifty ordinary records
  * could lift it.
  *
  * Some rules are mutually exclusive on one record — `expiring` and `expired` cannot both
  * fire, and `incomplete` requires the very absence of the password that `weak` and `reused`
- * need. The worst mutually-consistent combination is
+ * need. Under the **default** toggles, where `missingTotp` is off, the worst
+ * mutually-consistent combination is
  * `reused + weak + expired + old + insecureUrl + duplicate + emptyTitle` = **99**, so a
  * vault of maximally-broken records scores 1 rather than 0. That is left as it is rather
  * than tuned to hit a round number: the weights are meant to be defensible individually,
  * and a vault at 1 is not meaningfully better off than one at 0.
+ *
+ * Switching `missingTotp` on adds 8 to that, since a record with a password and no seed can
+ * break it alongside all seven — 107, which the per-record cap clips to 100. So a user who
+ * opts into every rule can reach 0. That is the cap doing its job rather than a flaw in it:
+ * it is what stops the extra rule from making one bad record cost more than one record.
  */
 export const HEALTH_RULE_WEIGHTS: Readonly<Record<HealthRuleId, number>> = {
   reused: 30,
@@ -120,6 +136,7 @@ export const HEALTH_RULE_WEIGHTS: Readonly<Record<HealthRuleId, number>> = {
   expired: 15,
   old: 10,
   insecureUrl: 10,
+  missingTotp: 8,
   duplicate: 6,
   incomplete: 5,
   expiring: 3,
@@ -165,7 +182,40 @@ export const DEFAULT_HEALTH_THRESHOLDS: HealthThresholds = {
   expiringWithinDays: 14,
 };
 
-/** Every rule on by default. Decision D10: the user turns off what they do not want. */
+/**
+ * What runs unless the user says otherwise. Decision D10: they turn off what they do not want.
+ *
+ * Every rule is on except one. **`missingTotp` starts off**, and that is a deliberate
+ * exception rather than an oversight: every other rule describes something that is *wrong*,
+ * while this one describes something that is merely *absent* — and it is legitimately absent
+ * from most records. A library card, a wifi password, a landlord's email login: none of them
+ * have a second factor to be missing, and the rule cannot tell the difference between a site
+ * that offers 2FA and one that does not.
+ *
+ * On by default it would therefore light up most of the vault on first run, and a dashboard
+ * that opens red on a healthy vault is one people switch off once and never trust again —
+ * which would cost more than the rule is worth, including on the records where it is right.
+ * Off by default it is opt-in: the user turns it on at the moment they actually want to work
+ * through their accounts adding second factors, and every record it then lists is one they
+ * asked about.
+ */
+/**
+ * The rules that ship off, and the only ones allowed to.
+ *
+ * Decision D28. Health rules are on by default (D10) and a rule quietly added in the off
+ * position would be a silently missing check — so an exception is a change to this list, which
+ * somebody has to write down, rather than a `false` nobody notices in a table of ten.
+ *
+ * `settings-plan.test.ts` asserts every rule not named here is on.
+ */
+export const HEALTH_RULES_OFF_BY_DEFAULT: readonly HealthRuleId[] = [
+  // Fires on most records in a normal vault, and is frequently not actionable — an enormous
+  // number of sites offer no second factor at all. At weight 8 that would let something largely
+  // outside the user's control dominate the score, which devalues the nine rules that are
+  // directly actionable. On for somebody who wants a 2FA audit; off for everybody else.
+  'missingTotp',
+];
+
 export const DEFAULT_HEALTH_RULE_TOGGLES: Readonly<Record<HealthRuleId, boolean>> = {
   weak: true,
   reused: true,
@@ -173,6 +223,7 @@ export const DEFAULT_HEALTH_RULE_TOGGLES: Readonly<Record<HealthRuleId, boolean>
   expiring: true,
   expired: true,
   insecureUrl: true,
+  missingTotp: false,
   incomplete: true,
   duplicate: true,
   emptyTitle: true,
