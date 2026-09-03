@@ -3,6 +3,7 @@ import type { VaultDocument } from '@shared/model/vault-document.js';
 import { EXPORT_FORMATS, findExportFormat } from './formats.js';
 import { exportCsv, type CsvExportOptions } from './csv.js';
 import { exportEncrypted, type EncryptedExportOptions } from './encrypted.js';
+import { exportBitwardenJson, type BitwardenJsonOptions } from './bitwarden-json.js';
 import { exportCompatibleCsv, type CompatibleCsvOptions } from './generic-csv.js';
 import { exportKeyholdJson, type KeyholdJsonOptions } from './keyhold-json.js';
 import type { ExportOutput } from './types.js';
@@ -18,7 +19,8 @@ export type ExportRequest =
   | ({ readonly format: 'keyhold-parcel' } & EncryptedExportOptions)
   | ({ readonly format: 'keyhold-json' } & KeyholdJsonOptions)
   | ({ readonly format: 'keyhold-csv' } & CsvExportOptions)
-  | ({ readonly format: 'compatible-csv' } & CompatibleCsvOptions);
+  | ({ readonly format: 'compatible-csv' } & CompatibleCsvOptions)
+  | ({ readonly format: 'bitwarden-json' } & BitwardenJsonOptions);
 
 /**
  * Runs an export.
@@ -40,9 +42,17 @@ export async function runExport(
       return exportCsv(document, request);
     case 'compatible-csv':
       return exportCompatibleCsv(document, request);
+    case 'bitwarden-json':
+      return exportBitwardenJson(document, request);
   }
 }
 
+export {
+  BITWARDEN_JSON_EXPORT_ID,
+  exportBitwardenJson,
+  serialiseBitwardenJson,
+  type BitwardenJsonOptions,
+} from './bitwarden-json.js';
 export { exportCsv, KEYHOLD_CSV_COLUMNS, type CsvExportOptions } from './csv.js';
 export { exportEncrypted, type EncryptedExportOptions } from './encrypted.js';
 export {

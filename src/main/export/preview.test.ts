@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { exportCompatibleCsv } from './generic-csv.js';
 import { exportCsv } from './csv.js';
 import { exportEncrypted } from './encrypted.js';
+import { exportBitwardenJson } from './bitwarden-json.js';
 import { exportKeyholdJson } from './keyhold-json.js';
 import { previewExport } from './preview.js';
 import { bareRecord, buildDocument, NOW, richRecord } from './test-fixtures.js';
@@ -31,13 +32,17 @@ const DOCUMENT = buildDocument([
 
 const WHOLE = { includeTrashed: false, recordIds: null } as const;
 
-const READABLE = ['keyhold-json', 'keyhold-csv', 'compatible-csv'] as const;
+const READABLE = ['keyhold-json', 'keyhold-csv', 'compatible-csv', 'bitwarden-json'] as const;
 
 function runReadable(format: (typeof READABLE)[number], includeTrashed: boolean) {
   const options = { now: NOW, includeTrashed };
   switch (format) {
     case 'keyhold-json':
       return exportKeyholdJson(DOCUMENT, options);
+    // No `now`: Bitwarden's envelope carries no export timestamp, so there is nothing to stamp
+    // and the file is deterministic for a given vault.
+    case 'bitwarden-json':
+      return exportBitwardenJson(DOCUMENT, { includeTrashed });
     case 'keyhold-csv':
       return exportCsv(DOCUMENT, options);
     case 'compatible-csv':
