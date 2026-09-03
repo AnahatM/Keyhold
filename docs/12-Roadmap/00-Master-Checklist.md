@@ -689,8 +689,9 @@ and technical at once, rather than a stock Electron window.
       `body` already carried. Not every style × theme pair by eye; the contrast guard covers
       all thirty-two and two were checked visually
       screenshots actually looked at — a contrast test cannot see "this looks wrong"
-- [ ] Documented in `docs/06-UI-Design-System/`, with the style/theme split stated as the rule it
-      is
+- [x] Documented in `docs/06-UI-Design-System/05-Styles-And-The-Token-Split.md`, with the
+      style/theme split stated as the rule it is — including what the layer deliberately does
+      **not** own (the focus ring, motion, spacing) and why each was refused
 
 ## Phase 19 — Documentation & README
 
@@ -700,7 +701,10 @@ and technical at once, rather than a stock Electron window.
       because `13-` was taken by packaging by the time it was written
 - [ ] Publish the KEEP format spec as a standalone, implementable document
 - [ ] **`README.md` using the `anahat-readme` skill** — never freehanded
-- [ ] README must include: the three-line pitch, the honest comparison table (including where competitors win), screenshots, the threat model summary, install instructions with the unsigned-build steps, and the "how to leave" export story
+- [x] README must include: the three-line pitch, the honest comparison table (including where
+      competitors win), screenshots, the threat model summary, install instructions with the
+      unsigned-build steps, and the "how to leave" export story — the comparison table and the
+      unsigned-build steps were the two that were missing
 - [ ] Project `CLAUDE.md` finalised — stack, commands, architecture, conventions, guardrails, docs map, watch-outs
 - [ ] Final check of `MANUAL-BACKLOG.md` — nothing left undone that was assumed done
 
