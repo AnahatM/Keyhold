@@ -9,6 +9,7 @@ import { AppearancePanel } from './AppearancePanel.js';
 import { DangerZoneSection } from './DangerZoneSection.js';
 import { HealthRulesSection } from './HealthRulesSection.js';
 import { HistoryAuditSection } from './HistoryAuditSection.js';
+import { MasterPasswordSection } from './MasterPasswordSection.js';
 import { SecuritySessionSection } from './SecuritySessionSection.js';
 import { VaultSection } from './VaultSection.js';
 import { ScopeBadge } from './SettingControls.js';
@@ -216,6 +217,15 @@ export function SettingsScreen({
               vault={snapshot.vault}
               vaultPath={snapshot.vaultPath}
               kdf={snapshot.kdf}
+              quickUnlockEnrolled={snapshot.quickUnlock.enrolled}
+            />
+            {/* After the vault section, because the KDF cost above it is the other half of
+                the same subject — how expensive this vault is to open — and a reader who has
+                just been told what the cost means is the reader ready to change the password
+                it protects. Before the danger zone, because changing a password is not one. */}
+            <MasterPasswordSection
+              controller={controller}
+              hasVault
               quickUnlockEnrolled={snapshot.quickUnlock.enrolled}
             />
           </>

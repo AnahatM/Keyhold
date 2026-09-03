@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { HEALTH_RULE_IDS, type HealthRuleId } from '../model/health.js';
 import { AUDIT_PRIVACY_LEVELS, type AuditPrivacyLevel } from '../model/credential.js';
-import type { MachineSettings } from '../model/settings-plan.js';
+import type { KdfCost, MachineSettings } from '../model/settings-plan.js';
+import { KDF_UI_CEILING, KDF_UI_FLOOR } from '../model/settings-plan.js';
 import type { VaultHealthSettings, VaultSettings } from '../model/vault-document.js';
 import { IpcValidationError, requireBoolean } from './validation.js';
 
@@ -227,4 +228,40 @@ export function requireVaultSettingsPatch(channel: string, value: unknown): Part
   }
 
   return patch;
+}
+
+/**
+ * The Argon2 cost a re-key may set.
+ *
+ * Bounded against `KDF_UI_FLOOR` and `KDF_UI_CEILING` rather than against the format's
+ * `MIN_KDF_PARAMS`, and the difference is the whole reason this function exists. The format
+ * floor is what the reader will *accept from a file* and is deliberately permissive, so a
+ * vault written by an older build still opens. This is what the app may *create*, and it
+ * may not create something weaker than what it ships by default — otherwise the settings
+ * screen becomes a supported way to downgrade a vault below what `calibrateKdf` will ever
+ * produce, which is a hole wearing a slider.
+ *
+ * The bound is enforced here, in the payload validator, and not only in the screen. The
+ * renderer is the semi-trusted half: a slider that stops at the floor is a courtesy, and
+ * an `invoke` that ignores it must still be refused.
+ */
+export function requireKdfCost(channel: string, value: unknown): KdfCost {
+  if (!isObject(value)) {
+    throw new IpcValidationError(channel, 'cost must be an object');
+  }
+
+  return {
+    memoryKib: requireBounded(channel, value.memoryKib, 'memoryKib', {
+      min: KDF_UI_FLOOR.memoryKib,
+      max: KDF_UI_CEILING.memoryKib,
+    }),
+    iterations: requireBounded(channel, value.iterations, 'iterations', {
+      min: KDF_UI_FLOOR.iterations,
+      max: KDF_UI_CEILING.iterations,
+    }),
+    parallelism: requireBounded(channel, value.parallelism, 'parallelism', {
+      min: KDF_UI_FLOOR.parallelism,
+      max: KDF_UI_CEILING.parallelism,
+    }),
+  };
 }

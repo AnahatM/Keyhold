@@ -165,9 +165,19 @@ export class QuickUnlock {
   /**
    * Whether a stored record still applies to this vault.
    *
-   * The generation check is what makes re-keying meaningful: rotating the DEK or changing
-   * the master password must invalidate every quick-unlock enrolment, or the old key would
-   * keep working and the rotation would have achieved nothing.
+   * **This is not what invalidates an enrolment after a re-key, and it never was.** The
+   * record stores the data key, and neither a password change nor a re-key rotates that
+   * key — envelope encryption exists precisely so they do not — so a stale record would
+   * decrypt the vault perfectly well. `generation` only ever increases, so `<=` cannot fail
+   * on a vault that has merely been written since enrolment. Invalidation is done where the
+   * decision belongs: `kh:settings:change-master-password` and `kh:settings:rekey` revoke
+   * the enrolment outright, because a stored key that opens the vault with no password at
+   * all would defeat the intent of both operations.
+   *
+   * What this check does catch is the one case the operations cannot: a record enrolled
+   * against a *newer* copy of the vault than the file now on disk — a restored backup, or an
+   * older file synced back over a newer one. The key would still work; refusing is the
+   * conservative answer to "this record was made for a file I am not looking at".
    */
   isValidFor(record: QuickUnlockRecord, vaultId: string, generation: number): boolean {
     return record.vaultId === vaultId && record.generation <= generation;

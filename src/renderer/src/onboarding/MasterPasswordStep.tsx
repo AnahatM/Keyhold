@@ -9,7 +9,7 @@ import {
   NO_RECOVERY_HEADING,
 } from './onboarding-copy.js';
 import { canCreateVault, masterPasswordBlocker } from './onboarding-state.js';
-import { StrengthReadout } from './StrengthReadout.js';
+import { StrengthReadout } from '../components/StrengthReadout.js';
 // `.kh-ack`, `.kh-screen__error` and `.kh-path` are defined there. The acknowledgement is
 // deliberately the same control the create screen uses — a second styling of the single
 // most important checkbox in the app is how the two quietly stop matching.

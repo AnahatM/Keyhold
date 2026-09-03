@@ -30,7 +30,12 @@ import {
   type VaultSummary,
 } from '@shared/model/vault-document.js';
 import { differentVault, malformed, unsavedChanges, VaultError } from '../crypto/errors.js';
-import { createVaultKeys, unlock as unlockKeys, type DeriveKeyFn } from '../crypto/envelope.js';
+import {
+  createVaultKeys,
+  rewrapForNewPassword,
+  unlock as unlockKeys,
+  type DeriveKeyFn,
+} from '../crypto/envelope.js';
 import { calibrateKdf, newKdfParams } from '../crypto/kdf.js';
 import { uuid } from '../crypto/random.js';
 import { SecretBytes } from '../crypto/secret.js';
@@ -1271,6 +1276,83 @@ export class VaultService {
     };
 
     return this.summary();
+  }
+
+  /**
+   * Changes the master password, or the KDF cost, or both, on the open vault.
+   *
+   * **The vault body is never re-encrypted, and that is the whole point of the envelope.**
+   * The DEK that seals the records does not change, so a password change re-wraps one
+   * 32-byte key and rewrites a header. A scheme that derived the body key from the password
+   * directly would have to decrypt and re-encrypt every record and every attachment chunk —
+   * minutes of work on a large vault, with a window in which the file is half-converted.
+   *
+   * **The current password is verified first, and that is not ceremony.** The vault is already
+   * unlocked, so the DEK is in memory and the change would succeed without it. The check is
+   * against somebody at an unattended machine: without it a passer-by sets a new master
+   * password and the owner is locked out of their own vault permanently, because there is no
+   * reset by design. It is verified by deriving and unwrapping rather than by comparing
+   * anything stored, because nothing about the password is stored.
+   *
+   * **A fresh salt every time.** `newKdfParams` draws one; reusing the old salt would mean two
+   * different passwords for this vault share it, and drawing a new one costs nothing.
+   *
+   * The write goes through the ordinary save path, so it is atomic, it rotates the backups and
+   * it brackets the watcher. A password change is the last operation that should invent its
+   * own write.
+   *
+   * The header is the AAD, so a new header means the body must be re-sealed under a fresh
+   * nonce — which `writeContainer` does on every save regardless.
+   */
+  async changeMasterPassword(options: {
+    readonly currentPassword: string;
+    readonly newPassword: string;
+    /** Omit to keep the vault's existing cost; supply to re-key at a new one. */
+    readonly kdf?: Partial<Pick<KdfParams, 'memoryKib' | 'iterations' | 'parallelism'>>;
+    readonly derive?: DeriveKeyFn;
+  }): Promise<VaultSummary> {
+    const open = this.#requireOpen();
+
+    // Throws WRONG_PASSWORD if the current password does not unwrap the DEK. The result is
+    // discarded — the DEK already in memory is the one re-wrapped below — so this call is
+    // purely the check, and it deliberately runs before anything is generated or written.
+    const proof = await unlockKeys(
+      options.currentPassword,
+      open.header.kdf,
+      open.header.wrappedDek,
+      options.derive
+    );
+    proof.dek.destroy();
+
+    // The existing cost by default: changing a password and silently changing how long every
+    // future unlock takes are two decisions, and only one of them was asked for.
+    const kdf = newKdfParams({
+      memoryKib: options.kdf?.memoryKib ?? open.header.kdf.memoryKib,
+      iterations: options.kdf?.iterations ?? open.header.kdf.iterations,
+      parallelism: options.kdf?.parallelism ?? open.header.kdf.parallelism,
+    });
+
+    const wrappedDek = await rewrapForNewPassword(
+      open.dek,
+      options.newPassword,
+      kdf,
+      options.derive
+    );
+
+    // Written into the open state before saving, so `#saveOnce` seals the body against the new
+    // header — which it must, because the header is the AAD.
+    this.#open = { ...this.#requireOpen(), header: { ...open.header, kdf, wrappedDek } };
+
+    try {
+      return await this.save();
+    } catch (error) {
+      // Nothing was written, so the file on disk still opens with the OLD password. The header
+      // in memory has to go back to match it, or the next save would write a header describing
+      // a key the user cannot derive. Only the header is reverted: an edit made while Argon2
+      // was running belongs to the document, and reverting the whole open state would lose it.
+      this.#open = { ...this.#requireOpen(), header: open.header };
+      throw error;
+    }
   }
 
   /** Main-process only. Never call this from anything that talks to the renderer. */

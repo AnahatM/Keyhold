@@ -22,6 +22,7 @@ import type {
 } from '@shared/model/attachment.js';
 import { isMenuCommandId, type MenuCommandId } from '@shared/model/menu-commands.js';
 import type { KdfProgressView } from '@shared/model/kdf-progress.js';
+import type { KdfCost } from '@shared/model/settings-plan.js';
 import type { VaultChangedExternally } from '@shared/model/vault-change.js';
 import type { MergeReport } from '@shared/model/sync.js';
 import type {
@@ -386,6 +387,19 @@ const api: KeyholdApi = {
       ipcRenderer.invoke(CHANNELS.settingsUpdateVault, patch) as Promise<IpcResult<SettingsView>>,
     clearAllHistory: () =>
       ipcRenderer.invoke(CHANNELS.settingsClearAllHistory) as Promise<IpcResult<number>>,
+    // Both secrets are passed straight through and neither is kept here. The preload is a
+    // pipe, not a place to hold a master password for even one statement longer than the
+    // call needs it.
+    changeMasterPassword: (currentSecret: string, nextSecret: string) =>
+      ipcRenderer.invoke(
+        CHANNELS.settingsChangeMasterPassword,
+        currentSecret,
+        nextSecret
+      ) as Promise<IpcResult<null>>,
+    rekey: (currentSecret: string, cost: KdfCost) =>
+      ipcRenderer.invoke(CHANNELS.settingsRekey, currentSecret, cost) as Promise<
+        IpcResult<SettingsView>
+      >,
   },
 
   attachments: {
