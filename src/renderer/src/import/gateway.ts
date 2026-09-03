@@ -67,10 +67,12 @@ export class ImportGatewayError extends Error {
   }
 }
 
-/** Codes the wizard reacts to by name rather than by message. */
-export const IMPORT_ERROR_CODES = {
-  /** The plan was discarded, or the vault changed, so the preview is no longer honest. */
-  stalePlan: 'import/stale-plan',
-  /** The vault moved on since the commit, so undo would not mean what it says. */
-  staleUndo: 'import/stale-undo',
-} as const;
+/**
+ * Codes the wizard reacts to by name rather than by message.
+ *
+ * Re-exported from the shared contract, not declared here. This file used to hold its own
+ * copy of the two the wizard cares about, and the main process held its own copy of all six
+ * — two lists either side of a process boundary, kept in step by a test that read one of
+ * them as text.
+ */
+export { IMPORT_ERROR_CODES, type ImportErrorCode } from '@shared/model/import-plan.js';

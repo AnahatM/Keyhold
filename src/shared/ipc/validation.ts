@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { isLocalPath } from '../model/local-path.js';
+import { isTagColour, TAG_COLOUR_TOKENS, type TagColour } from '../model/organisation.js';
 import {
   SECRET_REF_KINDS,
   VERSIONED_FIELDS,
@@ -320,6 +321,26 @@ export function requireNullableId(channel: string, value: unknown, name: string)
 }
 
 /** A position among siblings. Bounded because it indexes an array the caller supplies. */
+/**
+ * A vault generation number.
+ *
+ * Separate from {@link requireIndex}, which caps at 10,000 because it validates a *position*
+ * in a list. A generation counts saves over the life of a vault, and a vault someone actually
+ * uses passes 10,000 saves — at which point an undo request would start being refused as a
+ * malformed position, on a channel whose whole job is to refuse only when the vault has
+ * genuinely moved on. A bound that expires quietly and turns a safety check into a bug is
+ * worse than no bound.
+ *
+ * Bounded at `Number.MAX_SAFE_INTEGER` instead, which is where the arithmetic stops being
+ * exact and so is the only ceiling that means anything.
+ */
+export function requireGeneration(channel: string, value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new IpcValidationError(channel, `${name} is not a valid vault generation`);
+  }
+  return value;
+}
+
 export function requireIndex(channel: string, value: unknown, name: string): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 10_000) {
     throw new IpcValidationError(channel, `${name} is not a valid position`);
@@ -334,6 +355,26 @@ export function requireIndex(channel: string, value: unknown, name: string): num
  * different places, and guessing which one they meant is a data-placement decision made on
  * their behalf — the one thing this operation exists to ask them.
  */
+/**
+ * A tag colour, against the one list.
+ *
+ * The boundary used to take any string and let `setTagColour` throw `INVALID_TAG_COLOUR`
+ * several layers down. That worked, in the sense that a bad colour was refused -- but it
+ * refused it as an engine error rather than a malformed request, which means the message
+ * that reaches the user is about their vault rather than about the value, and the main
+ * process logs a stack for what is really a validation failure.
+ *
+ * More to the point, it was the boundary declining to check something it has the vocabulary
+ * for. `TAG_COLOUR_TOKENS` is right there, shared by both processes precisely so this can be
+ * one comparison.
+ */
+export function requireTagColour(channel: string, value: unknown): TagColour {
+  if (!isTagColour(value)) {
+    throw new IpcValidationError(channel, `colour must be one of: ${TAG_COLOUR_TOKENS.join(', ')}`);
+  }
+  return value;
+}
+
 export function requireFolderDeletePolicy(channel: string, value: unknown): 'reparent' | 'unfile' {
   if (value !== 'reparent' && value !== 'unfile') {
     throw new IpcValidationError(channel, 'policy must be "reparent" or "unfile"');

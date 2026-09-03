@@ -33,6 +33,8 @@ import {
   requireIndex,
   requireNullableId,
   requireVersionedField,
+  requireGeneration,
+  requireTagColour,
   requireVersionNumber,
 } from '@shared/ipc/validation.js';
 import type { ExportFormatDescriptor } from '@shared/model/export.js';
@@ -41,6 +43,8 @@ import {
   PLAINTEXT_CONFIRMATION_PHRASE,
   type ExportOutcome,
 } from '@shared/model/export-plan.js';
+import type { ColumnMapping } from '@shared/model/import.js';
+import type { ImportDuplicateAction } from '@shared/model/import-plan.js';
 import { VaultError } from '../crypto/errors.js';
 import {
   EXPORT_FORMATS,
@@ -50,6 +54,12 @@ import {
   type ExportRequest,
 } from '../export/index.js';
 import { reportOf } from '../export/types.js';
+import { createElectronImportFilePicker } from '../import-service/file-picker.js';
+import {
+  createVaultImportAccess,
+  ImportService,
+  ImportServiceError,
+} from '../import-service/index.js';
 import {
   estimateEntropyBits,
   GENERATOR_DEFAULTS,
@@ -78,6 +88,40 @@ import type { SessionController } from '../session/session-controller.js';
  * **3. Handlers return results, never throw.** The renderer gets a discriminated union it
  * has to look at, rather than a rejected promise it might not catch.
  */
+
+/** A plain object, for the two import payloads that are maps rather than fixed shapes. */
+function requireRecord(channel: string, value: unknown, name: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new IpcValidationError(channel, `${name} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+/**
+ * A column mapping, shape-checked only.
+ *
+ * The targets are not validated against the field list here, because the parser already
+ * ignores a target it does not recognise — and a mapping is the one payload where being
+ * strict is worse than being permissive: it is assembled from a *user's* CSV header row, and
+ * refusing the whole import because one column was named something unexpected is exactly the
+ * failure the mapping step exists to let them fix.
+ */
+function requireColumnMapping(channel: string, value: unknown): ColumnMapping {
+  const raw = requireRecord(channel, value, 'mapping');
+  return {
+    ...raw,
+    columns: requireRecord(channel, raw.columns, 'mapping.columns'),
+  } as ColumnMapping;
+}
+
+/** The tags the wizard offers to stamp on everything it imports. Absent means none. */
+function requireTagList(channel: string, value: unknown): readonly string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    throw new IpcValidationError(channel, 'extraTags must be an array of tag names');
+  }
+  return value.map((tag, index) => requireNonEmptyString(channel, tag, `extraTags[${index}]`));
+}
 
 /**
  * The name the save dialog opens on.
@@ -148,6 +192,15 @@ function toFailure(error: unknown): IpcResult<never> {
   // names the rule, never the user's text, so it is safe to surface and useless if it is not.
   if (error instanceof OrganisationError) {
     return { ok: false, code: error.code, message: error.message, recoverable: true };
+  }
+
+  // An import refusal. Its message names the failure and, at most, a position in the file —
+  // never a cell, never a column's contents, never a title — so it is safe to surface
+  // verbatim and useless if it is not. Without this branch the wizard never sees
+  // `import/stale-plan` or `import/stale-undo` by name, and both degrade into the generic
+  // error slot, losing the one thing that made them worth distinguishing.
+  if (error instanceof ImportServiceError) {
+    return { ok: false, code: error.code, message: error.message, recoverable: error.recoverable };
   }
 
   // Anything else is a bug. Report that it happened, and deliberately NOT what it was: an
@@ -466,6 +519,97 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.historyClear, (credentialId) =>
     vault.clearHistory(requireId(CHANNELS.historyClear, credentialId, 'credentialId'))
   );
+
+  // ── import ─────────────────────────────────────────────────────────────────
+  //
+  // The main process owns the file, start to finish. `chooseFile` opens the dialog, reads
+  // the bytes and keeps them here; the renderer gets an opaque id and never learns the path
+  // or sees a byte. That file is, at that moment, a plaintext dump of every password the
+  // user has — putting it in the renderer would be the single largest secret exposure in
+  // the app, from the one screen where the user is being asked to trust us with all of it.
+  //
+  // `discard` is not politeness. It is how those bytes stop existing: the service zeroes
+  // them rather than dropping the reference. The wizard calls it on every exit — finish,
+  // cancel, or unmount — and the vault calls `discardAll` on lock.
+
+  const importer = new ImportService({
+    vault: createVaultImportAccess(vault, (action) =>
+      // The vault's *current* privacy level, read per change rather than captured once: the
+      // user can move it mid-import, and the records written afterwards must honour the
+      // setting they have now. Degrades to the verb alone when no capture is wired, which
+      // records less than it could and never more.
+      context.originCapture === undefined
+        ? { action }
+        : context.originCapture.capture(action, vault.settings().auditPrivacyLevel)
+    ),
+    picker: createElectronImportFilePicker(context.getWindow),
+    onProgress: (progress) => {
+      // Fire-and-forget to whichever window exists. A progress event that cannot be
+      // delivered is not worth failing an import over.
+      context.getWindow()?.webContents.send(EVENTS.importProgress, progress);
+    },
+  });
+
+  // An undo means nothing against a vault whose key has been destroyed, and a held batch
+  // carries pre-merge copies of records out of it. Registered as a lock observer rather
+  // than called from `session.lock()`, so nothing has to remember this exists.
+  session.onLock(() => {
+    importer.discardAll();
+  });
+
+  handle(CHANNELS.importerFormats, () => importer.formats());
+
+  handle(CHANNELS.importerChooseFile, () => importer.chooseFile());
+
+  handle(CHANNELS.importerPreview, (raw) => {
+    const channel = CHANNELS.importerPreview;
+    const request = requireRecord(channel, raw, 'request');
+    return importer.preview({
+      sourceId: requireId(channel, request.sourceId, 'sourceId'),
+      formatId: requireNonEmptyString(channel, request.formatId, 'formatId'),
+      ...(request.mapping === undefined
+        ? {}
+        : { mapping: requireColumnMapping(channel, request.mapping) }),
+      sampleSize: requireIndex(channel, request.sampleSize, 'sampleSize'),
+    });
+  });
+
+  handle(CHANNELS.importerCommit, (raw) => {
+    const channel = CHANNELS.importerCommit;
+    const request = requireRecord(channel, raw, 'request');
+    return importer.commit({
+      planId: requireId(channel, request.planId, 'planId'),
+      // Shape-checked, values not: the service narrows every entry to a real action and
+      // falls back to `skip`, so a malformed map imports nothing rather than being refused.
+      // Refusing here would mean a renderer bug presents as "your file is bad".
+      duplicateActions: requireRecord(
+        channel,
+        request.duplicateActions ?? {},
+        'duplicateActions'
+      ) as Record<string, ImportDuplicateAction>,
+      extraTags: requireTagList(channel, request.extraTags),
+    });
+  });
+
+  handle(CHANNELS.importerUndo, (raw) => {
+    const channel = CHANNELS.importerUndo;
+    const request = requireRecord(channel, raw, 'request');
+    return importer.undo({
+      batchId: requireId(channel, request.batchId, 'batchId'),
+      // `requireGeneration`, not `requireIndex`: a generation counts saves over the life of
+      // a vault and passes 10,000. See the note on that validator.
+      expectedVaultGeneration: requireGeneration(
+        channel,
+        request.expectedVaultGeneration,
+        'expectedVaultGeneration'
+      ),
+    });
+  });
+
+  handle(CHANNELS.importerDiscard, (sourceId) => {
+    importer.discard(requireId(CHANNELS.importerDiscard, sourceId, 'sourceId'));
+    return null;
+  });
 
   // ── export ─────────────────────────────────────────────────────────────────
   //
@@ -792,7 +936,7 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.tagsSetColour, (tagId, colour) => {
     vault.setTagColour(
       requireId(CHANNELS.tagsSetColour, tagId, 'tagId'),
-      requireString(CHANNELS.tagsSetColour, colour, 'colour')
+      requireTagColour(CHANNELS.tagsSetColour, colour)
     );
     return vault.organisation();
   });

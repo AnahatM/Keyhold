@@ -59,6 +59,7 @@ export class SessionController {
   #lastLockReason: LockReason | null = null;
   #window: BrowserWindow | null = null;
   #onStatusChange: (() => void) | null = null;
+  readonly #lockListeners = new Set<() => void>();
 
   constructor(vault: VaultService = new VaultService(), kdf: KdfProvider = new KdfRunner()) {
     this.#vault = vault;
@@ -235,11 +236,40 @@ export class SessionController {
    * the password it just handed out is still in Win+V is not locked in any sense the user
    * would recognise.
    */
+  /**
+   * Registers something to be torn down when the vault locks.
+   *
+   * Additive, and a set rather than a single slot, because the things that must die with
+   * the key keep arriving: the import service holds a plaintext file and pre-merge copies of
+   * records, a future sync session would hold a snapshot, a breach sweep holds range
+   * prefixes. Every one of them is a thing whose owner has to *remember* to hook the lock,
+   * and "remember" is how a decrypted note outlives the vault it came from.
+   *
+   * Listeners run in registration order, and one that throws does not stop the others: a
+   * failed cleanup must not leave the rest of the app unlocked.
+   */
+  onLock(listener: () => void): () => void {
+    this.#lockListeners.add(listener);
+    return () => this.#lockListeners.delete(listener);
+  }
+
   lock(reason: LockReason = 'manual'): void {
     this.#autoLock.disarm();
     this.#clipboard.clearOnExit();
     this.#vault.lock();
     this.#lastLockReason = reason;
+
+    // After the key is gone, not before. A listener that reads the vault on its way out gets
+    // a locked one, which is the state it is being told about.
+    for (const listener of this.#lockListeners) {
+      try {
+        listener();
+      } catch (error) {
+        // Logged, never rethrown. This is the teardown path for secret material; one
+        // listener failing must not prevent the next one from running.
+        console.error('[session] a lock listener threw:', error);
+      }
+    }
   }
 
   async save(): Promise<VaultSummary> {

@@ -680,6 +680,42 @@ export interface ImporterApi {
  * allow-list in the main process and the preload bridge both pick them up from the one list
  * they already read.
  */
+/**
+ * The refusal codes an import can come back with.
+ *
+ * Here rather than on either side, because both sides need the same strings and rule 8 says
+ * they get them from one list. The main process raises them (`src/main/import-service/`);
+ * the wizard reacts to two of them **by name** rather than by message
+ * (`src/renderer/src/import/gateway.ts`), because "run the preview again" and "the vault
+ * moved on" are specific answers that a generic error box cannot give.
+ *
+ * They were briefly declared twice, once on each side of the process boundary, with a test
+ * that read one file as *text* and compared it against the other — which is a guard doing
+ * the job a shared constant does for free, and a guard that only works while someone
+ * remembers to keep it pointed at the right file.
+ *
+ * A message carrying one of these codes never contains a value out of the file being
+ * imported. That file is a plaintext dump of somebody's entire vault, and these messages
+ * are shown on screen, written into the import report, and pasted into bug reports. They
+ * name the thing that went wrong and at most a position — never a cell, never a title.
+ */
+export const IMPORT_ERROR_CODES = {
+  /** The plan was discarded, superseded, or never minted here. Re-preview and try again. */
+  stalePlan: 'import/stale-plan',
+  /** The vault moved on since the commit, so undo would not mean what it says. */
+  staleUndo: 'import/stale-undo',
+  /** No parser in the registry carries that id. */
+  unknownFormat: 'import/unknown-format',
+  /** A `needsMapping` format was previewed without one. */
+  mappingRequired: 'import/mapping-required',
+  /** The chosen file is larger than anything a credential export plausibly is. */
+  fileTooLarge: 'import/file-too-large',
+  /** The parser refused the file outright: an encrypted export, or JSON that is not JSON. */
+  unreadableFile: 'import/unreadable-file',
+} as const;
+
+export type ImportErrorCode = (typeof IMPORT_ERROR_CODES)[keyof typeof IMPORT_ERROR_CODES];
+
 export const IMPORT_CHANNELS = {
   importerFormats: 'kh:import:formats',
   importerChooseFile: 'kh:import:choose-file',
