@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, screen, type BrowserWindow, type Rectangle } from 'electron';
+import { writeJsonFileSync } from './config-file.js';
 
 /**
  * Remembers where the window was, and puts it back there.
@@ -94,7 +95,9 @@ export function windowOptionsFromState(state: WindowState): {
  * Saves size and position as the user moves and resizes.
  *
  * Writes are debounced: a resize drag fires hundreds of events, and writing a file on each
- * one would be wasteful and could leave a torn file if the app were killed mid-drag.
+ * one would be wasteful. Each write is also atomic (`writeJsonFileSync`), so being killed
+ * mid-drag costs the newest position rather than leaving a torn file that fails to parse
+ * on next launch.
  *
  * `getNormalBounds` rather than `getBounds` so a maximised window remembers the size it
  * had *before* being maximised — otherwise un-maximising restores it to full screen and
@@ -114,7 +117,7 @@ export function trackWindowState(window: BrowserWindow): void {
       maximised: window.isMaximized(),
     };
     try {
-      writeFileSync(stateFile(), JSON.stringify(state, null, 2), 'utf8');
+      writeJsonFileSync(stateFile(), state);
     } catch {
       // Forgetting the window position is not a reason to interrupt anyone.
     }

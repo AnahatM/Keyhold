@@ -56,13 +56,6 @@ export function isSmokeRun(): boolean {
 }
 
 /**
- * Captures the window to a PNG when `KEYHOLD_SMOKE_SHOT` names a path.
- *
- * Two uses, both real: verifying during development that the UI actually renders as
- * intended rather than merely compiling, and generating README screenshots reproducibly
- * in Phase 19 instead of by hand.
- */
-/**
  * Captures one named view into the directory given by `KEYHOLD_SMOKE_SHOTS`.
  *
  * Generated rather than hand-made, so a README screenshot cannot quietly stop matching the

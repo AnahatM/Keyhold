@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app } from 'electron';
+import { writeJsonFileSync } from '../config-file.js';
 import { coerceAutoLockSettings, type AutoLockSettings } from './auto-lock.js';
 import type { QuickUnlockRecord } from './quick-unlock.js';
 
@@ -19,7 +20,9 @@ import type { QuickUnlockRecord } from './quick-unlock.js';
  *
  * Written synchronously. The file is a few hundred bytes, it is written on user actions
  * rather than in a loop, and an async write would need its own ordering guarantees for no
- * measurable gain.
+ * measurable gain. Synchronous does not mean careless: it goes through
+ * `writeJsonFileSync`, which writes `0o600` and renames into place, so the file is never
+ * observed empty and never world-readable.
  */
 
 export interface RecentVault {
@@ -149,7 +152,10 @@ export class PreferencesStore {
     const next = { ...this.get(), ...patch };
     this.#cache = next;
     try {
-      writeFileSync(preferencesFile(), JSON.stringify(next, null, 2), 'utf8');
+      // Atomic and `0o600`, not a plain truncating write: this file carries the OS-wrapped
+      // `protectedDek`, and a crash mid-write would otherwise leave it empty and silently
+      // drop every quick-unlock enrolment and the recent-vault list. See `config-file.ts`.
+      writeJsonFileSync(preferencesFile(), next);
     } catch {
       // Losing a preference is never a reason to interrupt someone mid-task. The value is
       // still live in memory for this session.

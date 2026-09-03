@@ -49,6 +49,23 @@ import type { NetworkProbe } from './network-name.js';
 /** How long a detected network name is trusted before a refresh is triggered. */
 export const NETWORK_CACHE_TTL_MS = 60_000;
 
+/**
+ * The shortest gap between two **forced** refreshes.
+ *
+ * `refreshNetwork()` deliberately bypasses the cache above, because a user watching a
+ * spinner on the settings screen asked for a fresh answer rather than a minute-old one.
+ * That makes it the only route in the app that can start a process on demand, and
+ * `#refresh` de-duplicates concurrent calls but not sequential ones — so a caller looping on
+ * it kept a `netsh` or `system_profiler` running back to back for as long as it liked. Each
+ * is bounded at two seconds and 512 KiB, so this was a nuisance rather than an outage, but
+ * it was the one unthrottled process-spawning path in a process that holds the master key.
+ *
+ * Three seconds is chosen to be shorter than a person can meaningfully re-click and far
+ * longer than a loop needs to be pointless. A suppressed refresh is not an error: the caller
+ * gets the value from the probe that just ran, which is the answer they were asking for.
+ */
+export const FORCED_REFRESH_MIN_INTERVAL_MS = 3_000;
+
 export interface OriginCaptureOptions {
   readonly appVersion: string;
   readonly probe: NetworkProbe;
@@ -104,6 +121,8 @@ export class OriginCapture {
 
   #networkName: string | null = null;
   #networkCheckedAt = 0;
+  /** When `refreshNetwork()` last actually started a probe. 0 means never. */
+  #forcedRefreshAt = 0;
   #refreshing: Promise<void> | null = null;
 
   constructor(options: OriginCaptureOptions) {
@@ -168,8 +187,24 @@ export class OriginCapture {
     return origin;
   }
 
-  /** Forces a refresh and waits for it. For the settings screen's "test" button, not the save path. */
+  /**
+   * Forces a refresh and waits for it. For the settings screen's "test" button, not the
+   * save path.
+   *
+   * Rate-limited by `FORCED_REFRESH_MIN_INTERVAL_MS`. Within that window the last probe's
+   * answer is returned without starting another process — see the constant for why the one
+   * path in the app that can spawn a process on demand is not allowed to do so in a loop.
+   */
   async refreshNetwork(): Promise<string | null> {
+    const sinceLast = this.#options.now() - this.#forcedRefreshAt;
+    if (this.#forcedRefreshAt !== 0 && sinceLast < FORCED_REFRESH_MIN_INTERVAL_MS) {
+      // A refresh may still be in flight from a call moments ago; join it rather than
+      // returning a value that is about to change under the caller.
+      if (this.#refreshing !== null) await this.#refreshing;
+      return this.#networkName;
+    }
+
+    this.#forcedRefreshAt = this.#options.now();
     await this.#refresh();
     return this.#networkName;
   }
