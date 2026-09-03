@@ -4,6 +4,7 @@ import {
   type ColumnMapping,
   type ImportFieldTarget,
 } from '@shared/model/import.js';
+import { isSingleValuedImportTarget } from '@shared/model/import-plan.js';
 import { parseCsvTable, readHeaderKeys } from './csv.js';
 import { mapCsv, mapCsvTable, type CsvMappingSpec } from './csv-mapper.js';
 import { WarningLog } from './mapping.js';
@@ -134,27 +135,20 @@ export function inferColumnMapping(columns: readonly string[]): ColumnMapping {
     // Single-valued targets are claimed once. A file with both `name` and `title` should not
     // have the second one overwrite the first — it should become a custom field and be
     // reported, so the user sees that a decision was made on their behalf.
-    if (target === undefined || (isSingleValued(target) && claimed.has(target))) {
+    //
+    // `isSingleValuedImportTarget` comes from `@shared/model/import-plan.ts`. This file used
+    // to carry its own six-way comparison, which the mapping UI would then have had to agree
+    // with by hand — and a mapping UI that thinks `folder` accumulates while the parser
+    // thinks it does not is two different imports of the same file.
+    if (target === undefined || (isSingleValuedImportTarget(target) && claimed.has(target))) {
       mapped[key] = 'custom';
       continue;
     }
-    if (isSingleValued(target)) claimed.add(target);
+    if (isSingleValuedImportTarget(target)) claimed.add(target);
     mapped[key] = target;
   }
 
   return { columns: mapped };
-}
-
-/** Targets that can hold exactly one column's worth of value. `url`, `notes` and `tags` accumulate. */
-function isSingleValued(target: ImportFieldTarget): boolean {
-  return (
-    target === 'title' ||
-    target === 'username' ||
-    target === 'email' ||
-    target === 'password' ||
-    target === 'folder' ||
-    target === 'favorite'
-  );
 }
 
 /** The header of a CSV, as written, for the mapping UI to label its dropdowns with. */

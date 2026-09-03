@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { importMatchHost } from '@shared/model/import-plan.js';
 import { describe, expect, it } from 'vitest';
 import { SECRET_CUSTOM_FIELD_TYPES } from '@shared/model/credential.js';
 import { folderAncestors, importFolderPath, normaliseFolderPath } from '@shared/model/import.js';
@@ -102,6 +103,12 @@ describe('value shapes', () => {
     expect(hostOf('example.org/path')).toBe('example.org');
     expect(hostOf('android://abc123==@com.example.app')).toBe('com.example.app');
     expect(hostOf('not a url at all')).toBe(null);
+    // Identity, not equality. `hostOf` and `importMatchHost` were two behaviourally
+    // identical copies, and the copies mattered: one decides whether two records are the
+    // same account, the other decides what that account is called. Two answers to "what host
+    // is this?" produce an import showing two rows with the same name while insisting they
+    // are not duplicates. `toBe` is what makes a re-copy fail here rather than pass.
+    expect(hostOf).toBe(importMatchHost);
   });
 });
 

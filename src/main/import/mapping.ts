@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { importMatchHost } from '@shared/model/import-plan.js';
 import type { CustomField, CustomFieldType } from '@shared/model/credential.js';
 import {
   folderAncestors,
@@ -176,7 +177,7 @@ function isEmptyDraft(draft: DraftRecord): boolean {
  */
 export function deriveTitle(draft: DraftRecord): string {
   for (const url of draft.urls) {
-    const host = hostOf(url);
+    const host = importMatchHost(url);
     if (host !== null) return host;
   }
   if (draft.username !== '') return draft.username;
@@ -184,24 +185,22 @@ export function deriveTitle(draft: DraftRecord): string {
   return 'Untitled';
 }
 
-/** The registrable-ish host of a URL, or `null` if it does not look like one. */
-export function hostOf(url: string): string | null {
-  const trimmed = url.trim();
-  if (trimmed === '') return null;
-
-  // `android://<hash>@com.example.app` is what Chrome and Bitwarden emit for app logins. The
-  // package name is the human-meaningful half; the hash is a signing-certificate digest.
-  const android = /^android:\/\/[^@]*@(.+)$/i.exec(trimmed);
-  if (android?.[1] !== undefined) return android[1];
-
-  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  try {
-    const host = new URL(withScheme).hostname;
-    return host === '' ? null : host.replace(/^www\./i, '');
-  } catch {
-    return null;
-  }
-}
+/**
+ * The registrable-ish host of a URL, or `null` if it does not look like one.
+ *
+ * Re-exported from `@shared/model/import-plan.ts`, which is where the dedupe rule reads it.
+ * This file used to carry a behaviourally identical copy, and the copies mattered: the
+ * dedupe rule decides whether two records are the *same account*, and the title derivation
+ * decides what that account is called. Two functions answering "what host is this?" would
+ * eventually answer differently, and the visible result would be an import that shows two
+ * rows named the same thing while insisting they are not duplicates.
+ *
+ * The one difference between the two was that the shared version lower-cases an
+ * `android://` package name and this one did not. Package names are lower-case by
+ * convention, so nothing observable changed — but it is exactly the kind of drift that
+ * accumulates unnoticed between two copies nobody diffs.
+ */
+export { importMatchHost as hostOf };
 
 // ── Value shapes ─────────────────────────────────────────────────────────────
 
