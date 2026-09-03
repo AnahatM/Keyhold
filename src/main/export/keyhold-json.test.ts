@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { DEFAULT_VAULT_SETTINGS, type VaultSettings } from '@shared/model/vault-document.js';
 import { describe, expect, it } from 'vitest';
 import { VERSIONED_FIELDS } from '@shared/model/credential.js';
 import { PLAINTEXT_EXPORT_WARNING } from '@shared/model/export.js';
@@ -46,6 +47,42 @@ import { bareRecord, buildDocument, NOW, richRecord } from './test-fixtures.js';
 const OPTIONS = { now: NOW } as const;
 
 describe('round trip', () => {
+  it('carries settings that are not the defaults, field for field', () => {
+    /**
+     * The round trip's fixture used `DEFAULT_VAULT_SETTINGS`, which made a whole class of
+     * loss invisible: a serialiser that stopped writing a settings block round-tripped as
+     * *equal*, because the parser defaults an absent one and the defaults were what went in.
+     * Deleting the attachment caps from the writer failed no test at all.
+     *
+     * So this fixture sets every settings field to something the defaults are not. A field
+     * the writer drops now comes back as its default and the comparison fails, which is the
+     * only version of "lossless" worth asserting.
+     */
+    const settings: VaultSettings = {
+      ...DEFAULT_VAULT_SETTINGS,
+      historyEnabledByDefault: !DEFAULT_VAULT_SETTINGS.historyEnabledByDefault,
+      historyMaxVersions: 7,
+      auditPrivacyLevel: 'none',
+      passwordAgeWarningDays: 123,
+      trashRetentionDays: 45,
+      health: {
+        ...DEFAULT_VAULT_SETTINGS.health,
+        weakEntropyBits: 41,
+        expiringWithinDays: 19,
+      },
+      attachments: {
+        maxAttachmentBytes: 1_048_576,
+        maxVaultAttachmentBytes: 8_388_608,
+        warnAboveBytes: 131_072,
+        maxAttachmentsPerRecord: 9,
+      },
+    };
+    const document = { ...buildDocument([bareRecord()]), settings };
+
+    const parsed = parseKeyholdJson(serialiseKeyholdJson(document, OPTIONS));
+    expect(parsed.document.settings).toEqual(settings);
+  });
+
   it('returns a document deep-equal to the one it was given', () => {
     const document = buildDocument([
       richRecord(),

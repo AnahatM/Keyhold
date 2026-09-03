@@ -698,6 +698,10 @@ export class VaultService {
       bytes: SecretBytes.adopt(file.bytes),
       now: Date.now(),
       newId: uuid(),
+      // The vault's own caps, not the shipped defaults. Until this was passed, raising the
+      // limit in settings changed nothing at all: the store folded `undefined` and got the
+      // defaults back, so the setting was a control that moved and did not connect.
+      settings: open.document.settings.attachments,
     });
 
     this.#open = {

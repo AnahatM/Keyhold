@@ -445,6 +445,19 @@ export const SETTING_POLICY = {
    * silenced a warning one device was giving would be the one direction with a cost.
    */
   health: 'stricter-wins',
+  /**
+   * The larger cap wins, field by field.
+   *
+   * Same reasoning as `historyMaxVersions` and `trashRetentionDays`: the direction that
+   * cannot cost the user anything. A smaller cap costs them the ability to attach a file
+   * they could attach yesterday; a larger one costs nothing, because `resolveAttachmentLimits`
+   * still refuses anything above the container's own ceiling at the moment it is used.
+   *
+   * Taking each field's maximum independently also preserves the invariant that the vault
+   * total is at least the per-file cap: if both sides were individually valid, the pairwise
+   * maxima are too.
+   */
+  attachments: 'larger-cap',
 } as const satisfies Readonly<Record<keyof VaultSettings, string>>;
 
 export interface SettingsMerge {
@@ -498,6 +511,28 @@ export function mergeSettings(
   // other — and there is no version of that question here: every field of `health` has an
   // answer that cannot cost anything. Reporting it as a conflict would put a choice in front
   // of someone that has already been made correctly on their behalf.
+  // Attachments are the second compound setting, and settled the same way and for the same
+  // reason: every field has an answer that cannot cost anything, so asking the user to
+  // choose between two configurations would be putting a question in front of them that has
+  // already been answered correctly on their behalf. No conflict entry, deliberately —
+  // `ConflictSide` carries a scalar, and there is no scalar question here.
+  const mergedAttachments: VaultSettings['attachments'] = {
+    maxAttachmentBytes: Math.max(ours.attachments.maxAttachmentBytes, theirs.attachments.maxAttachmentBytes),
+    maxVaultAttachmentBytes: Math.max(
+      ours.attachments.maxVaultAttachmentBytes,
+      theirs.attachments.maxVaultAttachmentBytes
+    ),
+    // The warning threshold is the exception to "larger wins": it is advice, not a limit, and
+    // the lower value warns *more*. Same direction as the health thresholds, for the same
+    // reason — a merge that quietly silenced a warning one device was giving is the one
+    // outcome with a cost.
+    warnAboveBytes: Math.min(ours.attachments.warnAboveBytes, theirs.attachments.warnAboveBytes),
+    maxAttachmentsPerRecord: Math.max(
+      ours.attachments.maxAttachmentsPerRecord,
+      theirs.attachments.maxAttachmentsPerRecord
+    ),
+  };
+
   const mergedHealth: VaultSettings['health'] = {
     enabledRules: Object.fromEntries(
       HEALTH_RULE_IDS.map((rule) => [
@@ -512,6 +547,7 @@ export function mergeSettings(
   return {
     settings: {
       health: mergedHealth,
+      attachments: mergedAttachments,
       historyEnabledByDefault: settle(
         'historyEnabledByDefault',
         ours.historyEnabledByDefault,
