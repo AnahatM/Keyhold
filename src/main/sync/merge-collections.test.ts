@@ -237,7 +237,11 @@ interface PolicyCase {
 }
 
 /**
- * One case per entry in `SETTING_POLICY`, typed so that adding a setting without deciding what
+ * `health` and `attachments` are excluded, and for the same reason: both are **compound**,
+ * and `PolicyCase` describes a scalar settling toward one side. They are reconciled field by
+ * field with no conflict entry, which is a different claim and is asserted separately.
+ *
+ * One case per remaining entry in `SETTING_POLICY`, typed so that adding a setting without deciding what
  * a merge does with it is a **compile error** here as well as in the table itself.
  *
  * Every case is run two-way. That is not laziness: `historyEnabledByDefault` is a boolean, and
@@ -245,7 +249,9 @@ interface PolicyCase {
  * side simply did not move. Without an ancestor every difference is a conflict, so this is the
  * only shape in which all five policies are reachable at once.
  */
-const POLICY_CASES: Readonly<Record<Exclude<keyof typeof SETTING_POLICY, 'health'>, PolicyCase>> = {
+const POLICY_CASES: Readonly<
+  Record<Exclude<keyof typeof SETTING_POLICY, 'health' | 'attachments'>, PolicyCase>
+> = {
   // Off wins: recording old passwords is a privacy decision, and the quieter answer cannot
   // surprise someone who was not asked.
   historyEnabledByDefault: {

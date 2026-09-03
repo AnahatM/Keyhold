@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { AuditPrivacyLevel, Credential } from './credential.js';
+import { DEFAULT_ATTACHMENT_SETTINGS, type AttachmentSettings } from './attachment.js';
 import {
   DEFAULT_HEALTH_RULE_TOGGLES,
   DEFAULT_HEALTH_THRESHOLDS,
@@ -59,6 +60,20 @@ export interface VaultSettings {
    * judged* is a property of the data, not of the machine looking at it.
    */
   readonly health: VaultHealthSettings;
+  /**
+   * The attachment caps, travelling **inside the vault** rather than beside it.
+   *
+   * Deliberately vault-scoped, and it is the scope that carries the meaning. A cap decides
+   * what this vault will accept, and the answer has to be the same on every machine that
+   * opens it — a 25 MB file attached on a desktop and then unopenable on a laptop whose
+   * local setting was 10 MB would be a file the user watched themselves save.
+   *
+   * The ceilings in `ATTACHMENT_CEILINGS` are **not** enforced here, on purpose. A setting
+   * that travels can arrive from a build we have not written, an import, or a hand-edited
+   * export, so it is checked where it is *used* — `resolveAttachmentLimits` — which is the
+   * only place that catches all three.
+   */
+  readonly attachments: AttachmentSettings;
 }
 
 /**
@@ -86,6 +101,7 @@ export const DEFAULT_VAULT_SETTINGS: VaultSettings = {
   passwordAgeWarningDays: 365,
   trashRetentionDays: 30,
   health: DEFAULT_VAULT_HEALTH_SETTINGS,
+  attachments: DEFAULT_ATTACHMENT_SETTINGS,
 };
 
 export interface VaultDocument {

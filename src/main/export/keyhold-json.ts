@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { HEALTH_RULE_IDS } from '@shared/model/health.js';
+import { DEFAULT_ATTACHMENT_SETTINGS } from '@shared/model/attachment.js';
 import { DEFAULT_VAULT_HEALTH_SETTINGS } from '@shared/model/vault-document.js';
 import { AUDIT_PRIVACY_LEVELS, type Credential } from '@shared/model/credential.js';
 import type { ExportFormatId } from '@shared/model/export.js';
@@ -174,6 +175,15 @@ function serialiseSettings(settings: VaultSettings): Record<string, unknown> {
       weakEntropyBits: settings.health.weakEntropyBits,
       expiringWithinDays: settings.health.expiringWithinDays,
     },
+    // Key by key for the same reason: a cap added to `AttachmentSettings` has to be written
+    // here deliberately rather than riding along on a spread, which is what makes "this
+    // format is lossless" a claim someone has to keep true rather than one that decays.
+    attachments: {
+      maxAttachmentBytes: settings.attachments.maxAttachmentBytes,
+      maxVaultAttachmentBytes: settings.attachments.maxVaultAttachmentBytes,
+      warnAboveBytes: settings.attachments.warnAboveBytes,
+      maxAttachmentsPerRecord: settings.attachments.maxAttachmentsPerRecord,
+    },
   };
 }
 
@@ -326,10 +336,45 @@ function parseHealthSettings(raw: unknown): VaultSettings['health'] {
   };
 }
 
+/**
+ * The attachment caps, out of an exported file.
+ *
+ * Each field is read and required rather than spread, so a file written by a build that
+ * added a fifth cap does not carry it through unvalidated — and one written by an older
+ * build that had none fails here rather than producing a document whose settings are half
+ * present. The ceilings are deliberately not applied: `resolveAttachmentLimits` owns that,
+ * at the moment a cap is used, which is the only place that also covers a hand-edited file.
+ */
+function parseAttachmentSettings(raw: unknown): VaultSettings['attachments'] {
+  // Absent means an export written before the caps travelled with the vault, and that file
+  // must still open. This is the one place in the strict parser that defaults rather than
+  // refuses, and the reason is narrow: a missing *setting* has a correct answer, whereas a
+  // missing record or a missing password does not. Present-but-wrong is still refused.
+  if (raw === undefined) return DEFAULT_ATTACHMENT_SETTINGS;
+
+  const source = requireObject(raw, 'settings.attachments');
+  return {
+    maxAttachmentBytes: requireNumber(
+      source.maxAttachmentBytes,
+      'settings.attachments.maxAttachmentBytes'
+    ),
+    maxVaultAttachmentBytes: requireNumber(
+      source.maxVaultAttachmentBytes,
+      'settings.attachments.maxVaultAttachmentBytes'
+    ),
+    warnAboveBytes: requireNumber(source.warnAboveBytes, 'settings.attachments.warnAboveBytes'),
+    maxAttachmentsPerRecord: requireNumber(
+      source.maxAttachmentsPerRecord,
+      'settings.attachments.maxAttachmentsPerRecord'
+    ),
+  };
+}
+
 function parseSettings(raw: unknown): VaultSettings {
   const source = requireObject(raw, 'settings');
   return {
     health: parseHealthSettings(source.health),
+    attachments: parseAttachmentSettings(source.attachments),
     historyEnabledByDefault: requireBoolean(
       source.historyEnabledByDefault,
       'settings.historyEnabledByDefault'
