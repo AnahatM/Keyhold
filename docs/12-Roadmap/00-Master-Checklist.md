@@ -226,7 +226,10 @@ timeline UI and its IPC channels are not. Full notes: `docs/05-Features/02-Histo
       collapsed by default. The channel had existed end to end since it was written with nothing
       calling it; which pairs are offered is decided in `history-points.ts`, pure and tested
 - [x] Restoring a single field from a timeline row — `DiffRows.tsx` calls it through the store
-- [ ] Export a single credential's history
+- [x] Export a single credential's history — provenance, not passwords (D27). Built from the
+      same safe projection the renderer receives, with every field named on the way out rather
+      than spread, so a widened input adds nothing to the file. No type-to-confirm, because
+      there is nothing in it to warn about
 - [x] **Tests (70):** versioning on change only · retention pruning and its direction ·
       reconstruction across a prune · diff correctness · restore and un-restore · the privacy
       sweep asserting each level captures exactly what it declares · capture under a hung probe
@@ -562,12 +565,12 @@ Reports: `docs/14-Audits/`._
       place that can answer it truthfully
 - [x] `docs/14-Audits/` written
 
-## Phase 18 — Packaging, CI & release ~ CONFIGURED, NEVER RUN
+## Phase 18 — Packaging, CI & release ~ CI GREEN, NO PACKAGED BUILD YET
 
-_Config and workflows are written and schema-valid. **No packaged build has ever been produced.**
-The remote now exists, so a workflow can run for the first time — but nothing has, and packaging
-needs a machine to run on and a Mac for the macOS half (`MANUAL-BACKLOG.md` M-PKG, M-CI, M2).
-Full notes: `docs/13-Packaging/00-Building-And-Releasing.md`._
+_The Verify workflow now runs and passes on every push — format, lint, typecheck, build, 4600+
+tests and the launch smoke test, on Windows. **No packaged build has ever been produced**, and
+that half still needs a machine to run on and a Mac for macOS (`MANUAL-BACKLOG.md` M-PKG, M-CI,
+M2). Full notes: `docs/13-Packaging/00-Building-And-Releasing.md`._
 
 - [x] `electron-builder.yml`: NSIS + portable (Windows), universal DMG + zip (macOS), asar on,
       an allow-list `files` block so no source, test, fixture or source map ships

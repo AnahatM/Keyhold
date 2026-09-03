@@ -330,6 +330,9 @@ const api: KeyholdApi = {
         versionNumber,
         field
       ) as Promise<IpcResult<{ projection: CredentialProjection; changedFields: string[] } | null>>,
+    /** The audit trail for one record. No path in either direction; see decision D27. */
+    exportHistory: (credentialId: string) =>
+      ipcRenderer.invoke(CHANNELS.historyExport, credentialId) as Promise<IpcResult<string | null>>,
     clear: (credentialId: string) =>
       ipcRenderer.invoke(CHANNELS.historyClear, credentialId) as Promise<IpcResult<boolean>>,
     networkName: () =>

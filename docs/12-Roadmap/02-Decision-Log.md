@@ -529,6 +529,40 @@ convenience. See [`../07-Sync-And-Merge/00-Merge-Engine.md`](../07-Sync-And-Merg
 
 ---
 
+### D27 — A history export carries provenance, not old passwords
+
+**Decision:** `kh:history:export` writes one credential's audit trail — what changed, when, and
+from where — with every secret value rendered as a length, exactly as it already crosses to the
+renderer. It does **not** offer old passwords, with or without a confirmation.
+
+**Why not include them.** The obvious reading of "export a credential's history" is "everything
+in it", and that reading is wrong here for a reason specific to this data: a record's history is
+the one place a vault keeps passwords the user has _stopped_ using. Those are the passwords most
+likely to be reused elsewhere, least likely to have been rotated since, and least likely to be
+missed if the file leaks. A plaintext file of every password an account has ever had is a worse
+artefact than a plaintext file of every password it has now, and Keyhold already offers the
+second one under a type-to-confirm.
+
+**Why the feature is still worth having.** Provenance is Keyhold's headline differentiator, and
+the questions people take it to — when did this change, from which device, on whose network —
+are all answered without a single secret. That is also what makes the export shareable: it can
+go to a colleague, a support ticket or an incident write-up as it stands.
+
+**The alternative, and why not.** An opt-in "include old values" checkbox behind the same
+type-to-confirm the full export uses would be consistent and is the obvious counter-proposal. It
+was rejected because it makes the dangerous artefact reachable from a screen whose stated
+purpose is the safe one, and because it is redundant: anybody who genuinely wants old secret
+values has the full encrypted export, which keeps them encrypted. A feature that is safe by
+construction needs no confirmation dialog, and a confirmation dialog is not a substitute for
+being safe by construction.
+
+**Consequence:** no `PLAINTEXT_AFTERMATH_REMINDER`, no shred warning and no type-to-confirm on
+this path, because there is nothing in the file that warrants one — and the guard that keeps
+that true is a test asserting a planted secret never appears in the output, the same shape as
+the projection's.
+
+---
+
 ## Decisions deferred to implementation
 
 Recorded so they are consciously decided rather than accidentally defaulted.

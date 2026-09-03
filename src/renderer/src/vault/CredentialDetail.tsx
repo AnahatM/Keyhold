@@ -6,6 +6,7 @@ import { Button } from '../components/Button.js';
 import { AttachmentsPanel } from './AttachmentsPanel.js';
 import { useCredentials } from './credential-store.js';
 import { useSession } from './session-store.js';
+import { useToast } from '../chrome/toast-context.js';
 import { CompareVersions } from '../history/CompareVersions.js';
 import { HistoryTimeline } from '../history/HistoryTimeline.js';
 import { PlainField, SecretField } from './SecretField.js';
@@ -276,7 +277,10 @@ export function CredentialDetail({
         <div className="kh-detail__section-head">
           <h3 className="kh-detail__heading">History</h3>
           {credential.historyCount > 0 && (
-            <ClearHistoryButton credentialId={credential.id} count={credential.historyCount} />
+            <>
+              <ExportHistoryButton credentialId={credential.id} />
+              <ClearHistoryButton credentialId={credential.id} count={credential.historyCount} />
+            </>
           )}
         </div>
         {/*
@@ -300,6 +304,48 @@ export function CredentialDetail({
  * device name from a job they have left. A password manager that cannot forget is not one
  * people hand their whole life to.
  */
+/**
+ * Writes this record's audit trail to a file.
+ *
+ * Beside "Clear history" because that is where somebody already is when they are thinking about
+ * this record's past — and because the two are the pair of things you can do to a history, one
+ * of which is destructive and one of which is not.
+ *
+ * **No confirmation step, deliberately.** Decision D27: the file carries provenance and lengths
+ * where a value would be, so there is nothing in it to warn about. The full export writes real
+ * plaintext and has a type-to-confirm for exactly that reason; putting the same ceremony here
+ * would teach people to click through it there.
+ */
+function ExportHistoryButton({
+  credentialId,
+}: {
+  readonly credentialId: string;
+}): React.JSX.Element {
+  const { exportHistory, busy } = useCredentials();
+  const toast = useToast();
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      disabled={busy}
+      onClick={() => {
+        void exportHistory(credentialId).then(
+          (fileName) => {
+            // `null` is a dismissed dialog, which is not an outcome worth a toast.
+            if (fileName !== null) toast.success(`History saved as ${fileName}`);
+          },
+          (cause: unknown) => {
+            toast.error(cause instanceof Error ? cause.message : 'Could not export this history.');
+          }
+        );
+      }}
+    >
+      Export history
+    </Button>
+  );
+}
+
 function ClearHistoryButton({
   credentialId,
   count,

@@ -1118,6 +1118,17 @@ export function runSmokeCheck(window: BrowserWindow): void {
              return 'compared';
            })()`
         );
+        // The history export button, which has a channel behind it and is easy to ship
+        // unreachable. Not clicked: it opens a native save dialog, which would hang the run.
+        // Presence is the half that fails silently; the file's contents have their own tests,
+        // including the planted-secret sweep.
+        const exportButton = await waitFor(
+          window,
+          `[...document.querySelectorAll('.kh-detail button')]
+             .some((element) => element.textContent === 'Export history') ? 'offered' : false`
+        );
+        emit(`SMOKE-CHECK history-export-is-offered ${String(exportButton === 'offered')}`);
+
         await noteScreen(window, 'before-compare');
         emit(`SMOKE-CHECK history-compare-is-reachable ${String(compared === 'compared')}`);
 
