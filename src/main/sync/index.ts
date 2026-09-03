@@ -110,3 +110,12 @@ export type {
   PreMergeBackupIo,
   PreMergeBackupRequest,
 } from './pre-merge-backup.js';
+
+/**
+ * The stateful half: one merge in progress, held between rounds of resolution.
+ *
+ * The engine is pure and stays that way. This exists because resolving is a conversation —
+ * the user picks a side, the merge re-runs with that choice folded in, and re-running needs
+ * both documents and the ancestor to still be here.
+ */
+export { MergeSessionStore, type OpenMerge } from './merge-session.js';
