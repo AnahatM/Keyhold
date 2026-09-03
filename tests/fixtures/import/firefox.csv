@@ -1,0 +1,3 @@
+"url","username","password","httpRealm","formActionOrigin","guid","timeCreated","timeLastUsed","timePasswordChanged"
+"https://example.com","ada@example.com","hunter2","","https://example.com","{11111111-2222-3333-4444-555555555555}","1700000000000","1700000001000","1700000000000"
+"https://router.example.net","admin","hunter2","Example Router, admin realm","","{66666666-7777-8888-9999-000000000000}","1700000002000","1700000003000","1700000002000"

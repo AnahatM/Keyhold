@@ -1,0 +1,4 @@
+name,url,username,password,note
+example.com,https://example.com/login,ada@example.com,hunter2,"Shared with Bob, expires in June"
+intranet.example.org,https://intranet.example.org/,ada,correct-horse-battery-staple,
+android.example.app,android://abc123==@com.example.app,ada@example.com,hunter2,

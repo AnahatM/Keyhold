@@ -1,0 +1,6 @@
+folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp
+Personal,1,login,Example Mail,"Recovery kit is in the safe, not the drawer","Account number: 4471-9902
+Support PIN: 8891",0,https://mail.example.com,ada@example.com,hunter2,otpauth://totp/Example:ada@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example
+Work/Clients,0,login,Example Admin,,,1,"https://admin.example.com
+https://admin.example.net",admin,correct-horse-battery-staple,
+,0,note,Wifi Passphrase,"SSID: Hazelnut, channel 6",,0,,,,

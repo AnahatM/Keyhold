@@ -1,0 +1,4 @@
+name,url,username,password,note,cardholdername,cardnumber,cvc,expirydate,zipcode,folder,full_name,phone_number,email,address1,address2,city,country,state
+Example Mail,https://mail.example.com,ada@example.com,hunter2,"Recovery address is bob@example.com, not mine",,,,,,Personal,,,,,,,,
+Example Card,,,,Subscriptions only,Ada Lovelace,4111111111111111,123,2030-05,12345,Finance,,,,,,,,
+Example Identity,,,,,,,,,,Personal,Ada Lovelace,+1 555 0100,ada@example.com,"12 High Street, Flat 4",,Springfield,United States,IL
