@@ -42,12 +42,22 @@ export interface ContentViewerProps {
   readonly appVersion?: string;
   /** Renders a close control when given. Omitted when the help is a permanent view. */
   readonly onClose?: () => void;
+  /**
+   * Drops this component's own `<h1>`, keeping the subtitle and the close control.
+   *
+   * Set when the host already renders the page's heading — `ToolView` does, because it is
+   * the thing focus moves to on navigation and it must therefore exist before this
+   * component is even mounted. The file header's rule still holds: exactly one `<h1>` above
+   * the articles' `<h2>`s. This only decides which component renders it.
+   */
+  readonly hideTitle?: boolean;
 }
 
 export function ContentViewer({
   initialArticleId = DEFAULT_ARTICLE_ID,
   appVersion,
   onClose,
+  hideTitle = false,
 }: ContentViewerProps): React.JSX.Element {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<ContentArticleId>(initialArticleId);
@@ -60,9 +70,9 @@ export function ContentViewer({
 
   return (
     <div className="kh-content">
-      <header className="kh-content__header">
+      <header className="kh-content__header" data-compact={hideTitle || undefined}>
         <div>
-          <h1 className="kh-content__title">Keyhold Help</h1>
+          {!hideTitle && <h1 className="kh-content__title">Keyhold Help</h1>}
           <p className="kh-content__subtitle">
             Everything here ships inside the app. Nothing on this page needs a connection.
             {appVersion === undefined ? '' : ` Version ${appVersion}.`}

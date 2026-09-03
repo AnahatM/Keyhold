@@ -7,6 +7,7 @@ import { UnlockScreen } from './vault/UnlockScreen.js';
 import { VaultScreen } from './vault/VaultScreen.js';
 import { WelcomeScreen } from './vault/WelcomeScreen.js';
 import { CommandsProvider } from './commands/index.js';
+import { watchLockForToolViews, watchSelectionForToolViews } from './shell/index.js';
 import { ClearToastsOnLock } from './vault/ClearToastsOnLock.js';
 import { useSession, watchSession, type Screen } from './vault/session-store.js';
 import './App.css';
@@ -39,6 +40,18 @@ export function App(): React.JSX.Element {
 
     return unwatch;
   }, [refresh]);
+
+  // Mounted here rather than in the vault screen precisely because the vault screen is the
+  // thing that unmounts on a lock: the tool view store outlives it, and an unlock that
+  // reopened the health dashboard someone had left open would both skip the record list they
+  // asked for and tell whoever is now at the keyboard what they had last been reading. A
+  // subscription, not an effect body comparing renders — see `tool-view-store.ts`.
+  useEffect(() => watchLockForToolViews(), []);
+
+  // And the other half of the same idea: a tool view yields to a record the instant one is
+  // selected or opened for editing, from wherever. Mounted at the root so it holds for the
+  // palette and the shortcut table, which are mounted here and outlive every screen.
+  useEffect(() => watchSelectionForToolViews(), []);
 
   if (bootError !== null) {
     return (

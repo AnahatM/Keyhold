@@ -18,13 +18,26 @@ export interface GeneratorScreenProps {
   /** Given a generated password to keep. Omit when there is nowhere to put one. */
   readonly onUse?: ((secret: string) => void) | undefined;
   readonly useLabel?: string | undefined;
+  /**
+   * Drops this screen's own heading, keeping the explanation beneath it.
+   *
+   * Set when the host already titles the page — `ToolView` does, because the heading is what
+   * focus moves to on navigation and therefore has to exist above whatever it mounts. The
+   * sentence below the title is the part worth keeping either way: it is the only place the
+   * app says where the randomness comes from.
+   */
+  readonly hideTitle?: boolean;
 }
 
-export function GeneratorScreen({ onUse, useLabel }: GeneratorScreenProps): React.JSX.Element {
+export function GeneratorScreen({
+  onUse,
+  useLabel,
+  hideTitle = false,
+}: GeneratorScreenProps): React.JSX.Element {
   return (
     <section className="kh-panel">
       <header className="kh-panel__header">
-        <h2 className="kh-panel__title">Generate a password</h2>
+        {!hideTitle && <h2 className="kh-panel__title">Generate a password</h2>}
         <p className="kh-panel__subtitle">
           Produced in the main process from the operating system’s cryptographic random source —
           never from anything in this window. The figure below is the size of the search space these

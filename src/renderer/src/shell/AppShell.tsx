@@ -18,6 +18,10 @@ import './AppShell.css';
  * **Pane widths are draggable, and the drag is keyboard-operable.** A divider you can only
  * move with a mouse is a divider a keyboard user cannot move at all, so each one is a
  * proper `separator` with arrow-key handling.
+ *
+ * **It has a second mode.** Supply `main` and the list and detail step aside for it, leaving
+ * the sidebar in place — that is how the tool views (health, generator, help, settings) are
+ * shown. See the `main` prop for why they cannot live in the detail pane.
  */
 
 const MIN_PANE = 180;
@@ -33,6 +37,19 @@ export interface AppShellProps {
   readonly sidebar: ReactNode;
   readonly list: ReactNode;
   readonly detail: ReactNode;
+  /**
+   * Takes over from the list and the detail for as long as it is supplied.
+   *
+   * The tool views — health, the generator, help, settings — are not about a record, and
+   * none of them fits in a column sized for one. So they get the whole main region and the
+   * two record panes step aside, exactly the way the detail pane already takes over from the
+   * list in a narrow window. The sidebar deliberately stays: it holds the rows that opened
+   * the tool and is therefore the most obvious way back out of it.
+   *
+   * Additive on purpose. The three-pane path below is untouched when this is `undefined`,
+   * so nothing about the existing layout depends on a mode flag being read correctly.
+   */
+  readonly main?: ReactNode;
   readonly sidebarCollapsed?: boolean;
   readonly onSidebarCollapsedChange?: (collapsed: boolean) => void;
   /** True when a record is selected — decides what a narrow window shows. */
@@ -70,6 +87,7 @@ export function AppShell({
   sidebar,
   list,
   detail,
+  main,
   sidebarCollapsed = false,
   onSidebarCollapsedChange,
   hasSelection = false,
@@ -153,14 +171,17 @@ export function AppShell({
   const narrow = viewportWidth < NARROW_BREAKPOINT;
   const veryNarrow = viewportWidth < VERY_NARROW_BREAKPOINT;
   const showSidebar = !sidebarCollapsed && !veryNarrow;
-  // In a narrow window the list and the detail take turns rather than sharing.
-  const showList = !narrow || !hasSelection;
-  const showDetail = !narrow || hasSelection;
+  const toolOpen = main !== undefined;
+  // In a narrow window the list and the detail take turns rather than sharing. A tool view
+  // takes precedence over both at every width — it *is* the main region while it is open.
+  const showList = !toolOpen && (!narrow || !hasSelection);
+  const showDetail = !toolOpen && (!narrow || hasSelection);
 
   return (
     <div
       className="kh-shell"
       data-narrow={narrow || undefined}
+      data-tool={toolOpen || undefined}
       style={{
         // Custom properties rather than inline width, so the CSS keeps ownership of the
         // grid and this only supplies the two numbers it cannot know.
@@ -226,6 +247,15 @@ export function AppShell({
             </button>
           )}
           {detail}
+        </main>
+      )}
+
+      {/* The tool view. It carries `#kh-main` while it is open, so the skip link at the top
+          of the shell lands on the thing that is actually the main content rather than on a
+          detail pane that is not currently rendered. */}
+      {toolOpen && (
+        <main className="kh-shell__main" id="kh-main" tabIndex={-1}>
+          {main}
         </main>
       )}
 

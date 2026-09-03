@@ -148,12 +148,26 @@ export function GeneratorForm({
           <Button
             variant="ghost"
             size="sm"
+            // Kept alongside the visible word so the accessible name says *which* password
+            // — "Show" alone is meaningless read out of context. WCAG 2.5.3 is satisfied
+            // because the visible label is the start of the accessible one.
             iconOnlyLabel={masked ? 'Show the generated password' : 'Hide the generated password'}
             onClick={() => {
               setMasked((value) => !value);
             }}
           >
-            {masked ? '👁' : '🙈'}
+            {/*
+              Words, not an eye emoji.
+
+              This was `👁` / `🙈`, which looks like one consistent toggle on macOS and does
+              not on Windows: U+1F441 has *text* presentation by default, so Chromium drew
+              it from Segoe UI Symbol as a hairline monochrome outline roughly half the
+              height of the colour monkey it alternated with — a nearly invisible control in
+              the state where it matters most, the one hiding a password. A U+FE0F selector
+              did not move it. Two short words render identically on every platform, need no
+              emoji font, and match every other button on this panel.
+            */}
+            {masked ? 'Show' : 'Hide'}
           </Button>
         </div>
 
