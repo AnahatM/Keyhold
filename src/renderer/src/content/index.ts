@@ -65,3 +65,21 @@ export {
   type AboutLicence,
   type LicenceCounts,
 } from './about-facts.js';
+
+export { ChangelogView, type ChangelogViewProps } from './ChangelogView.js';
+export {
+  CHANGELOG,
+  CHANGELOG_FALLBACK_TITLE,
+  CHANGELOG_SOURCE,
+  NO_RELEASES,
+  changelogTitle,
+  parseChangelog,
+  plainText,
+  preambleBlocks,
+  releaseBlocks,
+  releaseCaption,
+  unreleased,
+  type Changelog,
+  type ChangelogGroup,
+  type ChangelogRelease,
+} from './changelog.js';

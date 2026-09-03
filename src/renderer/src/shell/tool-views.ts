@@ -34,7 +34,7 @@
  */
 
 /**
- * All six, now that the activity log has a reader.
+ * All seven.
  *
  * `settings` was briefly absent from this list. `SettingsScreen` was written and
  * mount-ready, but its gateway still refused every read with "Phase 14 has not registered
@@ -52,6 +52,7 @@ export const TOOL_VIEW_IDS = [
   'activity',
   'settings',
   'help',
+  'changelog',
   'about',
 ] as const;
 
@@ -126,6 +127,13 @@ export const TOOL_VIEWS: readonly ToolViewDefinition[] = [
     fills: true,
   },
   {
+    id: 'changelog',
+    title: 'What’s new',
+    summary: 'Every change in this build, rendered from the project’s own changelog file.',
+    menuCommandId: 'help.changelog',
+    fills: false,
+  },
+  {
     id: 'about',
     // 'About', not 'About Keyhold': the frame owns the <h1> and the page's own <h2> is
     // 'Keyhold', so the longer title would say the name twice on one screen.
@@ -146,7 +154,7 @@ export const TOOL_VIEW_BY_ID: ReadonlyMap<ToolViewId, ToolViewDefinition> = new 
  * The menu command a native menu item carries, turned into a view.
  *
  * Returns `null` for every other command rather than throwing: the menu has two dozen
- * entries and only six of them are tool views, so "not one of mine" is the normal answer,
+ * entries and only seven of them are tool views, so "not one of mine" is the normal answer,
  * not an error.
  */
 export function toolViewForMenuCommand(menuCommandId: string): ToolViewId | null {

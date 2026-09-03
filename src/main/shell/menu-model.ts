@@ -328,6 +328,7 @@ function helpSection(state: ShellState): MenuSection {
     role: 'help',
     items: [
       command(state, 'help.docs'),
+      command(state, 'help.changelog'),
       command(state, 'help.shortcuts'),
       separator,
       command(state, 'help.security'),

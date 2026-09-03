@@ -166,6 +166,54 @@ Each agent's report names the exact payloads.
 
 ---
 
+## 🔴 M-KDBX · Install `kdbxweb`, which the stack claims is already here
+
+**Blocks:** KDBX import (roadmap Phase 8) and KDBX 4 export (Phase 10). Both are the last
+unbuilt formats, and neither can start without this.
+
+**Where it stands.** `CLAUDE.md`'s stack table already says this honestly — "`kdbxweb` + our
+WASM Argon2 — planned (Phase 11), not installed" — so nothing there needs correcting.
+`package.json`'s `dependencies` are `@zxcvbn-ts/core`, `@zxcvbn-ts/language-common`,
+`hash-wasm`, `react`, `react-dom` and `zustand`, and no source file imports `kdbxweb`. The
+roadmap's two KDBX lines are simply waiting on this install, and this entry is the step that
+unblocks them.
+
+**Why I have not done it.** Installing a package is yours by rule (§7): it writes
+`package-lock.json`, it pulls a dependency tree I cannot review the provenance of on your
+behalf, and this one will end up parsing untrusted files that users hand it.
+
+**Steps.**
+
+1. From `C:\Dev\Credentials-App`:
+   ```
+   npm install kdbxweb@2.1.1 --save-exact
+   ```
+   Pinned exactly, like `hash-wasm@4.12.0` beside it — this library reads attacker-supplied
+   files, so the version that was reviewed is the version that should ship.
+2. Confirm it landed in `dependencies` and **not** `devDependencies`. It ships in the app,
+   so a `devDependencies` entry would work in `npm run dev` and be missing from the packaged
+   build — the failure only users see.
+3. Run `npm run verify:full` and tell me it is green.
+4. Tell me it is installed and I will build the importer and the exporter.
+
+**Two things worth knowing before you run it.**
+
+- `kdbxweb` does **not** bundle Argon2; it expects the host to supply one. That is exactly
+  why the stack table pairs it with our WASM Argon2, and it is good news: the KDF stays the
+  audited `hash-wasm` path already used for `.keep` files, and no native binding enters the
+  tree.
+- Check what the install adds. If it pulls a native module, stop and tell me — hard rule
+  "`hash-wasm` (pure WASM — **never** a native binding)" exists because a native binding
+  breaks the cross-platform build, and the same reasoning applies to anything arriving
+  underneath this.
+
+**If you would rather not add it at all**, say so and I will mark KDBX import and export as
+declined in the roadmap rather than leaving two lines open forever. Keyhold can already
+import KeePass **CSV**, which is the path most KeePass users take; `.kdbx` is the better one
+because it is lossless and needs no plaintext intermediate file, but it is not the only door.
+
+---
+
 ## 🟡 M-PRIVACY · `PRIVACY.md` has gone stale in the under-claiming direction
 
 **Why it is amber rather than green:** `PRIVACY.md` is a published promise about behaviour, and

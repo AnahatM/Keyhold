@@ -280,6 +280,12 @@ export const MENU_COMMANDS: readonly MenuCommand[] = [
     exposesCredentialData: false,
   },
   {
+    id: 'help.changelog',
+    label: 'What’s New',
+    needsUnlockedVault: false,
+    exposesCredentialData: false,
+  },
+  {
     id: 'help.about',
     label: 'About Keyhold',
     needsUnlockedVault: false,

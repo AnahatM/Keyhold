@@ -350,3 +350,23 @@
 .kh-content__link:hover .kh-content__link-mark {
   color: inherit;
 }
+
+/* ── The changelog's releases ─────────────────────────────────────────────────
+ *
+ * A release heading is an `<h2>` over the block renderer's `<h3>` group headings, so it has
+ * to read as the larger of the two *and* be separated from the release above it. Neither
+ * existing class does both: `.kh-content__article-title` has the size and no margin,
+ * `.kh-content__heading` has the margin and the smaller size, and setting both resolves to
+ * whichever comes later in this file rather than to what was meant.
+ */
+.kh-content__release + .kh-content__release {
+  margin-top: var(--kh-space-6);
+  padding-top: var(--kh-space-5);
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-content__release-title {
+  font-size: var(--kh-text-lg);
+  font-weight: var(--kh-weight-semibold);
+  line-height: var(--kh-leading-tight);
+}

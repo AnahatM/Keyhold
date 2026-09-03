@@ -101,6 +101,7 @@ const TOOL_SECTION: Readonly<Record<ToolViewId, CommandSection>> = {
   activity: 'Vault',
   settings: 'Navigate',
   help: 'Help',
+  changelog: 'Help',
   about: 'Help',
 };
 

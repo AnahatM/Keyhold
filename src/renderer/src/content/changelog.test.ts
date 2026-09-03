@@ -3,10 +3,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   CHANGELOG,
+  CHANGELOG_FALLBACK_TITLE,
   CHANGELOG_SOURCE,
+  NO_RELEASES,
+  changelogTitle,
   parseChangelog,
   plainText,
+  preambleBlocks,
   releaseBlocks,
+  releaseCaption,
   unreleased,
   type ChangelogRelease,
 } from './changelog.js';
@@ -374,5 +379,81 @@ describe('projection onto the block model', () => {
         .flatMap((block) => [...block.items])
     );
     expect(projected).toEqual(allEntries);
+  });
+});
+
+// ── The copy the page is built out of ────────────────────────────────────────
+
+/**
+ * The page's own strings are checked here rather than in `ChangelogView.test.tsx` for the
+ * reason `about-facts.test.ts` gives: whether the page states something true should be
+ * answerable without mounting React, and the view's guard is then free to be only about what
+ * a rendered page can get wrong independently of its content.
+ */
+describe('what the page says around the releases', () => {
+  it('takes its title from the file rather than restating one', () => {
+    expect(changelogTitle(CHANGELOG)).toBe(CHANGELOG.title);
+    expect(changelogTitle(parseChangelog('# Release notes\n'))).toBe('Release notes');
+  });
+
+  it('falls back to a title when the file supplied none', () => {
+    // The state a broken `?raw` import produces. An empty `<h1>` reads as a rendering fault
+    // rather than as the build fault it is, and the body's callout is what explains it.
+    expect(changelogTitle(parseChangelog(''))).toBe(CHANGELOG_FALLBACK_TITLE);
+  });
+
+  it('renders the file’s own preamble rather than a paraphrase of it', () => {
+    expect(preambleBlocks(CHANGELOG).map((block) => block.kind === 'paragraph' && block.text)) //
+      .toEqual([...CHANGELOG.preamble]);
+    expect(preambleBlocks(parseChangelog('# X\n'))).toEqual([]);
+  });
+
+  describe('the caption under a release heading', () => {
+    const dated = onlyRelease('## [1.2.0] - 2026-09-15\n');
+    const undated = onlyRelease('## [1.2.0]\n');
+    const head = onlyRelease('## [Unreleased]\n');
+
+    it('says when a release was made, in a sentence rather than as a bare date', () => {
+      // A date alone under a version number does not say what happened on it.
+      expect(releaseCaption(dated)).toBe('Released 2026-09-15.');
+      expect(releaseCaption(dated)).toContain(dated.date ?? '');
+    });
+
+    it('says a dateless release has no date rather than rendering an empty line', () => {
+      expect(releaseCaption(undated)).toBe('No release date is recorded for this version.');
+    });
+
+    it('marks the unreleased head as unreleased', () => {
+      expect(releaseCaption(head)).toBe('Not released yet.');
+    });
+
+    it('is never empty, for any release in the real file', () => {
+      // The unreleased head is the only section a pre-release build has, and it is the one
+      // with no date — so "print the date" would leave this page's only caption blank.
+      for (const release of releases) expect(releaseCaption(release).length).toBeGreaterThan(0);
+    });
+
+    it('names the running build on the release it matches, and appends rather than replaces', () => {
+      const caption = releaseCaption(dated, '1.2.0');
+      expect(caption).toContain('This is the build you are running.');
+      expect(caption).toContain('Released 2026-09-15.');
+    });
+
+    it('claims nothing when the running version matches no release, or is unknown', () => {
+      // Exact equality only. A near-match marked as "you are running this" is worse than no
+      // marker at all, because a reader acts on it.
+      expect(releaseCaption(dated, '1.2')).not.toContain('running');
+      expect(releaseCaption(dated, 'v1.2.0')).not.toContain('running');
+      expect(releaseCaption(dated, '1.2.0-rc.1')).not.toContain('running');
+      expect(releaseCaption(dated)).not.toContain('running');
+    });
+  });
+
+  it('has an empty state that reports a build fault rather than implying nothing changed', () => {
+    expect(parseChangelog('').releases).toHaveLength(0);
+    expect(NO_RELEASES.kind).toBe('note');
+    // Not `info`. An empty changelog cannot happen to a correctly built copy, so the page
+    // has to say so loudly — the same call `about-facts.ts` makes about an empty licence list.
+    expect(NO_RELEASES).toMatchObject({ kind: 'note', tone: 'danger' });
   });
 });
