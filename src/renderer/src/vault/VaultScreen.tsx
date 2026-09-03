@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from '../components/Button.js';
+import { OrganisationSidebar } from '../organisation/index.js';
 import { AppShell } from '../shell/AppShell.js';
 import { CredentialDetail, NoSelection } from './CredentialDetail.js';
 import { CredentialEditor } from './CredentialEditor.js';
@@ -23,7 +24,9 @@ export function VaultScreen({
   readonly appearancePanel: ReactNode;
 }): React.JSX.Element {
   const { status, credentials, lock } = useSession();
-  const { selectedId, editing, select, setShowTrash, showTrash } = useCredentials();
+  // `showTrash` moved to the sidebar with the rest of the view selection; this screen
+  // keeps only what it still owns.
+  const { selectedId, editing, select } = useCredentials();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const selected = credentials.find((credential) => credential.id === selectedId);
@@ -59,34 +62,13 @@ export function VaultScreen({
             </Button>
           </header>
 
-          <nav className="kh-sidebar__nav">
-            <div className="kh-sidebar__group">Vault</div>
-            <button
-              type="button"
-              className="kh-sidebar__item"
-              aria-current={!showTrash}
-              onClick={() => {
-                setShowTrash(false);
-              }}
-            >
-              <span>All items</span>
-              <span className="kh-sidebar__count">{vault?.recordCount ?? 0}</span>
-            </button>
-            <button
-              type="button"
-              className="kh-sidebar__item"
-              aria-current={showTrash}
-              onClick={() => {
-                setShowTrash(true);
-              }}
-            >
-              <span>Trash</span>
-              <span className="kh-sidebar__count">{vault?.trashedCount ?? 0}</span>
-            </button>
-            <p className="kh-sidebar__note">
-              Folders, tags and favourites are built but not yet wired to this list.
-            </p>
-          </nav>
+          {/*
+            The real sidebar, replacing the placeholder nav that used to live here.
+            It owns no filtering: it produces a `SidebarSelection`, and `visibleForSelection`
+            turns that into a list through the shared search engine — so there is still one
+            matcher and one sort in the app.
+          */}
+          <OrganisationSidebar />
 
           <div className="kh-sidebar__footer">
             <ClipboardIndicator />
