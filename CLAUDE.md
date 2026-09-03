@@ -30,7 +30,7 @@ Work the phases in order. Tick items as they land. Nothing lives only in chat.
 | Packaging    | electron-builder — NSIS + portable (Win), DMG + zip (macOS)                  |
 | Argon2id     | `hash-wasm` (pure WASM — **never** a native binding)                         |
 | AES-256-GCM  | Node `crypto`, main process only                                             |
-| KDBX interop | `kdbxweb` + our WASM Argon2                                                  |
+| KDBX interop | `kdbxweb` + our WASM Argon2 — **planned (Phase 11), not installed**          |
 | Strength     | `@zxcvbn-ts/core`, lazily loaded, **main process only**                      |
 
 ---
