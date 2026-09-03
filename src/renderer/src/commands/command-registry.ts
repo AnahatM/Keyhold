@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { TOOL_VIEWS, type ToolViewId } from '../shell/tool-views.js';
 
 import type { ShortcutId } from './shortcut-registry.js';
 
@@ -40,7 +41,17 @@ export type CommandId =
   | 'nav.trash'
   | 'nav.toggleSidebar'
   | 'search.focus'
-  | 'help.shortcuts';
+  | 'help.shortcuts'
+  /**
+   * One per tool view, generated rather than listed.
+   *
+   * `TOOL_VIEWS` already knows every tool's name and what it is for, and the sidebar reads
+   * that same table. Writing four more entries here by hand would be rule 8's second list,
+   * and the failure mode is specific: someone adds a fifth tool, the sidebar grows a row,
+   * and the palette silently does not — which nobody notices, because the palette is the
+   * surface people use when they have *forgotten* where something is.
+   */
+  | `tools.${ToolViewId}`;
 
 export interface CommandDefinition {
   readonly id: CommandId;
@@ -69,6 +80,56 @@ export interface CommandDefinition {
 }
 
 /** The table. Order here is the order the palette lists them with an empty query. */
+/**
+ * Which section each tool view belongs in.
+ *
+ * A `Record<ToolViewId, CommandSection>` rather than a rule like "help goes in Help": adding
+ * a tool view is then a **compile error here** until someone says where it belongs, rather
+ * than a command that quietly lands in whichever section a default picked. That is the
+ * whole reason this map exists instead of a ternary.
+ *
+ * Sections live in this file because they are a property of the palette, not of the tool —
+ * the sidebar has no sections and the menu has different ones.
+ */
+const TOOL_SECTION: Readonly<Record<ToolViewId, CommandSection>> = {
+  generator: 'Vault',
+  health: 'Vault',
+  settings: 'Navigate',
+  help: 'Help',
+};
+
+/**
+ * Extra search terms per tool, for the words people actually type.
+ *
+ * Separate from the tool's `summary`, which is written to be *read* by someone hovering a
+ * sidebar row. These are written to be *matched*: nobody types "eight offline checks over
+ * every record", they type "weak" or "reused" or "audit". Optional per tool, because a tool
+ * whose title is already the word people reach for does not need any.
+ */
+const TOOL_KEYWORDS: Readonly<Partial<Record<ToolViewId, readonly string[]>>> = {
+  generator: ['random', 'passphrase', 'pin', 'new password', 'make'],
+  health: ['weak', 'reused', 'duplicate', 'old', 'audit', 'score', 'checkup'],
+  settings: ['preferences', 'options', 'configure', 'auto-lock', 'clipboard', 'theme'],
+  help: ['docs', 'documentation', 'manual', 'guide', 'how to', 'about'],
+};
+
+/**
+ * A palette entry per tool view, built from the table the sidebar reads.
+ *
+ * `requiresSelection: false` on every one, and that is not a formality: a tool view answers
+ * a question that is not about a record, which is the entire reason they are a separate
+ * region of the shell rather than a fourth pane. Opening one while a record is selected is
+ * normal — the selection is simply set aside.
+ */
+const TOOL_COMMANDS: readonly CommandDefinition[] = TOOL_VIEWS.map((view) => ({
+  id: `tools.${view.id}` as const,
+  title: view.title,
+  section: TOOL_SECTION[view.id],
+  keywords: TOOL_KEYWORDS[view.id] ?? [],
+  requiresSelection: false,
+  destructive: false,
+}));
+
 export const COMMANDS: readonly CommandDefinition[] = [
   {
     id: 'credential.new',
@@ -167,6 +228,7 @@ export const COMMANDS: readonly CommandDefinition[] = [
     requiresSelection: false,
     destructive: false,
   },
+  ...TOOL_COMMANDS,
 ];
 
 export const COMMAND_BY_ID: ReadonlyMap<CommandId, CommandDefinition> = new Map(

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useToast } from '../chrome/index.js';
 import { useCredentials } from '../vault/credential-store.js';
 import { unwrap, useSession } from '../vault/session-store.js';
+import { TOOL_VIEWS, useToolView } from '../shell/index.js';
 import { CommandPalette } from './CommandPalette.js';
 import { resolveCommands, type CommandHandlers } from './command-registry.js';
 import { anyOverlayOpen, loadPlatform, usePaletteStore } from './palette-store.js';
@@ -75,6 +76,8 @@ export function CommandsProvider({
   const openHelp = usePaletteStore((state) => state.openHelp);
   const closeHelp = usePaletteStore((state) => state.closeHelp);
   const platform = usePaletteStore((state) => state.platform);
+
+  const toggleTool = useToolView((state) => state.toggle);
 
   const locked = status?.state !== 'unlocked';
   const selected = credentials.find((credential) => credential.id === selectedId);
@@ -151,8 +154,27 @@ export function CommandsProvider({
       'nav.toggleSidebar': toggleSidebar,
       'search.focus': focusSearch,
       'help.shortcuts': openHelp,
+      // Built from the same table the palette entries are, so a fifth tool view gets its
+      // handler for free rather than becoming a row that does nothing when clicked — which
+      // is the worse half of the failure a hand-written list produces.
+      //
+      // Health reads the vault, so it is unavailable while locked and the palette hides the
+      // row rather than offering one that errors. The generator and the help viewer are
+      // both usable with no vault open, and the settings screen renders its machine half
+      // either way, so those three stay live.
+      ...Object.fromEntries(
+        TOOL_VIEWS.map((view) => [
+          `tools.${view.id}`,
+          view.id === 'health' && locked
+            ? undefined
+            : (): void => {
+                toggleTool(view.id);
+              },
+        ])
+      ),
     };
   }, [
+    toggleTool,
     locked,
     lock,
     saveVault,
