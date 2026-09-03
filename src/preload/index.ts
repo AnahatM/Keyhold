@@ -21,6 +21,7 @@ import type {
   AttachmentPreview,
 } from '@shared/model/attachment.js';
 import { isMenuCommandId, type MenuCommandId } from '@shared/model/menu-commands.js';
+import type { VaultChangedExternally } from '@shared/model/vault-change.js';
 import type {
   ThemeExportRequest,
   ThemeExportResponse,
@@ -105,6 +106,39 @@ const api: KeyholdApi = {
       ipcRenderer.on(EVENTS.menuCommand, forward);
       return () => {
         ipcRenderer.removeListener(EVENTS.menuCommand, forward);
+      };
+    },
+
+    /**
+     * The vault file changed on disk.
+     *
+     * Shape-checked before forwarding, like every other pushed payload: two numbers and two
+     * booleans, and anything else is dropped. A malformed one is not worth throwing over —
+     * the honest response to "we cannot read this notification" is to say nothing rather than
+     * to tell the user their vault changed in a way we cannot describe.
+     */
+    onVaultChangedExternally: (listener: (change: VaultChangedExternally) => void) => {
+      const forward = (_event: unknown, change: unknown): void => {
+        if (typeof change !== 'object' || change === null) return;
+        const raw = change as Record<string, unknown>;
+        if (
+          typeof raw.knownGeneration !== 'number' ||
+          typeof raw.currentGeneration !== 'number' ||
+          typeof raw.differentVault !== 'boolean' ||
+          typeof raw.wentBackwards !== 'boolean'
+        ) {
+          return;
+        }
+        listener({
+          knownGeneration: raw.knownGeneration,
+          currentGeneration: raw.currentGeneration,
+          differentVault: raw.differentVault,
+          wentBackwards: raw.wentBackwards,
+        });
+      };
+      ipcRenderer.on(EVENTS.vaultChangedExternally, forward);
+      return () => {
+        ipcRenderer.removeListener(EVENTS.vaultChangedExternally, forward);
       };
     },
   },

@@ -40,6 +40,27 @@ export { DuplicateIdError } from './merge-document.js';
 export type { DocumentSide, DuplicatedEntity } from './merge-document.js';
 
 /**
+ * Noticing that the file changed, which is step 0 of the sequence above.
+ *
+ * The merge engine answers "these two vaults disagree, now what"; the watcher is what makes
+ * anyone ask. It is deliberately not wired into the merge: it reports a generation counter
+ * moving and stops there, because reloading, backing up, and merging are decisions with
+ * consequences and this is a component that only reads a header.
+ */
+export { probeVaultHeader, VaultWatcher } from './vault-watcher.js';
+export type {
+  CancelTimer,
+  DirectoryWatch,
+  DirectoryWatchCallbacks,
+  ExternalChange,
+  ScheduleFn,
+  UnreadableReason,
+  VaultFileState,
+  VaultWatcherOptions,
+  WatchDirectoryFn,
+} from './vault-watcher.js';
+
+/**
  * The ancestor a three-way merge reads.
  *
  * Step 1 of the sequence above — "the stored base snapshot if there is one" — and step 6's
@@ -54,3 +75,34 @@ export {
   snapshotIsSafeToStore,
   type BaseSnapshotStore,
 } from './base-snapshot.js';
+
+/**
+ * Step 2 of the sequence above, and the reason it is no longer a rule with nobody to follow it.
+ *
+ * `PreMergeBackup.runMerge` is the door: it copies the vault, flushes it, reads it back,
+ * proves it is byte-identical and still a readable KEEP file, and only then hands the caller
+ * a session whose `merge` is `mergeDocuments`. A backup that fails throws before the session
+ * exists, so the merge does not run.
+ *
+ * The receipt has a private constructor and a private field, so it cannot be written by hand.
+ * Any later step that wants proof — the write, the snapshot store — takes a `PreMergeBackup`
+ * and is thereby unreachable to a caller who skipped this. `mergeDocuments` above stays
+ * exported for the tests and for the resolver loop *inside* a session; reaching for it
+ * directly is the unusual import this barrel exists to make visible.
+ */
+export {
+  DEFAULT_PRE_MERGE_RETAIN,
+  isPreMergeBackupPath,
+  listPreMergeBackups,
+  PRE_MERGE_INFIX,
+  PreMergeBackup,
+  PreMergeBackupError,
+} from './pre-merge-backup.js';
+export type {
+  MergeSession,
+  MergeSessionResult,
+  PreMergeBackupFailure,
+  PreMergeBackupFile,
+  PreMergeBackupIo,
+  PreMergeBackupRequest,
+} from './pre-merge-backup.js';

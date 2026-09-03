@@ -2,8 +2,11 @@
 import { app, BrowserWindow } from 'electron';
 import { EVENTS } from '@shared/ipc/api.js';
 import { DEFAULT_BREACH_CHECK_SETTINGS } from '@shared/model/breach.js';
+import type { VaultChangedExternally } from '@shared/model/vault-change.js';
 import { BreachService } from './breach/service.js';
 import { NetworkPolicy } from './network-policy.js';
+import { uuid } from './crypto/random.js';
+import { VaultWatcher } from './sync/index.js';
 import { notifyThemeFileOpened, openedThemes } from './theme/index.js';
 import {
   notifySessionChanged,
@@ -41,7 +44,65 @@ const originCapture = new OriginCapture({
   probe: new SystemNetworkProbe(),
 });
 
-const session = new SessionController(new VaultService(undefined, originCapture));
+/**
+ * One device id, shared by the writer and the watcher.
+ *
+ * `VaultService` stamps this into every header it writes, and the watcher compares against
+ * it to tell our own saves from somebody else's. Two ids would make every save look like an
+ * external change — the watcher would prompt on the user's own edits, which is the failure
+ * that makes people dismiss the prompt that matters.
+ */
+const DEVICE_ID = uuid();
+
+const vault = new VaultService(DEVICE_ID, originCapture);
+const session = new SessionController(vault);
+
+/**
+ * Watching the open vault file.
+ *
+ * Started on open and stopped on lock, both through the session's own listeners so nothing
+ * has to remember. Stopping matters more than it looks: the watch holds a handle on the
+ * vault's *directory*, and on Windows that stops the folder being renamed or moved for as
+ * long as it is held.
+ */
+let vaultWatcher: VaultWatcher | null = null;
+
+function stopVaultWatch(): void {
+  vaultWatcher?.stop();
+  vaultWatcher = null;
+  vault.setWriteGuard(null);
+}
+
+session.onOpen((vaultPath) => {
+  stopVaultWatch();
+
+  const watcher = new VaultWatcher({
+    path: vaultPath,
+    localDeviceId: DEVICE_ID,
+    onExternalChange: (change) => {
+      // Reported, never acted on. Reloading or merging is a decision with a mandatory backup
+      // attached, and it belongs to whatever asks the user — not to the thing that noticed.
+      mainWindow?.webContents.send(EVENTS.vaultChangedExternally, {
+        knownGeneration: change.known.generation,
+        currentGeneration: change.current.generation,
+        differentVault: change.differentVault,
+        wentBackwards: change.wentBackwards,
+      } satisfies VaultChangedExternally);
+    },
+  });
+
+  watcher.start();
+  vaultWatcher = watcher;
+
+  // Every write, not just `SessionController.save()`. The import service calls
+  // `VaultService.save()` directly and `createVault` saves internally, so bracketing at the
+  // session layer would have left those unbracketed and looking correct.
+  vault.setWriteGuard(() => watcher.beginLocalWrite());
+});
+
+session.onLock(() => {
+  stopVaultWatch();
+});
 
 /**
  * The network kill-switch, and the one place a breach client is built.

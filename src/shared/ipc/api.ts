@@ -18,6 +18,7 @@ import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
 import type { PasswordStrength } from '../model/strength.js';
 import type { Folder, Tag, VaultLockedInfo, VaultSummary } from '../model/vault-document.js';
 import type { MenuCommandId } from '../model/menu-commands.js';
+import type { VaultChangedExternally } from '../model/vault-change.js';
 import type { SettingsSnapshot } from '../model/settings-plan.js';
 import type { AttachmentAddView, AttachmentAudit, AttachmentPreview } from '../model/attachment.js';
 import type { ExportFormatDescriptor } from '../model/export.js';
@@ -108,6 +109,13 @@ export interface AppApi {
    * process ever emits, including ones added later by someone who never read this file.
    */
   onMenuCommand: (listener: (command: MenuCommandId) => void) => () => void;
+  /**
+   * Subscribes to the vault file changing on disk underneath the open vault.
+   *
+   * Same shape as the others: one fixed channel, an unsubscribe returned, the
+   * `IpcRendererEvent` hidden.
+   */
+  onVaultChangedExternally: (listener: (change: VaultChangedExternally) => void) => () => void;
 }
 
 /**
@@ -600,6 +608,15 @@ export const EVENTS = {
    * `@shared/model/menu-commands.ts` for why that list is shared rather than duplicated.
    */
   menuCommand: 'kh:event:menu-command',
+  /**
+   * The vault file on disk stopped matching the one we have open.
+   *
+   * Pushed, because nothing in the renderer could have asked: the change came from another
+   * device, a cloud client, or the same app on another machine. The payload carries
+   * generations and two booleans and **never a path** — the renderer has no use for one and
+   * this is not the direction paths travel.
+   */
+  vaultChangedExternally: 'kh:event:vault-changed-externally',
   ...IMPORT_EVENTS,
   ...THEME_EVENTS,
 } as const;
