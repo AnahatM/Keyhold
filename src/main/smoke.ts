@@ -117,6 +117,21 @@ export function runSmokeCheck(window: BrowserWindow): void {
     finish(false, 'timed out before the renderer finished loading');
   }, SMOKE_TIMEOUT_MS);
 
+  // A renderer exception used to reach this harness as nothing at all: the component that
+  // threw simply did not render, every check that looked for it read `false`, and the
+  // report named eight unrelated-looking failures with no cause among them. Forwarding the
+  // console turns that into one line naming the file and the error.
+  //
+  // `once` everywhere else in this function, but `on` here — the interesting case is a
+  // render loop throwing repeatedly, and only the first of those would be the one seen.
+  window.webContents.on('console-message', (details) => {
+    if (details.level !== 'error' && details.level !== 'warning') return;
+    // One line each: the harness's output is grepped, so a message with newlines in it
+    // would arrive looking like several unattributed lines of its own.
+    const message = details.message.replace(/\s+/g, ' ').trim();
+    emit(`SMOKE-CONSOLE ${details.level} ${message} (${details.sourceId}:${details.lineNumber})`);
+  });
+
   window.webContents.once('render-process-gone', (_event, details) => {
     clearTimeout(timer);
     finish(false, `renderer process gone: ${details.reason}`);
@@ -170,6 +185,34 @@ export function runSmokeCheck(window: BrowserWindow): void {
         const reopened = await window.keyhold.vault.unlock(path, password);
         steps.push(['unlock', reopened.ok]);
         if (!reopened.ok) return { stage: 'cycle', ok: false, steps, detail: reopened.message };
+
+        // Auto-lock off for the rest of the run, and said out loud rather than done quietly.
+        //
+        // Idle time is measured by the OS across the whole machine, not by this app, so a
+        // run on a computer nobody is touching crosses the ten-minute default partway
+        // through and locks the vault mid-check. That is auto-lock working exactly as
+        // designed; it just makes every UI check after it read false for a reason that has
+        // nothing to do with what the check is about. It cost eight failing checks and a
+        // long hunt to establish that once.
+        //
+        // Disarmed through the real settings channel, so the disabling itself is a check:
+        // if that path breaks, this fails here instead of silently leaving auto-lock armed.
+        // The policy keeps its own unit tests in auto-lock.test.ts (no backticks: this whole
+        // block lives inside a template literal, and one would end it) — this run is about the
+        // UI, and a test that cannot survive its own idle timer proves nothing about either.
+        const noAutoLock = await window.keyhold.settings.updateMachine({
+          autoLock: {
+            idleMinutes: null,
+            lockOnSleep: false,
+            lockOnScreenLock: false,
+            lockOnMinimise: false,
+            lockOnBlur: false,
+          },
+        });
+        steps.push([
+          'auto-lock-held-off',
+          noAutoLock.ok === true && noAutoLock.value.machine.autoLock.idleMinutes === null,
+        ]);
 
         const list = await window.keyhold.credentials.list();
         steps.push(['list-empty', list.ok === true && list.value.length === 0]);
