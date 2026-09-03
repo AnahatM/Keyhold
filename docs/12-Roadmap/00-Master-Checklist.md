@@ -367,17 +367,21 @@ Keyhold's own JSON export re-imports. The dialog is written but not yet mounted.
       the one doing the work), plus six on the preview and six on the IPC boundary
 - [x] `docs/09-Import-Export/01-Export-Formats.md` written
 
-## Phase 12 — Sync & merge ~ ENGINE DONE
+## Phase 12 — Sync & merge ~ ENGINE DONE, PLUMBING LANDING
 
 _Goal: two devices, one cloud folder, and never a lost edit. The engine is built and tested and
-`mergeDocuments` is called only by its own tests — there is no `kh:sync:*` channel, no watcher,
-no base-snapshot storage and no resolver UI. Full notes:
+`mergeDocuments` is still called only by its own tests. The header, the base-snapshot store and
+the content comparison are in; there is no `kh:sync:*` channel and no resolver UI. Full notes:
 `docs/07-Sync-And-Merge/00-Merge-Engine.md`._
 
-- [ ] Generation counter and content hash in the header
+- [x] Generation counter **and content hash** in the header — the counter answers "was this
+      written again", the hash answers "is this content different from mine", and sync needs the
+      second. Optional in the header, because it is the AAD and every older vault must still open
 - [ ] File watcher on the open vault; detect external modification
 - [ ] Reload prompt when the on-disk vault changed and there are no local edits
-- [ ] Base-snapshot storage — the last-synced state, for three-way merge
+- [x] **Base-snapshot storage** — the last-synced state, machine-scoped and never travelling
+      with the vault: a snapshot arriving from another device is not this device's last-agreed
+      state, which is the one input a three-way merge cannot survive being wrong about
 - [x] Three-way merge engine — per record, per field, pure, and with no timestamp deciding a value
 - [x] **Absence is not deletion** — a record in the ancestor and on one side only is kept and reported
 - [x] **A duplicate id is refused, not resolved** — a named `DuplicateIdError`, thrown before
