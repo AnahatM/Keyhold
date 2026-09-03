@@ -11,7 +11,7 @@ import { WelcomeScreen } from './vault/WelcomeScreen.js';
 import { CommandsProvider } from './commands/index.js';
 import { startMenuBridge } from './shell/menu-bridge.js';
 import { watchLockForTransfers } from './vault/transfer-store.js';
-import { watchLockForToolViews, watchSelectionForToolViews } from './shell/index.js';
+import { useToolView, watchLockForToolViews, watchSelectionForToolViews } from './shell/index.js';
 import { ClearToastsOnLock } from './vault/ClearToastsOnLock.js';
 import { useSession, watchSession, type Screen } from './vault/session-store.js';
 import './App.css';
@@ -35,6 +35,29 @@ import './App.css';
 function MenuBridge(): null {
   useEffect(() => startMenuBridge(), []);
   useEffect(() => watchLockForTransfers(), []);
+  return null;
+}
+
+/**
+ * Takes the user to the theme studio when the OS hands the app a `.keeptheme`.
+ *
+ * The studio polls for an opened theme when it mounts, so double-clicking one and *then*
+ * opening Settings already worked. Without this, double-clicking a theme while looking at
+ * anything else appears to do nothing at all — the app has the file and no screen says so,
+ * which is the same shape as the extension being accepted with nothing on the other end.
+ *
+ * Only the navigation lives here. The file itself is collected by the studio's own poll once
+ * it mounts, so one place stays responsible for reading it and this cannot deliver a theme
+ * to a screen that is not showing one.
+ */
+function ThemeFileBridge(): null {
+  useEffect(
+    () =>
+      window.keyhold.theme.onFileOpened(() => {
+        useToolView.getState().open('settings');
+      }),
+    []
+  );
   return null;
 }
 
@@ -118,6 +141,7 @@ export function App(): React.JSX.Element {
           state and are wired when that screen owns them. */}
       <CommandsProvider />
       <MenuBridge />
+      <ThemeFileBridge />
       {/* Above the screen switch, not inside it: the flow spans the states the switch is
           made of — it begins with no vault and ends with one open — so putting it in a
           `case` would unmount it at the moment it succeeded. */}
