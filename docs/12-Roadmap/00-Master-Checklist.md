@@ -222,7 +222,9 @@ timeline UI and its IPC channels are not. Full notes: `docs/05-Features/02-Histo
 - [x] History timeline UI on the detail pane, and its IPC channels — entries newest first,
       an expandable diff per entry, restore, and a clear-history action that asks twice
 - [x] Old secrets revealed through the broker under the same rules as live ones
-- [ ] Comparing two arbitrary points (`history.compare` exists end to end; nothing calls it)
+- [x] Comparing two arbitrary points — `CompareVersions`, mounted above the timeline and
+      collapsed by default. The channel had existed end to end since it was written with nothing
+      calling it; which pairs are offered is decided in `history-points.ts`, pure and tested
 - [x] Restoring a single field from a timeline row — `DiffRows.tsx` calls it through the store
 - [ ] Export a single credential's history
 - [x] **Tests (70):** versioning on change only · retention pruning and its direction ·

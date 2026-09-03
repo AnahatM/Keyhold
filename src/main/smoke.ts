@@ -927,6 +927,50 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 250));
+        // Comparing two points, which had a channel and no caller for its whole life.
+        //
+        // Driven through the real control rather than the store: the panel is collapsed by
+        // default, so a check that only called `history.compare` would pass on a button nobody
+        // can find. Opening it is the half that was missing.
+        const compared: unknown = await window.webContents.executeJavaScript(
+          `(async () => {
+             const toggle = [...document.querySelectorAll('.kh-compare button')]
+               .find((element) => element.textContent === 'Compare two versions');
+             if (!toggle) return 'no-toggle';
+             toggle.click();
+             await new Promise((done) => setTimeout(done, 400));
+
+             const panel = document.querySelector('.kh-compare__panel');
+             if (!panel) return 'no-panel';
+             // Two pickers, and both must list the live state as well as the versions.
+             const selects = [...panel.querySelectorAll('select')];
+             if (selects.length !== 2) return 'pickers: ' + selects.length;
+             const options = [...selects[0].options].map((option) => option.value);
+             if (!options.includes('current')) return 'no-current-option';
+             if (options.length < 2) return 'nothing-to-compare-with';
+
+             const text = panel.textContent ?? '';
+             if (text.includes('has no answer')) return 'refused-its-own-default';
+             return 'compared';
+           })()`,
+          true
+        );
+        emit(`SMOKE-CHECK history-compare-is-reachable ${String(compared === 'compared')}`);
+
+        await captureNamedShot(window, 'Keyhold-Screenshot-12');
+
+        // Closed again, so it does not sit over the screenshots that follow.
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const hide = [...document.querySelectorAll('.kh-compare button')]
+              .find((element) => element.textContent === 'Hide comparison');
+            hide?.click();
+            return hide !== undefined;
+          })()`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 200));
+
         await captureNamedShot(window, 'Keyhold-Screenshot-03');
 
         // The editor, which is the screen the custom-field system actually shows.

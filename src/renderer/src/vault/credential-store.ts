@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import type { CredentialEdit, CredentialInput } from '@shared/ipc/api.js';
 import type { CredentialProjection, SecretRef, VersionedField } from '@shared/model/credential.js';
-import type { FieldDiffProjection } from '@shared/model/history.js';
+import type { FieldDiffProjection, HistoryPointRef } from '@shared/model/history.js';
 import {
   parseQuery,
   scoresById,
@@ -64,6 +64,17 @@ interface CredentialState {
    * mutation, so a restore cannot be the one change that does not reach the file.
    */
   historyDiff: (credentialId: string, versionNumber: number) => Promise<FieldDiffProjection[]>;
+  /**
+   * What is different between two points in a record's history.
+   *
+   * Distinct from `historyDiff`, which answers "what did this one edit change". This answers
+   * "what is different between then and now", which is the question a timeline cannot.
+   */
+  historyCompare: (
+    credentialId: string,
+    from: HistoryPointRef,
+    to: HistoryPointRef
+  ) => Promise<FieldDiffProjection[]>;
   restoreVersion: (credentialId: string, versionNumber: number) => Promise<boolean>;
   restoreField: (
     credentialId: string,
@@ -228,6 +239,12 @@ export const useCredentials = create<CredentialState>((set) => ({
 
   historyDiff: async (credentialId, versionNumber) =>
     unwrap(await window.keyhold.history.diff(credentialId, versionNumber)) ?? [],
+
+  // `?? []` for the same reason as above: `null` means the record is gone, and an empty diff
+  // is the honest rendering of "nothing to show" rather than an error about a record that no
+  // longer exists.
+  historyCompare: async (credentialId, from, to) =>
+    unwrap(await window.keyhold.history.compare(credentialId, from, to)) ?? [],
 
   restoreVersion: async (credentialId, versionNumber) => {
     set({ busy: true });

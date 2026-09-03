@@ -6,6 +6,7 @@ import { Button } from '../components/Button.js';
 import { AttachmentsPanel } from './AttachmentsPanel.js';
 import { useCredentials } from './credential-store.js';
 import { useSession } from './session-store.js';
+import { CompareVersions } from '../history/CompareVersions.js';
 import { HistoryTimeline } from '../history/HistoryTimeline.js';
 import { PlainField, SecretField } from './SecretField.js';
 
@@ -278,6 +279,12 @@ export function CredentialDetail({
             <ClearHistoryButton credentialId={credential.id} count={credential.historyCount} />
           )}
         </div>
+        {/*
+          Above the timeline and collapsed, so the answer people open history for stays where
+          they expect it. `kh:history:compare` had been implemented end to end since it was
+          written with nothing in the renderer calling it; this is the question that asks it.
+        */}
+        <CompareVersions credential={credential} />
         <HistoryTimeline credential={credential} />
       </section>
     </article>
