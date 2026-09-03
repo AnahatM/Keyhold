@@ -96,8 +96,26 @@ const killTimer = setTimeout(() => {
 child.on('exit', (code) => {
   clearTimeout(killTimer);
 
+  // Every `SMOKE-CHECK <name> <boolean>` the app emits is an assertion, and a run that
+  // printed one saying `false` did not pass however cheerfully it ended.
+  //
+  // This was found the hard way: `palette-opens-on-its-shortcut false` was on stdout, in
+  // plain sight, on a run that reported "Smoke test passed." Nothing read the value. A
+  // check nobody reads is not a check -- it is a line of output that makes a broken feature
+  // look tested, which is worse than not testing it, because it stops anyone looking.
+  const failed = [...output.matchAll(/^SMOKE-CHECK (\S+) (\S+)$/gm)].filter(
+    ([, , value]) => value !== 'true'
+  );
+
+  if (failed.length > 0) {
+    console.error(`\nSmoke test failed. ${failed.length} check(s) did not pass:`);
+    for (const [, name, value] of failed) console.error(`  ${name} -> ${value}`);
+    process.exit(1);
+  }
+
   if (output.includes('SMOKE-PASS')) {
-    console.log('\nSmoke test passed.');
+    const total = [...output.matchAll(/^SMOKE-CHECK /gm)].length;
+    console.log(`\nSmoke test passed (${total} check(s)).`);
     process.exit(0);
   }
 
