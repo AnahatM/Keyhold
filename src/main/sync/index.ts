@@ -11,9 +11,13 @@
  * The intended call sequence, in the order the safety properties depend on:
  *
  *   1. Decrypt both vaults, and the stored base snapshot if there is one.
- *   2. **Take the pre-merge backup.** Mandatory, and not this engine's job — this engine
- *      cannot lose data it never writes, but the caller can.
- *   3. `mergeDocuments(base, ours, theirs, { now })`.
+ *   2. **Take the pre-merge backup.** `PreMergeBackup.runMerge` — mandatory, and enforced
+ *      rather than requested: it is the only thing that can mint the receipt every later step
+ *      requires, and it mints it after the copy is verified on disk. This engine cannot lose
+ *      data it never writes; the caller can, which is why the precondition is attached to the
+ *      merge rather than written beside it.
+ *   3. `mergeDocuments(base, ours, theirs, { now })` — reached through the session
+ *      `runMerge` hands over, which is the same function with that precondition satisfied.
  *   4. If `report.requiresResolution`, show the conflicts and collect a side for each, then
  *      call `mergeDocuments` again with `resolutions`. Repeat until nothing is unresolved.
  *   5. Copy every chunk in `report.attachmentsToImport` out of the other container.
