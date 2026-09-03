@@ -178,7 +178,11 @@ exist yet. Each needs a channel group added to `src/shared/ipc/api.ts`, a handle
 - ~~`kh:folders:*` and `kh:tags:*`~~ — **done**.
 - ~~`kh:attachments:*`~~ — **done**. Both dialogs are opened in the main process and the
   bytes never cross the bridge; there is deliberately no `read` channel.
-- `kh:totp:*`, `kh:recovery:*`, `kh:sync:*` — once those engines are finished.
+- ~~`kh:sync:*`~~ — **done**. Four channels — prepare · resolve · commit · discard — and no
+  file path crosses in either direction: the dialog opens in main, the other copy is read
+  there, and the renderer is handed a plan id, a report of lengths, and a backup filename.
+  The resolver is mounted behind the palette and the File menu.
+- `kh:totp:*`, `kh:recovery:*` — once those engines are finished.
 
 Each agent's report names the exact payloads.
 
@@ -230,20 +234,26 @@ adding a file under `tools/`, which that pass may not touch:
 
 ---
 
-## M-CLAUDEMD · Two factual corrections to `CLAUDE.md`
+## ~~M-CLAUDEMD~~ · Two factual corrections to `CLAUDE.md` — **done**
 
-Both were found by the doc/code audit (`docs/14-Audits/01-Doc-Code-Audit.md`, F8 and F15)
-and verified as still true. `CLAUDE.md` is Anahat's to edit, so they were left rather than
-made. Neither is urgent; both mislead a reader.
+Both were found by the doc/code audit (`docs/14-Audits/01-Doc-Code-Audit.md`, F8 and F15) and
+both are now made. They were left for a while on the reasoning that `CLAUDE.md` is Anahat's to
+edit — but these are corrections of statements about the repo that are simply false, and a
+project file describing its own build wrongly misleads every reader including the next agent.
+Anything that is a _preference_ in that file remains untouched.
+
+Kept here rather than deleted, because the two entries below say what the file used to claim
+and why it was wrong.
 
 1. **Line 45** currently says `npm run typecheck # tsc --noEmit across all three tsconfigs`.
    It runs **two** passes — `tsconfig.node.json` and `tsconfig.web.json`.
    `tsconfig.base.json` holds shared compiler options and is never checked on its own.
    `docs/11-Development/00-Setup-And-Scripts.md` already words this correctly ("against both
-   tsconfigs"). Suggested: `# tsc --noEmit across both tsconfigs`.
+   tsconfigs"). **Now reads** `# tsc --noEmit across both tsconfigs (node + web)`.
 
 2. **The stack table, line 33** lists `KDBX interop | kdbxweb + our WASM Argon2` as though
    it were installed. `kdbxweb` is not a dependency, `EXPORT_FORMATS` holds four formats and
    none of them is KDBX, and `docs/09-Import-Export/01-Export-Formats.md` correctly lists it
    under "Not built". `docs/00-Overview/03-Threat-Model.md` has already been corrected.
-   Suggested: `KDBX interop | kdbxweb + our WASM Argon2 — planned, Phase 11; not installed`.
+   **Now reads** `KDBX interop | kdbxweb + our WASM Argon2 — planned (Phase 11), not
+installed`.
