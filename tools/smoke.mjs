@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { spawn } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 
 /**
  * Launch smoke test: starts the real built app under KEYHOLD_SMOKE=1 and waits for it
@@ -62,9 +63,32 @@ const shotsDir = shotsIndex === -1 ? undefined : process.argv[shotsIndex + 1];
 const shotIndex = process.argv.indexOf('--shot');
 const shotPath = shotIndex === -1 ? undefined : process.argv[shotIndex + 1];
 
-// `--vault <path>` runs the full create -> lock -> unlock cycle against a real file.
+/**
+ * `--vault <path>` runs the full create -> lock -> unlock cycle against a real file.
+ *
+ * **Defaulted, not optional**, and that is the fix for a real hole. The cycle is the only
+ * check that exercises the whole stack the way a user does -- renderer, preload, IPC,
+ * session, Argon2 worker, container, disk, and back -- and it ran only when someone
+ * remembered the flag. `npm run test:smoke`, the command `CLAUDE.md` tells every
+ * contributor to run before claiming anything is done, was therefore probing a single
+ * `vault.summary()` call and printing "Smoke test passed."
+ *
+ * A check that has to be asked for is a check that stops being run. The full cycle is now
+ * what happens by default, into a fresh file under the OS temp directory that is deleted
+ * before and after -- and `--no-vault` is the opt-out, for the one case that wants only the
+ * bridge probe.
+ *
+ * The temp path, deliberately: never inside the repo. A `.keep` written into the working
+ * tree is exactly the artefact the project rule about `tests/**\/fixtures` exists to keep
+ * findable, and a smoke run that leaves one behind is one `git add -A` away from committing
+ * a vault file.
+ */
 const vaultIndex = process.argv.indexOf('--vault');
-const vaultPath = vaultIndex === -1 ? undefined : process.argv[vaultIndex + 1];
+const vaultPath = process.argv.includes('--no-vault')
+  ? undefined
+  : vaultIndex === -1
+    ? join(mkdtempSync(join(tmpdir(), 'keyhold-smoke-')), 'smoke.keep')
+    : process.argv[vaultIndex + 1];
 
 const child = spawn(electronBinary, ['.'], {
   env: {
@@ -93,8 +117,15 @@ const killTimer = setTimeout(() => {
   process.exit(1);
 }, HARD_TIMEOUT_MS);
 
+/** The temp vault and its directory, gone. Nothing in a smoke run is worth keeping. */
+function removeTempVault() {
+  if (vaultIndex !== -1 || vaultPath === undefined) return;
+  rmSync(resolve(vaultPath, '..'), { recursive: true, force: true });
+}
+
 child.on('exit', (code) => {
   clearTimeout(killTimer);
+  removeTempVault();
 
   // Every `SMOKE-CHECK <name> <boolean>` the app emits is an assertion, and a run that
   // printed one saying `false` did not pass however cheerfully it ended.
@@ -114,8 +145,12 @@ child.on('exit', (code) => {
   }
 
   if (output.includes('SMOKE-PASS')) {
-    const total = [...output.matchAll(/^SMOKE-CHECK /gm)].length;
-    console.log(`\nSmoke test passed (${total} check(s)).`);
+    // Two numbers, because there are two kinds of check and conflating them was how the
+    // first version of this line came to say "1 check" under a SMOKE-PASS announcing 58.
+    // The probe's steps are counted inside the app and reported in the pass detail above;
+    // the SMOKE-CHECK lines are the ones this runner can independently verify.
+    const verified = [...output.matchAll(/^SMOKE-CHECK /gm)].length;
+    console.log(`\nSmoke test passed (${verified} verified here, plus the checks named above).`);
     process.exit(0);
   }
 
