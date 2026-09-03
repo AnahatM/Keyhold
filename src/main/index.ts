@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { app, BrowserWindow } from 'electron';
+import { EVENTS } from '@shared/ipc/api.js';
 import {
   notifySessionChanged,
   registerIpcHandlers,
@@ -89,9 +90,20 @@ function runMenuCommand(command: MenuCommandId): void {
       app.quit();
       return;
     default:
-      // Everything else is disabled in `AVAILABLE_MENU_COMMANDS`, so reaching here means a
-      // command was enabled without being wired. Say so rather than failing silently.
-      console.warn('[menu] no handler for enabled command:', command);
+      // Everything else belongs to the renderer.
+      //
+      // Most of the catalogue names something only the UI can do — open a tool view, focus
+      // the search box, show the shortcut sheet — and the main process has no business
+      // reimplementing any of it. So the command is forwarded, and the renderer routes it
+      // through the same registries its own sidebar and palette read.
+      //
+      // Sent even when the renderer has no handler for it yet. That is the honest split:
+      // whether the app can *perform* a command is `AVAILABLE_MENU_COMMANDS`, which decides
+      // whether the item is clickable at all, and duplicating that judgement here would be
+      // two answers to one question. Reaching this line means the item was enabled, so the
+      // command has a home; if the renderer drops it, that is a gap on the renderer's side
+      // and one it can log with the context to say something useful about.
+      mainWindow?.webContents.send(EVENTS.menuCommand, command);
   }
 }
 

@@ -44,36 +44,25 @@
 /** The renderer's `ShortcutId` spellings, as plain strings. See the file header. */
 export type ShortcutIdRef = string;
 
-export const MENU_COMMAND_IDS = [
-  'vault.new',
-  'vault.open',
-  'vault.save',
-  'vault.lock',
-  'vault.close',
-  'vault.import',
-  'vault.export',
-  'credential.new',
-  'search.focus',
-  'palette.open',
-  'view.sidebar',
-  'view.theme.system',
-  'view.theme.light',
-  'view.theme.dark',
-  'vault.trash',
-  'tools.generator',
-  'tools.health',
-  'app.settings',
-  'help.docs',
-  'help.shortcuts',
-  'help.security',
-  'help.reportIssue',
-  'help.about',
-  'window.show',
-  'window.hide',
-  'app.quit',
-] as const;
+/**
+ * The names, re-exported from `@shared/model/menu-commands.ts`.
+ *
+ * They moved there because the **preload** needs them: a menu click has to reach the
+ * renderer, and the bridge must be able to refuse a payload that is not one of these before
+ * forwarding it. The preload cannot import from `src/main`, so the alternative was the
+ * preload keeping its own copy of twenty-six strings — rule 8's second list, in the one file
+ * where a mistake is least visible.
+ *
+ * The catalogue below — labels, accelerators, the two security flags — stays here. A menu
+ * label is main-process business and the renderer has no use for one.
+ */
+import {
+  isMenuCommandId,
+  MENU_COMMAND_IDS,
+  type MenuCommandId,
+} from '@shared/model/menu-commands.js';
 
-export type MenuCommandId = (typeof MENU_COMMAND_IDS)[number];
+export { MENU_COMMAND_IDS, isMenuCommandId, type MenuCommandId };
 
 export interface MenuCommand {
   readonly id: MenuCommandId;

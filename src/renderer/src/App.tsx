@@ -7,6 +7,7 @@ import { UnlockScreen } from './vault/UnlockScreen.js';
 import { VaultScreen } from './vault/VaultScreen.js';
 import { WelcomeScreen } from './vault/WelcomeScreen.js';
 import { CommandsProvider } from './commands/index.js';
+import { startMenuBridge } from './shell/menu-bridge.js';
 import { watchLockForToolViews, watchSelectionForToolViews } from './shell/index.js';
 import { ClearToastsOnLock } from './vault/ClearToastsOnLock.js';
 import { useSession, watchSession, type Screen } from './vault/session-store.js';
@@ -20,6 +21,19 @@ import './App.css';
  * see, and a UI holding its own idea of "we are unlocked" will confidently render a vault
  * that is already closed.
  */
+/**
+ * Starts the native-menu subscription for the lifetime of the app.
+ *
+ * A component with no output rather than an effect inside `App`, for the same reason
+ * `ClearToastsOnLock` is one: it belongs to the tree's lifetime, not to any screen, and
+ * putting it beside the other two makes the set of global listeners a thing you can see in
+ * one place rather than a growing list of effects at the top of a render function.
+ */
+function MenuBridge(): null {
+  useEffect(() => startMenuBridge(), []);
+  return null;
+}
+
 export function App(): React.JSX.Element {
   const { screen, status, refresh } = useSession();
   const [bootError, setBootError] = useState<string | null>(null);
@@ -94,6 +108,7 @@ export function App(): React.JSX.Element {
           navigation. `focusSearch` and `toggleSidebar` belong to the vault screen's own
           state and are wired when that screen owns them. */}
       <CommandsProvider />
+      <MenuBridge />
       <ScreenView screen={screen} />
     </>
   );

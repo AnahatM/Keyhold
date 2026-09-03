@@ -25,3 +25,4 @@ export {
   type ToolViewDefinition,
   type ToolViewId,
 } from './tool-views.js';
+export { startMenuBridge } from './menu-bridge.js';

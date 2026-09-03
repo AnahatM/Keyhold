@@ -16,6 +16,7 @@ import {
   type SessionStatusView,
 } from '@shared/ipc/api.js';
 import type { AttachmentAddView, AttachmentAudit } from '@shared/model/attachment.js';
+import { isMenuCommandId, type MenuCommandId } from '@shared/model/menu-commands.js';
 import type { ExportFormatDescriptor } from '@shared/model/export.js';
 import type {
   ExportOutcome,
@@ -71,6 +72,31 @@ const api: KeyholdApi = {
   app: {
     getVersion: () => Promise.resolve(APP_VERSION),
     getPlatform: () => Promise.resolve(process.platform),
+
+    /**
+     * Native menu and tray commands, forwarded to the renderer.
+     *
+     * Two things this does deliberately.
+     *
+     * **It validates before forwarding.** `isMenuCommandId` refuses anything that is not in
+     * the shared catalogue, so the renderer's listener can be typed rather than defensive.
+     * The main process is trusted, but "the sender would never do that" is an assumption,
+     * and the annotation on an IPC payload is gone by the time it arrives. Rule 4 of this
+     * file, applied on the receive side.
+     *
+     * **It hides the event object.** The listener is handed the command and nothing else —
+     * not `IpcRendererEvent`, which carries `sender` and `ports` and is a way for renderer
+     * code to reach parts of Electron this bridge exists to keep away from it.
+     */
+    onMenuCommand: (listener: (command: MenuCommandId) => void) => {
+      const forward = (_event: unknown, command: unknown): void => {
+        if (isMenuCommandId(command)) listener(command);
+      };
+      ipcRenderer.on(EVENTS.menuCommand, forward);
+      return () => {
+        ipcRenderer.removeListener(EVENTS.menuCommand, forward);
+      };
+    },
   },
 
   session: {
