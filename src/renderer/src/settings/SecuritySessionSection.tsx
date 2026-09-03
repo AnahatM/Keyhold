@@ -55,6 +55,7 @@ export function SecuritySessionSection({
 }: SecuritySessionSectionProps): React.JSX.Element {
   const weakened = machineWeakenings(machine);
   const [pendingWipe, setPendingWipe] = useState<number | null>(null);
+  const [pendingNetwork, setPendingNetwork] = useState(false);
 
   const setAutoLock = (patch: Partial<MachineSettings['autoLock']>, announce: string): void => {
     controller.updateMachine({ autoLock: { ...machine.autoLock, ...patch } }, announce);
@@ -237,6 +238,51 @@ export function SecuritySessionSection({
           )}
         </div>
       </fieldset>
+
+      <fieldset className="kh-fieldset">
+        <legend className="kh-fieldset__legend">Network</legend>
+
+        <SettingSwitch
+          settingId="networkAllowed"
+          checked={machine.networkAllowed}
+          tradeOffActive={weakened.has('networkAllowed')}
+          onChange={(allowed) => {
+            // Asymmetric on purpose, and the asymmetry is the whole design. Turning it OFF
+            // is the safe direction and applies immediately — making someone confirm that
+            // they want *less* exposure is a dialog that only ever teaches people to click
+            // through dialogs. Turning it ON is the one change on this screen that gives the
+            // app a capability it does not otherwise have, so it asks first and says what it
+            // means.
+            if (!allowed) {
+              controller.updateMachine(
+                { networkAllowed: false },
+                'Keyhold will not make any network requests.'
+              );
+              return;
+            }
+            setPendingNetwork(true);
+          }}
+        />
+      </fieldset>
+
+      <ConfirmDialog
+        open={pendingNetwork}
+        title="Let Keyhold make network requests?"
+        message="Keyhold works entirely offline. The only feature that would use a connection is the optional check against Have I Been Pwned, which stays off until you turn it on separately."
+        consequence="While this is off, no connection can be opened at all — not disabled, but absent, because nothing that could open one is ever built. Turning it on removes that guarantee."
+        confirmLabel="Allow network requests"
+        busy={controller.busy}
+        onCancel={() => {
+          setPendingNetwork(false);
+        }}
+        onConfirm={() => {
+          setPendingNetwork(false);
+          controller.updateMachine(
+            { networkAllowed: true },
+            'Keyhold may now make network requests.'
+          );
+        }}
+      />
 
       <fieldset className="kh-fieldset kh-fieldset--caution">
         <legend className="kh-fieldset__legend">Erase after repeated failures</legend>

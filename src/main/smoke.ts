@@ -625,6 +625,8 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         emit(`SMOKE-CHECK palette-opens-on-its-shortcut ${String(paletteOpen === true)}`);
+
+        // (moved: see the shell-stays-put check after the settings view, which needs a long page)
         await captureNamedShot(window, 'Keyhold-Screenshot-05');
         // At `document.activeElement`, not at `document`.
         //
@@ -682,6 +684,13 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         emit(`SMOKE-CHECK palette-offers-import-and-export ${String(transferRows === true)}`);
+
+        await window.webContents.executeJavaScript(
+          `(document.activeElement ?? document.body).dispatchEvent(
+             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 250));
         await window.webContents.executeJavaScript(
           `(document.activeElement ?? document.body).dispatchEvent(
              new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
@@ -757,6 +766,77 @@ export function runSmokeCheck(window: BrowserWindow): void {
           emit(
             `SMOKE-CHECK ${name.toLowerCase()}-opens ${String(opened === true && typeof rendered === 'string' && rendered.length > 0)}`
           );
+
+          // The network kill-switch has to be *reachable*, which is the whole finding: it was
+          // built, persisted, IPC-writable and in the settings payload, and no control
+          // rendered it — so the only way to turn it on was to hand-edit `preferences.json`.
+          //
+          // This checks **reachability**, and the `off` half is weaker than it looks: this
+          // process reads a real preferences file, so it reports what is *stored*, not what
+          // the default is. Flipping `DEFAULT_PREFERENCES.networkAllowed` to `true` does not
+          // fail this check, and that was measured rather than assumed. The default is
+          // guarded where it can be — `network-policy.test.ts`, which fails two ways on
+          // exactly that injection. Saying so here so nobody reads this line as covering it.
+          if (label === 'Settings') {
+            const killSwitch: unknown = await window.webContents.executeJavaScript(
+              `(() => {
+                const label = [...document.querySelectorAll('label, .kh-setting')]
+                  .find((element) => element.textContent?.includes('Let Keyhold make network requests'));
+                if (!label) return 'missing';
+                const box = label.querySelector('input[type="checkbox"]')
+                  ?? label.parentElement?.querySelector('input[type="checkbox"]');
+                if (!box) return 'no-control';
+                return box.checked ? 'on' : 'off';
+              })()`,
+              true
+            );
+            emit(`SMOKE-CHECK network-kill-switch-present-and-off ${String(killSwitch === 'off')}`);
+
+            // Scrolled to Security & session before the shot. Appearance is the top of this
+            // screen and the theme picker is already shown elsewhere; the security block is
+            // the part that is actually Keyhold's argument — auto-lock, quick unlock, and
+            // the network kill-switch — so it is what the screenshot should be of.
+            await window.webContents.executeJavaScript(
+              `(() => {
+                const target = document.getElementById('kh-settings-security');
+                const pane = document.querySelector('.kh-tool__body');
+                if (!target || !pane) return false;
+                // The pane's own scrollTop, not scrollIntoView: that walks up every ancestor
+                // and would scroll whatever else happens to be scrollable on the way.
+                pane.scrollTop = target.offsetTop - pane.offsetTop;
+                return true;
+              })()`,
+              true
+            );
+            await new Promise<void>((resolve) => setTimeout(resolve, 250));
+
+            // The shell itself must never move. A desktop app whose chrome can slide off the
+            // top of the window has no way to put it back: there is no scrollbar on the
+            // shell for anyone to drag.
+            //
+            // Checked here rather than on the vault screen because it needs a page long
+            // enough to scroll, and asserted by *doing the thing that broke it* — a
+            // `scrollIntoView` deep inside a pane, which walks up every ancestor looking for
+            // something scrollable. `overflow: hidden` on `body` does not stop that: it
+            // creates a scroll container and only refuses the *user*. `overflow: clip`
+            // creates none, which is the fix and is what this proves.
+            const shellHeld: unknown = await window.webContents.executeJavaScript(
+              `(() => {
+                const shell = document.querySelector('.kh-shell');
+                if (!shell) return false;
+                const before = shell.getBoundingClientRect().top;
+                const h = document.documentElement;
+                document.getElementById('kh-settings-security')?.scrollIntoView({ block: 'center' });
+                // Both halves: the chrome did not move, and the document has no room to move
+                // it. The second is the one that catches the cause rather than a symptom.
+                return shell.getBoundingClientRect().top === before
+                  && h.scrollHeight === h.clientHeight;
+              })()`,
+              true
+            );
+            emit(`SMOKE-CHECK shell-chrome-stays-put ${String(shellHeld === true)}`);
+          }
+
           await captureNamedShot(window, name);
         }
 

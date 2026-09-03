@@ -190,6 +190,7 @@ export const SETTING_IDS = [
   'secretReveal.maxRevealsPerWindow',
   'secretReveal.grantTtlMs',
   'quickUnlock',
+  'networkAllowed',
   'historyEnabledByDefault',
   'historyMaxVersions',
   'auditPrivacyLevel',
@@ -215,6 +216,10 @@ export const SETTING_SCOPE: Readonly<Record<SettingId, SettingsScope>> = {
   'secretReveal.maxRevealsPerWindow': 'machine',
   'secretReveal.grantTtlMs': 'machine',
   quickUnlock: 'machine',
+  // Machine-scoped, and the scope is the security property rather than an implementation
+  // detail. A vault carried to a friend's laptop must not be able to turn that machine's
+  // network on — see `src/main/network-policy.ts`.
+  networkAllowed: 'machine',
   historyEnabledByDefault: 'vault',
   historyMaxVersions: 'vault',
   auditPrivacyLevel: 'vault',
