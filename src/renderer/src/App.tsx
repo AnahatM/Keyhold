@@ -6,6 +6,7 @@ import { CreateVaultScreen } from './vault/CreateVaultScreen.js';
 import { UnlockScreen } from './vault/UnlockScreen.js';
 import { VaultScreen } from './vault/VaultScreen.js';
 import { WelcomeScreen } from './vault/WelcomeScreen.js';
+import { CommandsProvider } from './commands/index.js';
 import { ClearToastsOnLock } from './vault/ClearToastsOnLock.js';
 import { useSession, watchSession, type Screen } from './vault/session-store.js';
 import './App.css';
@@ -74,6 +75,12 @@ export function App(): React.JSX.Element {
       {/* Mounted outside the switch, so it is watching across every screen change — a lock
           is precisely the moment one screen is being replaced by another. */}
       <ClearToastsOnLock />
+      {/* Likewise: the palette and the shortcut table are global, and the shortcut gate
+          already refuses to fire vault commands while the vault is locked, so mounting them
+          per-screen would only mean re-registering the same key listeners on every
+          navigation. `focusSearch` and `toggleSidebar` belong to the vault screen's own
+          state and are wired when that screen owns them. */}
+      <CommandsProvider />
       <ScreenView screen={screen} />
     </>
   );

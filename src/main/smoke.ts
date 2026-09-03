@@ -605,6 +605,36 @@ export function runSmokeCheck(window: BrowserWindow): void {
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 250));
         await captureNamedShot(window, 'Keyhold-Screenshot-02');
+
+        // The command palette, opened by its real shortcut rather than by calling into the
+        // store. A palette that opens when a test asks it to but not when Ctrl+K is pressed
+        // is a palette nobody can use, and only the key path proves the gate, the listener
+        // and the registry all agree.
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const key = new KeyboardEvent('keydown', {
+              key: 'k',
+              ctrlKey: true,
+              metaKey: false,
+              bubbles: true,
+            });
+            document.dispatchEvent(key);
+            return true;
+          })()`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+        const paletteOpen = await window.webContents.executeJavaScript(
+          `document.querySelector('[role="combobox"], .kh-palette') !== null`,
+          true
+        );
+        emit(`SMOKE-CHECK palette-opens-on-its-shortcut ${String(paletteOpen === true)}`);
+        await captureNamedShot(window, 'Keyhold-Screenshot-05');
+        await window.webContents.executeJavaScript(
+          `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 200));
         await window.webContents.executeJavaScript(
           `(() => {
             const button = [...document.querySelectorAll('.kh-timeline button')].find(
