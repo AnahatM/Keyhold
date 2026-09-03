@@ -30,6 +30,7 @@ export function HealthReportView({
   onRuleEnabled,
   onReset,
   onRefresh,
+  hideTitle = false,
 }: {
   readonly report: VaultHealthReport;
   readonly records: readonly HealthRecordRef[];
@@ -39,6 +40,14 @@ export function HealthReportView({
   readonly onRuleEnabled: (rule: HealthRuleId, enabled: boolean) => void;
   readonly onReset: () => void;
   readonly onRefresh: () => void;
+  /**
+   * Drops the "Vault health" heading, keeping the subtitle and the Re-check button.
+   *
+   * Set when the host already titles the page — `ToolView` does, because the heading is what
+   * focus moves to on navigation and so has to exist above whatever is mounted inside it.
+   * Two identical page titles stacked on each other reads as a bug.
+   */
+  readonly hideTitle?: boolean;
 }): React.JSX.Element {
   const explanation = useMemo(() => explainScore(report), [report]);
   const groups = useMemo(() => groupIssuesByRule(report), [report]);
@@ -56,11 +65,16 @@ export function HealthReportView({
   const disabledCount = explanation.totalRuleCount - explanation.enabledRuleCount;
 
   return (
-    <section className="kh-health" aria-labelledby="kh-health-heading">
-      <header className="kh-health__header">
-        <h2 id="kh-health-heading" className="kh-health__title">
-          Vault health
-        </h2>
+    // The label goes with the heading: pointing `aria-labelledby` at an id that is no longer
+    // rendered leaves the region unnamed *and* silently broken, which is worse than being
+    // plainly unnamed inside a `<main>` the frame has already titled.
+    <section className="kh-health" aria-labelledby={hideTitle ? undefined : 'kh-health-heading'}>
+      <header className="kh-health__header" data-compact={hideTitle || undefined}>
+        {!hideTitle && (
+          <h2 id="kh-health-heading" className="kh-health__title">
+            Vault health
+          </h2>
+        )}
         <p className="kh-health__subtitle">
           Eight checks, run on this device against the vault in memory. Nothing is sent anywhere.
         </p>

@@ -58,6 +58,15 @@
   align-self: center;
 }
 
+/*
+ * With the title rendered by the frame instead (see `hideTitle`), the header is one row.
+ * Left alone, the Re-check button would still span two and conjure an empty second row —
+ * an unexplained gap under the subtitle, and the button floating half a row below it.
+ */
+.kh-health__header[data-compact] > .kh-button {
+  grid-row: 1;
+}
+
 .kh-health__subtitle {
   grid-column: 1;
   margin: 0;

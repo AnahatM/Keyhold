@@ -1,0 +1,127 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The tool view frame and the sidebar rows that open it.
+ *
+ * Every colour here is a `--kh-color-*` token and every pair used (text on surface, subtle
+ * text on surface, the focus ring on surface) is one the contrast guard already checks in
+ * every theme. Spacing and type come from the scaled tokens, so the density and font-size
+ * settings move this view with the rest of the app.
+ */
+
+/* ── The frame ─────────────────────────────────────────────────────────────── */
+
+.kh-tool {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /*
+   * The pair that makes the body scroll instead of the window: without `min-height: 0` a
+   * flex child refuses to shrink below its content, so a long health report would push the
+   * frame taller than the window and take its own scrollbar with it.
+   */
+  min-height: 0;
+  background: var(--kh-color-bg);
+  color: var(--kh-color-text);
+}
+
+.kh-tool__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-3);
+  /* Never shrinks: the way back must not be the thing that gets squeezed away. */
+  flex: none;
+  padding: var(--kh-space-2) var(--kh-space-4);
+  background: var(--kh-color-surface);
+  border-bottom: 1px solid var(--kh-color-border);
+}
+
+.kh-tool__bar > .kh-button {
+  flex: none;
+}
+
+.kh-tool__title {
+  /*
+   * Shrinks but does not grow, and pushes the hint to the far edge itself. Growing was
+   * wrong twice over: focus lands here on every navigation, and a `flex: 1` heading draws
+   * its focus ring as a band across the whole bar rather than around the words; and at
+   * ~800px it left the hint pressed against the window edge with its last word clipped.
+   * The only thing allowed to truncate, still.
+   */
+  flex: 0 1 auto;
+  margin-right: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--kh-text-md);
+  font-weight: var(--kh-weight-semibold);
+  line-height: var(--kh-leading-tight);
+  color: var(--kh-color-text);
+}
+
+/* Focus lands here on every navigation, so it has to be visible when it does. */
+.kh-tool__title:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 3px;
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-tool__hint {
+  flex: none;
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-tool__key {
+  padding: 0 var(--kh-space-1);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-sm);
+  background: var(--kh-color-surface-raised);
+  font-family: inherit;
+  font-size: var(--kh-text-xs);
+}
+
+/* Below this there is no room for the hint without the title losing characters to it. */
+@media (width < 720px) {
+  .kh-tool__hint {
+    display: none;
+  }
+}
+
+.kh-tool__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--kh-space-5);
+}
+
+/*
+ * A view that manages its own height gets the space raw — see `fills` in `tool-views.ts`.
+ * The help viewer is `height: 100%` with its own scrolling article column, and wrapping
+ * that in a scrolling, padded box gives two nested scrollbars and an article that can never
+ * reach its own bottom.
+ */
+.kh-tool[data-fills] .kh-tool__body {
+  overflow: hidden;
+  padding: 0;
+}
+
+/* ── The sidebar section ───────────────────────────────────────────────────── */
+
+.kh-tools-nav {
+  /*
+   * Never shrinks either. The organisation sidebar above it is the flexible, scrolling
+   * part; without this, a vault with many folders would squash the Tools rows into each
+   * other rather than scrolling the folders.
+   */
+  flex: none;
+  border-top: 1px solid var(--kh-color-border);
+}
+
+.kh-tools-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

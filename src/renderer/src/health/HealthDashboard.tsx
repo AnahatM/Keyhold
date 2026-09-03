@@ -37,12 +37,20 @@ export interface HealthDashboardProps {
    * `window.keyhold.health.analyse`.
    */
   readonly analyse?: AnalyseHealth;
+  /**
+   * Drops the "Vault health" heading when the host already titles the page.
+   *
+   * Passed straight through to `HealthReportView` — see there for why. The loading and error
+   * states never carried a title of their own, so they need no equivalent.
+   */
+  readonly hideTitle?: boolean;
 }
 
 export function HealthDashboard({
   records,
   onSelectCredential,
   analyse,
+  hideTitle = false,
 }: HealthDashboardProps): React.JSX.Element {
   const { report, error, pending, enabledRules, setRuleEnabled, resetRules, refresh } =
     useHealthReport(analyse);
@@ -90,6 +98,7 @@ export function HealthDashboard({
         onRuleEnabled={setRuleEnabled}
         onReset={resetRules}
         onRefresh={refresh}
+        hideTitle={hideTitle}
       />
     </>
   );

@@ -1,8 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useEffect, useState, type ReactNode } from 'react';
+import type { CredentialProjection } from '@shared/model/credential.js';
 import { Button } from '../components/Button.js';
+import { ContentViewer } from '../content/index.js';
+import { GeneratorScreen } from '../generator/index.js';
+import { HealthDashboard } from '../health/HealthDashboard.js';
 import { OrganisationSidebar } from '../organisation/index.js';
-import { AppShell } from '../shell/AppShell.js';
+import {
+  AppShell,
+  TOOL_VIEW_BY_ID,
+  ToolNav,
+  ToolView,
+  useToolView,
+  type ToolViewId,
+} from '../shell/index.js';
 import { CredentialDetail, NoSelection } from './CredentialDetail.js';
 import { CredentialEditor } from './CredentialEditor.js';
 import { CredentialList } from './CredentialList.js';
@@ -17,6 +28,18 @@ import './vault-screens.css';
  * the lock control, the vault header, the clipboard countdown and the quick-unlock
  * enrolment offer. Those last four belong to the *session* rather than to any credential,
  * which is why they live here rather than in the detail pane.
+ *
+ * ## And the tool views
+ *
+ * Health, the generator and help are not about a record, so they do not live in a pane
+ * sized for one — opening one hands it the whole main region and leaves the sidebar
+ * standing, which is the same trade the shell already makes when a narrow window lets the
+ * detail pane take over from the list. See `shell/tool-views.ts` for the reasoning and
+ * `ToolView` for the frame.
+ *
+ * The mapping from id to component is the one exhaustive switch in the app: the registry is
+ * data, so a fifth tool added there fails to compile here until it is given something to
+ * mount. That is deliberate — the alternative is a route that silently renders nothing.
  */
 export function VaultScreen({
   appearancePanel,
@@ -26,16 +49,45 @@ export function VaultScreen({
   const { status, credentials, lock } = useSession();
   // `showTrash` moved to the sidebar with the rest of the view selection; this screen
   // keeps only what it still owns.
-  const { selectedId, editing, select } = useCredentials();
+  const { selectedId, editing, select, setShowTrash } = useCredentials();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const activeToolId = useToolView((state) => state.active);
+  const closeTool = useToolView((state) => state.close);
+  const activeTool = activeToolId === null ? null : (TOOL_VIEW_BY_ID.get(activeToolId) ?? null);
 
   const selected = credentials.find((credential) => credential.id === selectedId);
   const vault = status?.vault ?? null;
+
+  /**
+   * A health finding, opened as a record.
+   *
+   * The dashboard's whole point is that a finding is actionable, so selecting one leaves the
+   * tool rather than selecting a record behind a screen that is covering it. Trash is
+   * cleared for the same reason the palette clears it: the analysis only covers live
+   * records, so landing in the trash view would show an empty list and no explanation.
+   */
+  const openRecordFromTool = (credentialId: string): void => {
+    setShowTrash(false);
+    select(credentialId);
+    closeTool();
+  };
 
   return (
     <AppShell
       sidebarCollapsed={sidebarCollapsed}
       onSidebarCollapsedChange={setSidebarCollapsed}
+      main={
+        activeTool === null ? undefined : (
+          <ToolView view={activeTool} onClose={closeTool}>
+            <ToolPane
+              id={activeTool.id}
+              records={credentials}
+              onSelectCredential={openRecordFromTool}
+            />
+          </ToolView>
+        )
+      }
       sidebar={
         <div className="kh-sidebar">
           <header className="kh-sidebar__header">
@@ -69,6 +121,13 @@ export function VaultScreen({
             matcher and one sort in the app.
           */}
           <OrganisationSidebar />
+
+          {/*
+            The tools, below the folders and above the lock control. A palette command and a
+            menu item are both invisible until you already know they exist, and a finished
+            screen nobody can find is not much better than one nobody mounted.
+          */}
+          <ToolNav />
 
           <div className="kh-sidebar__footer">
             <ClipboardIndicator />
@@ -107,6 +166,43 @@ export function VaultScreen({
       }
     />
   );
+}
+
+/**
+ * The tool view registry's one mapping to components.
+ *
+ * Exhaustive over `ToolViewId` with no `default` branch, so adding a fifth entry to
+ * `TOOL_VIEWS` is a compile error here rather than a nav row that opens an empty page.
+ *
+ * Each tool is mounted with its own page title suppressed: `ToolView` renders the `<h1>`
+ * because that is what focus moves to on navigation, and it has to exist above whatever is
+ * mounted inside it. Two page titles stacked on each other reads as a bug.
+ *
+ * **Nothing here is handed a secret.** The health dashboard receives projections and a
+ * callback; the help viewer receives nothing at all; the generator's one secret is produced
+ * in the main process, held by its own panel, and cleared on lock by the subscription in
+ * `use-generator.ts` — this screen never sees it and deliberately passes no `onUse`, because
+ * on a standalone generator there is nowhere for a password to go.
+ */
+function ToolPane({
+  id,
+  records,
+  onSelectCredential,
+}: {
+  readonly id: ToolViewId;
+  readonly records: readonly CredentialProjection[];
+  readonly onSelectCredential: (credentialId: string) => void;
+}): React.JSX.Element {
+  switch (id) {
+    case 'generator':
+      return <GeneratorScreen hideTitle />;
+    case 'health':
+      return (
+        <HealthDashboard records={records} onSelectCredential={onSelectCredential} hideTitle />
+      );
+    case 'help':
+      return <ContentViewer hideTitle />;
+  }
 }
 
 /**

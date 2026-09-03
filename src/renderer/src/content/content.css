@@ -33,6 +33,16 @@
   border-bottom: 1px solid var(--kh-color-border);
 }
 
+/*
+ * With the `<h1>` rendered by the host instead (see `hideTitle`), the header is a single
+ * line of muted text — and the padding sized for a title above it left it stranded in an
+ * empty band the width of the window. Found by looking at a screenshot.
+ */
+.kh-content__header[data-compact] {
+  padding-top: var(--kh-space-3);
+  padding-bottom: var(--kh-space-3);
+}
+
 .kh-content__title {
   font-size: var(--kh-text-xl);
   font-weight: var(--kh-weight-semibold);

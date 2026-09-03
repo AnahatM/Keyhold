@@ -33,6 +33,38 @@
   background: var(--kh-color-bg);
 }
 
+/* ── Tool mode ─────────────────────────────────────────────────────────────── */
+
+/*
+ * With a tool view open there are only ever two children — the sidebar and the tool — so the
+ * five-column grid above has nothing to say about them. Flex, not grid, because the tool has
+ * to take *all* the remaining width: a grid item landing in an `auto` column would shrink to
+ * its content and leave the rest of the window empty.
+ *
+ * `flex: none` on the sidebar and the divider, `min-width: 0` on the tool. Without the first
+ * pair the sidebar gives up width to a wide health table until its labels overlap the
+ * folders beside them; without the second the tool refuses to shrink below its content and
+ * pushes the window into a horizontal scroll. Both are the flex default and both are wrong
+ * here.
+ */
+.kh-shell[data-tool] {
+  display: flex;
+}
+
+.kh-shell[data-tool] .kh-shell__sidebar,
+.kh-shell[data-tool] .kh-shell__divider {
+  flex: none;
+}
+
+.kh-shell__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  /* The tool owns its own scrolling — see `.kh-tool__body`. */
+  overflow: hidden;
+  background: var(--kh-color-bg);
+}
+
 /*
  * In a narrow window the list and the detail take turns, so whichever is showing gets the
  * whole width rather than both being squeezed to unusable.
