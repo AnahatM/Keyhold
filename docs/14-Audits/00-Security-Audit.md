@@ -20,14 +20,20 @@ were added to each finding in place; the finding text itself is left exactly as 
 because an audit is a record of what was true when it ran, not a document edited to agree
 with today's code.
 
-| Status                                                    | Findings                                                        |
-| --------------------------------------------------------- | --------------------------------------------------------------- |
-| **Fixed**                                                 | S1, S2, S3, S4, S5, S6, S7, S9, S10, S12, S15                   |
-| **Open — the file belongs to another agent this session** | S8, S11, S13, S14 (all in `src/shared/ipc/` or `src/main/ipc/`) |
+**Every finding is now fixed.** S1–S15, with no exceptions and nothing deferred.
 
-S13 and S14 have a **guard** even though the one-line fix could not be made:
-`tools/limit-parity.test.ts` fails if the two layers' caps drift, or if the validator's
-`ICON_KINDS` stops matching the model's.
+The four that stayed open longest — S8, S11, S13 and S14 — were held not by difficulty but by
+a rule that had outlived its reason: each touched `src/shared/ipc/` or `src/main/ipc/` while
+another agent was editing those files, and the deferral was never revisited once that stopped
+being true. Each took minutes when finally attempted. A blocked-on-somebody-else note needs a
+condition that can be seen to have lapsed, or it becomes permanent by inattention.
+
+S13 and S14 had carried a guard, `tools/limit-parity.test.ts`, which compared the two copies of
+the caps and the icon list. Making the fix — one exported constant, imported by both — deleted
+the second copy and with it the guard's whole subject, so the file went too. What replaced it is
+different in kind and is described under S14: the parity guard checked that two numbers agreed
+and never that either was enforced, and setting the surviving constant to a nonsense value failed
+no test at all.
 
 Also closed since the sweep, by other work: `https-transport.ts:15` named a
 `no-network.test.ts` guard "not written yet". `src/main/breach/no-network.test.ts` now
