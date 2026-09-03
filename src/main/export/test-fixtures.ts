@@ -8,6 +8,7 @@ import {
   type VaultDocument,
   type VaultSettings,
 } from '@shared/model/vault-document.js';
+import type { SavedSearch } from '@shared/model/saved-search.js';
 
 /**
  * Fixtures for the export tests.
@@ -213,6 +214,30 @@ export const TAGS: readonly Tag[] = [
   { id: 'tag-3', name: 'unused', colour: 'accent-red' },
 ];
 
+/**
+ * Two named queries, so the lossless round-trip has something to lose.
+ *
+ * A fixture with an empty array would let a writer that never serialises saved searches, and
+ * a reader that never parses them, agree perfectly — which is exactly the shape of test that
+ * passes while the feature does nothing.
+ */
+const SAVED_SEARCHES: readonly SavedSearch[] = [
+  {
+    id: 'search-weak',
+    name: 'Needs attention',
+    query: 'is:weak',
+    order: 0,
+    updatedAt: 1_700_000_000_000,
+  },
+  {
+    id: 'search-bank',
+    name: 'Banking',
+    query: 'folder:Finance has:totp',
+    order: 1,
+    updatedAt: 1_700_000_001_000,
+  },
+];
+
 export function buildDocument(
   records: readonly Credential[],
   settings: VaultSettings = DEFAULT_VAULT_SETTINGS
@@ -222,6 +247,7 @@ export function buildDocument(
     records: [...records],
     folders: [...FOLDERS],
     tags: [...TAGS],
+    savedSearches: [...SAVED_SEARCHES],
     settings,
   };
 }

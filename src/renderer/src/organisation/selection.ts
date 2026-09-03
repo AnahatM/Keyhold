@@ -30,7 +30,25 @@ import { DEFAULT_SMART_VIEW_ID, hasBeenUsed, smartView, type SmartViewId } from 
 
 export type ViewSelection =
   | { readonly kind: 'smart'; readonly viewId: SmartViewId }
-  | { readonly kind: 'folder'; readonly folderId: string };
+  | { readonly kind: 'folder'; readonly folderId: string }
+  /**
+   * A saved search — the user's own smart view.
+   *
+   * Carries the query text and the name rather than only an id, and that is the point. The
+   * list would otherwise have to be resolved against a store to render its own heading, so a
+   * selection could not be turned into a list without a second lookup that might fail. It
+   * also means a saved search deleted in another window leaves the current list intact
+   * instead of collapsing to "Missing search" under the user's cursor.
+   *
+   * The id is kept alongside so the sidebar can mark the row it came from, and is allowed to
+   * name nothing.
+   */
+  | {
+      readonly kind: 'saved-search';
+      readonly searchId: string;
+      readonly name: string;
+      readonly query: string;
+    };
 
 export interface SidebarSelection {
   readonly view: ViewSelection;
@@ -102,6 +120,25 @@ export function resolveSelection(
       description: selection.includeDescendantFolders
         ? 'This folder and everything inside it.'
         : 'Records filed directly in this folder.',
+    };
+  }
+
+  if (selection.view.kind === 'saved-search') {
+    const { name, query } = selection.view;
+    return {
+      // No structured filter of its own: everything a saved search says is in its query, and
+      // the query goes through the same parser as the search box. A tag narrowing still
+      // applies on top, exactly as it does to a smart view.
+      filter: { folders: context.folders, tags: context.tags, ...tagFilter },
+      queryText: query,
+      sort: { key: 'title', direction: 'asc' },
+      limit: null,
+      usedOnly: false,
+      label: name,
+      // The query, verbatim. It is the only honest description — the name was chosen by the
+      // user and is under no obligation to describe what it matches, and a query that no
+      // longer parses is visible here rather than silently matching nothing.
+      description: query,
     };
   }
 

@@ -10,6 +10,8 @@ import type { FolderDeletionPolicy } from './gateway.js';
 import { MoveToDialog } from './MoveToDialog.js';
 import { credentialMoveTargets, folderMoveTargets } from './move-targets.js';
 import { useOrganisation } from './organisation-store.js';
+import { SavedSearchList } from './SavedSearchList.js';
+import { useSavedSearches } from './saved-search-store.js';
 import { SmartViewList } from './SmartViewList.js';
 import { TagFilterList } from './TagFilterList.js';
 import './organisation.css';
@@ -67,6 +69,8 @@ export function OrganisationSidebar(): React.JSX.Element {
     renameTag,
   } = useOrganisation();
 
+  const refreshSearches = useSavedSearches((state) => state.refresh);
+
   const [movingFolderId, setMovingFolderId] = useState<string | null>(null);
   const [deletingFolderId, setDeletingFolderId] = useState<string | null>(null);
   const [movingCredentialId, setMovingCredentialId] = useState<string | null>(null);
@@ -81,10 +85,20 @@ export function OrganisationSidebar(): React.JSX.Element {
     void attachVault(vaultId);
   }, [vaultId, attachVault]);
 
+  // Keyed on the vault too, and for a sharper reason than the folders above: saved searches
+  // live inside the encrypted body, so the list belongs to one vault and showing another
+  // vault's shortcuts would be showing the names somebody gave to queries about records that
+  // are not open.
+  useEffect(() => {
+    if (vaultId === '') return;
+    void refreshSearches();
+  }, [vaultId, refreshSearches]);
+
   const counts = useMemo(() => countRecordsByFolder(credentials, tree), [credentials, tree]);
 
   const selectedFolderId = selection.view.kind === 'folder' ? selection.view.folderId : null;
   const selectedViewId = selection.view.kind === 'smart' ? selection.view.viewId : null;
+  const selectedSearchId = selection.view.kind === 'saved-search' ? selection.view.searchId : null;
 
   const movingFolderName =
     movingFolderId === null ? '' : (tree.byId.get(movingFolderId)?.folder.name ?? '');
@@ -117,6 +131,19 @@ export function OrganisationSidebar(): React.JSX.Element {
         selectedViewId={selectedViewId}
         onSelect={(viewId) => {
           selectView({ kind: 'smart', viewId });
+        }}
+      />
+
+      <SavedSearchList
+        records={credentials}
+        selectedSearchId={selectedSearchId}
+        onSelect={(search) => {
+          selectView({
+            kind: 'saved-search',
+            searchId: search.id,
+            name: search.name,
+            query: search.query,
+          });
         }}
       />
 

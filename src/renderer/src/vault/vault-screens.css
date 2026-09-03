@@ -325,6 +325,21 @@
   min-width: 0;
 }
 
+/*
+ * The row of things you do *to* a query: how to sort it, and whether to keep it.
+ *
+ * `wrap` because the list pane is the column that gets narrow first — it is 320px at the
+ * breakpoint where the detail view takes over — and two controls side by side is exactly the
+ * width where a nowrap row starts pushing its own contents off the edge.
+ */
+.kh-list__search-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-2);
+}
+
 .kh-list__toggle {
   display: flex;
   align-items: center;

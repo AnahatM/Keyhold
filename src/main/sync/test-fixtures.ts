@@ -19,6 +19,7 @@ import {
   type VaultDocument,
   type VaultSettings,
 } from '@shared/model/vault-document.js';
+import type { SavedSearch } from '@shared/model/saved-search.js';
 
 /**
  * Fixtures for the merge tests.
@@ -164,6 +165,7 @@ export interface DocumentInput {
   readonly records?: readonly Credential[];
   readonly folders?: readonly Folder[];
   readonly tags?: readonly Tag[];
+  readonly savedSearches?: readonly SavedSearch[];
   readonly settings?: VaultSettings;
 }
 
@@ -173,6 +175,7 @@ export function doc(input: DocumentInput = {}): VaultDocument {
     records: input.records ?? [],
     folders: input.folders ?? [],
     tags: input.tags ?? [],
+    savedSearches: input.savedSearches ?? [],
     settings: input.settings ?? DEFAULT_VAULT_SETTINGS,
   };
 }
@@ -211,3 +214,8 @@ export function attachment(id: string, name = `${id}.pdf`): AttachmentMeta {
 
 /** The options every test passes unless it is testing the options themselves. */
 export const MERGE_OPTIONS = { now: NOW } as const;
+
+/** A saved search, with everything defaulted so a test names only what it is about. */
+export function savedSearch(id: string, overrides: Partial<SavedSearch> = {}): SavedSearch {
+  return { id, name: id, query: `tag:${id}`, order: 0, updatedAt: NOW, ...overrides };
+}

@@ -146,6 +146,21 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     symbol: '⊕',
     countNoun: null,
   },
+  'saved-search-added': {
+    label: 'Saved searches brought in',
+    description: 'These exist only in the other file, and are now in yours too.',
+    severity: 'notice',
+    symbol: '+',
+    countNoun: null,
+  },
+  'saved-search-kept-unmatched': {
+    label: 'Saved searches kept rather than deleted',
+    description:
+      'Present in the shared ancestor and in only one of the two files. Absence alone never deletes, so they were kept.',
+    severity: 'notice',
+    symbol: '=',
+    countNoun: null,
+  },
   'tag-added': {
     label: 'Tags brought in',
     description: 'These exist only in the other file, and are now in yours too.',

@@ -4,6 +4,7 @@ import type { CredentialProjection } from '@shared/model/credential.js';
 import { Badge, EmptyState } from '../components/Feedback.js';
 import { Button } from '../components/Button.js';
 import { Input } from '../components/Input.js';
+import { SaveSearchButton } from '../organisation/SaveSearchButton.js';
 import { QueryHelp } from './QueryHelp.js';
 import { useRegisterVaultAction } from './vault-actions.js';
 import { SortControl } from './SortControl.js';
@@ -132,7 +133,15 @@ export function CredentialList(): React.JSX.Element {
         }}
       />
 
-      <SortControl hasQuery={query.trim() !== ''} />
+      <div className="kh-list__search-actions">
+        <SortControl hasQuery={query.trim() !== ''} />
+        {/*
+          Next to the sort control rather than inside the search box. Both are things you do
+          *to* a query once you have one, and the button appears only when there is one to
+          save — so on an empty box this row is just the sort control, as it always was.
+        */}
+        <SaveSearchButton query={query} />
+      </div>
 
       {/*
        * Announced so a screen-reader user hears the result count change as they type.
