@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { AttachmentPreview } from '@shared/model/attachment.js';
 import { useEffect, useState } from 'react';
+import { Lightbox } from '../chrome/Lightbox.js';
 import { Modal } from '../chrome/index.js';
 
 /**
@@ -61,6 +62,9 @@ export function AttachmentViewer({
   onClose,
 }: AttachmentViewerProps): React.JSX.Element {
   const [state, setState] = useState<ViewerState>({ status: 'loading' });
+  // Whether the image is being viewed full-screen. Reset alongside the blob URL below, or a
+  // reopened viewer would mount the lightbox against a URL that has just been revoked.
+  const [zoomed, setZoomed] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -142,6 +146,7 @@ export function AttachmentViewer({
     return () => {
       run.live = false;
       if (run.url !== null) URL.revokeObjectURL(run.url);
+      setZoomed(false);
       // Back to loading, so reopening does not flash the previous file — which would be the
       // wrong attachment on screen, briefly, which is worse than a spinner.
       setState({ status: 'loading' });
@@ -154,12 +159,16 @@ export function AttachmentViewer({
       title={state.status === 'ready' ? state.preview.name : 'Attachment'}
       onClose={onClose}
     >
-      <div className="kh-viewer">{body(state)}</div>
+      <div className="kh-viewer">{body(state, zoomed, setZoomed)}</div>
     </Modal>
   );
 }
 
-function body(state: ViewerState): React.JSX.Element {
+function body(
+  state: ViewerState,
+  zoomed: boolean,
+  setZoomed: (zoomed: boolean) => void
+): React.JSX.Element {
   switch (state.status) {
     case 'loading':
       return <p className="kh-viewer__note">Decrypting…</p>;
@@ -181,8 +190,37 @@ function body(state: ViewerState): React.JSX.Element {
         case 'image':
           // `alt` is the filename: the only thing that can be said about an image nobody has
           // described, and better than an empty string, which announces nothing at all.
+          //
+          // A button, not a bare image with a click handler: the lightbox returns focus to
+          // whatever opened it, which needs something focusable to return to, and "view this
+          // larger" is an action rather than a decoration.
           return (
-            <img className="kh-viewer__image" src={state.url ?? ''} alt={state.preview.name} />
+            <>
+              <button
+                type="button"
+                className="kh-viewer__zoom"
+                onClick={() => {
+                  setZoomed(true);
+                }}
+              >
+                <img className="kh-viewer__image" src={state.url ?? ''} alt={state.preview.name} />
+                <span className="kh-visually-hidden">View {state.preview.name} larger</span>
+              </button>
+              {/*
+                Mounted only while open, which ties the overlay's lifetime to the blob URL's:
+                this component owns that URL and revokes it, and a lightbox that outlived it
+                would render a broken image.
+              */}
+              {zoomed && state.url !== null && (
+                <Lightbox
+                  src={state.url}
+                  label={state.preview.name}
+                  onClose={() => {
+                    setZoomed(false);
+                  }}
+                />
+              )}
+            </>
           );
         case 'pdf':
           // An `<object>` rather than an `<iframe>`: no navigation, no script host, and the

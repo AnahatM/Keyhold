@@ -1,0 +1,128 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The image lightbox.
+ *
+ * Same rules as `chrome.css`: every colour is a `--kh-color-*` token — including the scrim,
+ * which uses `overlay` rather than an rgba() guess so it stays correct in a user's own
+ * theme — and every duration is multiplied by `--kh-motion-scale`, which the reduced-motion
+ * setting drops to zero.
+ *
+ * Only four tokens appear here (`overlay`, `surface-raised`, `text`, `border`) because the
+ * close button is a `secondary` `.kh-button` and already owns its own colours. There is no
+ * reason for this file to restate them.
+ */
+
+/*
+ * The dialog is the scrim's click target, so it fills the viewport and paints nothing. The
+ * `::backdrop` underneath supplies the wash; anything the dialog drew itself would sit on
+ * top of that and make the "click anywhere off the image to dismiss" area a lie about where
+ * the boundary is.
+ *
+ * `transparent` is the absence of a colour rather than a colour, which is why it is not a
+ * token — the same call `base.css` makes for the scrollbar track.
+ */
+.kh-lightbox {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  padding: var(--kh-space-6);
+  background: transparent;
+  border: none;
+
+  /* The dialog IS the dismiss surface. Centring is its only other job. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+
+  animation: kh-lightbox-in var(--kh-duration-base) var(--kh-ease);
+}
+
+/*
+ * Denser than the modal's 0.62. A modal is a step in a task and the app behind it is still
+ * context worth seeing; a lightbox exists so one image can be looked at closely, and the
+ * viewer it opens from sits directly behind it. At 0.62 that half-visible dialog competes
+ * with the thing being examined.
+ *
+ * The token is opaque by design — it is a colour, not a colour-with-an-alpha — so the
+ * translucency lives here as `opacity`, keeping the palette free of baked-in compositing
+ * decisions. Same reasoning as `.kh-modal::backdrop`.
+ */
+.kh-lightbox::backdrop {
+  background: var(--kh-color-overlay);
+  opacity: 0.9;
+}
+
+/*
+ * At `--kh-motion-scale: 0` the duration is 0s and the overlay simply appears at its final
+ * size. That is the correct reduced-motion outcome and it needs no `prefers-reduced-motion`
+ * block of its own: nothing here carries information the way the indeterminate progress
+ * sweep does, so removing the motion removes decoration and nothing else.
+ *
+ * The zoom is 2%, not a dramatic one. A full-viewport surface that scales noticeably is a
+ * common vestibular trigger even for people who have not turned reduced motion on.
+ */
+@keyframes kh-lightbox-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/*
+ * Sized to its contents, so the dialog's own box — everything outside this figure — is the
+ * dismiss surface. The gap between image and caption belongs to the figure and therefore
+ * does not dismiss; that is a deliberate ~8px dead zone rather than an oversight, because a
+ * click aimed at the caption and landing a few pixels high should not close the overlay.
+ */
+.kh-lightbox__figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+}
+
+/*
+ * `contain`, so a portrait scan and a wide screenshot are both shown whole and neither is
+ * cropped. The height budget subtracts the caption row, otherwise a tall image pushes the
+ * filename off the bottom of the viewport — where it is not just invisible but is also this
+ * dialog's accessible name.
+ */
+.kh-lightbox__image {
+  max-width: 100%;
+  max-height: calc(100% - var(--kh-space-6));
+  object-fit: contain;
+  border-radius: var(--kh-radius-md);
+  box-shadow: var(--kh-shadow-lg);
+}
+
+.kh-lightbox__caption {
+  flex: none;
+  max-width: 100%;
+  padding: var(--kh-space-1) var(--kh-space-3);
+  font-size: var(--kh-text-sm);
+  background: var(--kh-color-surface-raised);
+  color: var(--kh-color-text);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-full);
+
+  /* A filename, so it breaks anywhere rather than forcing the figure wider than the screen. */
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Fixed rather than absolute: the dialog is in the top layer and its own box is the whole
+ * viewport, so the two resolve to the same place — but `fixed` keeps the button off the
+ * corner even if a future variant ever gives the dialog a scroll container.
+ */
+.kh-lightbox__close {
+  position: fixed;
+  top: var(--kh-space-4);
+  right: var(--kh-space-4);
+}
