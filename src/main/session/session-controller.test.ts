@@ -171,7 +171,9 @@ describe('locking', () => {
     await Promise.resolve();
 
     expect(clipboardState.text).toBe('');
-    expect(controller.status().state).not.toBe('unlocked');
+    // `not.toBe('unlocked')` here for a long time, which `no-vault` satisfies just as well
+    // as `locked` — the assertion could not tell being locked from being thrown out.
+    expect(controller.status().state).toBe('locked');
     controller.dispose();
   }, 30_000);
 
@@ -182,6 +184,58 @@ describe('locking', () => {
 
     controller.lock('sleep');
     expect(controller.status().lastLockReason).toBe('sleep');
+    controller.dispose();
+  }, 30_000);
+
+  it('leaves the locked vault pending, so the unlock screen has one to offer', async () => {
+    // The bug this exists for: `#afterOpen` clears `#pendingVault`, and `status()` reads
+    // `state` as `no-vault` whenever nothing is pending. So every lock reported `no-vault`,
+    // the renderer's `screenFor` sent the user to the welcome screen, and the vault they
+    // had open was forgotten — they had to find the file again to get back in. It also made
+    // `lastLockReason` unreachable, since only the unlock screen displays it.
+    //
+    // Asserted through `status()` rather than the private field, because the projection is
+    // what the renderer decides the screen from.
+    await seedVault();
+    const { controller } = await makeController();
+    const opened = await controller.unlock(vaultPath, PASSWORD);
+
+    // Nothing pending while it is open: a pending vault on screen next to an unlocked one
+    // would be two answers to "where am I".
+    expect(controller.status().pendingVault).toBeNull();
+
+    controller.lock('idle');
+
+    const status = controller.status();
+    expect(status.state).toBe('locked');
+    expect(status.pendingVault?.path).toBe(vaultPath);
+    expect(status.pendingVault?.vaultId).toBe(opened.vaultId);
+    // The unlock screen warns about a slow KDF from these, so they have to survive the lock.
+    expect(status.pendingVault?.kdfMemoryKib).toBeGreaterThan(0);
+    expect(status.pendingVault?.kdfIterations).toBeGreaterThan(0);
+    // Not a warning about an interrupted write: this vault has been open and saving since.
+    expect(status.pendingVault?.hasOrphanedTemp).toBe(false);
+
+    controller.dispose();
+  }, 30_000);
+
+  it('unlocks again from the pending vault it was left with', async () => {
+    // The round trip, because "reports locked" and "can actually be reopened" are different
+    // claims and only the second is the feature.
+    await seedVault();
+    const { controller } = await makeController();
+    await controller.unlock(vaultPath, PASSWORD);
+    controller.lock('idle');
+
+    const pending = controller.status().pendingVault;
+    expect(pending).not.toBeNull();
+
+    await controller.unlock(pending?.path ?? '', PASSWORD);
+    expect(controller.status().state).toBe('unlocked');
+    // Cleared again on the way back in, and the stale reason with it.
+    expect(controller.status().pendingVault).toBeNull();
+    expect(controller.status().lastLockReason).toBeNull();
+
     controller.dispose();
   }, 30_000);
 });
