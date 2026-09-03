@@ -193,11 +193,13 @@ TypeScript is erased at runtime. A handler typed `(path: string)` will cheerfull
 `undefined`, an object, or a 500 MB string. `src/shared/ipc/validation.ts` is the actual
 type check:
 
-- every string is length-capped at 1,048,576 **UTF-16 code units** — an uncapped string is a
-  trivial OOM. The constant is named `MAX_STRING_BYTES`, which overstates its precision: it
-  is measured with `String.prototype.length`, so a string of astral-plane characters at the
-  limit is closer to 4 MiB of UTF-8. The cap still bounds the attack; the name is the part
-  that is wrong, and correcting it is security audit S11
+- every string is length-capped at 1,048,576 **UTF-16 code units** by `MAX_STRING_UNITS` — an
+  uncapped string is a trivial OOM. Code units, not bytes: measured with
+  `String.prototype.length`, so a string of astral-plane characters at the limit is closer to
+  4 MiB of UTF-8. The unit is deliberate rather than a shortcut — `.length` is O(1) and runs on
+  every string crossing the bridge, where `Buffer.byteLength` would encode the whole payload to
+  count it, doing more work the larger an attacker makes it. The constant was called
+  `MAX_STRING_BYTES` until security audit S11
 - ids match a strict allow-list pattern, so one can never carry a path traversal or a
   separator that changes meaning when interpolated
 - paths are rejected if they contain a NUL byte

@@ -45,20 +45,35 @@ export class IpcValidationError extends Error {
 }
 
 /**
- * Caps every incoming string.
+ * Caps every incoming string, in **UTF-16 code units** — `String.prototype.length`, not bytes.
  *
  * Without a cap, one `ipcRenderer.invoke` carrying a 500 MB string is a trivial
  * out-of-memory attack from a compromised renderer. Generous enough for a long passphrase
  * or a pasted note, small enough to be harmless.
+ *
+ * Named `MAX_STRING_BYTES` until finding S11, which is the kind of name that is wrong in a
+ * direction that matters: a reader budgeting memory from it would be out by up to 4× on
+ * astral-plane text, where one code unit is a surrogate half and the UTF-8 encoding of the
+ * pair is four bytes. A million such units is about 4 MiB of UTF-8 and about 2 MiB in V8's
+ * heap.
+ *
+ * The unit stays what it was rather than the name being made true by measuring bytes.
+ * `.length` is O(1) and runs on every string crossing the bridge; `Buffer.byteLength` would
+ * encode the whole string to count it, which is real work done on the exact input an attacker
+ * chooses the size of — a cap that costs more the larger the payload is a worse cap. Four
+ * megabytes still bounds the attack, which is all this is for.
  */
-export const MAX_STRING_BYTES = 1_048_576; // 1 MiB
+export const MAX_STRING_UNITS = 1_048_576; // 2^20 UTF-16 code units; ≤ 4 MiB of UTF-8
 
 export function requireString(channel: string, value: unknown, name: string): string {
   if (typeof value !== 'string') {
     throw new IpcValidationError(channel, `${name} must be a string`);
   }
-  if (value.length > MAX_STRING_BYTES) {
-    throw new IpcValidationError(channel, `${name} exceeds the ${MAX_STRING_BYTES}-byte limit`);
+  if (value.length > MAX_STRING_UNITS) {
+    throw new IpcValidationError(
+      channel,
+      `${name} is longer than the ${MAX_STRING_UNITS}-character limit`
+    );
   }
   return value;
 }

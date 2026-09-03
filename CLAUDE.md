@@ -42,7 +42,7 @@ npm run dev          # electron-vite dev with HMR
 npm run build        # production build
 npm run package      # electron-builder for the current platform
 npm run lint         # ESLint
-npm run typecheck    # tsc --noEmit across all three tsconfigs
+npm run typecheck    # tsc --noEmit across both tsconfigs (node + web)
 npm test             # Vitest
 npm run test:watch
 ```

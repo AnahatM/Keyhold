@@ -50,7 +50,7 @@ function record(channel: string, value: unknown, name: string): Readonly<Record<
 /**
  * A bounded string.
  *
- * Capped at the format's own limit rather than at `MAX_STRING_BYTES`: a 1 MiB theme name is
+ * Capped at the format's own limit rather than at `MAX_STRING_UNITS`: a 1 MiB theme name is
  * not a long name, it is a renderer trying to push a megabyte into a save dialog's default
  * path. Never interpolates the value into the error — this message reaches a log.
  */

@@ -359,7 +359,15 @@ temp file plus `renameSync`.
 
 ### S11 — INFORMATIONAL · `MAX_STRING_BYTES` counts UTF-16 code units, not bytes
 
-**STATUS: OPEN on the code side** — `src/shared/ipc/validation.ts` belongs to another agent this session. The documentation half **is fixed**: `docs/01-Architecture/00-Process-Model.md` now states the cap as 1,048,576 UTF-16 code units and says plainly that the constant's name overstates its precision.
+**STATUS: FIXED.** The constant is now `MAX_STRING_UNITS`, and the rejection message says
+"longer than the N-character limit" rather than "N-byte".
+
+The name was made true rather than the measurement: `.length` is O(1) and runs on every string
+crossing the bridge, where `Buffer.byteLength` would encode the whole payload in order to count
+it — more work the larger an attacker makes the input, which is a worse cap than the one being
+corrected. Four megabytes of UTF-8 still bounds the attack, which is all this is for. A test now
+asserts the unit directly, with an astral-plane string of exactly `MAX_STRING_UNITS` code units
+accepted and one code unit more refused.
 
 `src/shared/ipc/validation.ts:52,58`
 
