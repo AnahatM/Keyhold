@@ -106,6 +106,24 @@ export interface MachineSettings {
   /** Erase the vault after N consecutive failed unlocks. `null` — the default — is never. */
   readonly wipeAfterFailedAttempts: number | null;
   readonly secretReveal: SecretRevealLimits;
+  /**
+   * The global network kill-switch. **Off by default, and machine-scoped.**
+   *
+   * Hard rule 5's second switch. The per-vault breach toggle answers *should this vault use
+   * the service*; this answers *may this installation talk to the network at all*, which is
+   * a question someone on an air-gapped or corporate machine needs answered once rather than
+   * per vault and per feature.
+   *
+   * Machine-scoped is the load-bearing half: vault settings travel inside the `.keep` file,
+   * so a vault carried to a friend's laptop must not be able to turn that machine's network
+   * on. The two are ANDed with this one dominant — see `src/main/network-policy.ts`, which
+   * is the only thing that reads the stored value.
+   *
+   * The renderer receives it to *display*, never to decide on. Turning it on is the
+   * dangerous direction and is the one that gets a confirmation; turning it off is
+   * immediate.
+   */
+  readonly networkAllowed: boolean;
 }
 
 export const DEFAULT_MACHINE_SETTINGS: MachineSettings = {
@@ -113,6 +131,7 @@ export const DEFAULT_MACHINE_SETTINGS: MachineSettings = {
   clipboardClearMs: 30_000,
   wipeAfterFailedAttempts: null,
   secretReveal: DEFAULT_SECRET_REVEAL_LIMITS,
+  networkAllowed: false,
 };
 
 // ── Vault-scoped ─────────────────────────────────────────────────────────────
@@ -387,6 +406,10 @@ export function clampMachineSettings(settings: MachineSettings): MachineSettings
         DEFAULT_SECRET_REVEAL_LIMITS.maxRevealsPerWindow
       ),
     },
+    // Not clamped, because it is a boolean and there is nothing to clamp — carried through
+    // explicitly rather than spread, so adding a machine setting is a compile error here
+    // rather than a value that silently stops surviving a clamp.
+    networkAllowed: settings.networkAllowed,
   };
 }
 

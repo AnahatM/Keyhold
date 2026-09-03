@@ -82,7 +82,15 @@ export function requireMachineSettingsPatch(
     autoLock?: MachineSettings['autoLock'];
     clipboardClearMs?: number | null;
     wipeAfterFailedAttempts?: number | null;
+    networkAllowed?: boolean;
   } = {};
+
+  if (value.networkAllowed !== undefined) {
+    // `requireBoolean`, so a truthy string cannot turn the network on. This is the one
+    // setting where a renderer bug and an attack look identical from here, and the boundary
+    // should not have to tell them apart to refuse both.
+    patch.networkAllowed = requireBoolean(channel, value.networkAllowed, 'networkAllowed');
+  }
 
   if (value.autoLock !== undefined) {
     if (!isObject(value.autoLock)) {
