@@ -77,7 +77,7 @@ export const backupsAndDevicesArticle: ContentArticle = {
     {
       kind: 'not-built',
       feature: 'sync',
-      text: 'Detecting that a vault changed underneath you, and merging two copies field by field with a conflict resolver and a mandatory backup first, is designed and scheduled but not written. Nothing in the app watches the file today.',
+      text: 'Keyhold now watches the vault file and notices when something else changes it — another device, or a sync client. What it does not do yet is offer to merge the two: the engine that does that field by field is written and tested, and the conflict resolver you would use to settle the disagreements is not. So today you are told, and the merge is still scheduled work.',
     },
 
     { kind: 'heading', text: 'An export is not a backup' },

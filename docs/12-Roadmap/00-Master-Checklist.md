@@ -377,7 +377,10 @@ the content comparison are in; there is no `kh:sync:*` channel and no resolver U
 - [x] Generation counter **and content hash** in the header — the counter answers "was this
       written again", the hash answers "is this content different from mine", and sync needs the
       second. Optional in the header, because it is the AAD and every older vault must still open
-- [ ] File watcher on the open vault; detect external modification
+- [x] **File watcher on the open vault** — the hard part is not noticing but not crying wolf:
+      one save is a dozen directory mutations, and a watcher that reported each would teach
+      people to dismiss the prompt that matters. Decides from the plaintext header, never from
+      an event, so it needs no key and no unlocked vault
 - [ ] Reload prompt when the on-disk vault changed and there are no local edits
 - [x] **Base-snapshot storage** — the last-synced state, machine-scoped and never travelling
       with the vault: a snapshot arriving from another device is not this device's last-agreed
@@ -389,7 +392,10 @@ the content comparison are in; there is no `kh:sync:*` channel and no resolver U
 - [x] Tombstones so a deletion never resurrects
 - [x] Conflict detection matrix (both changed · one changed · one deleted · both deleted · both created)
 - [ ] Field-level conflict resolver UI: mine / theirs / merge, with a diff
-- [ ] **Mandatory pre-merge backup** — no merge ever runs without one
+- [x] **Mandatory pre-merge backup** — enforced rather than requested: a private-constructor
+      receipt only the backup path can mint, minted after the copy is verified on disk, and
+      required by every step that follows. Named, dated and retained, because the rolling
+      `.bak.N` slots are rotated out by the very next save
 - [x] The merge report itself — a conflict carries lengths, never values, and a resolution never
       sends a value back
 - [ ] Saving a merge report, and a view for it
