@@ -63,6 +63,41 @@ export function isSmokeRun(): boolean {
  * app it claims to show: regenerating them is one command, and the seeded vault the run
  * builds is deterministic.
  */
+/**
+ * Polls a renderer expression until it is truthy, or gives up.
+ *
+ * Replaces `await sleep(300); assert(...)`, which is the shape every flaky UI check has. A
+ * fixed wait encodes an assumption about how fast the machine is, and it is always tuned on
+ * the fast one: three checks here passed on a developer laptop for weeks and failed on the
+ * first CI runner that ever reached them, because a runner is slower and 300ms was not enough
+ * for a React render plus an IPC round trip.
+ *
+ * Polling is strictly better in both directions. It returns as soon as the condition holds, so
+ * the common case is *faster* than the sleep it replaces, and it waits far longer than anyone
+ * would dare hardcode before declaring failure.
+ *
+ * Returns the last value seen either way, so a caller can report what it actually got rather
+ * than only that it timed out.
+ */
+async function waitFor(
+  window: BrowserWindow,
+  expression: string,
+  { timeoutMs = 8_000, everyMs = 100 }: { timeoutMs?: number; everyMs?: number } = {}
+): Promise<unknown> {
+  const deadline = Date.now() + timeoutMs;
+
+  for (;;) {
+    // Swallowed per attempt: the thing being waited for often does not exist yet, and a
+    // selector on a missing node throwing is the normal shape of "not ready".
+    const seen: unknown = await window.webContents
+      .executeJavaScript(expression, true)
+      .catch(() => undefined);
+    if (seen !== undefined && seen !== false && seen !== null) return seen;
+    if (Date.now() >= deadline) return seen;
+    await new Promise<void>((resolve) => setTimeout(resolve, everyMs));
+  }
+}
+
 async function captureNamedShot(window: BrowserWindow, name: string): Promise<void> {
   const directory = process.env.KEYHOLD_SMOKE_SHOTS;
   if (directory === undefined || directory === '') return;
@@ -739,16 +774,33 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // Asserted on the empty state, because that is what a record with no attachments must
         // show — a panel that only appears once something is attached is a panel nobody can
         // use to attach the first thing.
-        const attachments: unknown = await window.webContents.executeJavaScript(
+        // Polled rather than slept on: the panel appears after a click, a store update and a
+        // render, and how long that takes is a property of the machine.
+        const attachments = await waitFor(
+          window,
           `(() => {
             const panel = document.querySelector('.kh-attachments');
-            if (!panel) return 'missing';
+            if (!panel) return false;
             const button = [...panel.querySelectorAll('button')]
               .find((element) => element.textContent?.includes('Attach a file'));
-            return button ? 'ready' : 'no-add-button';
-          })()`,
+            return button ? 'ready' : false;
+          })()`
+        );
+        // The layout mode, asserted before anything that depends on it.
+        //
+        // `AppShell` shows the detail pane only when a record is selected below 900px, so a
+        // narrow window makes several checks below fail for a reason none of them mentions.
+        // That is exactly what happened on a CI runner with a 1024-wide display. Checking the
+        // width turns four confusing failures into one that names the cause.
+        const wideEnough: unknown = await window.webContents.executeJavaScript(
+          `JSON.stringify({ inner: window.innerWidth, narrow: window.innerWidth < 900 })`,
           true
         );
+        emit(
+          `SMOKE-CHECK layout-is-the-wide-three-pane ${String(wideEnough).includes('"narrow":false')}`
+        );
+        emit(`SMOKE-NOTE viewport ${String(wideEnough)}`);
+
         emit(`SMOKE-CHECK attachments-panel-usable ${String(attachments === 'ready')}`);
 
         await captureNamedShot(window, 'Keyhold-Screenshot-02');
@@ -804,19 +856,18 @@ export function runSmokeCheck(window: BrowserWindow): void {
           differentVault: false,
           wentBackwards: false,
         });
-        await new Promise<void>((resolve) => setTimeout(resolve, 300));
-
-        const banner: unknown = await window.webContents.executeJavaScript(
+        // The event crosses IPC and React re-renders; both are the machine's business.
+        const banner = await waitFor(
+          window,
           `(() => {
             const element = document.querySelector('.kh-external-change');
-            if (!element) return 'missing';
+            if (!element) return false;
             const text = element.textContent ?? '';
             // Nothing was edited in this run, so reloading loses nothing and must be offered.
-            if (!text.includes('Reload from disk')) return 'no-reload-offered';
-            if (!text.includes('Merge the two copies')) return 'no-merge-offered';
+            if (!text.includes('Reload from disk')) return false;
+            if (!text.includes('Merge the two copies')) return false;
             return 'offered';
-          })()`,
-          true
+          })()`
         );
         emit(`SMOKE-CHECK external-change-banner-offers-a-reload ${String(banner === 'offered')}`);
         await captureNamedShot(window, 'Keyhold-Screenshot-10');
@@ -932,28 +983,35 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // Driven through the real control rather than the store: the panel is collapsed by
         // default, so a check that only called `history.compare` would pass on a button nobody
         // can find. Opening it is the half that was missing.
-        const compared: unknown = await window.webContents.executeJavaScript(
-          `(async () => {
+        await window.webContents.executeJavaScript(
+          `(() => {
              const toggle = [...document.querySelectorAll('.kh-compare button')]
                .find((element) => element.textContent === 'Compare two versions');
              if (!toggle) return 'no-toggle';
              toggle.click();
-             await new Promise((done) => setTimeout(done, 400));
-
-             const panel = document.querySelector('.kh-compare__panel');
-             if (!panel) return 'no-panel';
-             // Two pickers, and both must list the live state as well as the versions.
-             const selects = [...panel.querySelectorAll('select')];
-             if (selects.length !== 2) return 'pickers: ' + selects.length;
-             const options = [...selects[0].options].map((option) => option.value);
-             if (!options.includes('current')) return 'no-current-option';
-             if (options.length < 2) return 'nothing-to-compare-with';
-
-             const text = panel.textContent ?? '';
-             if (text.includes('has no answer')) return 'refused-its-own-default';
-             return 'compared';
+             // Opened here; the panel's own appearance is polled for by the caller, because a
+             // fixed wait inside the probe is the same assumption in a smaller box.
+             return 'opened';
            })()`,
           true
+        );
+
+        const compared = await waitFor(
+          window,
+          `(() => {
+             const panel = document.querySelector('.kh-compare__panel');
+             if (!panel) return false;
+             // Two pickers, and both must list the live state as well as the versions.
+             const selects = [...panel.querySelectorAll('select')];
+             if (selects.length !== 2) return false;
+             const options = [...selects[0].options].map((option) => option.value);
+             if (!options.includes('current')) return false;
+             if (options.length < 2) return false;
+
+             const text = panel.textContent ?? '';
+             if (text.includes('has no answer')) return false;
+             return 'compared';
+           })()`
         );
         emit(`SMOKE-CHECK history-compare-is-reachable ${String(compared === 'compared')}`);
 
