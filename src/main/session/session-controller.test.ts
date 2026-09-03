@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { PRE_MERGE_INFIX } from '../sync/index.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -268,6 +269,30 @@ describe('wipe after failed attempts', () => {
 
     await expect(readFile(vaultPath)).rejects.toThrow();
     await expect(readFile(`${vaultPath}.bak.1`)).rejects.toThrow();
+    controller.dispose();
+  }, 60_000);
+
+  it('removes a pre-merge backup, which is a fully openable copy', async () => {
+    // The rolling `.bak.N` slots were swept; a pre-merge backup was not, because it is named
+    // by `sync/` and the sweep asked `atomic-write.ts`, which knows nothing about merges.
+    //
+    // It is the copy that matters most. A `.bak.N` is a rotating slot; a pre-merge backup is
+    // named, dated, retained deliberately, and ends in `.keep` so the file association opens
+    // it under the same master password. Leaving one behind hands back everything the wipe
+    // was asked to destroy.
+    await seedVault();
+    const leftover = `${vaultPath}${PRE_MERGE_INFIX}2026-09-03T01-00-00-000Z-abcdef12.keep`;
+    await writeFile(leftover, 'an openable copy');
+
+    const { controller } = await makeController();
+    controller.updatePreferences({ wipeAfterFailedAttempts: 3 });
+
+    for (let i = 0; i < 3; i += 1) {
+      await controller.unlock(vaultPath, 'wrong').catch(() => undefined);
+    }
+
+    await expect(readFile(vaultPath)).rejects.toThrow();
+    await expect(readFile(leftover)).rejects.toThrow();
     controller.dispose();
   }, 60_000);
 
