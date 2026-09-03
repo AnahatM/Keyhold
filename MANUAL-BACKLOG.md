@@ -162,8 +162,9 @@ exist yet. Each needs a channel group added to `src/shared/ipc/api.ts`, a handle
   Those two are envelope-crypto operations rather than settings writes, and belong in a slice
   of their own with the re-wrap tested against a real vault file.
 - `kh:import:*` — list formats, detect, preview (a dry run), commit, undo.
-- `kh:export:*` — list formats, run an export, and **the main process owns the save dialog
-  and the file write**; the renderer must never receive a path it chose.
+- ~~`kh:export:*`~~ — **done**. Three channels, none returning bytes; the save dialog and
+  the file write are in the main process and no path travels renderer → main. What remains
+  is mounting the dialog, which is renderer work, not a channel.
 - ~~`kh:folders:*` and `kh:tags:*`~~ — **done**.
 - ~~`kh:attachments:*`~~ — **done**. Both dialogs are opened in the main process and the
   bytes never cross the bridge; there is deliberately no `read` channel.

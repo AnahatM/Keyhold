@@ -315,10 +315,11 @@ undo — is not. Full notes: `docs/09-Import-Export/00-Import-Formats.md`._
 - [x] **Tests (264)** and six fault injections, two of which found real holes
 - [x] `docs/09-Import-Export/00-Import-Formats.md` written
 
-## Phase 11 — Export & the transfer parcel ~ ENGINE DONE
+## Phase 11 — Export & the transfer parcel ~ ENGINE AND IPC DONE
 
-_The serialisers are built and tested, and Keyhold's own JSON export re-imports. The IPC
-channel and the export dialog are not. Full notes: `docs/09-Import-Export/01-Export-Formats.md`._
+_The serialisers, the preview and the three `kh:export:*` channels are built and tested, and
+Keyhold's own JSON export re-imports. The dialog is written but not yet mounted. Full notes:
+`docs/09-Import-Export/01-Export-Formats.md`._
 
 - [x] Lossless Keyhold JSON — every field, folders, tags, settings, **and history with its
       origins**; deterministic, field-by-field, never `JSON.stringify(record)`
@@ -336,10 +337,20 @@ channel and the export dialog are not. Full notes: `docs/09-Import-Export/01-Exp
 - [x] Subset exports prune folders and tags to what the selection references
 - [x] **The round trip closes** — `keyhold-json` is a registered importer, and the one strict
       parser
-- [ ] IPC channel, export dialog, type-to-confirm, restrictive file permissions, shred reminder
+- [x] **IPC channel** — three channels, none of which returns bytes: the save dialog opens in
+      main, the file is written in main, and the renderer learns only where it landed
+- [x] **Type-to-confirm checked in the main process**, against the raw text the user typed, by
+      the one matcher — never a boolean the renderer computed
+- [x] A plan whose `kind` disagrees with what the registry says about its format is **refused**,
+      not guessed at; `includeTrashed` must be present, never defaulted at this boundary
+- [x] **Restrictive file permissions** (`0o600`) on every readable format, and the plaintext
+      buffer zeroed after the write
+- [x] **The preview runs the real exporter** and discards the bytes, so the loss list the
+      dialog shows is the list the file would carry — guarded, for all four formats
+- [ ] Mount the export dialog, with the shred reminder (`PLAINTEXT_AFTERMATH_REMINDER`)
 - [ ] KDBX 4 export; Bitwarden JSON export
-- [x] **Tests (89 + 13)** and sixteen fault injections, one of which found a guard that was
-      not the one doing the work
+- [x] **Tests** and sixteen engine fault injections (one of which found a guard that was not
+      the one doing the work), plus six on the preview and six on the IPC boundary
 - [x] `docs/09-Import-Export/01-Export-Formats.md` written
 
 ## Phase 12 — Sync & merge
@@ -520,7 +531,7 @@ produced and no workflow has ever run** — there is no remote yet. Full notes:
 | 8 · Password generator           | ~ Not mounted  |
 | 9 · Attachments                  | ~ IPC done     |
 | 10 · Import                      | ~ Needs IPC    |
-| 11 · Export & transfer bundle    | ~ Needs IPC    |
+| 11 · Export & transfer bundle    | ~ Needs dialog |
 | 12 · Sync & merge                | ~ Engine done  |
 | 13 · Health dashboard            | ~ Not mounted  |
 | 14 · Settings                    | ~ IPC done     |
