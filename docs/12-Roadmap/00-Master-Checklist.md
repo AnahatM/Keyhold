@@ -344,7 +344,11 @@ and the activity-log entry. Full notes: `docs/09-Import-Export/00-Import-Formats
       two cannot disagree
 - [x] **Undo**, guarded on the expected generation, the batch's own generation **and** no unsaved
       changes — the third is what a generation-only check would miss
-- [ ] The activity-log entry (`ACTIVITY_KINDS` already declares an `import` kind)
+- [x] The activity-log entry (`ACTIVITY_KINDS` already declares an `import` kind) — and, since
+      the recorder turned out to be constructed nowhere outside its own tests, the whole
+      binding: `SessionController` owns a `SessionActivity`, unlocks, failed unlocks, locks,
+      reveals, copies, clipboard clears and saves all record, `kh:activity:list` exposes it,
+      and `activity/ActivityView.tsx` is the reader. Backlog D3 lands with it
 - [x] Mount `ImportWizard` — `menu-bridge.ts` routes `vault.import`, the palette offers the
       row, and `smoke.ts` asserts it is there. The line's stated reason went stale before the
       line did
@@ -502,10 +506,13 @@ writes. Full notes: `docs/06-UI-Design-System/01-Layout-And-Components.md` §1._
       rather than reporting a failure it did not have (audit finding N4)
 - [x] The screen is reachable — `settings` is one of the four tool views, opened from the sidebar
       or from the native Settings item through `menu-bridge.ts`
-- [ ] `kh:settings:change-master-password` and `kh:settings:rekey`. Both re-wrap the DEK and both
-      must be atomic against a real vault file, so they are a slice of their own;
-      `REQUIRED_CHANNELS` in `settings-gateway.ts` names them, and a test fails if an entry there
-      names a channel the contract already has
+- [x] `kh:settings:change-master-password` and `kh:settings:rekey` — both re-wrap the DEK, both
+      go through the ordinary atomic save, and both are tested against a real vault file.
+      `REQUIRED_CHANNELS` is now empty; because a staleness test cannot fail against an empty
+      list, the property moved to a test that drives every gateway method and fails if one does
+      not reach the bridge. Both revoke quick unlock, which the dialog and the settings copy had
+      always promised and nothing had ever done — the enrolment stores the data key, which
+      neither operation rotates. `MasterPasswordSection.tsx` is the UI
 - [x] A UI control for `networkAllowed`, the global network kill-switch (D23) —
       `settings/SecuritySessionSection.tsx`, with the weakened-trade-off marker. The preference is
       persisted and writable over `kh:settings:update-machine`; nothing renders a toggle

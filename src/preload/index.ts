@@ -11,6 +11,7 @@ import {
   type IpcResult,
   type OrganisationDeleteResult,
   type OrganisationSnapshot,
+  type ActivityView,
   type SettingsView,
   type KeyholdApi,
   type SessionStatusView,
@@ -400,6 +401,10 @@ const api: KeyholdApi = {
       ipcRenderer.invoke(CHANNELS.settingsRekey, currentSecret, cost) as Promise<
         IpcResult<SettingsView>
       >,
+  },
+
+  activity: {
+    read: () => ipcRenderer.invoke(CHANNELS.activityList) as Promise<IpcResult<ActivityView>>,
   },
 
   attachments: {

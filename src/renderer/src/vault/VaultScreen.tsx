@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { Button } from '../components/Button.js';
 import { AboutView, ContentViewer, type AboutLicence } from '../content/index.js';
+import { ActivityView } from '../activity/ActivityView.js';
 
 // Both are supplied by `electron.vite.config.ts`'s `define`, so they are compile-time
 // constants rather than imports — declared here because the About view is the only thing in
@@ -353,6 +354,10 @@ function ToolPane({
       return (
         <HealthDashboard records={records} onSelectCredential={onSelectCredential} hideTitle />
       );
+    case 'activity':
+      // `records` only so an id can be turned into a title, and only when the reader asks
+      // for names. The log itself never carries one.
+      return <ActivityView records={records} hideTitle />;
     case 'settings':
       // No gateway prop: the screen memoises its own `createBridgeGateway()` when none is
       // given, and passing a fresh one from here on every render would re-trigger its

@@ -8,6 +8,7 @@ import {
 } from '@shared/model/import-plan.js';
 import { importWarning, normaliseFolderPath, type ImportWarning } from '@shared/model/import.js';
 import type { VaultDocument } from '@shared/model/vault-document.js';
+import type { ImportActivityRecorder } from '../activity/session-activity.js';
 import { appendVersion } from '../history/versioning.js';
 import { findOrCreateFolderPaths } from '../organisation/folder-ops.js';
 import { folderPathsById } from '../organisation/folder-tree.js';
@@ -100,6 +101,15 @@ export interface CommitImportInput {
   readonly extraTags: readonly string[];
   readonly ops: OpsContext;
   readonly onWriteProgress?: PlanProgress | undefined;
+  /**
+   * The session activity log, when there is a session.
+   *
+   * Injected rather than reached for, like every other effect this module has: `ops` supplies
+   * ids and the clock, `onWriteProgress` supplies the channel, and this supplies the log. A
+   * `commitImport` given none of them is still a pure function over a document, which is what
+   * keeps every rule in this file testable without an unlocked vault.
+   */
+  readonly activity?: ImportActivityRecorder | undefined;
 }
 
 /**
@@ -153,7 +163,7 @@ export function commitImport(input: CommitImportInput): ImportCommitOutcome {
   const document_ = merged.document;
   const folders = describeNewFolders(document_, foldersBefore);
 
-  return {
+  const outcome: ImportCommitOutcome = {
     document: document_,
     batch: {
       createdRecordIds: created.createdRecordIds,
@@ -167,6 +177,21 @@ export function commitImport(input: CommitImportInput): ImportCommitOutcome {
     mergedCount: merged.mergedCount,
     warnings,
   };
+
+  // Three numbers, named one at a time into a fresh object, rather than `outcome` itself.
+  // `outcome` holds the whole rebuilt vault and the undo batch's pre-merge snapshots — every
+  // password the vault has, and every password this file brought — and the activity log is an
+  // in-memory list a user reads on screen. Spreading or forwarding the outcome would put all
+  // of that one property access away from it. This is the same discipline as `ActivityLog`
+  // assigning its detail fields through a single gate: what is never handed over cannot leak,
+  // and no warning, title, folder path or record id is handed over here.
+  input.activity?.imported({
+    importedCount: outcome.importedCount,
+    mergedCount: outcome.mergedCount,
+    skippedCount: outcome.skippedCount,
+  });
+
+  return outcome;
 }
 
 // ── Deciding ─────────────────────────────────────────────────────────────────

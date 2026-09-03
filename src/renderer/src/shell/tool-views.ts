@@ -34,7 +34,7 @@
  */
 
 /**
- * All five, now that About has somewhere to go.
+ * All six, now that the activity log has a reader.
  *
  * `settings` was briefly absent from this list. `SettingsScreen` was written and
  * mount-ready, but its gateway still refused every read with "Phase 14 has not registered
@@ -46,7 +46,14 @@
  * `REQUIRED_CHANNELS` names a channel the contract already has — which is what stops the
  * same gap from re-opening quietly the next time a channel lands.
  */
-export const TOOL_VIEW_IDS = ['generator', 'health', 'settings', 'help', 'about'] as const;
+export const TOOL_VIEW_IDS = [
+  'generator',
+  'health',
+  'activity',
+  'settings',
+  'help',
+  'about',
+] as const;
 
 export type ToolViewId = (typeof TOOL_VIEW_IDS)[number];
 
@@ -97,6 +104,13 @@ export const TOOL_VIEWS: readonly ToolViewDefinition[] = [
     fills: false,
   },
   {
+    id: 'activity',
+    title: 'Session activity',
+    summary: 'What this session did — unlocks, reveals, copies and saves. Cleared on lock.',
+    menuCommandId: 'tools.activity',
+    fills: false,
+  },
+  {
     id: 'settings',
     title: 'Settings',
     summary: 'Auto-lock, clipboard, quick unlock, history and this vault\u2019s own options.',
@@ -132,7 +146,7 @@ export const TOOL_VIEW_BY_ID: ReadonlyMap<ToolViewId, ToolViewDefinition> = new 
  * The menu command a native menu item carries, turned into a view.
  *
  * Returns `null` for every other command rather than throwing: the menu has two dozen
- * entries and only five of them are tool views, so "not one of mine" is the normal answer,
+ * entries and only six of them are tool views, so "not one of mine" is the normal answer,
  * not an error.
  */
 export function toolViewForMenuCommand(menuCommandId: string): ToolViewId | null {

@@ -469,8 +469,12 @@ export function registerIpcHandlers(context: IpcContext): void {
     vault.getProjection(requireId(CHANNELS.credentialsGet, credentialId, 'credentialId'))
   );
 
+  // Through the session, not straight to the vault. A reveal is the one action the vault's
+  // own history cannot record — history covers changes, and reading changes nothing — so the
+  // session logs it, and routing every reveal through one method is what stops a second
+  // caller silently not logging.
   handle(CHANNELS.credentialsRevealSecret, (ref) =>
-    vault.revealSecret(requireSecretRef(CHANNELS.credentialsRevealSecret, ref))
+    session.revealSecret(requireSecretRef(CHANNELS.credentialsRevealSecret, ref))
   );
 
   handle(CHANNELS.credentialsDeepSearch, (query) =>
@@ -687,6 +691,9 @@ export function registerIpcHandlers(context: IpcContext): void {
       // delivered is not worth failing an import over.
       context.getWindow()?.webContents.send(EVENTS.importProgress, progress);
     },
+    // The whole reason `ImportActivityRecorder` is one method wide: this hands the importer
+    // the ability to say "an import happened, and it created N records" and nothing else.
+    activity: session.activity,
   });
 
   // An undo means nothing against a vault whose key has been destroyed, and a held batch
@@ -1308,6 +1315,21 @@ export function registerIpcHandlers(context: IpcContext): void {
     session.revokeQuickUnlock();
     return settingsView();
   });
+
+  /**
+   * What this session has done.
+   *
+   * Read on demand rather than pushed. The log is appended to on nearly every action, and an
+   * event per entry would be a constant stream feeding a panel that is usually closed.
+   *
+   * `lastLockNotice` is carried alongside because `locked()` clears the ring and hands the
+   * notice back rather than storing it — a reader after a lock would otherwise find an empty
+   * log and nothing to say why.
+   */
+  handle(CHANNELS.activityList, () => ({
+    snapshot: session.activity.snapshot(),
+    lastLock: session.lastLockNotice,
+  }));
 
   // ── folders and tags ───────────────────────────────────────────────────────
   //

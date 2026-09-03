@@ -1,0 +1,122 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The session activity list.
+ *
+ * A timeline, not a table. Every row is one sentence plus a time, and the sentence is built
+ * by `describeEntry` so the visible row and the live-region announcement cannot drift apart.
+ * Nothing here is column-aligned on purpose: the rows vary in length and a grid would leave
+ * the eye scanning empty space to reach the part that differs.
+ */
+
+.kh-activity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+  max-width: 60rem;
+  padding: var(--kh-space-5);
+}
+
+.kh-activity--message {
+  justify-content: center;
+  min-height: 20rem;
+}
+
+.kh-activity__title {
+  margin: 0;
+  font-size: var(--kh-text-xl);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-activity__lead {
+  max-width: 46rem;
+  margin: 0;
+  color: var(--kh-color-text-muted);
+}
+
+.kh-activity__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-3);
+}
+
+.kh-activity__names {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-activity__notice {
+  display: flex;
+  gap: var(--kh-space-2);
+  margin: 0;
+  padding: var(--kh-space-3);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface-sunken);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-activity__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kh-activity-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-2) var(--kh-space-1);
+  border-bottom: 1px solid var(--kh-color-border);
+}
+
+.kh-activity-row:last-child {
+  border-bottom: none;
+}
+
+/*
+ * The symbol carries the tone, and the text never does. Colour is not the only signal —
+ * every row already says in words what happened, so a reader who cannot separate the hues
+ * loses nothing (WCAG 1.4.1). The symbol is `aria-hidden`: it is decoration over a sentence
+ * that is already complete.
+ */
+.kh-activity-row__symbol {
+  flex: none;
+  width: 1.25rem;
+  text-align: center;
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-activity-row--success .kh-activity-row__symbol {
+  color: var(--kh-color-success-text);
+}
+
+.kh-activity-row--warning .kh-activity-row__symbol {
+  color: var(--kh-color-warning-text);
+}
+
+.kh-activity-row--danger .kh-activity-row__symbol {
+  color: var(--kh-color-danger-text);
+}
+
+.kh-activity-row--info .kh-activity-row__symbol {
+  color: var(--kh-color-info-text);
+}
+
+.kh-activity-row__text {
+  flex: 1 1 auto;
+}
+
+.kh-activity-row__when {
+  flex: none;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}

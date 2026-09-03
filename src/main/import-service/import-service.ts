@@ -17,6 +17,7 @@ import type {
 import type { ImportFormatDescriptor } from '@shared/model/import.js';
 import { uuid } from '../crypto/random.js';
 import { importFormatDescriptors } from '../import/index.js';
+import type { ImportActivityRecorder } from '../activity/session-activity.js';
 import { commitImport, toDuplicateAction, type ImportBatchRecord } from './commit.js';
 import { stalePlan, staleUndo } from './errors.js';
 import type { ImportFilePicker } from './file-picker.js';
@@ -81,6 +82,14 @@ export interface ImportServiceOptions {
   readonly onProgress?: ((progress: ImportProgress) => void) | undefined;
   /** The id source. Injected only so a test can read the ids it is asserting about. */
   readonly newId?: (() => string) | undefined;
+  /**
+   * The session activity log. Absent in tests and headless use.
+   *
+   * Typed as `ImportActivityRecorder` — one method — rather than as `SessionActivity`, so
+   * this class cannot reach the rest of the log, and so a reviewer can see the whole of what
+   * an import is allowed to say about itself in one line.
+   */
+  readonly activity?: ImportActivityRecorder | undefined;
 }
 
 interface HeldBatch {
@@ -94,6 +103,7 @@ export class ImportService {
   readonly #picker: ImportFilePicker;
   readonly #onProgress: ((progress: ImportProgress) => void) | undefined;
   readonly #newId: () => string;
+  readonly #activity: ImportActivityRecorder | undefined;
 
   readonly #sources = new Map<ImportSourceId, HeldSource>();
   readonly #plans = new Map<ImportPlanId, HeldImportPlan>();
@@ -104,6 +114,7 @@ export class ImportService {
     this.#picker = options.picker;
     this.#onProgress = options.onProgress;
     this.#newId = options.newId ?? uuid;
+    this.#activity = options.activity;
   }
 
   /** The format registry, as descriptors. Never a parser. */
@@ -187,6 +198,7 @@ export class ImportService {
       onWriteProgress: (completed, total) => {
         this.#emit(request.planId, 'writing', completed, total);
       },
+      ...(this.#activity === undefined ? {} : { activity: this.#activity }),
     });
 
     // Consumed. Committing the same plan twice would import everything twice, and the

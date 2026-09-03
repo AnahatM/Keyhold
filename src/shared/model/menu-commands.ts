@@ -42,6 +42,7 @@ export const MENU_COMMAND_IDS = [
   'vault.trash',
   'tools.generator',
   'tools.health',
+  'tools.activity',
   'app.settings',
   'help.docs',
   'help.shortcuts',
