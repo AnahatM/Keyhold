@@ -187,11 +187,16 @@ export function onboardingReducer(
   state: OnboardingState,
   action: OnboardingAction
 ): OnboardingState {
-  // A finished flow is finished. Late actions — an in-flight promise resolving after the
-  // user skipped — must not reopen it.
-  if (state.outcome !== 'active' && action.type !== 'dismiss' && action.type !== 'complete') {
-    return state;
-  }
+  /*
+   * A finished flow is finished, and that includes the two actions that finish it.
+   *
+   * `dismiss` and `complete` used to be exempt from this guard, which meant Escape or a
+   * stray click landing after the last step turned a *completed* flow into a *dismissed*
+   * one — and dismissed is the outcome that claims the user was never told anything. The
+   * persisted record would then disagree with what actually happened. An outcome is
+   * terminal; there is no action that may overwrite one with another.
+   */
+  if (state.outcome !== 'active') return state;
 
   switch (action.type) {
     case 'acknowledge':
@@ -220,14 +225,16 @@ export function onboardingReducer(
 
     case 'complete':
       if (!canFinishOnboarding(state)) return state;
-      return state.outcome === 'completed' ? state : { ...state, outcome: 'completed' };
+      return { ...state, outcome: 'completed' };
 
-    // Always available, from every step, with no conditions and no confirmation. Skipping
-    // is not the same as completing: it leaves the flow behind without ever claiming the
-    // user was told anything, and it creates nothing. Someone who skips at step one lands
-    // back on the ordinary create screen, which carries its own acknowledgement.
+    // Always available, from every step, with no conditions and no confirmation — by the
+    // skip control, and by Escape, which is the same decision taken with the keyboard.
+    // Skipping is not the same as completing: it leaves the flow behind without ever
+    // claiming the user was told anything, and it creates nothing. Someone who skips at
+    // step one lands back on the ordinary create screen, which carries its own
+    // acknowledgement.
     case 'dismiss':
-      return state.outcome === 'dismissed' ? state : { ...state, outcome: 'dismissed' };
+      return { ...state, outcome: 'dismissed' };
   }
 }
 

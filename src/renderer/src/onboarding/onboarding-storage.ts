@@ -185,7 +185,15 @@ export function shouldShowOnboarding(state: OnboardingState): boolean {
   return state.outcome === 'active';
 }
 
-/** The mount-site question: is there a first run to run? */
+/**
+ * Whether this machine still has an unfinished flow for a given scope.
+ *
+ * Half of the mount-site question, not the whole of it: "they have not skipped it" is not
+ * the same as "they are a new user", and a machine full of vaults would satisfy this on a
+ * profile whose `localStorage` had been cleared. The other half — has a vault ever been
+ * opened on this computer — lives in `onboarding-visibility.ts`, which is what a mount site
+ * should call.
+ */
 export function isOnboardingActiveFor(vaultKey: string | null): boolean {
   return shouldShowOnboarding(readProgress(vaultKey));
 }

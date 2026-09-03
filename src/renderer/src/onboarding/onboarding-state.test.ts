@@ -188,6 +188,29 @@ describe('skipping', () => {
     expect(onboardingReducer(dismissed, { type: 'vault-created' })).toBe(dismissed);
     expect(onboardingReducer(dismissed, { type: 'advance' })).toBe(dismissed);
   });
+
+  it('cannot overwrite an outcome that has already been reached', () => {
+    /*
+     * Escape and the skip control both dispatch `dismiss`, and Escape is a key somebody can
+     * still be holding as the last step finishes. Letting it land on a *completed* flow
+     * would rewrite the record as "dismissed" — the outcome that says the user was never
+     * told anything — for a user who was told everything. An outcome is terminal in both
+     * directions.
+     */
+    const finished = onboardingReducer(
+      state({ stepId: 'what-next', vaultCreated: true, acknowledgedNoRecovery: true }),
+      { type: 'complete' }
+    );
+    expect(finished.outcome).toBe('completed');
+    expect(onboardingReducer(finished, { type: 'dismiss' })).toBe(finished);
+
+    const skippedAtTheEnd = onboardingReducer(
+      state({ stepId: 'what-next', vaultCreated: true, acknowledgedNoRecovery: true }),
+      { type: 'dismiss' }
+    );
+    expect(skippedAtTheEnd.outcome).toBe('dismissed');
+    expect(onboardingReducer(skippedAtTheEnd, { type: 'complete' })).toBe(skippedAtTheEnd);
+  });
 });
 
 describe('moving between steps', () => {
