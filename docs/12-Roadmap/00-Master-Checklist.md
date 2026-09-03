@@ -707,7 +707,13 @@ and technical at once, rather than a stock Electron window.
 - [x] `_INDEX.md` in every folder plus the top-level `docs/_INDEX.md`
 - [x] Doc/code mismatches and deliberate oddities — now `docs/14-Audits/01-Doc-Code-Audit.md`,
       because `13-` was taken by packaging by the time it was written
-- [ ] Publish the KEEP format spec as a standalone, implementable document
+- [x] Publish the KEEP format spec as a standalone, implementable document — it was already
+      written clean-room, and what it was missing is what such a reader most needs: a **file
+      to test against**. §12 now publishes a conformance vector with its password and cost,
+      committed and thereafter only ever read, so the day a format change stops it opening is
+      the day every vault already on disk would have stopped opening. It found a spec bug
+      within a minute of existing: §12's draft wrote the cipher id lower-case while §3 had had
+      it right all along. **Publishing it outside the repo is gated on M5** (going public)
 - [ ] **`README.md` using the `anahat-readme` skill** — never freehanded
 - [x] README must include: the three-line pitch, the honest comparison table (including where
       competitors win), screenshots, the threat model summary, install instructions with the
