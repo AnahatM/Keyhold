@@ -20,7 +20,8 @@ D14.
 | `npm run dev`                                                     | electron-vite dev server with hot reload for the renderer and restart-on-change for main/preload                                                                               |
 | `npm run build`                                                   | Typecheck, then build main, preload and renderer into `out/`                                                                                                                   |
 | `npm start`                                                       | Preview the production build                                                                                                                                                   |
-| `npm run verify`                                                  | **lint + typecheck + test.** The gate. Must be green before any commit                                                                                                         |
+| `npm run verify`                                                  | **lint + typecheck + build + test.** The gate. Must be green before any commit                                                                                                 |
+| `npm run verify:full`                                             | **`format:check` + `verify` + `test:smoke`.** Everything CI runs, in one command                                                                                               |
 | `npm run lint` / `lint:fix`                                       | ESLint                                                                                                                                                                         |
 | `npm run format` / `format:check`                                 | Prettier                                                                                                                                                                       |
 | `npm run typecheck`                                               | `tsc --noEmit` against both tsconfigs                                                                                                                                          |
@@ -111,6 +112,20 @@ And after changing anything in `src/main`, `src/preload`, or the build config:
 ```bash
 npm run build && npm run test:smoke
 ```
+
+### The whole thing, which is what CI runs
+
+```bash
+npm run verify:full
+```
+
+`format:check` → `verify` (lint → typecheck → build → tests) → `test:smoke`, in that order.
+
+**It contains everything CI enforces, and that is the point.** Formatting used to sit outside
+it, as its own workflow step, and the consequence was a local gate that could be green while CI
+was red over whitespace alone — which is worse than having no local gate, because it teaches
+people that the CI result and the local result are unrelated. The workflow now runs this one
+command, so there is one definition of "passing" and it lives in `package.json`.
 
 ## Related
 

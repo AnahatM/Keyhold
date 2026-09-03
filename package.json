@@ -52,7 +52,7 @@
     "test:ui": "vitest --ui",
     "verify": "npm run lint && npm run build && npm test",
     "test:smoke": "node tools/smoke.mjs",
-    "verify:full": "npm run verify && npm run test:smoke"
+    "verify:full": "npm run format:check && npm run verify && npm run test:smoke"
   },
   "dependencies": {
     "@zxcvbn-ts/core": "^4.2.0",

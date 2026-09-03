@@ -76,18 +76,19 @@ jobs:
         # compromise.
         run: npm ci
 
-      - name: Check formatting
-        # Not part of `npm run verify`, so it is its own step. Prettier is the formatting
-        # authority for this repo (CONTRIBUTING.md); CI enforcing it means nobody has to
-        # mention whitespace in a review again.
-        run: npm run format:check
-
       - name: Verify
-        # One step, on purpose. `verify:full` is the project's own gate — lint, typecheck,
-        # build, unit tests, then the launch smoke test — defined once in package.json.
-        # Expanding it into five workflow steps would create a second copy of the gate
-        # that drifts the first time someone adds a check to package.json and forgets
-        # this file.
+        # One step, on purpose. `verify:full` is the project's own gate — formatting, lint,
+        # typecheck, build, unit tests, then the launch smoke test — defined once in
+        # package.json. Expanding it into five workflow steps would create a second copy of
+        # the gate that drifts the first time someone adds a check to package.json and
+        # forgets this file.
+        #
+        # Formatting used to be its own step here, outside `verify:full`. That meant a clean
+        # local gate could still fail CI on whitespace, which is exactly what happened: a new
+        # file passed lint, typecheck, tests, build and smoke, and CI rejected it for
+        # formatting alone. The gate now contains everything CI enforces, so "green here"
+        # means "green there" — which is the only property that makes a local gate worth
+        # running.
         #
         # The smoke test is the tail of that chain, and it launches a real Electron
         # window. That works on GitHub's Windows runners without a virtual display: the
