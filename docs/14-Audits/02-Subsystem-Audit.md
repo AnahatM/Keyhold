@@ -1331,10 +1331,11 @@ sides match, because `identityOf` excludes `versionNumber`: `merge(a,b)` yields 
 different field rewrites sparse `order` values (`[0, 7]` → `[0, 1]`) and, with `mergeOrigin` set,
 writes a merge version claiming the custom fields changed; **fix** by skipping the sort when
 `sameValue(chosen.value, oursValues.custom)`. ·
-Three distinct constants named `MAX_TAGS` — `tag-ops.ts:60` = 500 (per vault),
-`vault/credential-ops.ts:40` = 64 (per record), `shared/ipc/credential-validation.ts:40` = 64 (the
-same rule, second copy). The first pair is deliberate and documented; the second is S14, already
-guarded by `tools/limit-parity.test.ts`. ·
+Three distinct constants named `MAX_TAGS` — `tag-ops.ts:60` = 500 (per vault), and two copies of
+the per-record 64 in `vault/credential-ops.ts` and `shared/ipc/credential-validation.ts`. The
+first pair is deliberate and documented (a vault-wide limit and a per-record one are different
+rules); the second was S14 and is **fixed** — one exported constant in the model, imported by
+both layers, with behavioural guards on each. ·
 `breach/https-transport.test.ts:283-287` puts an assertion inside a `.catch` with no
 `expect.assertions(n)`, so it could not fail if the promise resolved — harmless, since `:279-281`
 already asserts the rejection, but the pattern is worth not spreading.

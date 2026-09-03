@@ -401,7 +401,7 @@ positive answer. Behaviour is correct; the code lies about why.
 
 ### S13 — INFORMATIONAL · `ICON_KINDS` is declared twice
 
-**STATUS: OPEN on the code side, GUARDED.** The one-line `import` belongs in `src/shared/ipc/credential-validation.ts`, owned by another agent this session. `tools/limit-parity.test.ts` parses the validator's literal out of the source and compares it to the model's exported `ICON_KINDS`. Fault-injected by adding `'svg'` to the model, which fails it. Delete that assertion when the import lands.
+**STATUS: FIXED.** `credential-validation.ts` imports `ICON_KINDS` from the model; the literal is gone, so the two cannot drift. `tools/limit-parity.test.ts` was deleted with it — it existed only to compare two copies, and there is one.
 
 `src/shared/ipc/credential-validation.ts:118` duplicates `src/shared/model/credential.ts:344`.
 Hard rule 8 ("no second list") applied to a list that decides what a validator accepts. They
@@ -415,7 +415,22 @@ as a UI bug rather than a validation bug.
 
 ### S14 — INFORMATIONAL · Array caps are duplicated as literals with no guard
 
-**STATUS: OPEN on the code side, GUARDED** — same file, same reason as S13. `tools/limit-parity.test.ts` parses all four caps out of both files and compares them as whole objects, so a failure names every cap that drifted rather than only the first. Fault-injected by setting `MAX_TAGS` to 65 in `credential-ops.ts`.
+**STATUS: FIXED, and it uncovered a larger gap than the one reported.** The four caps are now
+exported once from `src/shared/model/credential.ts` and imported by both layers, so drift is no
+longer expressible and `tools/limit-parity.test.ts` was deleted.
+
+The finding worth recording is what the fix revealed. Setting the surviving `MAX_TAGS` to 2 and
+running the whole suite failed **nothing**. The parity guard had been the only thing in the repo
+that mentioned these caps at all, and it only ever checked that two numbers matched — never that
+either layer rejected anything. Both could have stopped enforcing entirely and every test would
+have passed.
+
+Two behavioural guards were written for that: `src/shared/model/array-caps.test.ts` for the IPC
+boundary and a block in `src/main/vault/credential-ops.test.ts` for the ops layer. Both build
+`cap + 1` from the constant rather than a literal, so raising a cap moves the test with it
+instead of leaving an assertion that one number exceeds another. Fault-injected: removing the
+`value.length > max` check in `requireArray` fails all four IPC tests; removing the `MAX_TAGS`
+check in `assertValidCredential` fails the ops one.
 
 `src/shared/ipc/credential-validation.ts:39-42` (`MAX_URLS` 32, `MAX_TAGS` 64,
 `MAX_CUSTOM_FIELDS` 128, `MAX_SECURITY_QUESTIONS` 32) and
