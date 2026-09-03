@@ -26,3 +26,15 @@
 
 export { mergeDocuments } from './merge-document.js';
 export type { MergeOptions, MergeOutcome } from './merge-document.js';
+
+/**
+ * The one refusal a merge can raise.
+ *
+ * Exported here because this file is the engine's front door, and a caller having to reach
+ * past it into `merge-document.js` to catch the error the front door throws is a doorway
+ * with a hole beside it. A duplicate record id means one of the two vaults is corrupt, and
+ * the caller's answer is to route the user to `diagnose()` — which needs `side` and `entity`
+ * off this error to say *which file* and *what to repair*.
+ */
+export { DuplicateIdError } from './merge-document.js';
+export type { DocumentSide, DuplicatedEntity } from './merge-document.js';

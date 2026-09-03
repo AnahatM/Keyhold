@@ -184,13 +184,43 @@ function allIds<T extends Keyed>(
 
 // ── Ordering ─────────────────────────────────────────────────────────────────
 
+/**
+ * True when `list` is a **duplicate-free enumeration of exactly `surviving`** — the question
+ * the name asks, rather than the cheaper one it used to answer.
+ *
+ * It used to compare `list.length` against `surviving.size`, and a length is not a cardinality
+ * the moment a list can repeat an id. `['a', 'a']` against `{a, b}` counts two against two,
+ * finds every entry present, and says "these are the same set" — after which `keep()` returns
+ * `['a', 'a']` and whatever the repeat displaced is silently gone from the merged document.
+ * That is hard rule 6, in the one function nobody reads as a data-safety function.
+ *
+ * The duplicate-free clause is the half that is easy to leave out and cannot be. Set equality
+ * alone still admits `['a', 'a']` against `{a}`, which is a true statement about sets and a
+ * false one about what `orderIds` may return: a list that names a survivor twice makes the
+ * caller emit that entry twice. This predicate gates a *list*, so it has to judge the list.
+ *
+ * Both clauses fail safe. A list that does not qualify does not lose its ids — it falls
+ * through to the ancestor-then-sorted branch, which is built from `surviving` itself and
+ * therefore cannot omit or repeat anything. The cost of rejecting a list is a reordering; the
+ * cost of wrongly accepting one is a lost credential.
+ */
 function sameIdSet(surviving: ReadonlySet<string>, list: readonly string[]): boolean {
-  return list.length === surviving.size && list.every((id) => surviving.has(id));
+  const distinct = new Set(list);
+  return (
+    distinct.size === list.length &&
+    distinct.size === surviving.size &&
+    list.every((id) => surviving.has(id))
+  );
 }
 
 /**
- * The order the merged ids appear in — the one part of a merge that is pure presentation and
- * still has to be got right.
+ * The order the merged ids appear in — the one part of a merge that reads as pure presentation
+ * and is not.
+ *
+ * **The contract is that this returns exactly `surviving`, each id once.** Every caller maps
+ * the result back through its surviving-entries index, so an id omitted here is an entry that
+ * never reaches the merged document and an id repeated here is an entry emitted twice. Order
+ * is the visible part of the job; membership is the part that can lose a password.
  *
  * Order matters twice. `merge(x, x)` must return `x` **unchanged**, which it cannot do if the
  * merge reshuffles a list that did not change; and `merge(a, b)` and `merge(b, a)` must agree,
