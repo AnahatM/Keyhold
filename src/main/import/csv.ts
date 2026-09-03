@@ -280,12 +280,26 @@ export function readHeaderKeys(content: string): string[] {
   return row.cells.map((cell) => normaliseColumnKey(cell)).filter((key) => key !== '');
 }
 
-/** True when the header is exactly one of the given column sets, order-insensitively. */
+/**
+ * True when the header is exactly one of the given column sets, order-insensitively.
+ *
+ * The cardinality is compared set-to-set, not `variant.length` to `actual.size`. Those two
+ * differ the moment a variant repeats a column name: `['a', 'a']` has length 2 and names one
+ * column, so it would false-match a header of `{a, b}` and detect a CSV as the wrong format.
+ *
+ * The second instance of this shape in the codebase. The first was in the merge engine, where
+ * `sameIdSet` compared a list's length against a surviving-id set's size — and there it
+ * silently dropped a healthy credential while emitting another twice. Here the variants come
+ * from the static format registry rather than from a file, so it is a footgun rather than
+ * something a hostile export can reach; it is fixed because the shape is wrong, and because
+ * the next place it appears may not be the safe one either.
+ */
 export function headerMatchesAny(keys: readonly string[], variants: readonly string[][]): boolean {
   const actual = new Set(keys);
-  return variants.some(
-    (variant) => variant.length === actual.size && variant.every((column) => actual.has(column))
-  );
+  return variants.some((variant) => {
+    const wanted = new Set(variant);
+    return wanted.size === actual.size && [...wanted].every((column) => actual.has(column));
+  });
 }
 
 /** True when every required column is present and no forbidden one is. */

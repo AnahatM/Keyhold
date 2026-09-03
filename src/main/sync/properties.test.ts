@@ -9,7 +9,7 @@ import {
 import type { MergeNoteKind, MergeReport } from '@shared/model/sync.js';
 import { DEFAULT_VAULT_SETTINGS, type VaultDocument } from '@shared/model/vault-document.js';
 import { assertValidHistory } from '../history/versioning.js';
-import { mergeDocuments } from './merge-document.js';
+import { DuplicateIdError, mergeDocuments } from './merge-document.js';
 import {
   DAY,
   MERGE_OPTIONS,
@@ -248,6 +248,42 @@ describe('no record on either side is ever lost', () => {
     const merged = mergeDocuments(base, both, both, MERGE_OPTIONS);
     expect(merged.document.records.map((entry) => entry.id)).toEqual(['r1']);
   });
+});
+
+/**
+ * The property that keeps the first one honest when a document contradicts itself.
+ *
+ * "No record is lost" is a statement about ids, and it is unfalsifiable on an input where one
+ * id names two records: the merge can return a document containing every surviving *id* and
+ * still have thrown a credential away. That is exactly what it used to do. So the property for
+ * a duplicate id is not survival, it is **refusal** — the engine writes nothing, both files
+ * stay as they are, and the caller is told which side to repair.
+ *
+ * Applied to every scenario rather than to one hand-built pair, because the guard runs before
+ * any of the branching below it and a scenario that slipped past it would be a hole in all
+ * five properties at once.
+ */
+describe('a document that names one id twice is refused, whatever else it holds', () => {
+  /** The scenario's own first record, repeated. Not a new record: an id collision. */
+  const withDuplicate = (document: VaultDocument): VaultDocument => {
+    const first = document.records[0];
+    if (first === undefined) return document;
+    return { ...document, records: [...document.records, first] };
+  };
+
+  for (const scenario of SCENARIOS) {
+    it(scenario.name, () => {
+      const sides = [
+        [scenario.base, withDuplicate(scenario.ours), scenario.theirs],
+        [scenario.base, scenario.ours, withDuplicate(scenario.theirs)],
+      ] as const;
+
+      for (const [base, ours, theirs] of sides) {
+        if (ours === scenario.ours && theirs === scenario.theirs) continue; // No record to repeat.
+        expect(() => mergeDocuments(base, ours, theirs, MERGE_OPTIONS)).toThrow(DuplicateIdError);
+      }
+    });
+  }
 });
 
 describe('every merged record still satisfies the model invariants', () => {

@@ -107,6 +107,7 @@ export function mergeDocuments(
   options: MergeOptions
 ): MergeOutcome {
   assertSameDocumentVersion(base, ours, theirs);
+  assertUniqueIds(base, ours, theirs);
 
   const resolutions = new Map<string, ConflictChoice>(Object.entries(options.resolutions ?? {}));
   const recordContext = {
@@ -219,8 +220,123 @@ export function mergeDocuments(
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Safe only because `assertUniqueIds` ran first.
+ *
+ * `new Map` keeps the last entry for a repeated key, so on a document with two records sharing
+ * an id this quietly discards one of them before the merge has looked at either. The guard at
+ * the top of `mergeDocuments` is what makes that unreachable, and this comment is here so the
+ * next reader does not have to reconstruct that argument from the call site.
+ */
 function indexRecords(records: readonly Credential[]): Map<string, Credential> {
   return new Map(records.map((record) => [record.id, record]));
+}
+
+// ── Duplicate ids ────────────────────────────────────────────────────────────
+
+/** Which document a refusal is about, so a caller can name the file the user must repair. */
+export type DocumentSide = 'ours' | 'theirs' | 'base';
+
+/** Which list inside it. Matches the vocabulary `document-diagnosis.ts` reports in. */
+export type DuplicatedEntity = 'record' | 'folder' | 'tag';
+
+/**
+ * A merge refused because one of the three documents holds two entries under one id.
+ *
+ * A named error rather than a bare one because the caller has a *specific* thing to do about
+ * it — run `diagnose()` against the side named here, repair it, merge again — and asking a UI
+ * to pattern-match prose to work that out is how a dialog ends up saying "merge failed". The
+ * fields carry everything a message needs: which file, which list, and which ids. Nothing here
+ * is secret material; a record id is already what `MergeNote.targetId` and the
+ * `duplicate-record-id` diagnostic carry, and no title, password or note body goes near it.
+ */
+export class DuplicateIdError extends Error {
+  readonly side: DocumentSide;
+  readonly entity: DuplicatedEntity;
+  readonly ids: readonly string[];
+
+  constructor(side: DocumentSide, entity: DuplicatedEntity, ids: readonly string[]) {
+    super(
+      `Refusing to merge: the ${SIDE_NAMES[side]} vault has ${entity}s sharing an id (${ids.join(', ')}). Run a diagnosis on it and repair the duplicates first.`
+    );
+    this.name = 'DuplicateIdError';
+    this.side = side;
+    this.entity = entity;
+    this.ids = ids;
+  }
+}
+
+const SIDE_NAMES: Readonly<Record<DocumentSide, string>> = {
+  ours: 'current',
+  theirs: 'incoming',
+  base: 'stored base snapshot of the',
+};
+
+/**
+ * Refuses a merge whose input holds the same id twice, before anything reads it.
+ *
+ * **What a duplicate id means, and why refusing is the answer.** Two entries under one id is
+ * corruption: identity is what every part of this engine merges *by*, so the input does not
+ * describe a state the model can represent. There are only three honest responses, and two of
+ * them cost the user something this one does not.
+ *
+ *  - **Keep one and report the other.** That is a lost credential with a note attached, and a
+ *    note is not a password. Hard rule 6 does not have a "but we said so" clause.
+ *  - **Keep both under fresh ids.** Minting an id needs a CSPRNG, which makes this engine
+ *    impure and its output unreproducible between the resolver loop's passes; and the new id
+ *    is a *new record* to the other device, so the duplicate propagates rather than resolving.
+ *    It also severs the record from its ancestor, its history and its attachment chunks —
+ *    repairing corruption by manufacturing more of it.
+ *  - **Refuse.** Costs nothing. This engine is pure and writes no file, so a refusal leaves
+ *    both vaults exactly as they were, on disk, with every record still in them. The user has
+ *    a repair path already: `document-diagnosis.ts` emits `duplicate-record-id` for precisely
+ *    this state, which means the codebase's answer to "what do I do about it" predates this
+ *    guard and is not merging.
+ *
+ * So: refuse, loudly, naming the side and the ids — the same shape as
+ * `assertSameDocumentVersion`, and for the same reason. A merge is the one operation that
+ * reads two meanings of a thing at once and writes a single answer, and doing that when the
+ * thing has two meanings *on one side* is how a vault loses a password.
+ *
+ * Records, folders and tags all need it. Custom fields, security questions and attachments do
+ * not: `assertValidCredential` already refuses a record with duplicate ids in those lists, and
+ * a second copy of that rule here would be the duplicate list hard rule 8 forbids.
+ */
+function assertUniqueIds(
+  base: VaultDocument | null,
+  ours: VaultDocument,
+  theirs: VaultDocument
+): void {
+  // Ours first, then theirs, then the ancestor: the order the user can act on. A duplicate in
+  // our own file is something they can repair now; one in the base snapshot is the least
+  // alarming of the three and should not be the message they see when their own vault is the
+  // one that needs work.
+  assertUniqueSide(ours, 'ours');
+  assertUniqueSide(theirs, 'theirs');
+  if (base !== null) assertUniqueSide(base, 'base');
+}
+
+function assertUniqueSide(document: VaultDocument, side: DocumentSide): void {
+  assertUniqueEntities(document.records, side, 'record');
+  assertUniqueEntities(document.folders, side, 'folder');
+  assertUniqueEntities(document.tags, side, 'tag');
+}
+
+function assertUniqueEntities(
+  entries: readonly { readonly id: string }[],
+  side: DocumentSide,
+  entity: DuplicatedEntity
+): void {
+  const seen = new Set<string>();
+  const repeated = new Set<string>();
+  for (const entry of entries) {
+    if (seen.has(entry.id)) repeated.add(entry.id);
+    seen.add(entry.id);
+  }
+  // Every offending id, sorted: a caller listing them for the user should not have to guess
+  // whether the report was truncated, and a corrupt vault with many duplicates is exactly the
+  // one where a partial list would send someone round the repair loop twice.
+  if (repeated.size > 0) throw new DuplicateIdError(side, entity, [...repeated].sort());
 }
 
 /**

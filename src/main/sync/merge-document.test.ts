@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_VAULT_SETTINGS, VAULT_DOCUMENT_VERSION } from '@shared/model/vault-document.js';
-import { mergeDocuments } from './merge-document.js';
+import { DuplicateIdError, mergeDocuments } from './merge-document.js';
 import {
   DAY,
   MERGE_OPTIONS,
@@ -317,6 +317,118 @@ describe('what the engine refuses to do', () => {
     expect(() => mergeDocuments(older, EMPTY, EMPTY, MERGE_OPTIONS)).toThrow(
       /different document versions/
     );
+  });
+});
+
+/**
+ * Two entries under one id is corruption, and this engine refuses rather than picking a
+ * survivor. The reasoning is on `assertUniqueIds`; what the tests below pin down is that the
+ * refusal happens *before* anything reads the document, because both of the things it prevents
+ * were silent.
+ *
+ * Without the guard, a document holding `a` twice merged to a document holding `a` once — the
+ * `Map` in `indexRecords` keeps the last, so the earlier record and its password were gone with
+ * no note, no conflict and nothing in the report naming it. And `orderIds` was handed
+ * `['a', 'a']` against a surviving set of `{a, b}`, matched it on length, and returned record
+ * `a` twice while dropping `b` — a healthy, unrelated credential that had merged cleanly from
+ * the other side. Neither threw. Both are hard rule 6, in its worst form.
+ */
+describe('duplicate ids are refused, not resolved', () => {
+  /**
+   * The refusal itself, for the tests that assert something *about* it.
+   *
+   * A bare `try`/`catch` around a merge is a trap here: if the guard stops running, the merge
+   * returns normally, `expect.unreachable` throws, and the `catch` swallows it into assertions
+   * that were written for a `DuplicateIdError` and may quietly pass against something else.
+   * Narrowing here means a missing refusal fails every test below rather than some of them.
+   */
+  const refusalFrom = (merge: () => unknown): DuplicateIdError => {
+    let thrown: unknown;
+    try {
+      merge();
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(DuplicateIdError);
+    return thrown as DuplicateIdError;
+  };
+
+  it('refuses when two of our records share an id, rather than keeping the last one', () => {
+    const first = record({ id: 'a', title: 'Gmail', password: 'the one that matters' });
+    const second = record({ id: 'a', title: 'Gmail (dup)', password: 'the other one' });
+    expect(() =>
+      mergeDocuments(null, doc({ records: [first, second] }), EMPTY, MERGE_OPTIONS)
+    ).toThrow(/records sharing an id/);
+  });
+
+  it('refuses rather than dropping an unrelated record the duplicate would displace', () => {
+    const ours = doc({ records: [record({ id: 'a' }), record({ id: 'a' })] });
+    const theirs = doc({ records: [record({ id: 'b', title: 'Bank' })] });
+    expect(() => mergeDocuments(null, ours, theirs, MERGE_OPTIONS)).toThrow(DuplicateIdError);
+  });
+
+  it('refuses a duplicate on their side and on the ancestor too', () => {
+    const dup = doc({ records: [record({ id: 'a' }), record({ id: 'a' })] });
+    expect(() => mergeDocuments(null, EMPTY, dup, MERGE_OPTIONS)).toThrow(DuplicateIdError);
+    expect(() => mergeDocuments(dup, EMPTY, EMPTY, MERGE_OPTIONS)).toThrow(DuplicateIdError);
+  });
+
+  it('refuses duplicate folder and tag ids as well as records', () => {
+    const folders = doc({ folders: [folder('f1', 'Work'), folder('f1', 'Personal')] });
+    const tags = doc({ tags: [paletteTag('t1'), paletteTag('t1', 'other')] });
+    expect(() => mergeDocuments(null, folders, EMPTY, MERGE_OPTIONS)).toThrow(/folders sharing/);
+    expect(() => mergeDocuments(null, tags, EMPTY, MERGE_OPTIONS)).toThrow(/tags sharing/);
+  });
+
+  it('names the side, the list and every offending id, so a caller can say what to repair', () => {
+    const ours = doc({
+      records: [record({ id: 'b' }), record({ id: 'a' }), record({ id: 'b' }), record({ id: 'a' })],
+    });
+    const refusal = refusalFrom(() => mergeDocuments(null, ours, EMPTY, MERGE_OPTIONS));
+    expect(refusal.side).toBe('ours');
+    expect(refusal.entity).toBe('record');
+    expect(refusal.ids).toEqual(['a', 'b']);
+  });
+
+  it('reports our own vault first, because that is the one the user can repair', () => {
+    const dup = doc({ records: [record({ id: 'a' }), record({ id: 'a' })] });
+    expect(refusalFrom(() => mergeDocuments(dup, dup, dup, MERGE_OPTIONS)).side).toBe('ours');
+  });
+
+  it('reports the incoming vault when ours is clean', () => {
+    const dup = doc({ records: [record({ id: 'a' }), record({ id: 'a' })] });
+    expect(refusalFrom(() => mergeDocuments(null, EMPTY, dup, MERGE_OPTIONS)).side).toBe('theirs');
+    expect(refusalFrom(() => mergeDocuments(dup, EMPTY, EMPTY, MERGE_OPTIONS)).side).toBe('base');
+  });
+
+  it('says nothing about a record beyond its id', () => {
+    // The refusal travels to a UI and may reach a log. Ids already cross that boundary as
+    // `MergeNote.targetId`; a title, a username or a password must not.
+    const secret = 'correct horse battery staple';
+    const ours = doc({
+      records: [
+        record({ id: 'a', title: 'Gmail', username: 'me@example.com', password: secret }),
+        record({ id: 'a', title: 'Gmail', username: 'me@example.com', password: secret }),
+      ],
+    });
+    const { message } = refusalFrom(() => mergeDocuments(null, ours, EMPTY, MERGE_OPTIONS));
+    expect(message).toContain('(a)');
+    for (const leak of [secret, 'Gmail', 'me@example.com']) {
+      expect(message).not.toContain(leak);
+    }
+  });
+
+  it('still merges a document whose ids are merely repeated across the two sides', () => {
+    // The guard is per document. The same id on both sides is the ordinary case — it is what
+    // a merge *is* — and a guard that confused the two would refuse every real merge.
+    const shared = record({ id: 'a', title: 'Gmail' });
+    const merged = mergeDocuments(
+      doc({ records: [shared] }),
+      doc({ records: [shared] }),
+      doc({ records: [edited(shared, { title: 'Google' })] }),
+      MERGE_OPTIONS
+    );
+    expect(merged.document.records.map((entry) => entry.id)).toEqual(['a']);
   });
 });
 

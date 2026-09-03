@@ -213,6 +213,18 @@ describe('header inspection', () => {
     expect(headerMatchesAny(['name', 'url', 'extra'], [['name', 'url']])).toBe(false);
   });
 
+  it('compares cardinality set-to-set, not list-length to set-size', () => {
+    // The second instance of a shape that, in the merge engine, silently dropped a healthy
+    // credential: `variant.length === actual.size`. A variant repeating a column has length
+    // 2 and names one column, so it matched a two-column header it does not equal — this
+    // format would then claim a CSV that belongs to another importer.
+    expect(headerMatchesAny(['name', 'url'], [['name', 'name']])).toBe(false);
+    // And the honest version of the same pair still matches.
+    expect(headerMatchesAny(['name'], [['name', 'name']])).toBe(true);
+    // A duplicate on the header side is equally not a second column.
+    expect(headerMatchesAny(['name', 'name'], [['name', 'url']])).toBe(false);
+  });
+
   it('matches a required subset and honours the forbidden list', () => {
     expect(headerContains(['a', 'b', 'c'], ['a', 'b'])).toBe(true);
     expect(headerContains(['a', 'b', 'c'], ['a', 'b'], ['c'])).toBe(false);
