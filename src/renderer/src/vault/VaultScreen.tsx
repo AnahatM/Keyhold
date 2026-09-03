@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { Button } from '../components/Button.js';
-import { AboutView, ContentViewer, type AboutLicence } from '../content/index.js';
+import { AboutView, ChangelogView, ContentViewer, type AboutLicence } from '../content/index.js';
 import { ActivityView } from '../activity/ActivityView.js';
 
 // Both are supplied by `electron.vite.config.ts`'s `define`, so they are compile-time
@@ -365,6 +365,12 @@ function ToolPane({
       return <SettingsScreen hideTitle />;
     case 'help':
       return <ContentViewer hideTitle />;
+    case 'changelog':
+      // `APP_VERSION` again, and here it does one job more than on the About page: it marks
+      // which release in the list is the one running. Matched by exact string equality — no
+      // `v`-stripping, no semver ranges — because a changelog that mis-identifies your build
+      // is worse than one that identifies nothing.
+      return <ChangelogView hideTitle appVersion={APP_VERSION} />;
     case 'about':
       // `APP_VERSION` and `THIRD_PARTY_LICENCES` are both baked in by
       // `electron.vite.config.ts`. Neither goes over IPC: the version because the define

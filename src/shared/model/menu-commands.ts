@@ -48,6 +48,7 @@ export const MENU_COMMAND_IDS = [
   'help.shortcuts',
   'help.security',
   'help.reportIssue',
+  'help.changelog',
   'help.about',
   'window.show',
   'window.hide',

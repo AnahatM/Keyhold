@@ -568,7 +568,12 @@ generated pages — changelog, about, the licence list — are not built._
 
 - [x] Help & FAQ — fully offline, bundled, and reachable: `ContentViewer` is the `help` tool
       view, over the articles in `src/renderer/src/content/articles/`
-- [ ] Changelog view, rendered from `CHANGELOG.md` at build time (never a hand-maintained second copy)
+- [x] Changelog view, rendered from `CHANGELOG.md` at build time (never a hand-maintained
+      second copy) — `content/ChangelogView.tsx` over `changelog.ts`, which parses the
+      Keep-a-Changelog structure and reduces inline markdown to plain text. It also gives the
+      Help ▸ What's New menu item something to open, and marks the release you are running by
+      exact version equality — no `v`-stripping and no semver ranges, because a changelog that
+      mis-identifies your build is worse than one that identifies nothing
 - [x] About — version, credits, links, and an **auto-generated** third-party licence list.
       `content/AboutView.tsx` over `about-facts.ts`; the licence list is baked in at build
       time from the production dependency closure, because `electron-builder.yml` does not

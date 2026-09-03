@@ -356,3 +356,98 @@ export function releaseBlocks(release: ChangelogRelease): readonly ContentBlock[
 
   return blocks;
 }
+
+// ── What the page says around the releases ───────────────────────────────────
+
+/*
+ * The four values below are the whole of `ChangelogView.tsx`'s copy. They live here, beside
+ * the parser, for the reason `about-facts.ts` gives about the About page: a sentence written
+ * inside JSX can only be checked by rendering it, and the claims a changelog page makes —
+ * this is the document's name, this version is released, this is the build you are running —
+ * are exactly the kind that are wrong silently. Kept out here they are ordinary functions
+ * with ordinary tests, and the view is left with nothing to decide.
+ */
+
+/**
+ * The page heading, when the file does not supply one.
+ *
+ * Reached only by a changelog whose `#` line did not parse, which in practice means the
+ * `?raw` import produced nothing — the same failure {@link NO_RELEASES} then explains in the
+ * body. A page with no heading at all is worse than one with a generic heading: the frame
+ * above it already announces "Changelog", so an empty `<h1>` reads as a rendering fault
+ * rather than as the build fault it actually is.
+ */
+export const CHANGELOG_FALLBACK_TITLE = 'Changelog';
+
+/**
+ * What to call the page — the document's own `#` heading, wherever there is one.
+ *
+ * Hard rule 8 one level up from the entries. The file names itself on its first line, so
+ * asking it here rather than typing "Changelog" into the component means renaming the
+ * document renames the page, and there is no second title to fall out of step with the first.
+ */
+export function changelogTitle(changelog: Changelog = CHANGELOG): string {
+  return changelog.title === '' ? CHANGELOG_FALLBACK_TITLE : changelog.title;
+}
+
+/**
+ * The prose above the first release, as blocks.
+ *
+ * Rendered rather than skipped because Keep a Changelog puts something load-bearing there:
+ * this project's preamble is where the file states that the in-app view renders it directly
+ * and that there is deliberately no second copy. A reader who wants to know how much to
+ * trust this page is entitled to that sentence, and it is the file's own words rather than
+ * a paraphrase written here.
+ */
+export function preambleBlocks(changelog: Changelog = CHANGELOG): readonly ContentBlock[] {
+  return changelog.preamble.map((text) => ({ kind: 'paragraph', text }));
+}
+
+/** The release's state on its own, before the running-build note is appended. */
+function releaseState(release: ChangelogRelease): string {
+  if (!release.released) return 'Not released yet.';
+  // A released version with no date is a malformed heading rather than a normal state, so it
+  // says what is missing instead of rendering a blank where every sibling has a date.
+  if (release.date === null) return 'No release date is recorded for this version.';
+  return `Released ${release.date}.`;
+}
+
+/**
+ * The line under a release's heading.
+ *
+ * **Never a bare date, and never empty.** `2026-09-15` printed under a version number is
+ * ambiguous — released then, or edited then? — and the unreleased head has no date at all,
+ * so a view that simply printed `release.date` would render an empty line under the one
+ * section that every pre-release build has. Each of the three states gets a sentence.
+ *
+ * The running build is called out **here** rather than as a callout of its own because it is
+ * a fact about this release, and someone scanning version headings for "which one am I on"
+ * is already reading this line. It appends rather than replaces: when a release was made and
+ * whether you are on it are both worth knowing, and one does not stand in for the other.
+ *
+ * Matching is exact string equality against the version as written in the heading, which is
+ * the only comparison that cannot be wrong. Anything cleverer — stripping a `v`, comparing
+ * semver ranges — would mark a release the user is not running, and a changelog that
+ * mis-identifies the build is worse than one that identifies nothing.
+ */
+export function releaseCaption(release: ChangelogRelease, appVersion?: string): string {
+  const state = releaseState(release);
+  if (appVersion === undefined || appVersion !== release.version) return state;
+  return `${state} This is the build you are running.`;
+}
+
+/**
+ * What the page shows when the file parsed to no releases at all.
+ *
+ * `danger`, on the same reasoning `about-facts.ts` applies to an empty licence list:
+ * `CHANGELOG.md` is part of the source and it is not empty, so a changelog view with nothing
+ * in it is a build that failed to inline the file — not a project that has never changed
+ * anything. Rendering an empty page would report that failure as silence, and silence on
+ * this page reads as "up to date".
+ */
+export const NO_RELEASES: ContentBlock = {
+  kind: 'note',
+  tone: 'danger',
+  label: 'No releases could be read',
+  text: 'This build could not read its own changelog. The file it is generated from is part of Keyhold’s source and is not empty, so an empty page here is a fault in how this copy was built rather than a sign that nothing has changed. Treat this page as missing rather than as current, and check the repository instead.',
+};
