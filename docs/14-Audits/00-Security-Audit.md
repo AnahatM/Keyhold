@@ -285,7 +285,24 @@ already the answer on every path, so failing closed costs nothing.
 
 ### S8 — LOW · No IPC sender validation
 
-**STATUS: OPEN, deliberately not attempted this pass.** The fix belongs in `src/main/ipc/register.ts`, which another agent is actively editing. The finding's own reasoning still holds — `nodeIntegrationInSubFrames` false, `frame-src 'none'`, `webviewTag: false`, and a navigation allow-list mean there is no second frame to defend against — so this remains optional defence in depth rather than a hole.
+**STATUS: FIXED.** The `handle` wrapper now refuses any invocation whose `senderFrame` is not
+the top frame, in one place for all channels, returning `FORBIDDEN_SENDER` and running nothing.
+A null `senderFrame` — the frame is already gone — is refused too: answering a caller that no
+longer exists is at best wasted work against the vault.
+
+The finding's own reasoning about risk still holds: `nodeIntegrationInSubFrames` is false,
+`frame-src 'none'`, `webviewTag: false` and the navigation allow-list mean there is no second
+frame in this app today. It is written anyway because each of those is a separate setting in a
+separate file, any one of which could be relaxed by someone who does not know it was
+load-bearing, and the cost is one comparison per call.
+
+Four tests in `register.test.ts`, driven through a stored listener with a fake event, plus the
+smoke run — which exercises every channel from the real renderer's real top frame, and is what
+establishes the check does not refuse the app itself. Fault-injected: deleting the block fails
+three of the four; weakening `frame.parent === null` fails the subframe test on its own. The
+fourth test was vacuous on its first draft — it asserted only that the sender's URL was absent
+from the result, which a wrapper checking nothing also satisfies — and now asserts the refusal
+as well.
 
 `src/main/ipc/register.ts:97`
 

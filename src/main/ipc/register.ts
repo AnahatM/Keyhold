@@ -266,9 +266,47 @@ function ok<T>(value: T): IpcResult<T> {
   return { ok: true, value };
 }
 
-/** Wraps a handler so validation and errors are handled identically everywhere. */
+/**
+ * Whether an invocation came from the window's own top-level document.
+ *
+ * The Electron security checklist asks for this, and it is defence in depth rather than a
+ * hole being closed: `nodeIntegrationInSubFrames` is false, the CSP sets `frame-src 'none'`,
+ * `webviewTag` is false, and `will-navigate` keeps the top frame on the app's own pages, so
+ * there is no second frame in this app to defend against today. It is written because each of
+ * those is a separate setting in a separate file, any one of which could be relaxed by
+ * someone who does not know it was load-bearing — and because the cost is one comparison per
+ * call. Finding S8.
+ *
+ * A null frame is refused too. `senderFrame` is null once the frame has gone, and answering a
+ * caller that no longer exists is at best wasted work on the vault.
+ *
+ * Typed structurally rather than as `WebFrameMain`: this file is deliberately runnable without
+ * an Electron runtime — the same reason `userDataPath` and `getWindow` are passed in — and a
+ * test needs to be able to hand it a plain object.
+ */
+function fromTopFrame(event: {
+  readonly senderFrame?: { readonly parent: unknown } | null;
+}): boolean {
+  const frame = event.senderFrame;
+  if (frame === null || frame === undefined) return false;
+  return frame.parent === null;
+}
+
+/** Wraps a handler so validation, sender checks and errors are handled identically everywhere. */
 function handle<T>(channel: string, run: (...args: unknown[]) => Promise<T> | T): void {
-  ipcMain.handle(channel, async (_event, ...args: unknown[]): Promise<IpcResult<T>> => {
+  ipcMain.handle(channel, async (event, ...args: unknown[]): Promise<IpcResult<T>> => {
+    if (!fromTopFrame(event)) {
+      // Nothing about the sender is echoed back, and nothing runs. Logged rather than thrown,
+      // because a throw here would serialise a stack into whatever sent it.
+      console.error(`[ipc] ${channel} refused: not the window's top frame`);
+      return {
+        ok: false,
+        code: 'FORBIDDEN_SENDER',
+        message: 'That request did not come from the Keyhold window.',
+        recoverable: false,
+      };
+    }
+
     try {
       return ok(await run(...args));
     } catch (error) {
