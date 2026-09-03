@@ -1,0 +1,5 @@
+Folder,Title,Login,Password,Website Address,Notes,Shared Folder,Custom Field 1 Name,Custom Field 1 Value,Custom Field 2 Name,Custom Field 2 Value
+Personal,Example Mail,ada@example.com,hunter2,https://mail.example.com,"Recovery codes are in the safe, not the drawer",,Account number,4471-9902,TFC:Keeper,otpauth://totp/Example:ada?secret=JBSWY3DPEHPK3PXP&issuer=Example
+Work\Infrastructure,Build Server,deploy,correct-horse-battery-staple,https://build.example.com,,Ops Team,Host fingerprint,SHA256:abcdef0123456789,,
+Finance,Example Bank,ada,tr0ub4dor,https://bank.example.org,Statement day is the third,,Security PIN,4816,,
+,Insurance Portal,ada@example.com,s3cur3-p0licy,https://insure.example.net,,Household,,,,

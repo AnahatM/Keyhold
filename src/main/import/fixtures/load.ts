@@ -35,6 +35,24 @@ export function loadFixture(name: string): string {
   );
 }
 
+/**
+ * A fixture that is not text, as a string the parser contract can carry.
+ *
+ * `latin1` rather than `utf8`, and the difference is the whole reason this exists: UTF-8
+ * decoding replaces every invalid byte sequence with U+FFFD, irreversibly, which turns a
+ * compressed stream into noise. `latin1` maps all 256 byte values to distinct code points,
+ * so an archive survives the round trip byte for byte.
+ *
+ * This is a bridge over a seam in the wrong place — `ImportParser.parse` takes a `string`,
+ * which is right for eleven formats and structurally wrong for `.1pux` and, when it lands,
+ * KDBX. The durable fix is an optional `parseBytes` on the interface. Until then, this.
+ */
+export function loadBinaryFixture(name: string): string {
+  return readFileSync(
+    fileURLToPath(new URL(`../../../../tests/fixtures/import/${name}`, import.meta.url))
+  ).toString('latin1');
+}
+
 /** Prepends a UTF-8 BOM, as a Windows export would have. */
 export function withBom(content: string): string {
   return `\uFEFF${content}`;
@@ -68,6 +86,12 @@ export const FIXTURE_FOR_PARSER: Readonly<Record<string, string>> = {
   'firefox-csv': 'firefox.csv',
   'dashlane-csv': 'dashlane.csv',
   'nordpass-csv': 'nordpass.csv',
+  'onepassword-1pux': 'onepassword.1pux',
+  'proton-pass-json': 'proton-pass.json',
+  'enpass-json': 'enpass.json',
+  'dashlane-json': 'dashlane.json',
+  'keeper-csv': 'keeper.csv',
+  'roboform-csv': 'roboform.csv',
   'keepass-csv': 'keepass.csv',
   'onepassword-csv': 'onepassword.csv',
   'safari-csv': 'safari.csv',

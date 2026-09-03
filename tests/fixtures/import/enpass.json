@@ -1,0 +1,279 @@
+{
+  "folders": [
+    { "icon": "1008", "parent_uuid": "", "title": "Work", "updated_at": 1730000000, "uuid": "folder-work" },
+    {
+      "icon": "1008",
+      "parent_uuid": "folder-work",
+      "title": "Clients",
+      "updated_at": 1730000000,
+      "uuid": "folder-clients"
+    }
+  ],
+  "items": [
+    {
+      "archived": 0,
+      "auto_submit": 1,
+      "category": "login",
+      "createdat": 1730000000,
+      "favorite": 1,
+      "fields": [
+        {
+          "deleted": 0,
+          "label": "Username",
+          "order": 1,
+          "sensitive": 0,
+          "type": "username",
+          "uid": 1,
+          "updated_at": 1730000000,
+          "value": "ada@example.com",
+          "value_updated_at": 1730000000
+        },
+        {
+          "deleted": 0,
+          "label": "Password",
+          "order": 2,
+          "sensitive": 1,
+          "type": "password",
+          "uid": 2,
+          "updated_at": 1730000000,
+          "value": "hunter2",
+          "value_updated_at": 1730000000
+        },
+        {
+          "deleted": 0,
+          "label": "Website",
+          "order": 3,
+          "sensitive": 0,
+          "type": "url",
+          "uid": 3,
+          "updated_at": 1730000000,
+          "value": "https://mail.example.com",
+          "value_updated_at": 1730000000
+        },
+        {
+          "deleted": 0,
+          "label": "Webmail",
+          "order": 4,
+          "sensitive": 0,
+          "type": "url",
+          "uid": 4,
+          "updated_at": 1730000000,
+          "value": "https://webmail.example.com",
+          "value_updated_at": 1730000000
+        },
+        {
+          "deleted": 0,
+          "label": "One-time code",
+          "order": 5,
+          "sensitive": 1,
+          "type": "totp",
+          "uid": 5,
+          "updated_at": 1730000000,
+          "value": "otpauth://totp/Example:ada@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example",
+          "value_updated_at": 1730000000
+        },
+        {
+          "deleted": 0,
+          "label": "More",
+          "order": 6,
+          "sensitive": 0,
+          "type": "section",
+          "uid": 6,
+          "updated_at": 1730000000,
+          "value": "",
+          "value_updated_at": 0
+        },
+        {
+          "deleted": 0,
+          "label": "Nickname",
+          "order": 7,
+          "sensitive": 1,
+          "type": "text",
+          "uid": 7,
+          "updated_at": 1730000000,
+          "value": "The old mailbox",
+          "value_updated_at": 1730000000
+        },
+        {
+          "deleted": 0,
+          "label": "Account number",
+          "order": 8,
+          "sensitive": 0,
+          "type": "numeric",
+          "uid": 8,
+          "updated_at": 1730000000,
+          "value": "44719902",
+          "value_updated_at": 1730000000
+        },
+        {
+          "deleted": 1,
+          "label": "Old password",
+          "order": 9,
+          "sensitive": 1,
+          "type": "password",
+          "uid": 9,
+          "updated_at": 1730000000,
+          "value": "hunter1",
+          "value_updated_at": 1730000000
+        }
+      ],
+      "folders": ["folder-clients"],
+      "icon": { "fav": "mail.example.com", "image": { "file": "misc/login" }, "type": 1, "uuid": "" },
+      "note": "Recovery kit is in the loft, not the cupboard",
+      "subtitle": "ada@example.com",
+      "template_type": "login.default",
+      "title": "Example Mail",
+      "trashed": 0,
+      "updated_at": 1730000000,
+      "uuid": "item-mail"
+    },
+    {
+      "archived": 0,
+      "auto_submit": 1,
+      "category": "note",
+      "createdat": 1730000100,
+      "favorite": 0,
+      "fields": [],
+      "folders": [],
+      "icon": { "fav": "", "image": { "file": "misc/note" }, "type": 1, "uuid": "" },
+      "note": "SSID is Hazelnut on channel 6",
+      "subtitle": "",
+      "template_type": "note.default",
+      "title": "Wifi Passphrase",
+      "trashed": 0,
+      "updated_at": 1730000100,
+      "uuid": "item-note"
+    },
+    {
+      "archived": 0,
+      "auto_submit": 0,
+      "category": "creditcard",
+      "createdat": 1730000200,
+      "favorite": 0,
+      "fields": [
+        {
+          "deleted": 0,
+          "label": "Cardholder",
+          "order": 1,
+          "sensitive": 0,
+          "type": "ccName",
+          "uid": 1,
+          "updated_at": 1730000200,
+          "value": "Ada Lovelace",
+          "value_updated_at": 1730000200
+        },
+        {
+          "deleted": 0,
+          "label": "Number",
+          "order": 2,
+          "sensitive": 0,
+          "type": "ccNumber",
+          "uid": 2,
+          "updated_at": 1730000200,
+          "value": "4111111111111111",
+          "value_updated_at": 1730000200
+        },
+        {
+          "deleted": 0,
+          "label": "CVC",
+          "order": 3,
+          "sensitive": 1,
+          "type": "ccCvc",
+          "uid": 3,
+          "updated_at": 1730000200,
+          "value": "123",
+          "value_updated_at": 1730000200
+        },
+        {
+          "deleted": 0,
+          "label": "Expiry date",
+          "order": 4,
+          "sensitive": 0,
+          "type": "ccExpiry",
+          "uid": 4,
+          "updated_at": 1730000200,
+          "value": "05/2030",
+          "value_updated_at": 1730000200
+        }
+      ],
+      "folders": ["folder-work"],
+      "icon": { "fav": "", "image": { "file": "misc/card" }, "type": 1, "uuid": "" },
+      "note": "",
+      "subtitle": "4111 •••• •••• 1111",
+      "template_type": "creditcard.default",
+      "title": "Example Card",
+      "trashed": 0,
+      "updated_at": 1730000200,
+      "uuid": "item-card"
+    },
+    {
+      "archived": 1,
+      "auto_submit": 1,
+      "category": "login",
+      "createdat": 1730000300,
+      "favorite": 0,
+      "fields": [
+        {
+          "deleted": 0,
+          "label": "Username",
+          "order": 1,
+          "sensitive": 0,
+          "type": "username",
+          "uid": 1,
+          "updated_at": 1730000300,
+          "value": "retired",
+          "value_updated_at": 1730000300
+        },
+        {
+          "deleted": 0,
+          "label": "Password",
+          "order": 2,
+          "sensitive": 1,
+          "type": "password",
+          "uid": 2,
+          "updated_at": 1730000300,
+          "value": "correct-horse-battery-staple",
+          "value_updated_at": 1730000300
+        }
+      ],
+      "folders": [],
+      "icon": { "fav": "", "image": { "file": "misc/login" }, "type": 1, "uuid": "" },
+      "note": "",
+      "subtitle": "retired",
+      "template_type": "login.default",
+      "title": "Archived Router",
+      "trashed": 0,
+      "updated_at": 1730000300,
+      "uuid": "item-archived"
+    },
+    {
+      "archived": 0,
+      "auto_submit": 1,
+      "category": "login",
+      "createdat": 1730000400,
+      "favorite": 0,
+      "fields": [
+        {
+          "deleted": 0,
+          "label": "Password",
+          "order": 1,
+          "sensitive": 1,
+          "type": "password",
+          "uid": 1,
+          "updated_at": 1730000400,
+          "value": "hunter7",
+          "value_updated_at": 1730000400
+        }
+      ],
+      "folders": [],
+      "icon": { "fav": "", "image": { "file": "misc/login" }, "type": 1, "uuid": "" },
+      "note": "",
+      "subtitle": "",
+      "template_type": "login.default",
+      "title": "Deleted Login",
+      "trashed": 1,
+      "updated_at": 1730000400,
+      "uuid": "item-trashed"
+    }
+  ]
+}

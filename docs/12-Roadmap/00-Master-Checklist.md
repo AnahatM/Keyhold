@@ -360,8 +360,16 @@ and the activity-log entry. Full notes: `docs/09-Import-Export/00-Import-Formats
 - [x] Mount `ImportWizard` — `menu-bridge.ts` routes `vault.import`, the palette offers the
       row, and `smoke.ts` asserts it is there. The line's stated reason went stale before the
       line did
-- [ ] KDBX 3/4, KeePass XML, 1PUX, Proton Pass, Enpass, Keeper, RoboForm, Dashlane JSON, and
-      Keyhold's own `.keep`/`.keepx`
+- [x] 1PUX, Proton Pass, Enpass, Keeper, RoboForm, Dashlane JSON — six formats, and a
+      read-only ZIP reader on `node:zlib` so `.1pux` needed no dependency. Registering them
+      exposed a live bug: `bitwarden-json`'s `detect` was `"items"` AND (`"encrypted"` OR
+      `"folders"`), which Enpass and Proton Pass both satisfy — an Enpass export was being
+      auto-detected as Bitwarden and imported as untitled records whose every field was
+      called "Field". Now narrowed to a Bitwarden-only key
+- [ ] KDBX 3/4 — **blocked on `kdbxweb`, which is not installed** (MANUAL-BACKLOG M-KDBX)
+- [ ] KeePass XML — needs an XML parser, which is a dependency decision. KeePass **CSV** is
+      already supported and is the path most KeePass users take
+- [ ] Keyhold's own `.keep`/`.keepx` as an import source
 - [x] **Tests** across the parsers, the service and the wizard, and six fault injections, two of
       which found real holes
 - [x] `docs/09-Import-Export/00-Import-Formats.md` and `02-Import-Service.md` written

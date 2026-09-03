@@ -69,7 +69,28 @@ export const bitwardenJsonParser: ImportParser = {
     // A Windows-written JSON export can carry a BOM, and `JSON.parse` rejects one outright.
     const head = stripBom(content).slice(0, 4096).trimStart();
     if (!head.startsWith('{')) return false;
-    return head.includes('"items"') && (head.includes('"encrypted"') || head.includes('"folders"'));
+    if (!head.includes('"items"')) return false;
+
+    // `"items"` plus `"encrypted"` or `"folders"` was not enough, and the cost was not
+    // theoretical. Enpass pairs a top-level `items` with a top-level `folders`; Proton Pass
+    // pairs it with a top-level `encrypted`. This claimed both. An Enpass export read as
+    // Bitwarden produced four untitled records whose every field was called "Field", and a
+    // Proton export produced a silent zero-record import — the "plausible-looking, wrong
+    // records" failure `index.test.ts`'s own header warns about, happening in the shipped app.
+    //
+    // So a Bitwarden-only key has to be present too. `folderId` and `collectionIds` are on
+    // every Bitwarden item and on nothing else; `passwordProtected` marks the encrypted
+    // variant, which this parser must still claim in order to refuse it by name.
+    //
+    // The one behaviour lost: a Bitwarden export containing zero items no longer
+    // auto-detects. Detection is documented as a suggestion rather than a decision, the user
+    // can still pick the format by hand, and an empty export has nothing to import — a cheap
+    // trade for closing a wrong-import that silently produces junk records.
+    return (
+      head.includes('"folderId"') ||
+      head.includes('"collectionIds"') ||
+      head.includes('"passwordProtected"')
+    );
   },
 
   parse(content: string): ImportResult {

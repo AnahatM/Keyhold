@@ -9,6 +9,7 @@ import {
   inferColumnMapping,
   readCsvColumns,
   stripBom,
+  looksLikeZip,
 } from '../import/index.js';
 import { fileTooLarge } from './errors.js';
 
@@ -84,6 +85,18 @@ export interface HeldSource {
  * and this must work on every one.
  */
 export function decodeSourceText(bytes: Uint8Array): string {
+  // A ZIP archive — a `.1pux` — is binary, and UTF-8 decoding destroys it: every invalid byte
+  // sequence collapses to U+FFFD and cannot be undone, so a compressed stream arrives as
+  // noise and the parser can only report that the file is damaged. `latin1` is the one
+  // encoding mapping all 256 byte values to distinct code points, so the archive survives the
+  // string contract byte for byte.
+  //
+  // This is a bridge over a seam in the wrong place. `ImportParser.parse` takes a `string`,
+  // which is right for the eleven text formats and structurally wrong for this one — and the
+  // same wall is waiting for KDBX. The durable fix is an optional `parseBytes` on the parser
+  // interface with the string form as an adapter.
+  if (looksLikeZip(bytes)) return Buffer.from(bytes).toString('latin1');
+
   const [first, second] = [bytes[0], bytes[1]];
 
   if (first === 0xff && second === 0xfe) {
