@@ -43,7 +43,7 @@ export function createElectronImportFilePicker(
         .sort();
 
       const options: OpenDialogOptions = {
-        title: 'Choose a file to import',
+        title: 'Import passwords from a file',
         filters: [
           { name: 'Password exports', extensions },
           { name: 'All files', extensions: ['*'] },

@@ -422,7 +422,7 @@ export interface FolderPathsResult {
 }
 
 /**
- * `findOrCreateFolderPath` over a whole import's folder list, in one pass.
+ * `findOrCreateFolderPath` over every folder path one import brings, in a single pass.
  *
  * Paths are sorted before creation so the resulting sibling order is the source's
  * alphabetical order rather than row order — two imports of the same data then produce the
