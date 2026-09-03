@@ -319,9 +319,16 @@ export function inspectVaultFile(bytes: Uint8Array): VaultFileInspection {
   try {
     parsed = parseHeader(headerBytes);
   } catch (error) {
-    // The message is safe to repeat: `parseHeader` quotes its own field-name literals and,
-    // in two cases, an algorithm identifier read from a header that is plaintext by design.
-    // See `sanitiseDetail` for the full reasoning.
+    // The message is safe to repeat because `parseHeader` composes it: every message it throws
+    // is built from literals in that file plus values that are safe by construction — its own
+    // field-name literals, a character count, and an algorithm name taken from its own
+    // allow-list. It used to interpolate the `alg` and `cipher` strings straight out of the
+    // header, with `sanitiseDetail`'s 200-character cap as the only thing behind them; see the
+    // header of `../format/header.ts` for why a cap is not a defence.
+    //
+    // `sanitiseDetail` still runs, and still is not a redactor. It collapses whitespace and
+    // bounds the length so one pathological file cannot turn a finding into a page of text.
+    // Nothing here relies on it for safety.
     issues.push(
       issueFor('header-unreadable', error instanceof Error ? sanitiseDetail(error.message) : null)
     );
