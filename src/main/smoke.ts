@@ -648,6 +648,32 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         emit(`SMOKE-CHECK palette-closes-on-escape ${String(paletteClosed === true)}`);
+
+        // The palette lists the tool views, and the rows are generated from the same table
+        // the sidebar reads. Checked through the real palette rather than against the
+        // registry, because the registry having an entry and the palette rendering a row
+        // are two different claims — and the second is the one a user experiences.
+        await window.webContents.executeJavaScript(
+          `document.dispatchEvent(
+             new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+        const toolRows: unknown = await window.webContents.executeJavaScript(
+          `(() => {
+            const text = document.querySelector('.kh-palette__list')?.textContent ?? '';
+            return ['Generate a password', 'Vault health', 'Settings', 'Help']
+              .every((title) => text.includes(title));
+          })()`,
+          true
+        );
+        emit(`SMOKE-CHECK palette-lists-every-tool-view ${String(toolRows === true)}`);
+        await window.webContents.executeJavaScript(
+          `(document.activeElement ?? document.body).dispatchEvent(
+             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 250));
         await new Promise<void>((resolve) => setTimeout(resolve, 200));
         await window.webContents.executeJavaScript(
           `(() => {
