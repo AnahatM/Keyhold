@@ -258,9 +258,11 @@ and the query-bar UI are not. Full notes: `docs/05-Features/03-Search-Sort-Filte
       `TagFilterList.tsx`, the drag handlers in the sidebar, and Favourites as a smart view in
       `smart-views.ts` rather than a second code path (its count comes from the same place
       every other count does)
-- [ ] Query-bar UI: prefix autocomplete from `QUERY_FIELDS`, the diagnostics line, saved searches
-      — the parser and `QUERY_FIELDS` are done and unit-tested; no `.tsx` imports either, so
-      none of the three is built
+- [x] Query-bar UI: prefix autocomplete from `QUERY_FIELDS` and the diagnostics line —
+      `QueryHelp`. The parser has produced user-facing diagnostics all along and nothing showed
+      them, so a typo looked like an empty vault rather than a misread query
+- [ ] Saved searches — the remaining third of that line. Needs somewhere to persist them, which
+      is a decision (vault settings travel with the file; machine preferences do not)
 - [x] A user-facing sort control — `SortControl`, a key picker plus a direction toggle rather
       than one menu of every combination. The engine and `visibleCredentials`' `SortOptions`
       parameter had both existed the whole time with nothing passing one

@@ -4,6 +4,7 @@ import type { CredentialProjection } from '@shared/model/credential.js';
 import { Badge, EmptyState } from '../components/Feedback.js';
 import { Button } from '../components/Button.js';
 import { Input } from '../components/Input.js';
+import { QueryHelp } from './QueryHelp.js';
 import { SortControl } from './SortControl.js';
 import { useCredentials, visibleCredentials } from './credential-store.js';
 import { useSession } from './session-store.js';
@@ -26,6 +27,7 @@ import { useSession } from './session-store.js';
 const OVERSCAN = 6;
 
 export function CredentialList(): React.JSX.Element {
+  const [searchFocused, setSearchFocused] = useState(false);
   const { credentials } = useSession();
   const {
     selectedId,
@@ -82,6 +84,12 @@ export function CredentialList(): React.JSX.Element {
           onChange={(event) => {
             void setQuery(event.target.value);
           }}
+          onFocus={() => {
+            setSearchFocused(true);
+          }}
+          onBlur={() => {
+            setSearchFocused(false);
+          }}
         />
         <label className="kh-list__toggle">
           <input
@@ -100,6 +108,18 @@ export function CredentialList(): React.JSX.Element {
         decisions: what you are looking for, then how to arrange what came back. It also puts
         the relevance option next to the query that makes it mean anything.
       */}
+      {/*
+        Under the box it explains, and above the sort control, so the reading order is: what
+        you typed, what the app made of it, then how to arrange the answer.
+      */}
+      <QueryHelp
+        query={query}
+        focused={searchFocused}
+        onChange={(next) => {
+          void setQuery(next);
+        }}
+      />
+
       <SortControl hasQuery={query.trim() !== ''} />
 
       {/*
