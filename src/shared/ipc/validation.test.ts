@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   IpcValidationError,
-  MAX_STRING_BYTES,
+  MAX_STRING_UNITS,
   requireBoolean,
   requireId,
   requireListOptions,
@@ -25,6 +25,9 @@ import {
 
 const CHANNEL = 'kh:test:channel';
 
+/** One astral-plane character: two UTF-16 code units, four bytes of UTF-8. */
+const ASTRAL = '\u{1F600}';
+
 describe('strings', () => {
   it('accepts a string', () => {
     expect(requireString(CHANNEL, 'hello', 'x')).toBe('hello');
@@ -37,12 +40,22 @@ describe('strings', () => {
   });
 
   it('caps length — one huge string is a trivial OOM from a compromised renderer', () => {
-    const huge = 'a'.repeat(MAX_STRING_BYTES + 1);
-    expect(() => requireString(CHANNEL, huge, 'x')).toThrow(/exceeds/);
+    const huge = 'a'.repeat(MAX_STRING_UNITS + 1);
+    expect(() => requireString(CHANNEL, huge, 'x')).toThrow(/longer than/);
+  });
+
+  it('counts UTF-16 code units, which is what the name now says', () => {
+    // An astral-plane character is two code units, so half as many of them reach the cap.
+    // Asserted because the constant was called MAX_STRING_BYTES while measuring this, and a
+    // reader budgeting memory from the old name was out by up to 4x — finding S11.
+    const astral = ASTRAL.repeat(MAX_STRING_UNITS / 2);
+    expect(astral.length).toBe(MAX_STRING_UNITS);
+    expect(() => requireString(CHANNEL, astral, 'x')).not.toThrow();
+    expect(() => requireString(CHANNEL, `${astral}a`, 'x')).toThrow(/longer than/);
   });
 
   it('allows a string right at the cap', () => {
-    expect(() => requireString(CHANNEL, 'a'.repeat(MAX_STRING_BYTES), 'x')).not.toThrow();
+    expect(() => requireString(CHANNEL, 'a'.repeat(MAX_STRING_UNITS), 'x')).not.toThrow();
   });
 
   it('rejects an empty or whitespace-only value where one is required', () => {

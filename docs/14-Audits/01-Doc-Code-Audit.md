@@ -428,7 +428,7 @@ it that way. The config is correctly listed as the first item of Phase 18
 
 ### F15 — LOW · `CLAUDE.md` says typecheck covers three tsconfigs
 
-**STATUS: OPEN, deliberately.** Still true — `npm run typecheck` runs two passes, over `tsconfig.node.json` and `tsconfig.web.json`. `CLAUDE.md` was not edited by this pass on policy grounds; line 45 should read "across both tsconfigs", matching `00-Setup-And-Scripts.md`, which is already correct.
+**STATUS: FIXED.** `CLAUDE.md` now reads "across both tsconfigs (node + web)", matching `00-Setup-And-Scripts.md` and what `package.json` actually runs. There are four `tsconfig*.json` files, but `tsconfig.json` and `tsconfig.base.json` are a solution file and a shared base — neither is a `tsc -p` target, which is where "three" came from.
 
 `CLAUDE.md:45` against `package.json:46-48` and
 `docs/11-Development/00-Setup-And-Scripts.md:26`
