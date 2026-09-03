@@ -53,9 +53,33 @@ const WINDOWS_PREFIX = /^[a-z]:/i;
  * something else to the filesystem, and a newline breaks any header the name is written
  * into. They are replaced rather than dropped, so two names that differed only by a control
  * character do not silently become the same name.
+ *
+ * The bidi and format controls go with them — N25(b). `U+202E` (right-to-left override)
+ * and its relatives are legal on every filesystem, but they reverse how the rest of the
+ * name *renders*: `invoice<RLO>fdp.exe` reads as `invoiceexe.pdf` in the attachment list
+ * and in the save dialog, and `looksDisguised` cannot see it because there is only one
+ * real extension. Replacing rather than deleting keeps both properties the class already
+ * has — two different names do not converge, and a second pass changes nothing.
  */
-// eslint-disable-next-line no-control-regex -- the control range is exactly what is being removed
-const ILLEGAL_CHARACTERS = /[\u0000-\u001f\u007f<>:"/\\|?*]/g;
+const ILLEGAL_CHARACTERS =
+  // Written as escapes rather than as the characters themselves: half of them are
+  // invisible and one of them reverses the direction of everything after it, so a source
+  // file carrying them literally is a source file nobody can read correctly.
+  // eslint-disable-next-line no-control-regex -- the control range is exactly what is removed
+  /[\u0000-\u001f\u007f<>:"/\\|?*\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g;
+
+/**
+ * Windows drops trailing dots and spaces when it creates a file, so `report.pdf.` and
+ * `report.pdf ` both land on disk as `report.pdf`. Applying the same rule here means two
+ * attachments that look different in the list cannot collide into one file on save.
+ *
+ * A function rather than an inline replace because it has to run **twice** — N25(a):
+ * truncation can cut immediately after a `.` or a space and put back exactly what the
+ * first pass removed, which broke that collision property and idempotency with it.
+ */
+function dropWindowsTrailing(name: string): string {
+  return name.trim().replace(/[. ]+$/, '');
+}
 
 /**
  * MS-DOS device names, still reserved by the Win32 API today.
@@ -238,11 +262,7 @@ export function sanitiseAttachmentName(raw: string): string {
   let name = raw.replace(PATH_SEPARATORS, '').replace(WINDOWS_PREFIX, '');
 
   name = name.replace(ILLEGAL_CHARACTERS, '_');
-
-  // Windows silently drops trailing dots and spaces when creating a file, so `report.pdf.`
-  // and `report.pdf ` both become `report.pdf` on disk. Doing it here means two attachments
-  // that look different in the list cannot collide into one file on save.
-  name = name.trim().replace(/[. ]+$/, '');
+  name = dropWindowsTrailing(name);
 
   // What is left of `.` or `..` after the trailing-dot strip is nothing, but a name that was
   // *only* dots is worth naming explicitly rather than falling through the empty check.
@@ -251,7 +271,10 @@ export function sanitiseAttachmentName(raw: string): string {
   const stem = (name.split('.')[0] ?? '').toLowerCase();
   if (RESERVED_NAMES.has(stem)) name = `_${name}`;
 
-  return truncate(name);
+  // Applied to the truncated *result* as well as to the input, because the cut can land
+  // immediately after a `.` or a space — see `dropWindowsTrailing`, N25(a).
+  const shortened = dropWindowsTrailing(truncate(name));
+  return shortened === '' || /^\.+$/.test(shortened) ? FALLBACK_ATTACHMENT_NAME : shortened;
 }
 
 /** The sanitised name plus the two facts a save dialog needs to warn about. */

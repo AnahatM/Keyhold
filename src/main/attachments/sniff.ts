@@ -26,8 +26,9 @@ import {
  * decompress, execute, or validate the file in any way, and it must never start: a format
  * parser is a memory-safety liability, and the whole point of an offline vault is that
  * putting a file in it does not run anything. A file whose first bytes we do not recognise
- * is `application/octet-stream` and gets no preview — which is the safe answer, not a
- * limitation to fix.
+ * gets no preview — which is the safe answer, not a limitation to fix — and if it claimed a
+ * format that has a signature, it is stored as `application/octet-stream` rather than as the
+ * claim. The one thing a claim alone can still buy is `SIGNATURE_FREE_PREVIEWS`.
  *
  * ## Why these formats
  *
@@ -149,6 +150,24 @@ const FORMATS: readonly FormatEntry[] = [
 ];
 
 /**
+ * The types that are previewable **and have no signature to check**, so a claim is the only
+ * evidence there will ever be.
+ *
+ * This is the whole of what a claim may buy when the bytes matched nothing. Both entries are
+ * rendered as *text*, which is inserted as text and executes nothing — so believing the
+ * claim widens nothing an attacker can use. Everything script-bearing (`text/html`,
+ * `image/svg+xml`) is deliberately absent here for the same reason it is absent from
+ * `FORMATS`.
+ *
+ * One list, read by both the unknown branch of `checkMimeClaim` and `previewKindForMime`,
+ * so the two can never disagree about what a signature-free type renders as.
+ */
+const SIGNATURE_FREE_PREVIEWS: ReadonlyMap<string, AttachmentPreviewKind> = new Map([
+  ['text/plain', 'text'],
+  ['text/csv', 'text'],
+]);
+
+/**
  * How many leading bytes detection needs. The furthest test is WebP's marker at offset 8.
  * Nothing reads past this, so a caller may sniff from a header slice rather than a whole
  * file — which is what makes it safe to sniff before deciding whether to load a 20 MB file.
@@ -200,6 +219,19 @@ export function normaliseMimeClaim(claimed: string): string {
 }
 
 /**
+ * The registry entry a claimed type names, counting alternative spellings. `null` if none.
+ *
+ * The one place the "is `image/jpg` the same claim as `image/jpeg`" question is answered, so
+ * confirming a claim and detecting a lie cannot come to different conclusions about it.
+ */
+function formatForMime(mime: string): FormatEntry | null {
+  for (const entry of FORMATS) {
+    if (entry.mime === mime || entry.aliases.includes(mime)) return entry;
+  }
+  return null;
+}
+
+/**
  * Compares what the caller claimed against what the bytes are.
  *
  * The result's `stored` field is what goes into `AttachmentMeta.mime`, and it is the
@@ -210,24 +242,40 @@ export function checkMimeClaim(claimed: string, bytes: Uint8Array): AttachmentMi
   const sniffed = sniffFormat(bytes);
 
   if (sniffed === null) {
-    // Nothing recognised, so the claim is all there is and it is kept. The kind comes from
-    // the same table detection uses, which means the only claim that still buys a preview
-    // is plain text — and rendering arbitrary bytes as *text* is the safe fallback, because
-    // text is inserted as text and executes nothing. Every claim that would pick a parser
-    // (`application/pdf`, `image/png`) is unreachable here: those have signatures, so a file
-    // claiming one without matching it is a `mismatch`, not an `unknown`.
+    /*
+     * Nothing recognised. **N8**: the comment that used to sit here said a parser-selecting
+     * claim could not reach this branch, and it was wrong — `mismatch` needs the bytes to
+     * match some *other* known format, so bytes matching nothing land here carrying whatever
+     * the caller claimed. Routing that claim back through the registry handed a file that
+     * failed every signature test to the PDF or image viewer on the strength of its name.
+     *
+     * So the registry no longer decides the preview kind here; it is consulted only to spot
+     * the lie. A claim naming a format that *has* a signature, when none matched, is a lie
+     * rather than an unknown — it is dropped
+     * for `UNKNOWN_MIME`, which also stops a later reader of `AttachmentMeta.mime` from
+     * resurrecting the parser through `previewKindForMime`. (A real PDF behind a 100-byte
+     * prefix lands here too: detection reads `SNIFF_BYTES` where pdf.js scans 1024. Storing
+     * "unrecognised" for it is the correct, conservative answer.)
+     *
+     * Everything else keeps its claim, and only `SIGNATURE_FREE_PREVIEWS` — text — buys a
+     * preview from a claim alone.
+     */
+    const lying = formatForMime(normalised) !== null;
+    const stored = lying ? UNKNOWN_MIME : normalised;
     return {
       claimed: normalised,
       detected: null,
       status: 'unknown',
-      stored: normalised,
-      kind: previewKindForMime(normalised),
+      stored,
+      kind: SIGNATURE_FREE_PREVIEWS.get(stored) ?? 'other',
     };
   }
 
-  const entry = FORMATS.find((format) => format.mime === sniffed.mime);
-  const accepted = entry === undefined ? [sniffed.mime] : [entry.mime, ...entry.aliases];
-  const confirmed = accepted.includes(normalised);
+  // `sniffed.mime` came out of the registry, so this lookup always finds an entry; comparing
+  // the two lookups by identity is what makes an alias of the detected format a confirmation
+  // and an alias of any *other* format a mismatch.
+  const entry = formatForMime(sniffed.mime);
+  const confirmed = entry !== null && formatForMime(normalised) === entry;
 
   return {
     claimed: normalised,
@@ -250,8 +298,9 @@ export function previewKindForMime(mime: string): AttachmentPreviewKind {
   for (const entry of FORMATS) {
     if (entry.mime === normalised) return entry.kind;
   }
-  // Plain text is previewable and has no signature, so it is recognised by type alone.
-  // Nothing else is: `text/html` and `image/svg+xml` carry script and are deliberately absent.
-  if (normalised === 'text/plain' || normalised === 'text/csv') return 'text';
-  return 'other';
+  // Canonical spellings only — deliberately not `formatForMime`. A stored type is either the
+  // canonical one detection produced or a claim no signature-bearing format owns (see N8 in
+  // `checkMimeClaim`), so an alias can never be stored, and refusing to widen on one keeps
+  // this the narrower of the two lookups.
+  return SIGNATURE_FREE_PREVIEWS.get(normalised) ?? 'other';
 }

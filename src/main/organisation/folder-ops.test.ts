@@ -8,6 +8,7 @@ import {
 } from '@shared/model/vault-document.js';
 import { OrganisationError } from './errors.js';
 import {
+  MAX_FOLDERS,
   MAX_FOLDER_DEPTH,
   MAX_FOLDER_NAME_LENGTH,
   createFolder,
@@ -350,21 +351,84 @@ describe('deleting a folder', () => {
     expect(deleteFolder(document, id('A'), 'unfile').records).toHaveLength(4);
   });
 
+  /**
+   * The same tree with `A` made its own parent — N20.
+   *
+   * `moveFolder` refuses to create this and `createFolder` cannot, so it takes a merge, a
+   * partial restore or a hand-edited export. The healthy fixture above cannot see the defect
+   * it guards against, which is why the property below runs over both.
+   */
+  const selfParented = (): { document: VaultDocument; id: (name: string) => string } => {
+    const built = withRecords();
+    return {
+      id: built.id,
+      document: {
+        ...built.document,
+        folders: built.document.folders.map((folder) =>
+          folder.id === built.id('A') ? { ...folder, parentId: built.id('A') } : folder
+        ),
+      },
+    };
+  };
+
   it('leaves no record pointing at a folder that is gone', () => {
-    const { document, id } = withRecords();
-    for (const policy of ['reparent', 'unfile'] as const) {
-      const after = deleteFolder(document, id('A'), policy);
-      const live = new Set(after.folders.map((folder) => folder.id));
-      for (const record of after.records) {
-        expect(record.folderId === null || live.has(record.folderId)).toBe(true);
+    for (const build of [withRecords, selfParented]) {
+      const { document, id } = build();
+      for (const policy of ['reparent', 'unfile'] as const) {
+        const after = deleteFolder(document, id('A'), policy);
+        const live = new Set(after.folders.map((folder) => folder.id));
+        for (const record of after.records) {
+          expect(record.folderId === null || live.has(record.folderId)).toBe(true);
+        }
+        // The same rule one level up: no *folder* may point at the folder that just went.
+        for (const folder of after.folders) {
+          expect(folder.parentId === null || live.has(folder.parentId)).toBe(true);
+        }
       }
     }
+  });
+
+  it('reparent: a self-parented folder’s survivors rise to the root, not to its own id', () => {
+    const { document, id } = selfParented();
+    const after = deleteFolder(document, id('A'), 'reparent');
+
+    expect(after.folders.find((folder) => folder.id === id('B'))?.parentId).toBeNull();
+    expect(after.records.find((record) => record.title === 'in-A')?.folderId).toBeNull();
   });
 
   it('refuses an unknown folder', () => {
     expect(() => deleteFolder(emptyVaultDocument(), 'nope', 'unfile')).toThrow(
       expect.objectContaining({ code: 'NO_SUCH_FOLDER' })
     );
+  });
+});
+
+describe('the folder-count cap', () => {
+  it('refuses the folder past MAX_FOLDERS, and admits the one before it', () => {
+    // N33: `MAX_FOLDERS`, `tooManyFolders` and `TOO_MANY_FOLDERS` appeared only in source —
+    // every neighbouring limit had a test and this one did not. It is also the cap N19 is
+    // about, so it is worth knowing it fires exactly where it says it does.
+    const folders: Folder[] = Array.from({ length: MAX_FOLDERS - 1 }, (_value, index) => ({
+      id: `pre-${index}`,
+      name: `F${index}`,
+      parentId: null,
+      order: index,
+    }));
+    const nearlyFull: VaultDocument = { ...emptyVaultDocument(), folders };
+
+    const full = createFolder(nearlyFull, { name: 'The last one' }, context()).document;
+    expect(full.folders).toHaveLength(MAX_FOLDERS);
+
+    expect(() => createFolder(full, { name: 'One too many' }, context())).toThrow(
+      expect.objectContaining({ code: 'TOO_MANY_FOLDERS' })
+    );
+    // The limit travels in the error, so the UI does not restate the number.
+    try {
+      createFolder(full, { name: 'One too many' }, context());
+    } catch (error) {
+      expect(error).toBeInstanceOf(OrganisationError);
+      expect((error as OrganisationError).message).toContain(String(MAX_FOLDERS));
+    }
   });
 });
 

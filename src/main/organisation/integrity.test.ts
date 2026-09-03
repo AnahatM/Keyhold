@@ -96,6 +96,20 @@ describe('each check fires on its own defect', () => {
     expect(issues[0]?.folderIds).toEqual(['a', 'b', 'c', 'd']);
   });
 
+  it('folder-cycle: names the loop, not the folders that merely point into it', () => {
+    // N19's neighbour. The walk's `seen` set held the whole path, so `f0` — healthy, and
+    // simply parented under a folder that happens to be in a loop — was counted as a member
+    // and the same loop was reported twice, once per distinct path into it.
+    const document: VaultDocument = {
+      ...emptyVaultDocument(),
+      folders: [folder('f0', 'Tail', 'f1'), folder('f1', 'One', 'f2'), folder('f2', 'Two', 'f1')],
+    };
+    const issues = checkOrganisation(document);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.folderIds).toEqual(['f1', 'f2']);
+    expect(issues[0]?.message).toContain('2 folders');
+  });
+
   it('does not hang on a cycle', () => {
     // A malformed vault must render badly, never hang with the UI thread inside the walk.
     const folders: Folder[] = [];
@@ -193,6 +207,56 @@ describe('reporting, not repairing', () => {
       tags: [tag('t1', 'Work'), tag('t2', 'work')],
     };
     expect(checkOrganisation(document)).toEqual(checkOrganisation(document));
+  });
+});
+
+describe('cost — N19', () => {
+  /**
+   * This is the path that made N19 matter: `document-diagnosis.ts` calls `checkOrganisation`
+   * synchronously, with no worker under it, against the file you already suspect. Nothing
+   * enforces `MAX_FOLDERS` on a merged, restored or hand-edited document — only `createFolder`
+   * does — so the input is not bounded by it.
+   *
+   * **Two fixtures, because there were two independent quadratic terms and one shape does not
+   * fail for both.** A wide tree has few distinct parents, so it exercises the per-folder
+   * ancestor walk and barely touches the duplicate-name grouping; a chain has one parent per
+   * folder and exercises both. Each was fault-injected separately against the exact old code.
+   */
+  const BUDGET_MS = 250;
+
+  function timed(folders: readonly Folder[]): number {
+    const document: VaultDocument = { ...emptyVaultDocument(), folders };
+    const started = performance.now();
+    expect(checkOrganisation(document)).toEqual([]);
+    return performance.now() - started;
+  }
+
+  it('sweeps twice MAX_FOLDERS of a wide tree', () => {
+    // Measured on the old code at 2,000 folders — the supported maximum — 196 ms, growing
+    // fourfold per doubling.
+    const folders: Folder[] = [];
+    for (let index = 0; index < 4_000; index += 1) {
+      folders.push(
+        folder(`w${index}`, `W${index}`, index < 20 ? null : `w${Math.floor(index / 20) - 1}`)
+      );
+    }
+    expect(timed(folders)).toBeLessThan(BUDGET_MS);
+  });
+
+  it('sweeps a 15,000-deep chain, where every folder is its own parent group', () => {
+    // Every folder is the only child of the one above it, so this is the shape that makes
+    // the duplicate-name grouping quadratic as well as the ancestor walk — a wide tree has
+    // few distinct parents and barely feels that term. Fault-injected at 10,000: 12 ms as
+    // written, 448 ms with the per-parent filter and sort restored, 14.3 *seconds* with the
+    // per-folder ancestor walk restored. Sized half again beyond that so the margin holds on
+    // a loaded runner in both directions. Not a shape `createFolder` can build —
+    // `MAX_FOLDER_DEPTH` is 16 — but a merge or a hand-edited export can, and this is the
+    // file diagnosis is pointed at.
+    const folders: Folder[] = [];
+    for (let index = 0; index < 15_000; index += 1) {
+      folders.push(folder(`f${index}`, `F${index}`, index === 0 ? null : `f${index - 1}`));
+    }
+    expect(timed(folders)).toBeLessThan(BUDGET_MS);
   });
 });
 

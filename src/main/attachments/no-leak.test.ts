@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
+import { ATTACHMENT_ISSUE_CODES } from '@shared/model/attachment.js';
 import { assertAttachmentIntegrity, auditAttachments } from './audit.js';
 import { sha256Hex } from './digest.js';
 import { AttachmentError } from './errors.js';
@@ -38,6 +39,7 @@ const HOSTILE_DIGEST = sha256Hex(HOSTILE_BYTES);
 
 const ID_A = 'a'.repeat(32);
 const ID_B = 'b'.repeat(32);
+const ID_C = 'c'.repeat(32);
 
 /** Every string that must not appear anywhere in an error message or a report. */
 const FORBIDDEN = [
@@ -177,13 +179,43 @@ describe('error messages', () => {
 });
 
 describe('the audit report', () => {
-  it('carries ids and numbers, never a name or a digest', () => {
-    const meta = metaFor(HOSTILE_BYTES, { id: ID_A, name: HOSTILE_NAME });
-    const document = documentOf(recordOf('r1', [meta, { ...meta, name: HOSTILE_NAME }]));
-    const audit = auditAttachments(document, [ID_B], new Map([[ID_B, 7]]));
+  /**
+   * A document and a container arranged to produce **every** `AttachmentIssueCode` at once.
+   *
+   * N28: the earlier fixture pointed both metas at `ID_A` while `chunkSizes` mapped only
+   * `ID_B`, so the missing-chunk branch `continue`d before the size check and `size-mismatch`
+   * was never emitted — while the comment above it claimed the whole surface was covered.
+   * Each meta below therefore has one job:
+   *
+   *  - `ID_A` is present, twice on one record and with a size the container disagrees with →
+   *    `duplicate-id` and `size-mismatch`;
+   *  - `ID_B` is claimed by a record and absent from the container → `missing-chunk`;
+   *  - `ID_C` is in the container and claimed by nobody → `unreferenced-chunk`.
+   */
+  function poisonedAudit(): ReturnType<typeof auditAttachments> {
+    const present = metaFor(HOSTILE_BYTES, { id: ID_A, name: HOSTILE_NAME });
+    const absent = metaFor(HOSTILE_BYTES, { id: ID_B, name: HOSTILE_NAME });
+    const document = documentOf(recordOf('r1', [present, { ...present }, absent]));
+    return auditAttachments(
+      document,
+      [ID_A, ID_C],
+      new Map([
+        // Deliberately not `present.size`, so the metadata and the bytes disagree.
+        [ID_A, present.size + 9],
+        [ID_C, 7],
+      ])
+    );
+  }
 
-    // Every code this module can produce is present in this one report, so the assertion
-    // covers the whole surface rather than one branch of it.
+  it('produces every declared issue code, so the sweep below covers the whole surface', () => {
+    // The registry and the fixture stay in step: a code added to `ATTACHMENT_ISSUE_CODES`
+    // that this fixture cannot produce fails here rather than silently going unswept.
+    const produced = new Set(poisonedAudit().issues.map((issue) => issue.code));
+    expect([...produced].sort()).toEqual([...ATTACHMENT_ISSUE_CODES].sort());
+  });
+
+  it('carries ids and numbers, never a name or a digest', () => {
+    const audit = poisonedAudit();
     expect(audit.issues.length).toBeGreaterThan(0);
     expectClean(JSON.stringify(audit));
   });

@@ -75,9 +75,11 @@ as it was measured, including paths and line numbers that have since moved, beca
 makes it a snapshot; where a fix went somewhere other than the proposed one, the status line says
 so.
 
-Marked fixed on the latest pass: **N1, N2, N3, N4, N7, N10, N11, N17, N18**, and **N38 in
+Marked fixed on an earlier pass: **N1, N2, N3, N4, N7, N10, N11, N17, N18**, and **N38 in
 half** — its kill-switch is built, its consent screen is not. **N15 was re-checked and is still
 open**, and its status line says why it is currently harmless.
+
+Marked fixed on the latest pass, all in `src/main/{attachments,organisation,totp}/`: **N8, N19, N20, N25, N27(c)+(d), N28** and the `MAX_FOLDERS`/`MAX_TAGS` bullet of **N33**. Each was reproduced in a test before the source was touched, and each guard was fault-injected with the exact bug it claims to catch. Two things learned in that pass are worth carrying forward. The first is that **N19's cost guard was itself vacuous on its first draft**: a deep-chain fixture looked like the worst case, but walking every folder's ancestors in an n-deep chain is quadratic in walk steps whether or not the index is shared, so the injected bug hid inside the noise and the budget passed. Only a wide, shallow tree isolates the term that changed. The second is that `folderPathsById` **does** have production callers — three of them, one inside a loop — contradicting the note under N19's fix; it was measured at 6.3 seconds over 2,000 folders before this pass.
 
 ---
 
@@ -434,6 +436,8 @@ address. Guard it by sweeping a fixed input twice and asserting the prefix seque
 
 ### N8 — MEDIUM · `checkMimeClaim` trusts a parser-selecting MIME claim, and its own comment says it cannot
 
+**STATUS: FIXED, and the claim is no longer routed through the registry at all.** Read the `sniffed === null` branch of `src/main/attachments/sniff.ts`. Reproduced first — `checkMimeClaim('application/pdf', NOTHING).kind` really was `pdf` — and the false comment is gone, replaced by a note recording why it was false. A claim naming a format that _has_ a signature, when no signature matched, is now treated as a lie: `stored` becomes `UNKNOWN_MIME` and `kind` is `other`. That second half matters more than the `kind`, because `previewKindForMime` is read from the stored `AttachmentMeta.mime` elsewhere and would otherwise resurrect the parser at that call site. The only thing a claim alone can still buy is the new `SIGNATURE_FREE_PREVIEWS` table — `text/plain` and `text/csv` — which is the one list both the unknown branch and `previewKindForMime` read, so the two cannot disagree. Alias matching is folded into one `formatForMime` lookup rather than an inline `accepted` array. Guarded over all six parser-selecting claims plus the buried-`%PDF-` case, and fault-injected: restoring the old two lines fails both new tests.
+
 `src/main/attachments/sniff.ts:212-226`
 
 When `sniffFormat` recognises nothing, the `sniffed === null` branch keeps the caller's claim
@@ -775,6 +779,12 @@ closed; one that under-matches fails open.
 
 ### N19 — MEDIUM · `checkOrganisation` is quadratic on the main thread, and no folder cap is enforced at load
 
+**STATUS: FIXED, structurally, and without the proposed `too-many-folders` cap.** Reproduced first: `checkOrganisation` over a healthy chain took 19.8 ms at n=500, 69.1 ms at 1,000, 319.8 ms at 2,000 and 756.4 ms at 3,000, and on the realistic wide shape at `MAX_FOLDERS` it was 196 ms. `folderPathsById` was worse than the audit believed — 6.3 seconds at n=2,000 — and it is **not** without production callers: `import-service/commit.ts:285,298` and `undo.ts:75` all call it, the last inside a loop.
+
+The fix removes both super-linear terms rather than capping the input. `indexFoldersById` and `childrenByParent` are exported from `folder-tree.ts`, every walk takes an optional prebuilt index, and the whole-tree functions build one and pass it down; `checkFolderParents` no longer walks per folder at all but calls a new `findFolderCycles`, which classifies the whole functional graph in one linear pass; `checkDuplicateFolderNames` groups once instead of filtering and sorting per distinct parent. After it: 4.6 ms wide at n=4,000, 12.5 ms on a 10,000-deep chain. **No `too-many-folders` issue kind was added** — deliberately, because the cost is gone rather than bounded, and because adding a member to `OrganisationIssueKind` would have broken the exhaustive `Record` in `src/main/recovery/document-diagnosis.ts:78`, which belongs to another owner.
+
+`findFolderCycles` also fixes a correctness defect found in the code being restructured, of the same family as N14: `walkAncestors`'s `seen` set holds the whole walked **path**, so a folder that merely pointed _into_ a loop was reported as a member of it, and the same loop reached from two different starting folders canonicalised two different ways and was reported twice — contradicting this module's own "reported once per distinct loop" claim. `f0 → f1 → f2 → f1` produced two `folder-cycle` issues, one of them naming the healthy `f0`. Guards: cost budgets in `folder-tree.test.ts` and `integrity.test.ts` over two fixture shapes, plus the membership case. Fault-injected — restoring the per-folder walk takes the 10,000-chain guard to 14.3 seconds against a 250 ms budget and fails the membership test; restoring the per-parent filter takes it to 2.5 seconds.
+
 `src/main/organisation/folder-tree.ts:77` · `src/main/organisation/integrity.ts:166` and `:219`
 
 `walkAncestors` rebuilds `new Map(folders.map(...))` on **every call**; `checkFolderParents`
@@ -808,6 +818,8 @@ up as-is.)
 ---
 
 ### N20 — LOW · `deleteFolder(…, 'reparent')` on a self-parented folder files records under the folder it just deleted
+
+**STATUS: FIXED.** Read the `reparent` branch of `src/main/organisation/folder-ops.ts`. One `risenTo` value, `null` when `folder.parentId === folderId`, used on both lines. The audit's suggested fixture is in place: `folder-ops.test.ts` builds the same tree with `A` made its own parent and runs the existing "leaves no record pointing at a folder that is gone" property over both fixtures under both policies, extended to assert the same rule for folders as well as records. Fault-injected: reverting to `folder.parentId` fails both.
 
 `src/main/organisation/folder-ops.ts:312-322`
 
@@ -915,6 +927,8 @@ the interval is by definition the longest a correct pace ever needs to wait.
 
 ### N25 — LOW · Two filename defects in `attachments/`
 
+**STATUS: BOTH FIXED.** (a) The trailing-`[. ]+` strip is now a named `dropWindowsTrailing`, applied to `truncate`'s **result** as well as its input, with the empty/all-dots fallback re-checked after it; a function rather than a second inline replace, because the point is that one rule runs twice. Both measured inputs are in the hostile list. (b) `ILLEGAL_CHARACTERS` covers `\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff`, replaced with `_` like the rest so neither the no-convergence property nor idempotency changes. The class and the test fixtures are written as escapes rather than literal characters — a source file containing an unescaped RLO renders backwards for the next reader. Fault-injected separately: dropping the second strip fails the new case and the idempotency property; dropping the bidi range fails both new cases.
+
 **(a) `truncate()` re-introduces the trailing dot or space that `sanitiseAttachmentName` just
 removed.** `src/main/attachments/filename.ts:194-221`, called at `:254` — _after_ the `[. ]+$`
 strip at `:245`. When the tail is longer than 17 characters it is not treated as an extension,
@@ -961,6 +975,8 @@ writing a second. Change the fixtures to cover both separator styles regardless 
 ---
 
 ### N27 — LOW · Five more guards that would survive the bug they claim to catch
+
+**STATUS: (c) and (d) FIXED; (a), (b) and (e) untouched — `shell/` and `renderer/` are another owner's.** (c) `secret-field.test.ts` no longer sweeps for `deadbeef`; it sweeps for the base32 seed, the whole `otpauth:` field, the hex form and the index-keyed object `JSON.stringify` really makes of a `Uint8Array`, with two non-vacuity assertions proving the markers are the real ones. Fault-injected by hiding the seed one level down inside `window`, where the key-shape assertion cannot see it — the sweep now fails, and the old `deadbeef` assertion would not have, the seed being base32. (d) `base32.test.ts` asserts the redaction marker **positively** through `String`, `JSON.stringify` and `inspect` — the last had no assertion at all — plus the negatives in the forms the bytes would actually take. The vacuity was confirmed out of tree rather than by editing `src/main/crypto/secret.ts`, which is not this pass's to touch: with `toString` deleted `String()` gives `[object SecretBytes]` and the old `.not.toContain('Hello')` passes; with `toJSON` deleted `JSON.stringify` gives `{"secret":{}}` and the old `.not.toContain('deadbeef')` passes. The replacements are `toBe(REDACTED)`, so neither deletion can survive them.
 
 Grouped because they share a shape: the assertion is negative, and the negative is true for a
 reason other than the one the test believes. (N2, N6 and N9 are the three severe members of the
@@ -1022,6 +1038,8 @@ in that file are sound.
 ---
 
 ### N28 — LOW · The `no-leak` audit-report assertion never exercises `size-mismatch`
+
+**STATUS: FIXED, and the claim is now enforced rather than asserted in prose.** `no-leak.test.ts`'s fixture gives each id one job — `ID_A` present, duplicated on one record and with a size the container disagrees with; `ID_B` claimed and absent; `ID_C` present and unclaimed — and a companion test asserts the codes produced equal `ATTACHMENT_ISSUE_CODES` exactly, so a code added to the registry that this fixture cannot reach fails here instead of going unswept. Fault-injected with the audit's own scenario: interpolating `meta.name` into the `size-mismatch` detail fails the new fixture, and **passes cleanly under the old one** — confirmed by running both.
 
 `src/main/attachments/no-leak.test.ts:180-189`
 
@@ -1130,6 +1148,8 @@ reset, and add a lock subscription following `watchLockForRecents`.
 ---
 
 ### N33 — LOW · Guards promised in prose that do not exist
+
+**STATUS: the `MAX_FOLDERS` / `MAX_TAGS` bullet is FIXED; the other two are another owner's.** `folder-ops.test.ts` and `tag-ops.test.ts` now exercise both caps and both error codes, including that the limit travels in the message and that `createTag` still resolves a name a full vault already holds rather than refusing everything. Fault-injected: removing either cap fails its test. The `renderer/src/organisation/` bullets — `tree-keyboard.test.ts`, `folder-counts.test.ts`, `fake-gateway.ts` — are outside this pass's paths and remain open.
 
 - **`src/renderer/src/organisation/tree-keyboard.ts:20`** — _"`tree-keyboard.test.ts` drives it
   directly"_ — and **`folder-counts.ts:24`** — _"`folder-counts.test.ts` asserts this agrees with
