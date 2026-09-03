@@ -236,3 +236,216 @@ describe('unmounting while Argon2 is still running', () => {
     expect(gateway.discardCalls).toEqual(['plan-left-behind']);
   });
 });
+
+describe('the conflicted copies found beside the vault', () => {
+  /*
+   * The reason merging exists at all, in practice: a sync client wrote a second file because
+   * two devices saved the same vault. Making the user find that file in a dialog — under a name
+   * their client invented, in a folder they did not choose — is asking them to do the app's job,
+   * and it is the step at which somebody decides the copy is clutter and deletes it.
+   *
+   * The property that matters is **which copy gets merged**. The renderer holds ids, never
+   * paths, so picking the wrong row means merging the wrong vault with no way to tell from
+   * anything on screen.
+   *
+   * Fault injection performed:
+   *  1. Passing no id to `prepare` from the row's button — fails "merges the copy that was
+   *     picked, by its id".
+   *  2. Not clearing `chosenId` on either route out of a chosen copy — fails "a failed copy is
+   *     not the one retried". This injection failed **nothing** at first: the only test for it
+   *     went to the dialog without ever picking a copy, so the id was already `undefined` and
+   *     the clearing could not matter. Looking for a path where it *could* found a real bug —
+   *     the failure screen's "Choose another file" re-prepared the copy that had just failed,
+   *     while saying otherwise. Both routes now clear it, and this is the test.
+   *  3. Removing the `found.length > 0` gate — fails "goes straight to the dialog when there is
+   *     nothing beside the vault", showing an empty picker.
+   */
+
+  const candidate = (id: string, fileName: string, modifiedAt = 1_700_000_000_000) => ({
+    id,
+    fileName,
+    modifiedAt,
+    recordCount: 12,
+    generation: 9,
+  });
+
+  const withCandidates = (
+    gateway: FakeSyncGateway,
+    ...items: ReturnType<typeof candidate>[]
+  ): FakeSyncGateway => {
+    gateway.candidateList.push(...items);
+    return gateway;
+  };
+
+  it('offers what was found, named and dated', async () => {
+    const gateway = withCandidates(
+      new FakeSyncGateway(preview(report())),
+      candidate('c1', "personal (Anahat's conflicted copy 2026-09-03).keep")
+    );
+    // Held open so that, if the picker were skipped, the test would sit on the waiting screen
+    // rather than racing through to the resolver and passing for the wrong reason.
+    gateway.prepareGate = new Promise<void>(() => undefined);
+
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={noKdfProgress}
+      />
+    );
+    await settle();
+
+    const text = textOf(tree.container);
+    expect(text).toContain("personal (Anahat's conflicted copy 2026-09-03).keep");
+    expect(text).toContain('12 items');
+    // Nothing has been read yet: the picker is built from headers, and `prepare` is what
+    // decrypts.
+    expect(gateway.prepareCalls).toBe(0);
+  });
+
+  it('merges the copy that was picked, by its id', async () => {
+    const gateway = withCandidates(
+      new FakeSyncGateway(preview(report())),
+      candidate('first', 'a.keep'),
+      candidate('second', 'b.keep')
+    );
+
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={noKdfProgress}
+      />
+    );
+    await settle();
+
+    // The second row, not the first. The renderer holds ids and never paths, so picking the
+    // wrong one merges the wrong vault with nothing on screen to say so.
+    const buttons = [...tree.container.querySelectorAll('button')].filter((button) =>
+      button.textContent.includes('Merge this one')
+    );
+    expect(buttons).toHaveLength(2);
+
+    await act(async () => {
+      buttons[1]?.click();
+      await Promise.resolve();
+    });
+    await settle();
+
+    expect(gateway.preparedFrom).toEqual(['second']);
+  });
+
+  it('a failed copy is not the one retried, however the retry is reached', async () => {
+    // The path that made the clearing load-bearing. Pick a copy, have `prepare` refuse it, then
+    // press the button labelled "Choose another file" — which has to mean the dialog, not the
+    // copy that just failed.
+    const gateway = withCandidates(
+      new FakeSyncGateway(preview(report())),
+      candidate('bad', 'broken.keep')
+    );
+    gateway.prepareOutcome = {
+      error: new SyncGatewayError('sync/unreadable', 'That file could not be decrypted.', true),
+    };
+
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={noKdfProgress}
+      />
+    );
+    await settle();
+
+    await act(async () => {
+      [...tree!.container.querySelectorAll('button')]
+        .find((button) => button.textContent.includes('Merge this one'))
+        ?.click();
+      await Promise.resolve();
+    });
+    await settle();
+    expect(gateway.preparedFrom).toEqual(['bad']);
+
+    gateway.prepareOutcome = 'preview';
+    await act(async () => {
+      [...tree!.container.querySelectorAll('button')]
+        .find((button) => button.textContent.includes('Choose another file'))
+        ?.click();
+      await Promise.resolve();
+    });
+    await settle();
+
+    expect(gateway.preparedFrom).toEqual(['bad', undefined]);
+  });
+
+  it('forgets the copy when the user asks for the dialog instead', async () => {
+    const gateway = withCandidates(
+      new FakeSyncGateway(preview(report())),
+      candidate('c1', 'a.keep')
+    );
+
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={noKdfProgress}
+      />
+    );
+    await settle();
+
+    const instead = [...tree.container.querySelectorAll('button')].find((button) =>
+      button.textContent.includes('Choose a different file instead')
+    );
+    expect(instead).toBeDefined();
+
+    await act(async () => {
+      instead?.click();
+      await Promise.resolve();
+    });
+    await settle();
+
+    // `undefined`, which is the dialog. A stale id here would merge the copy just declined.
+    expect(gateway.preparedFrom).toEqual([undefined]);
+  });
+
+  it('goes straight to the dialog when there is nothing beside the vault', async () => {
+    // The ordinary case, and it gets no screen of its own — a picker listing nothing would be
+    // a step the user has to dismiss before doing what they asked for.
+    const gateway = new FakeSyncGateway(preview(report()));
+
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={noKdfProgress}
+      />
+    );
+    await settle();
+
+    expect(textOf(tree.container)).not.toContain('sitting next to it');
+    expect(gateway.preparedFrom).toEqual([undefined]);
+  });
+
+  it('goes to the dialog when the scan itself fails', async () => {
+    // A directory that cannot be listed is not a reason to refuse to merge. The user asked for
+    // something; the fallback is the thing that always worked.
+    const gateway = new FakeSyncGateway(preview(report()));
+    gateway.candidates = () => Promise.reject(new Error('EACCES'));
+
+    tree = mountReact(
+      <MergeFlow
+        gateway={gateway}
+        names={names()}
+        onClose={noop}
+        subscribeToKdfProgress={noKdfProgress}
+      />
+    );
+    await settle();
+
+    expect(gateway.prepareCalls).toBe(1);
+  });
+});

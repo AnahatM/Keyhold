@@ -119,3 +119,9 @@ export type {
  * both documents and the ancestor to still be here.
  */
 export { MergeSessionStore, type OpenMerge } from './merge-session.js';
+export {
+  isCandidateFileName,
+  scanForConflictCandidates,
+  type CandidateHeader,
+  type ConflictCandidate,
+} from './conflict-candidates.js';

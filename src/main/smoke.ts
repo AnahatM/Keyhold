@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { copyFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { app, type BrowserWindow } from 'electron';
 import { EVENTS } from '@shared/ipc/api.js';
 import { notifySessionChanged } from './ipc/register.js';
@@ -678,6 +678,45 @@ export function runSmokeCheck(window: BrowserWindow): void {
           `SMOKE-CHECK cloud-folder-notice-names-the-provider ${String(cloudNotice === 'shown')}`
         );
         await captureNamedShot(window, 'Keyhold-Screenshot-11');
+
+        // A real conflicted copy, beside the real vault, found through the real channel.
+        //
+        // Copied from the vault file itself, which makes it exactly what a sync client would
+        // leave: same `vaultId`, same generation, a name the client invented. That is what lets
+        // this check the parts a unit test cannot — that the scan reads the plaintext header of
+        // a genuine container, and that the vault id it compares against matches.
+        //
+        // Written here rather than by the harness because the vault's path is only known on
+        // this side, and nothing about it may cross the bridge.
+        const conflictedCopyName = "smoke (Anahat's conflicted copy 2026-09-03).keep";
+        // Narrowed here rather than relied on: this whole block only runs on the vault path,
+        // but the binding is `string | undefined` at this scope and a cast would be a claim
+        // rather than a check.
+        const openVaultPath = vaultPath ?? '';
+        if (openVaultPath !== '') {
+          await copyFile(openVaultPath, join(dirname(openVaultPath), conflictedCopyName));
+        }
+
+        const candidates: unknown = await window.webContents.executeJavaScript(
+          `(async () => {
+             const result = await window.keyhold.sync.candidates();
+             if (!result.ok) return 'failed: ' + result.code;
+             const found = result.value;
+             if (found.length !== 1) return 'wrong count: ' + found.length;
+             const only = found[0];
+             if (!only.fileName.includes('conflicted copy')) return 'wrong file';
+             // Every field comes from the plaintext header, with no key involved.
+             if (typeof only.generation !== 'number') return 'no generation';
+             if (typeof only.recordCount !== 'number') return 'no record count';
+             // And the property the whole design rests on: no path reaches the renderer.
+             if (JSON.stringify(found).includes('keyhold-smoke')) return 'a path leaked';
+             return 'listed';
+           })()`,
+          true
+        );
+        emit(
+          `SMOKE-CHECK conflicted-copy-listed-without-a-path ${String(candidates === 'listed')}`
+        );
 
         // Open the record that has history, and expand its newest change — by clicking the
         // real controls rather than through a test-only hook on `window`. A backdoor would

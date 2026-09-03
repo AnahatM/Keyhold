@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type {
+  ConflictCandidateView,
   MergeCommitResult,
   MergePreview,
   MergeResolveRequest,
@@ -57,7 +58,18 @@ export interface SyncGateway {
    * Slow, and unavoidably so — it decrypts a second vault. Whatever calls it must show a busy
    * state; `SyncApi` has no progress channel, so that state is indeterminate today.
    */
-  prepare(): Promise<MergePreview | null>;
+  /**
+   * The conflicted copies a sync client left beside the vault, described from their plaintext
+   * headers. An empty list is the ordinary answer.
+   */
+  candidates(): Promise<readonly ConflictCandidateView[]>;
+  /**
+   * Prepares a merge — from a candidate id when one is given, and from a file dialog when not.
+   *
+   * The id is opaque and was minted by the main process; the renderer has never seen a path and
+   * cannot name a file of its own. `null` means the dialog was dismissed.
+   */
+  prepare(candidateId?: string): Promise<MergePreview | null>;
   /**
    * Re-runs the merge with every choice made so far, and returns the fresh report.
    *

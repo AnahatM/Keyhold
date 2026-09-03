@@ -32,6 +32,20 @@ import type { ConflictChoice, MergeReport } from './sync.js';
  */
 
 /** The other file in a merge: another copy of this vault, on disk. */
+/**
+ * A conflicted copy found beside the vault, as the renderer sees it.
+ *
+ * Everything here comes from the plaintext header. `generation` is the useful one: higher than
+ * the open vault's means this copy has saves that this device has never seen.
+ */
+export interface ConflictCandidateView {
+  readonly id: string;
+  readonly fileName: string;
+  readonly modifiedAt: number;
+  readonly recordCount: number;
+  readonly generation: number;
+}
+
 export interface MergeSourceRef {
   /**
    * An opaque handle for the file, minted by `prepare`.
@@ -123,6 +137,8 @@ export const SYNC_CHANNELS = {
   syncCommit: 'kh:sync:commit',
   /** Drops the plan and the other copy. Called whenever the resolver closes. */
   syncDiscard: 'kh:sync:discard',
+  /** Lists the conflicted copies a sync client left beside the vault. Reads no bodies. */
+  syncCandidates: 'kh:sync:candidates',
 } as const;
 
 /**
@@ -133,7 +149,28 @@ export const SYNC_CHANNELS = {
  * outside the open vault itself. It goes when the resolver closes, however it closes.
  */
 export interface SyncApi {
-  prepare: () => Promise<IpcResult<MergePreview | null>>;
+  /**
+   * Lists the conflicted copies sitting beside the open vault.
+   *
+   * Described from each file's plaintext header, so no key is used and nothing is decrypted —
+   * that is what the header being authenticated-but-not-encrypted is for. Only copies of *this*
+   * vault are listed; a file that merely looks like a conflicted copy but carries a different
+   * `vaultId` is somebody else's, and merging it would put two people's credentials behind one
+   * master password.
+   *
+   * **No path comes back.** Each candidate is an opaque id and a filename, and the id is what
+   * `prepare` takes. That is the property that makes this safe to expose: a channel that read a
+   * filename the renderer supplied would read any file the renderer named.
+   */
+  candidates: () => Promise<IpcResult<readonly ConflictCandidateView[]>>;
+  /**
+   * Prepares a merge.
+   *
+   * With no argument this opens a file dialog. With a candidate id from {@link candidates} it
+   * skips the dialog and uses the file that id stands for — the renderer still never names a
+   * path, and an id the main process does not recognise is refused rather than guessed at.
+   */
+  prepare: (candidateId?: string) => Promise<IpcResult<MergePreview | null>>;
   resolve: (request: MergeResolveRequest) => Promise<IpcResult<MergeReport>>;
   commit: (planId: string) => Promise<IpcResult<MergeCommitResult>>;
   discard: (planId: string) => Promise<IpcResult<null>>;

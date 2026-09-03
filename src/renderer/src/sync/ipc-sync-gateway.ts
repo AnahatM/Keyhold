@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { IpcResult } from '@shared/ipc/api.js';
 import type {
+  ConflictCandidateView,
   MergeCommitResult,
   MergePreview,
   MergeResolveRequest,
@@ -29,7 +30,11 @@ import { SyncGatewayError, type SyncGateway } from './sync-gateway.js';
  */
 export function createIpcSyncGateway(bridge: SyncApi): SyncGateway {
   return {
-    prepare: async (): Promise<MergePreview | null> => unwrap(await bridge.prepare()),
+    candidates: async (): Promise<readonly ConflictCandidateView[]> =>
+      unwrap(await bridge.candidates()),
+
+    prepare: async (candidateId?: string): Promise<MergePreview | null> =>
+      unwrap(await bridge.prepare(candidateId)),
 
     resolve: async (request: MergeResolveRequest): Promise<MergeReport> =>
       unwrap(await bridge.resolve(request)),

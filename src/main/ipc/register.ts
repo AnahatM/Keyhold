@@ -60,10 +60,11 @@ import { createThemeIpcHandlers } from '../theme/index.js';
 import {
   createBaseSnapshotStore,
   MergeSessionStore,
+  scanForConflictCandidates,
   serialiseSnapshot,
   snapshotIsSafeToStore,
 } from '../sync/index.js';
-import { parseVaultDocument } from '../vault/vault-service.js';
+import { parseVaultDocument, VaultService } from '../vault/vault-service.js';
 import { createElectronImportFilePicker } from '../import-service/file-picker.js';
 import {
   createVaultImportAccess,
@@ -719,24 +720,72 @@ export function registerIpcHandlers(context: IpcContext): void {
   // single conflict, so the copy that lets them walk away exists by the time they are looking
   // at four hundred of them.
 
-  handle(CHANNELS.syncPrepare, async () => {
+  // The conflicted copies beside the vault, described from their plaintext headers.
+  //
+  // The map from id to path is held here and never sent. That is the whole security argument
+  // for this channel existing: `prepare` taking an id it minted is a closed set, where
+  // `prepare` taking a filename would be an instruction to read whatever the renderer named.
+  //
+  // Rebuilt on every call rather than cached, and the old ids dropped with it. A cached list
+  // would go stale exactly when it matters — the client writes a conflicted copy while the app
+  // is open — and stale ids would point at files that have since been deleted or replaced.
+  let candidatePaths = new Map<string, string>();
+
+  handle(CHANNELS.syncCandidates, async () => {
+    const summary = vault.summary();
+    const scan = await scanForConflictCandidates({
+      vaultPath: summary.path,
+      vaultId: summary.vaultId,
+      readHeader: async (path) => {
+        const info = await VaultService.inspect(path);
+        return {
+          vaultId: info.vaultId,
+          modifiedAt: info.modifiedAt,
+          generation: info.generation,
+          recordCount: info.recordCount,
+        };
+      },
+    });
+    candidatePaths = scan.paths;
+    return scan.candidates;
+  });
+
+  handle(CHANNELS.syncPrepare, async (candidateId) => {
     const ours = vault.documentUnsafe();
     const summary = vault.summary();
 
-    const window = context.getWindow();
-    const options: OpenDialogOptions = {
-      title: 'Merge another copy of this vault',
-      filters: [
-        { name: 'Keyhold vault', extensions: ['keep'] },
-        { name: 'All files', extensions: ['*'] },
-      ],
-      properties: ['openFile'],
-    };
-    const chosen =
-      window === null
-        ? await dialog.showOpenDialog(options)
-        : await dialog.showOpenDialog(window, options);
-    const otherPath = chosen.canceled ? undefined : chosen.filePaths[0];
+    const otherPath = await (async (): Promise<string | undefined> => {
+      // A candidate id: the file was already found, described and vetted by the scan above, so
+      // there is nothing left to ask. An id this process did not mint is refused rather than
+      // treated as a path — that refusal is the reason the channel takes an id at all.
+      if (candidateId !== undefined && candidateId !== null) {
+        const id = requireId(CHANNELS.syncPrepare, candidateId, 'candidateId');
+        const known = candidatePaths.get(id);
+        if (known === undefined) {
+          throw new IpcValidationError(
+            CHANNELS.syncPrepare,
+            'that copy is no longer listed — refresh and try again'
+          );
+        }
+        return known;
+      }
+
+      const window = context.getWindow();
+      const options: OpenDialogOptions = {
+        title: 'Merge another copy of this vault',
+        filters: [
+          { name: 'Keyhold vault', extensions: ['keep'] },
+          { name: 'All files', extensions: ['*'] },
+        ],
+        properties: ['openFile'],
+      };
+      const chosen =
+        window === null
+          ? await dialog.showOpenDialog(options)
+          : await dialog.showOpenDialog(window, options);
+      return chosen.canceled ? undefined : chosen.filePaths[0];
+    })();
+
     if (otherPath === undefined) return null;
 
     // The same master password opens both, because a merge is between two copies of *one*
