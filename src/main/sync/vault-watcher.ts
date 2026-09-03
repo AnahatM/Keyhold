@@ -707,7 +707,7 @@ function ioReason(error: unknown): UnreadableReason {
  *
  * Every `VaultErrorCode` is written out rather than collapsed into a `default`, so that adding
  * a code to `crypto/errors.ts` fails the build here instead of quietly becoming "malformed".
- * The four that cannot reach a header-only read are grouped and labelled as such.
+ * Those that cannot reach a header-only read are grouped and labelled as such.
  */
 function vaultErrorReason(error: unknown): UnreadableReason {
   if (!(error instanceof VaultError)) return 'io-error';
@@ -718,14 +718,20 @@ function vaultErrorReason(error: unknown): UnreadableReason {
       return 'unsupported-version';
     case 'MALFORMED':
       return 'malformed';
-    // Unreachable from `readPreamble`: all four are raised only once a key exists and the
-    // body or a chunk is being authenticated, and a probe never gets that far. Mapped rather
-    // than thrown, because a watcher is not the place to discover a new error code.
+    // Unreachable from `readPreamble`. The first five are raised only once a key exists and
+    // the body or a chunk is being authenticated, and a probe never gets that far; the last
+    // two belong to `reloadFromDisk`, which is a *response* to this watcher rather than
+    // anything it calls. Mapped rather than thrown, because a watcher is not the place to
+    // discover a new error code — and written out rather than collapsed into a `default`, so
+    // the next code added to `crypto/errors.ts` fails the build here and gets a decision
+    // instead of quietly becoming "malformed". It just did, for these two.
     case 'WRONG_PASSWORD':
     case 'TAMPERED':
     case 'BAD_KDF_PARAMS':
     case 'TOO_LARGE':
     case 'CHUNK_INTEGRITY':
+    case 'UNSAVED_CHANGES':
+    case 'DIFFERENT_VAULT':
       return 'malformed';
   }
 }

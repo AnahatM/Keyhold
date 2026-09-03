@@ -29,7 +29,7 @@ import {
   type VaultSettings,
   type VaultSummary,
 } from '@shared/model/vault-document.js';
-import { malformed, VaultError } from '../crypto/errors.js';
+import { differentVault, malformed, unsavedChanges, VaultError } from '../crypto/errors.js';
 import { createVaultKeys, unlock as unlockKeys, type DeriveKeyFn } from '../crypto/envelope.js';
 import { calibrateKdf, newKdfParams } from '../crypto/kdf.js';
 import { uuid } from '../crypto/random.js';
@@ -1218,6 +1218,57 @@ export class VaultService {
     const bytes = await readVaultFile(path);
     const contents = readContainer(bytes, open.dek);
     return { document: parseVaultDocument(contents.body) };
+  }
+
+  /**
+   * Re-reads the open vault from disk, keeping the key.
+   *
+   * For the case the watcher reports: another device — or another copy of this app through a
+   * synced folder — wrote the file, and what is in memory is now the older story. There is no
+   * password prompt because there is nothing to prove. The DEK is a property of the vault, not
+   * of a session: another device that unlocked with the same password unwrapped the *same* DEK
+   * and re-sealed the body with it, which is also why changing the master password is instant.
+   * A file that will not open with the DEK in hand is not this vault.
+   *
+   * **Refuses when there are unsaved changes.** The caller is expected to have checked —
+   * nothing offers this button while the vault is dirty — and that is exactly why the check is
+   * repeated here. A reload is a read that destroys: the in-memory document is replaced
+   * wholesale, and an edit that existed only there is gone with no undo, no tombstone and no
+   * trace. Making the service refuse means "never lose data" survives a caller that forgets,
+   * and survives an edit landing between the check and the call.
+   *
+   * **Refuses a different vault id.** `differentVault` in the watcher's report is the same
+   * condition seen from the other side, and it is checked again here for the same reason. A
+   * different id at this path means the file was replaced or restored from something
+   * unrelated; reading it into this session would put two people's credentials behind one
+   * master password. The header is read before the body is unsealed, so this costs nothing.
+   *
+   * Outstanding secret grants are revoked. They are keyed by record id, and after a reload a
+   * record id either means something different or nothing at all — a grant that outlived the
+   * document it was issued against is a reveal nobody asked for.
+   */
+  async reloadFromDisk(): Promise<VaultSummary> {
+    const open = this.#requireOpen();
+    if (open.dirty) throw unsavedChanges();
+
+    const bytes = await readVaultFile(open.path);
+    const { header } = readPreamble(bytes);
+    if (header.vaultId !== open.header.vaultId) throw differentVault();
+
+    const contents = readContainer(bytes, open.dek);
+    const document = parseVaultDocument(contents.body);
+
+    this.#broker.revokeAll();
+    this.#open = {
+      path: open.path,
+      header,
+      dek: open.dek,
+      document,
+      attachments: contents.attachments,
+      dirty: false,
+    };
+
+    return this.summary();
   }
 
   /** Main-process only. Never call this from anything that talks to the renderer. */

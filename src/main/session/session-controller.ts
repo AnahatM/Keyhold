@@ -304,6 +304,23 @@ export class SessionController {
     return this.#vault.save();
   }
 
+  /**
+   * Re-reads the open vault after another device wrote it.
+   *
+   * The auto-lock is re-armed rather than left alone. Reloading is the user doing something,
+   * and a vault whose idle timer kept running through it would lock moments after they acted
+   * — which reads as the app malfunctioning, not as a security feature.
+   *
+   * Everything else about refusing is in `VaultService.reloadFromDisk`, deliberately: the
+   * conditions are about the file and the document, and a second copy of them here would be
+   * two answers to "may this happen".
+   */
+  async reloadVault(): Promise<VaultSummary> {
+    const summary = await this.#vault.reloadFromDisk();
+    this.#autoLock.arm();
+    return summary;
+  }
+
   // ── Secrets ────────────────────────────────────────────────────────────────
 
   /** Reveals a secret and copies it, with the configured auto-clear. */

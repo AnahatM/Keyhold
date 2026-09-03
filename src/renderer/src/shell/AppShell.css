@@ -8,6 +8,29 @@
   color: var(--kh-color-text);
 }
 
+/*
+ * The banner row, only when a banner slot is supplied.
+ *
+ * Written as an override rather than as the default so the three-pane grid is byte-identical
+ * without one — `grid-template-rows: auto minmax(0, 1fr)` with no banner element would give
+ * the panes the `auto` row and collapse the layout.
+ */
+.kh-shell[data-banner] {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.kh-shell__banner {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+/* Only when it has something in it: an empty strip must not draw a border or take space. */
+.kh-shell__banner:not(:empty) {
+  padding: var(--kh-space-3) var(--kh-space-4);
+  border-bottom: 1px solid var(--kh-color-border);
+  background: var(--kh-color-surface);
+}
+
 .kh-shell__sidebar {
   width: var(--kh-shell-sidebar);
   min-width: 0;

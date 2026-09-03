@@ -13,6 +13,14 @@
  * them by path, which makes every use of them visible in a search.
  */
 
+export { ExternalChangeBanner, type ExternalChangeBannerProps } from './ExternalChangeBanner.js';
+export {
+  EXTERNAL_CHANGE_LABELS,
+  promptForExternalChange,
+  type ExternalChangeAction,
+  type ExternalChangePrompt,
+  type ExternalChangeTone,
+} from './external-change.js';
 export { MergeFlow, type MergeFlowProps } from './MergeFlow.js';
 export { MergeResolver, type MergeResolverProps } from './MergeResolver.js';
 

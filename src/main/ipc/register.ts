@@ -452,6 +452,11 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.vaultSummary, () => (vault.state === 'unlocked' ? vault.summary() : null));
   handle(CHANNELS.vaultHasUnsavedChanges, () => vault.hasUnsavedChanges);
 
+  // No argument: there is exactly one vault open and exactly one path it came from, and the
+  // renderer knows neither. Refusing an unsaved-changes reload happens in the service rather
+  // than here, so the rule holds for every caller and not only for this channel.
+  handle(CHANNELS.vaultReload, async () => session.reloadVault());
+
   // ── credentials ────────────────────────────────────────────────────────────
   handle(CHANNELS.credentialsList, (options) =>
     vault.listProjections(requireListOptions(CHANNELS.credentialsList, options))

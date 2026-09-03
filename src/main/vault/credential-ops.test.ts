@@ -392,28 +392,31 @@ describe('the array caps, which nothing used to check actually fired', () => {
 
   it('refuses more URLs than the cap', () => {
     const record = validRecord();
-    expect(() => { assertValidCredential({
+    expect(() => {
+      assertValidCredential({
         ...record,
         fields: {
           ...record.fields,
           urls: overCap(MAX_URLS, (index) => `https://example.com/${String(index)}`),
         },
-      }); }
-    ).toThrow(VaultError);
+      });
+    }).toThrow(VaultError);
   });
 
   it('refuses more tags than the cap', () => {
     const record = validRecord();
-    expect(() => { assertValidCredential({
+    expect(() => {
+      assertValidCredential({
         ...record,
         tags: overCap(MAX_TAGS, (index) => `tag-${String(index)}`),
-      }); }
-    ).toThrow(VaultError);
+      });
+    }).toThrow(VaultError);
   });
 
   it('refuses more custom fields than the cap', () => {
     const record = validRecord();
-    expect(() => { assertValidCredential({
+    expect(() => {
+      assertValidCredential({
         ...record,
         fields: {
           ...record.fields,
@@ -421,13 +424,14 @@ describe('the array caps, which nothing used to check actually fired', () => {
             field({ id: `f-${String(index)}`, order: index })
           ),
         },
-      }); }
-    ).toThrow(VaultError);
+      });
+    }).toThrow(VaultError);
   });
 
   it('refuses more security questions than the cap', () => {
     const record = validRecord();
-    expect(() => { assertValidCredential({
+    expect(() => {
+      assertValidCredential({
         ...record,
         fields: {
           ...record.fields,
@@ -437,13 +441,14 @@ describe('the array caps, which nothing used to check actually fired', () => {
             answer: 'an answer',
           })),
         },
-      }); }
-    ).toThrow(VaultError);
+      });
+    }).toThrow(VaultError);
   });
 
   it('accepts a record sitting exactly on every cap, so the tests above are about the cap', () => {
     const record = validRecord();
-    expect(() => { assertValidCredential({
+    expect(() => {
+      assertValidCredential({
         ...record,
         tags: Array.from({ length: MAX_TAGS }, (_unused, index) => `tag-${String(index)}`),
         fields: {
@@ -461,7 +466,7 @@ describe('the array caps, which nothing used to check actually fired', () => {
             answer: 'an answer',
           })),
         },
-      }); }
-    ).not.toThrow();
+      });
+    }).not.toThrow();
   });
 });

@@ -194,6 +194,15 @@ export interface VaultApi {
   save: () => Promise<IpcResult<VaultSummary>>;
   summary: () => Promise<IpcResult<VaultSummary | null>>;
   hasUnsavedChanges: () => Promise<IpcResult<boolean>>;
+  /**
+   * Re-reads the open vault from disk, keeping the key.
+   *
+   * The response to `onVaultChangedExternally`. Fails with `UNSAVED_CHANGES` when there are
+   * edits only in memory — a reload is a read that destroys, and there is no undo for a
+   * record that was never written — and with `DIFFERENT_VAULT` when the file at this path is
+   * no longer the vault that was opened.
+   */
+  reload: () => Promise<IpcResult<VaultSummary>>;
 }
 
 /**
@@ -535,6 +544,7 @@ export const CHANNELS = {
   vaultSave: 'kh:vault:save',
   vaultSummary: 'kh:vault:summary',
   vaultHasUnsavedChanges: 'kh:vault:has-unsaved-changes',
+  vaultReload: 'kh:vault:reload',
 
   sessionStatus: 'kh:session:status',
   sessionChooseVaultToOpen: 'kh:session:choose-vault-to-open',

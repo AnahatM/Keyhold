@@ -56,6 +56,8 @@ interface SessionState {
   unlockVault: (password: string) => Promise<boolean>;
   tryQuickUnlock: (path: string) => Promise<boolean>;
   lock: () => Promise<void>;
+  /** Re-reads the open vault after another device wrote it. Throws if that would lose data. */
+  reloadFromDisk: () => Promise<void>;
   forgetVault: (path: string) => Promise<void>;
   estimateStrength: (password: string) => Promise<PasswordStrength | null>;
 }
@@ -184,6 +186,17 @@ export const useSession = create<SessionState>((set, get) => ({
 
   lock: async () => {
     unwrap(await window.keyhold.vault.lock());
+    await get().refresh();
+  },
+
+  reloadFromDisk: async () => {
+    // `unwrap` throws on a refusal, and that is the intended path: the main process refuses
+    // an unsaved-changes reload and a different vault, and both are things the user has to be
+    // told rather than states to fall back from. The caller's error boundary turns it into a
+    // toast; swallowing it here would leave the screen showing the old document and no reason.
+    unwrap(await window.keyhold.vault.reload());
+    // The full refresh, not just the summary: a reload replaces the whole document, so the
+    // credential list this store holds is stale in exactly the way `refresh` exists to fix.
     await get().refresh();
   },
 

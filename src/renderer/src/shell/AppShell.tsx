@@ -50,6 +50,19 @@ export interface AppShellProps {
    * so nothing about the existing layout depends on a mode flag being read correctly.
    */
   readonly main?: ReactNode;
+  /**
+   * A full-width strip above every pane, for something that is about the whole vault.
+   *
+   * Its own row rather than a place inside the detail pane, and the reason is a layout fact
+   * rather than a preference: below `NARROW_BREAKPOINT` the detail pane stops being a column
+   * and is shown only when a record is selected, so anything mounted inside it disappears in
+   * a narrow window with nothing selected. A notice that the vault file changed underneath
+   * the user is exactly the wrong thing to hide from someone who has not clicked anything.
+   *
+   * Additive: with no `banner` the grid keeps the single implicit row it had, so the
+   * three-pane layout is untouched.
+   */
+  readonly banner?: ReactNode;
   readonly sidebarCollapsed?: boolean;
   readonly onSidebarCollapsedChange?: (collapsed: boolean) => void;
   /** True when a record is selected — decides what a narrow window shows. */
@@ -88,6 +101,7 @@ export function AppShell({
   list,
   detail,
   main,
+  banner,
   sidebarCollapsed = false,
   onSidebarCollapsedChange,
   hasSelection = false,
@@ -182,6 +196,7 @@ export function AppShell({
       className="kh-shell"
       data-narrow={narrow || undefined}
       data-tool={toolOpen || undefined}
+      data-banner={banner === undefined ? undefined : true}
       style={{
         // Custom properties rather than inline width, so the CSS keeps ownership of the
         // grid and this only supplies the two numbers it cannot know.
@@ -192,6 +207,13 @@ export function AppShell({
       <a className="kh-visually-hidden kh-skip-link" href="#kh-main">
         Skip to main content
       </a>
+
+      {/*
+        Rendered whenever the slot is supplied, even while its contents render nothing: the
+        row is `auto`, so an empty strip is zero pixels tall, and keeping the element means
+        the grid does not change shape at the moment a notice appears.
+      */}
+      {banner !== undefined && <div className="kh-shell__banner">{banner}</div>}
 
       {showSidebar && (
         <>
