@@ -230,15 +230,44 @@ Smaller decisions worth recording:
   would call `setState` synchronously on every open, which cascades renders, and the fetch
   is a response to a user action rather than a synchronisation with anything outside React.
 
+### Comparing two points
+
+The timeline answers "what did this edit change". `CompareVersions` answers the other question
+— "what is different between then and now" — which is the one somebody asks after a bad sync, a
+shared account, or a password they do not recognise.
+
+`kh:history:compare` had answered it end to end since it was written. Nothing called it. What
+was missing was never the diff; it was a way to pose the question, and the shape of that is a
+pair of points rather than a row.
+
+Which pairs are offered is decided in `history-points.ts`, pure and tested separately from the
+panel, because the interesting part is the offer:
+
+- **The current state is a point**, and leads the list. Nearly every real comparison has it on
+  one end; omitting it would make the common question unaskable.
+- **A point is not comparable with itself.** Both selects list everything, so the pair has to be
+  refused somewhere or the panel answers a question nobody asked.
+- **Either direction is allowed.** "What did I lose" and "what did I gain" are different
+  questions and the engine diffs correctly both ways.
+- **Labels carry the version number as well as the date.** Several edits inside one minute is
+  ordinary, and three options reading `3 Sep, 14:02` is a list nobody can choose from.
+
+It opens on the newest version against the current state — the question the timeline is already
+showing — and is collapsed by default, so the answer people came for is not pushed below the
+fold to serve the rarer one.
+
+Old secrets stay secret: the rows are `DiffRows`, so a value is a length and a reveal button,
+fetched through the broker one at a time under the same rate limit and clipboard rules as a live
+secret.
+
+**Event-driven, not effect-driven.** The comparison runs from the toggle and the two selects
+rather than from an effect watching their state — an effect would `setState` in its own body,
+which cascades renders, and passing the pair as arguments also avoids a handler reading the
+value from before its own `setState`.
+
 ### Still to come
 
 - **Exporting a single credential's history** (roadmap Phase 6).
-- **Comparing two arbitrary points.** `history.compare` exists on the contract and in the
-  service; nothing in the UI calls it yet.
-- **Restoring a single field from the timeline.** `restoreField` exists end to end and is
-  tested; it needs a per-row control, which wants the diff rows to become interactive.
-- **`merge` origins.** `HistoryAction` includes `'merge'` for Phase 12's three-way merge;
-  nothing writes one yet.
 
 ## 9. Tests
 

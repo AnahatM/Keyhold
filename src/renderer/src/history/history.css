@@ -194,3 +194,72 @@
   background: var(--kh-color-surface);
   overflow-wrap: anywhere;
 }
+
+/* ── Comparing two points ──────────────────────────────────────────────────── */
+
+/*
+ * Collapsed by default and sitting above the timeline. The timeline is what history is opened
+ * for; a permanently-expanded comparison panel would push it below the fold to serve the rarer
+ * question.
+ */
+
+/*
+ * `align-items: flex-start` so the toggle sits at the left edge rather than being stretched or
+ * centred by whatever contains it. Centred, it reads as a detached caption for the panel below
+ * instead of as the control that opens it — which is how it looked in the first screenshot.
+ */
+.kh-compare {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--kh-space-2);
+}
+
+/* The panel still spans the column; only the button is start-aligned. */
+.kh-compare__panel {
+  align-self: stretch;
+}
+
+.kh-compare__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-color-surface-sunken);
+}
+
+.kh-compare__pickers {
+  display: flex;
+  gap: var(--kh-space-3);
+  flex-wrap: wrap;
+}
+
+.kh-compare__picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.kh-compare__label {
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-compare__select {
+  min-width: 0;
+  padding: var(--kh-space-2);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface);
+  color: var(--kh-color-text);
+  font: inherit;
+}
+
+.kh-compare__select:focus-visible {
+  outline: 2px solid var(--kh-color-focus-ring);
+  outline-offset: 2px;
+}
