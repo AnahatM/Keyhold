@@ -47,19 +47,18 @@ export const EMPTY_SNAPSHOT: OrganisationSnapshot = { folders: [], tags: [] };
  * would be the one destructive path in the app with no recovery, and hard rule 6 says never
  * lose data.
  *
- * In **both** policies, subfolders are reparented rather than deleted. The choice the user
- * is being asked to make is only about the records.
+ * The two policies differ in what happens to **subfolders**, not only to records, and the
+ * dialog has to say so. `reparent` removes the one folder and lifts everything inside it up
+ * a level; `unfile` removes the whole branch and leaves every record beneath it filed
+ * nowhere. This docblock previously claimed subfolders survived either way, which is not
+ * what `deleteFolder` does — a user choosing the second option on that description would
+ * have lost a folder tree they were told they were keeping.
  */
-export type FolderDeletionPolicy =
-  /** Records move up into the deleted folder's parent — or to no folder, if it was a root. */
-  | 'reparent'
-  /** Records become unfiled, wherever the folder sat. */
-  | 'unfile-records';
+import { FOLDER_DELETE_POLICIES, type FolderDeletePolicy } from '@shared/model/organisation.js';
 
-export const FOLDER_DELETION_POLICIES: readonly FolderDeletionPolicy[] = [
-  'reparent',
-  'unfile-records',
-];
+export { FOLDER_DELETE_POLICIES as FOLDER_DELETION_POLICIES };
+/** The renderer's historical name for the same thing. */
+export type FolderDeletionPolicy = FolderDeletePolicy;
 
 export interface FolderDeletionOutcome {
   readonly recordsMoved: number;

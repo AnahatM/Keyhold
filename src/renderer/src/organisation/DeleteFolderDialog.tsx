@@ -92,16 +92,29 @@ export function DeleteFolderDialog({
         </li>
         {impact.directSubfolders > 0 && (
           <li>
-            {impact.directSubfolders} subfolder{impact.directSubfolders === 1 ? '' : 's'} will move
-            to {destination}. Nothing inside them is deleted.
+            {policy === 'reparent' ? (
+              <>
+                {impact.directSubfolders} subfolder{impact.directSubfolders === 1 ? '' : 's'} will
+                move to {destination}, with everything inside{' '}
+                {impact.directSubfolders === 1 ? 'it' : 'them'}.
+              </>
+            ) : (
+              <>
+                {impact.directSubfolders} subfolder{impact.directSubfolders === 1 ? '' : 's'} will
+                be <strong>removed</strong> along with this one.
+              </>
+            )}
           </li>
         )}
         <li>No record is trashed or deleted by this.</li>
       </ul>
 
-      {affected > 0 && (
+      {/* Shown whenever there is anything inside at all — not only when records are filed
+          *directly* here. The choice decides whether the subfolders survive, so a folder
+          holding only subfolders still needs it asked. */}
+      {(affected > 0 || impact.directSubfolders > 0) && (
         <fieldset className="kh-delete-folder__policy">
-          <legend>Records filed directly in this folder</legend>
+          <legend>What happens to this folder&rsquo;s contents</legend>
 
           <label className="kh-delete-folder__option">
             <input
@@ -113,9 +126,10 @@ export function DeleteFolderDialog({
               }}
             />
             <span>
-              <strong>Move them to {destination}</strong>
+              <strong>Keep the contents, move them to {destination}</strong>
               <span className="kh-panel__hint">
-                They stay in the structure, one level up from where they were.
+                Only this folder goes. Its records and its subfolders rise one level, and the
+                structure inside them is untouched.
               </span>
             </span>
           </label>
@@ -124,15 +138,17 @@ export function DeleteFolderDialog({
             <input
               type="radio"
               name="kh-delete-policy"
-              checked={policy === 'unfile-records'}
+              checked={policy === 'unfile'}
               onChange={() => {
-                setPolicy('unfile-records');
+                setPolicy('unfile');
               }}
             />
             <span>
-              <strong>Leave them in no folder</strong>
+              <strong>Delete this whole branch</strong>
               <span className="kh-panel__hint">
-                They appear under Unfiled, and under All items as always.
+                This folder <em>and every folder inside it</em> are removed. The records survive,
+                filed nowhere — they appear under Unfiled and under All items, as always. No record
+                is deleted.
               </span>
             </span>
           </label>
