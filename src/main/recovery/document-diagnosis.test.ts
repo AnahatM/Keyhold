@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import type { Credential, CustomField, SecurityQuestion } from '@shared/model/credential.js';
+import {
+  VERSIONED_FIELDS,
+  type Credential,
+  type CustomField,
+  type SecurityQuestion,
+} from '@shared/model/credential.js';
 import {
   VAULT_DOCUMENT_VERSION,
   emptyVaultDocument,
@@ -214,7 +219,7 @@ describe('history that breaks its own rules', () => {
     expect(issue?.detail).not.toContain('never-shown');
   });
 
-  it('redacts an unknown snapshot key, which in a corrupt file could be anything at all', () => {
+  it('never repeats an unknown snapshot key, which in a corrupt file could be anything', () => {
     const marker = 'SECRETNOTEFRAGMENT';
     const record = versioned(recordOf('r1'), [
       {
@@ -231,9 +236,166 @@ describe('history that breaks its own rules', () => {
 
     const diagnosis = diagnose(documentWith([record]));
     expect(diagnosis.issues.map((issue) => issue.code)).toContain('invalid-history');
-    // In a corrupt document the offending key could be a fragment of a decrypted note, so
-    // the message is kept and the token removed rather than the whole message discarded.
+    // In a corrupt document the offending key could be a fragment of a decrypted note. It is
+    // never repeated — not scrubbed out of a borrowed message, which is what used to happen
+    // here and what two different keys walked straight past. See `history-detail.ts`.
     expect(JSON.stringify(diagnosis)).not.toContain(marker);
+  });
+});
+
+/**
+ * The adversarial half of the history check.
+ *
+ * A snapshot key, a changed-field name and a version number all come out of the document, and
+ * in the corrupt document this module exists to describe they can hold anything at all — the
+ * module's own comment says the key "could be a fragment of a decrypted note". The report
+ * these details end up in prints a sentence about carrying no secrets and is designed to be
+ * pasted into a public issue tracker, so every one of these is a leak into a search engine.
+ *
+ * Each case below is a shape that walked past the previous defence, a quoted-run scrubber.
+ */
+describe('a snapshot key from a corrupt file, adversarially shaped', () => {
+  type Version = Credential['history']['versions'][number];
+
+  /** Distinctive, so a sweep over the whole diagnosis cannot miss it. */
+  const NOTE_FRAGMENT = 'ZZNOTEFRAGMENTZZ';
+
+  function documentWithVersions(versions: readonly Version[]): VaultDocument {
+    return documentWith([
+      {
+        ...recordOf('r1'),
+        history: { enabled: true, maxVersions: null, versions: [...versions] },
+      },
+    ]);
+  }
+
+  function documentWithSnapshotKey(key: string): VaultDocument {
+    return documentWithVersions([
+      {
+        versionNumber: 1,
+        savedAt: FIXTURE_NOW - DAY,
+        changedFields: ['title'],
+        snapshot: { title: 'a', [key]: 'x' },
+        origin: { action: 'update' },
+      },
+    ]);
+  }
+
+  function historyDetailOf(document: VaultDocument): string {
+    const issue = diagnose(document).issues.find((entry) => entry.code === 'invalid-history');
+    expect(issue).toBeDefined();
+    expect(issue?.detail).not.toBeNull();
+    return issue?.detail ?? '';
+  }
+
+  /**
+   * The structural assertion, not a keyword sweep.
+   *
+   * A detail may quote a field name, because those come from our own list. Anything else in
+   * quotes came out of the document. An *odd* number of quote characters is the signature of
+   * the truncation bypass: the closing quote was cut off, so no scanner can see a pair.
+   */
+  function expectOnlyKnownFieldNamesAreQuoted(detail: string): void {
+    expect(detail.split('"').length % 2).toBe(1);
+    for (const match of detail.matchAll(/"([^"]*)"/g)) {
+      expect(VERSIONED_FIELDS).toContain(match[1] ?? '');
+    }
+  }
+
+  const HOSTILE_KEYS: readonly { readonly name: string; readonly key: string }[] = [
+    {
+      // Bypass A: the length cap runs over the message and takes the closing quote with it.
+      name: 'long enough that its own closing quote falls off the end',
+      key: `${NOTE_FRAGMENT}-${'x'.repeat(200)}`,
+    },
+    {
+      // Bypass B: the key supplies its own quotes, so the leak sits *between* two pairs.
+      name: 'carrying a double quote of its own',
+      key: `x" ${NOTE_FRAGMENT} "password`,
+    },
+    {
+      name: 'carrying a newline, a backslash and a percent sign',
+      key: `a\nb\\c%d-${NOTE_FRAGMENT}`,
+    },
+    { name: 'that is itself valid JSON', key: JSON.stringify({ note: NOTE_FRAGMENT }) },
+    {
+      // Nothing wrong with its *shape* — which is the point. An allow-list loosened into a
+      // "looks like a field name" test would wave this straight through.
+      name: 'that is a perfectly well-formed identifier and still not one of ours',
+      key: NOTE_FRAGMENT,
+    },
+    { name: 'that is empty', key: '' },
+    { name: 'that impersonates the redaction marker', key: '…' },
+  ];
+
+  for (const { name, key } of HOSTILE_KEYS) {
+    it(`does not repeat a snapshot key ${name}`, () => {
+      const diagnosis = diagnose(documentWithSnapshotKey(key));
+
+      expect(diagnosis.issues.map((issue) => issue.code)).toContain('invalid-history');
+      expect(JSON.stringify(diagnosis)).not.toContain(NOTE_FRAGMENT);
+      expectOnlyKnownFieldNamesAreQuoted(historyDetailOf(documentWithSnapshotKey(key)));
+    });
+  }
+
+  it('does not repeat a changed-field name that came out of the document', () => {
+    // Same quoting, same message, same two bypasses — a scrubber that missed one missed both.
+    const document = documentWithVersions([
+      {
+        versionNumber: 1,
+        savedAt: FIXTURE_NOW - DAY,
+        changedFields: [
+          'title',
+          `q" ${NOTE_FRAGMENT} "password`,
+        ] as unknown as Version['changedFields'],
+        snapshot: { title: 'a' },
+        origin: { action: 'update' },
+      },
+    ]);
+
+    expect(JSON.stringify(diagnose(document))).not.toContain(NOTE_FRAGMENT);
+    expectOnlyKnownFieldNamesAreQuoted(historyDetailOf(document));
+  });
+
+  it('does not repeat a version number that is not a number at all', () => {
+    // A third path the quoted-run scrubber could never have covered: the ascending-order
+    // message interpolates the version number *unquoted*, and a corrupt document's version
+    // number is only a number because the type says so.
+    const document = documentWithVersions([
+      {
+        versionNumber: `${NOTE_FRAGMENT}-not-a-number` as unknown as number,
+        savedAt: FIXTURE_NOW - DAY,
+        changedFields: ['title'],
+        snapshot: { title: 'a' },
+        origin: { action: 'update' },
+      },
+    ]);
+
+    expect(JSON.stringify(diagnose(document))).not.toContain(NOTE_FRAGMENT);
+  });
+
+  it('still names the invariant that broke, so the finding is worth reading', () => {
+    const detail = historyDetailOf(documentWithSnapshotKey(`${NOTE_FRAGMENT}-key`));
+    expect(detail).toContain('snapshot');
+  });
+
+  it('names a snapshot key that IS one of our own field names, because that is safe', () => {
+    // The allow-list is the whole defence: a key equal to one of our literals is one of our
+    // literals, and telling the reader which field is the difference between a report they
+    // can act on and one they cannot.
+    const document = documentWithVersions([
+      {
+        versionNumber: 1,
+        savedAt: FIXTURE_NOW - DAY,
+        changedFields: ['title'],
+        snapshot: { title: 'a', password: 'never-shown' },
+        origin: { action: 'update' },
+      },
+    ]);
+
+    const detail = historyDetailOf(document);
+    expect(detail).toContain('"password"');
+    expect(detail).not.toContain('never-shown');
   });
 });
 

@@ -17,7 +17,8 @@ import { createHash } from 'node:crypto';
  * Twenty bits partitions the ~900 million entry corpus into 1,048,576 buckets, so a prefix
  * names roughly 800 real passwords. The service cannot tell which of them was asked about,
  * and nothing identifying the account is sent in any form: no username, no URL, no record
- * id, no ordering that would group one user's records together.
+ * id, and no stable ordering — `client.ts` shuffles a sweep's prefixes with the project's
+ * CSPRNG before sending them, so the sequence cannot be recognised again next month.
  *
  * ## Why SHA-1, in 2026
  *

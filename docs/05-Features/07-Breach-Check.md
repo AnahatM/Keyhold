@@ -4,12 +4,12 @@
 > requests". Current reference. Implemented by `src/main/breach/` and
 > `src/shared/model/breach.ts`.
 >
-> **Status: the client, the transport and the projection are built and tested — 142 tests,
-> including a structural guard that reads the source of every file in the directory. Nothing
-> a user can reach exists.** There is no `kh:breach:*` channel in `CHANNELS`, no setting to
-> turn it on, and no composition root that builds the transport — so today the client is
-> constructed with none and answers `unknown` / `disabled` without hashing anything. See §7,
-> and read §6 before touching the CSP.
+> **Status: the client, the transport and the projection are built and tested — 161 tests,
+> including a structural guard that parses every source file in `src/`. Nothing a user can
+> reach exists.** There is no `kh:breach:*` channel in `CHANNELS`, no setting to turn it on,
+> no global network kill-switch, and no composition root that builds the transport — so today
+> the client is constructed with none and answers `unknown` / `disabled` without hashing
+> anything. See §7, and read §6 before touching the CSP.
 
 ---
 
@@ -24,12 +24,30 @@
 Twenty bits partitions the corpus into 1,048,576 buckets, so a prefix names roughly eight
 hundred real passwords. The service never sees the password and never sees the full hash, and
 cannot tell which of the candidates behind a prefix was being asked about. **Nothing
-identifying the account is sent in any form** — no username, no URL, no title, no record id,
-and no ordering that would let requests be grouped back into one person's vault.
+identifying the account is sent in any form** — no username, no URL, no title, no record id.
 
-A network observer learns that Keyhold asked about _something_. That residual leak is recorded
-in [`../00-Overview/03-Threat-Model.md`](../00-Overview/03-Threat-Model.md) §2 — _what
-Keyhold does not protect against_ — rather than hidden.
+### The request order is shuffled, and that is a privacy control
+
+What a sweep does hand over, unavoidably, is a set of prefixes from one address inside one
+paced window. The _grouping_ is inherent — k-anonymity protects which password sits behind a
+prefix, never which set of prefixes belongs to one person — and it is recorded in
+[`../00-Overview/03-Threat-Model.md`](../00-Overview/03-Threat-Model.md) §2, _what Keyhold
+does not protect against_, rather than hidden.
+
+The **order** is not inherent, and it used to be the vault's own record order: `byPrefix` is a
+`Map`, and a `Map` iterates in insertion order. An ordered multiset of a few hundred twenty-bit
+values is a strong linking handle, so the same vault swept a month later from a different
+address would have emitted very nearly the same recognisable sequence — turning "someone
+checked something" into "this is the same vault as last month". `Add-Padding` does not help
+with this: it hides how many candidates sit behind each answer, not the order the questions
+were asked in.
+
+So `client.ts` shuffles the sweep's prefixes with `shuffleInPlace` — the project's
+CSPRNG-backed Fisher-Yates, via `randomInt`'s rejection sampling — before sending any of them.
+Results are still returned in the caller's order, so nothing downstream pays for it.
+`client.test.ts` sweeps a fixed twelve-password vault five times and asserts the request
+sequences are not all identical, while the prefix multiset and the caller-facing result order
+are unchanged. (Recorded as audit finding N7.)
 
 `hash.ts` enforces the asymmetry structurally rather than by asking callers to be careful:
 `passwordRange()` returns a `prefix` (5 characters, transmitted) and a `suffix` (35
@@ -78,25 +96,55 @@ here is **the absence of the capability**:
 Turning the setting on is what causes a transport to be built and handed in, at the
 composition root. Nothing further down the stack can turn the network on.
 
-`no-network.test.ts` checks this three ways, because a behavioural test alone would pass for a
+`no-network.test.ts` checks this four ways, because a behavioural test alone would pass for a
 module that merely happened not to be called:
 
-1. **Structurally, over the source.** No file in `src/main/breach/` other than
-   `https-transport.ts` may so much as _name_ a network API — `fetch`, `XMLHttpRequest`,
-   `WebSocket`, `EventSource`, `sendBeacon`, `node:http`/`https`, `node:net`, `node:tls`,
-   `node:dns`, `node:dgram`, an import from `electron`, or a literal `http(s)://` URL — and
+1. **Repo-wide, over the source.** Hard rule 5 is repo-wide, so the scan is: every `.ts`/`.tsx`
+   file under `src/`, recursively, and exactly one of them — `https-transport.ts` — may name a
+   way to originate a request. The capabilities are named rather than pattern-matched on
+   "http" so the failure message says which one appeared: `fetch`, `XMLHttpRequest`,
+   `WebSocket`, `EventSource`, `sendBeacon`, an import of `http`/`https`/`http2`/`net`/`tls`/
+   `dns`/`dgram` (with or without the `node:` prefix) or of a third-party HTTP client, and
+   Electron's own `net`/`netLog`. A **test** file may _name_ `fetch` — booby-trapping it is how
+   the behavioural half works — but may not call one or import a module that can.
+2. **Directory-strict, plus the module graph.** Inside `src/main/breach/` mentioning a network
+   API is enough to fail, as is an import from `electron` or a literal `http(s)://` URL; and
    the transport must be unreachable from `client.ts` through **any chain of imports**, walked
-   transitively rather than one level deep. The APIs are named rather than pattern-matched on
-   "http" so the failure message says which capability appeared.
-2. **Behaviourally, with `fetch` booby-trapped** for the whole file, so a request attempted
+   transitively across the whole repository rather than one level deep or one directory wide.
+3. **Behaviourally, with `fetch` booby-trapped** for the whole file, so a request attempted
    anywhere below fails loudly here rather than quietly succeeding on somebody's machine.
-3. **By what is not computed.** `passwordRange` is spied on and must never be called. That is
+4. **By what is not computed.** `passwordRange` is spied on and must never be called. That is
    the difference between a feature that is off and one that is merely quiet.
 
 There is deliberately **no test that makes a real request**. The range API is free and public,
 and hitting it from a test suite would still be wrong: it would leak the fact that this
 machine ran these tests, it would flake on a plane, and it would make the suite's result
 depend on somebody else's uptime.
+
+### The guard parses the source; it does not pattern-match it
+
+Worth knowing before anyone simplifies it back. The scan used to read source as text — a
+hand-rolled comment stripper, a regex per API, and a graph walk over `'./…'` specifiers — and
+a subsystem audit found it **failed open in three ways at once**, each measured by planting a
+violation and watching all fourteen tests pass:
+
+| Finding | The hole                                                                                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **N10** | The graph walk captured only relative specifiers, so `from '@main/breach/https-transport.js'` — the project's own alias style — was invisible                |
+| **N18** | The comment stripper had no notion of string literals, so a line containing `'/*'` opened a block comment that never closed and blinded the rest of the file |
+| **N17** | One directory, non-recursively, for a rule that is repo-wide                                                                                                 |
+
+Specifiers, identifiers and calls now come from the **TypeScript parser**, the same one that
+compiles the project: comments are trivia and never become nodes, so N18 is closed by
+construction rather than by a better regex. Aliases are read out of `tsconfig.node.json`
+itself rather than restated (hard rule 8), so N10 cannot recur when an alias is added. And the
+walk covers all of `src/`, which closes N17. A local import that fails to resolve is a
+**failure**, not a skip — "the walk did not understand this line" and "there is nothing there"
+must never look the same to a security guard.
+
+The last block of the structural half plants each of those violations into a throwaway source
+tree and asserts the scan fails on it, because a guard nobody has watched fail is not known to
+work — and these three were watched to pass for months.
 
 ---
 
@@ -215,10 +263,18 @@ works.
 **Nothing is persisted and nothing is logged.** No result reaches disk, no hash is stored, and
 no "this password was breached" flag is kept anywhere — a stored flag is a stored fact about a
 password, and it would outlive both the password and the user's opt-in. The range cache is
-memory-only, bounded (128 ranges by default), and dropped by `clearCache()`, which the lock
-path should call. Bodies are cached rather than parsed maps, because the string is smaller
-than the `Map` built from it and because re-parsing on a hit means a cached answer and a
-fresh one go through identical code.
+memory-only, bounded (128 ranges by default), and dropped by `clearCache()`. Bodies are cached
+rather than parsed maps, because the string is smaller than the `Map` built from it and
+because re-parsing on a hit means a cached answer and a fresh one go through identical code.
+
+**The cache must die with the lock, and nothing calls `clearCache()` yet** (§7). It is
+deliberately not self-clearing — reopening the dashboard should not re-ask the service the
+same questions — so a client held across a lock/unlock cycle carries it over. Its keys are the
+prefixes of passwords in the vault that was open: a partial twenty-bit fingerprint of that
+vault, sitting in main-process memory after the event whose entire meaning is that nothing
+derived from the vault is still there. Whoever builds the client owns the call, next to where
+`SessionController.lock()` destroys the DEK; discarding the client entirely satisfies it just
+as well.
 
 ### The exact count does not cross the bridge
 
@@ -279,6 +335,16 @@ importing something that merely sounds harmless.
 - **The IPC channel.** No `kh:breach:*` entry in `CHANNELS`.
 - **The setting.** `DEFAULT_BREACH_CHECK_SETTINGS` exists in `@shared`, and there is no
   settings surface that reads or writes it, and no persistence for it.
+- **The global network kill-switch.** Hard rule 5 promises the check sits behind _two_
+  switches — its own setting, and a machine-scoped master switch that denies the network
+  whatever any per-feature setting says. A grep of `src/` for `killSwitch`, `networkEnabled`,
+  `allowNetwork`, `offlineOnly` and `networkAllowed` returns nothing: the second switch does
+  not exist, so it is a **prerequisite for wiring this feature**, not a nicety. (Audit finding
+  N38.) It belongs in machine-scoped `Preferences` rather than in vault settings — a vault
+  carried to another machine must not be able to turn that machine's network on — and the
+  composition root must read it _and_ the feature setting before it constructs a transport.
+- **The lock-path call to `clearCache()`.** See §5. The obligation exists, the caller does
+  not, and the guard for it belongs with the lock path rather than here. (Audit finding N15.)
 - **The composition root.** Nothing calls `createHttpsTransport()` and hands the result to a
   client. Until something does, the feature is off in the strongest available sense —
   see §2.
@@ -295,17 +361,17 @@ importing something that merely sounds harmless.
 
 ## 8. Tests
 
-142 in `src/main/breach/`.
+161 in `src/main/breach/`.
 
-| File                      | Tests | Covers                                                                                                                                                                                                           |
-| ------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `client.test.ts`          | 36    | Every failure producing `unknown` and never `safe` · prefix deduplication and cache reuse against an injected fake · the property that nothing returned names the password, its digest, its prefix or its suffix |
-| `range.test.ts`           | 27    | Strict line parsing, padding rows, the count cap, case-insensitive matching, and each of the three faults                                                                                                        |
-| `https-transport.test.ts` | 23    | That `Add-Padding` is sent on every request · the fixed origin and prefix validation · the capped body read · `Retry-After` normalisation                                                                        |
-| `transport.test.ts`       | 19    | Status classification and thrown-error classification, including reading `fetch`'s wrapped `cause`                                                                                                               |
-| `no-network.test.ts`      | 14    | The three-way guard of §2 — source, behaviour, and what is not computed                                                                                                                                          |
-| `projection.test.ts`      | 13    | Band boundaries, that no count survives, and that the three run counts are computed rather than subtracted                                                                                                       |
-| `hash.test.ts`            | 10    | `password` → `5BAA6` derived from first principles rather than trusted as a copied constant, and the prefix/suffix split                                                                                         |
+| File                      | Tests | Covers                                                                                                                                                                                                                                                                                        |
+| ------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client.test.ts`          | 40    | Every failure producing `unknown` and never `safe` · prefix deduplication and cache reuse against an injected fake · that repeated sweeps of one vault do not emit a recognisable request order · the property that nothing returned names the password, its digest, its prefix or its suffix |
+| `range.test.ts`           | 27    | Strict line parsing, padding rows, the count cap, case-insensitive matching, and each of the three faults                                                                                                                                                                                     |
+| `https-transport.test.ts` | 23    | That `Add-Padding` is sent on every request · the fixed origin and prefix validation · the capped body read · `Retry-After` normalisation                                                                                                                                                     |
+| `transport.test.ts`       | 19    | Status classification and thrown-error classification, including reading `fetch`'s wrapped `cause`                                                                                                                                                                                            |
+| `no-network.test.ts`      | 29    | The four-way guard of §2 — the repo-wide scan, the directory-strict scan and the module graph, the booby-trapped global, what is not computed, and eleven planted cases proving each detector fires — and does not fire on a clean file                                                       |
+| `projection.test.ts`      | 13    | Band boundaries, that no count survives, and that the three run counts are computed rather than subtracted                                                                                                                                                                                    |
+| `hash.test.ts`            | 10    | `password` → `5BAA6` derived from first principles rather than trusted as a copied constant, and the prefix/suffix split                                                                                                                                                                      |
 
 ---
 

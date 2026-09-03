@@ -299,6 +299,84 @@ describe('sweeping a vault without abusing a free service', () => {
   });
 });
 
+// ── The order the prefixes go out in ─────────────────────────────────────────
+
+/**
+ * The sequence of prefixes is itself a fingerprint, unless it is shuffled.
+ *
+ * `byPrefix` is a `Map`, and a `Map` iterates in insertion order, so a sweep that walked it
+ * directly would send prefixes in the order records appear in the vault — the same ordered
+ * sequence every time, from every address, for as long as the vault keeps its shape. An
+ * ordered multiset of a few hundred twenty-bit values links two sweeps a month apart back to
+ * one vault, which is the grouping `client.ts`, `hash.ts` and `07-Breach-Check.md` all say
+ * does not happen. `Add-Padding` does not help: it hides how many candidates sit behind an
+ * answer, not the order the questions were asked in.
+ *
+ * So: the same vault, swept repeatedly, must not produce the same request order — while the
+ * *set* of prefixes, the request count and the caller's result order all stay exactly as
+ * they were. Those three are asserted alongside, because a "shuffle" that also dropped or
+ * duplicated a prefix would pass a test that only looked at ordering.
+ */
+describe('a sweep does not emit a recognisable sequence', () => {
+  /** Enough distinct prefixes that two shuffles agreeing by chance is ~1 in 12!. */
+  const VAULT = Array.from({ length: 12 }, (_, index) => `sweep-order-password-${String(index)}`);
+
+  const sweep = async (): Promise<readonly string[]> => {
+    const fake = honestTransport();
+    // No cache: a cached range is never re-requested, which would flatten the second sweep
+    // into no requests at all and make the comparison vacuous.
+    const client = new PwnedPasswordsClient({
+      transport: fake.transport,
+      requestIntervalMs: 0,
+      maxCachedRanges: 0,
+    });
+    await client.checkMany(inputs(...VAULT));
+    return fake.prefixes;
+  };
+
+  it('asks about one prefix per password, so the ordering test is not vacuous', () => {
+    const prefixes = VAULT.map((secretPassword) => passwordRange(secretPassword).prefix);
+    expect(new Set(prefixes).size).toBe(VAULT.length);
+  });
+
+  it('sends the same vault in a different order every time', async () => {
+    const orders = new Set<string>();
+    for (let attempt = 0; attempt < 5; attempt += 1) orders.add((await sweep()).join(','));
+
+    // Five identical shuffles of twelve items would be a ~1-in-10^17 coincidence; in
+    // practice this fails if and only if the order is not being randomised at all.
+    expect(orders.size).toBeGreaterThan(1);
+  });
+
+  it('asks about exactly the same prefixes, once each, whatever the order', async () => {
+    const expected = [
+      ...VAULT.map((secretPassword) => passwordRange(secretPassword).prefix),
+    ].sort();
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect([...(await sweep())].sort()).toEqual(expected);
+    }
+  });
+
+  it('returns results in the caller’s order, not the order they were asked in', async () => {
+    const fake = honestTransport();
+    const client = new PwnedPasswordsClient({ transport: fake.transport, requestIntervalMs: 0 });
+
+    // Blanks interleaved: they are skipped rather than reported, so the surviving ids must
+    // still come back in the caller's order with the gaps closed up.
+    const summary = await client.checkMany(inputs(VAULT[0]!, '', ...VAULT.slice(1, 6), ''));
+
+    expect(summary.results.map((result) => result.credentialId)).toEqual([
+      'c0',
+      'c2',
+      'c3',
+      'c4',
+      'c5',
+      'c6',
+    ]);
+  });
+});
+
 // ── Every failure is "unknown", and none of them is "safe" ───────────────────
 
 describe('a failure is never good news', () => {

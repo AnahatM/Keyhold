@@ -261,6 +261,63 @@ function renderDiagnosis(lines: string[], diagnosis: DocumentDiagnosis): void {
 }
 
 /**
+ * The categories this report promises to withhold.
+ *
+ * A list rather than prose, because the sentence below is a **promise**: a user reads it and
+ * then pastes the report into a public issue tracker on the strength of it. It used to read
+ * "no passwords, notes, titles, names, or file paths", which was wrong in both directions — a
+ * snapshot key out of a corrupt document could carry a fragment of a decrypted note past the
+ * redaction (fixed in `history-detail.ts`), and the report has always carried file names and
+ * the header's ids on purpose.
+ *
+ * Keeping the categories as data is what lets `report.test.ts` check them one at a time: it
+ * plants a **separate** marker for each entry here in a poisoned vault and sweeps the finished
+ * report for it. Adding a category to this list without the report actually withholding it
+ * fails, and so does a sentence that stops naming one. Prose alone could not be checked —
+ * a guard that reads the same string the renderer prints agrees with itself no matter how
+ * wrong both are, which is the failure mode this whole change exists to remove.
+ */
+export const DISCLOSURE_WITHHELD: readonly string[] = [
+  'passwords',
+  'notes',
+  'titles',
+  'usernames',
+  'emails',
+  'web addresses',
+  'field labels',
+  'security questions or answers',
+  'tag or folder names',
+  'attachment names',
+  'directory paths',
+];
+
+/**
+ * The categories this report deliberately **does** carry, named so the promise is not one-sided.
+ *
+ * Each is defensible on its own — a report that cannot say which file it is about is not much
+ * of a report, and the ids are what make two reports about one vault comparable. But a user
+ * pasting this publicly hands over stable correlatable identifiers and possibly a personal
+ * filename (`divorce-vault.keep`), and a sentence that only lists what is withheld invites them
+ * to do that without noticing. Under-claiming a disclosure is as much a broken promise as
+ * over-claiming one, so `report.test.ts` asserts each of these really is present.
+ */
+export const DISCLOSURE_CARRIED: readonly string[] = [
+  'the vault file’s name',
+  'the names of the files beside it',
+  'this vault’s id',
+  'this device’s id',
+];
+
+/** The promise as it is printed. Every category above appears in it, and the guard checks that. */
+export const DISCLOSURE_STATEMENT: readonly string[] = [
+  'This report repeats nothing that was typed into the vault — no passwords, notes, titles,',
+  'usernames, emails, web addresses, field labels, security questions or answers, tag or',
+  'folder names, and no attachment names or directory paths. It does carry the vault file’s',
+  'name, the names of the files beside it, this vault’s id and this device’s id, which are',
+  'stable identifiers worth stripping before pasting this somewhere public.',
+];
+
+/**
  * Renders the report as plain text.
  *
  * Deliberately not Markdown: this is pasted into terminals, mail and issue trackers that all
@@ -273,7 +330,7 @@ export function renderRecoveryReport(report: RecoveryReport): string {
   lines.push('KEYHOLD VAULT DIAGNOSTICS');
   lines.push(`Generated: ${new Date(report.generatedAt).toISOString()}`);
   lines.push(`Vault file: ${report.vaultName ?? 'not named'}`);
-  lines.push('This report contains no passwords, notes, titles, names, or file paths.');
+  for (const line of DISCLOSURE_STATEMENT) lines.push(line);
 
   heading(lines, 'WHAT WAS CHECKED');
   for (const entry of report.checked) {

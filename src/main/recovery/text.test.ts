@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { VERSIONED_FIELDS } from '@shared/model/credential.js';
-import { formatCount, redactUnknownFields, sanitiseDetail, wrapText } from './text.js';
+import { formatCount, sanitiseDetail, wrapText } from './text.js';
 
 /**
  * Three small helpers that every diagnostic message goes through. Small enough to look
@@ -60,36 +59,10 @@ describe('sanitiseDetail', () => {
   });
 });
 
-describe('redactUnknownFields', () => {
-  it('keeps a quoted token that is a known field name', () => {
-    const message = 'version 2 names unknown field "password"';
-    expect(redactUnknownFields(message, VERSIONED_FIELDS)).toBe(message);
-  });
-
-  it('removes a quoted token that is not, because it could be anything at all', () => {
-    // In a corrupt document the offending snapshot key could be a fragment of a decrypted
-    // note. The invariant that broke is worth keeping; the token is not.
-    const result = redactUnknownFields('version 2 snapshots "hunter2-fragment"', VERSIONED_FIELDS);
-
-    expect(result).toBe('version 2 snapshots "…"');
-    expect(result).not.toContain('hunter2');
-  });
-
-  it('redacts every unknown token, not only the first', () => {
-    const result = redactUnknownFields('"aaa" and "bbb" and "title"', VERSIONED_FIELDS);
-    expect(result).toBe('"…" and "…" and "title"');
-  });
-
-  it('leaves an unquoted message untouched', () => {
-    expect(redactUnknownFields('r1: version numbers must strictly ascend', VERSIONED_FIELDS)).toBe(
-      'r1: version numbers must strictly ascend'
-    );
-  });
-
-  it('handles an empty quoted token', () => {
-    expect(redactUnknownFields('field ""', VERSIONED_FIELDS)).toBe('field "…"');
-  });
-});
+// `redactUnknownFields` and its five tests were deleted with it. Every one of them passed
+// while both bypasses were live, which is the whole argument against testing a scrubber: the
+// cases you think of are exactly the ones it already handles. Its replacement is tested by
+// construction in `history-detail.test.ts` and adversarially in `document-diagnosis.test.ts`.
 
 describe('wrapText', () => {
   it('wraps at the width without splitting words', () => {
