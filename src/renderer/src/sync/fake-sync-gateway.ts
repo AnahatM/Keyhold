@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type {
+  ConflictCandidateView,
   MergeCommitResult,
   MergePreview,
   MergeResolveRequest,
@@ -70,8 +71,18 @@ export class FakeSyncGateway implements SyncGateway {
    */
   prepareGate: Promise<void> | null = null;
 
-  async prepare(): Promise<MergePreview | null> {
+  /** What `candidates` returns. Empty by default, which is the ordinary answer. */
+  readonly candidateList: ConflictCandidateView[] = [];
+  /** Every id `prepare` was called with, so a test can assert *which* copy was chosen. */
+  readonly preparedFrom: (string | undefined)[] = [];
+
+  candidates(): Promise<readonly ConflictCandidateView[]> {
+    return Promise.resolve([...this.candidateList]);
+  }
+
+  async prepare(candidateId?: string): Promise<MergePreview | null> {
     this.prepareCalls += 1;
+    this.preparedFrom.push(candidateId);
     if (this.prepareGate !== null) await this.prepareGate;
 
     const outcome = this.prepareOutcome;

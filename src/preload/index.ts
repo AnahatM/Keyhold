@@ -25,6 +25,7 @@ import type { KdfProgressView } from '@shared/model/kdf-progress.js';
 import type { VaultChangedExternally } from '@shared/model/vault-change.js';
 import type { MergeReport } from '@shared/model/sync.js';
 import type {
+  ConflictCandidateView,
   MergeCommitResult,
   MergePreview,
   MergeResolveRequest,
@@ -482,8 +483,14 @@ const api: KeyholdApi = {
      * to hand over a credential. Resolving sends a side by name and the merge re-runs in the
      * main process, which is what makes that true rather than merely intended.
      */
-    prepare: () =>
-      ipcRenderer.invoke(CHANNELS.syncPrepare) as Promise<IpcResult<MergePreview | null>>,
+    candidates: () =>
+      ipcRenderer.invoke(CHANNELS.syncCandidates) as Promise<
+        IpcResult<readonly ConflictCandidateView[]>
+      >,
+    prepare: (candidateId?: string) =>
+      ipcRenderer.invoke(CHANNELS.syncPrepare, candidateId) as Promise<
+        IpcResult<MergePreview | null>
+      >,
     resolve: (request: MergeResolveRequest) =>
       ipcRenderer.invoke(CHANNELS.syncResolve, request) as Promise<IpcResult<MergeReport>>,
     commit: (planId: string) =>

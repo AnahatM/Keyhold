@@ -831,3 +831,60 @@
 .kh-cloud-notice__advice li + li {
   margin-top: var(--kh-space-1);
 }
+
+/* ── The conflicted copies found beside the vault ──────────────────────────── */
+
+.kh-merge-found__lead {
+  margin: 0;
+  color: var(--kh-color-text);
+}
+
+.kh-merge-found {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+}
+
+.kh-merge-found__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kh-space-3);
+  flex-wrap: wrap;
+  padding: var(--kh-space-3);
+  border: 1px solid var(--kh-color-border);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-color-surface);
+}
+
+.kh-merge-found__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  min-width: 0;
+  flex: 1 1 20rem;
+}
+
+/*
+ * The filename is what identifies which copy this is, and sync clients generate long ones.
+ * Wrapped rather than truncated: a name cut off at "personal (Anahat's conflic…" is exactly
+ * as useless as no name when there are two of them.
+ */
+.kh-merge-found__name {
+  font-family: var(--kh-font-mono);
+  color: var(--kh-color-text);
+  overflow-wrap: anywhere;
+}
+
+.kh-merge-found__facts {
+  color: var(--kh-color-text-muted);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-merge-found__actions {
+  display: flex;
+  gap: var(--kh-space-2);
+}

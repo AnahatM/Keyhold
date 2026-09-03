@@ -6,7 +6,11 @@ import { MergeResolver } from './MergeResolver.js';
 import { emptyTargetNames, type MergeTargetNames } from './merge-targets.js';
 import type { SyncGateway } from './sync-gateway.js';
 import type { KdfProgressView } from '@shared/model/kdf-progress.js';
-import type { MergeCommitResult, MergePreview } from '@shared/model/sync-plan.js';
+import type {
+  ConflictCandidateView,
+  MergeCommitResult,
+  MergePreview,
+} from '@shared/model/sync-plan.js';
 import './sync.css';
 
 /**
@@ -51,9 +55,18 @@ export interface MergeFlowProps {
 }
 
 type Phase =
+  /** Looking for conflicted copies beside the vault. Brief: it reads headers, not bodies. */
+  | { readonly kind: 'looking' }
+  /** Copies were found. The user picks one, or asks for the file dialog instead. */
+  | { readonly kind: 'choosing'; readonly candidates: readonly ConflictCandidateView[] }
   | { readonly kind: 'preparing' }
   | { readonly kind: 'ready'; readonly preview: MergePreview }
   | { readonly kind: 'failed'; readonly message: string };
+
+/** A date a person can read, without pulling in a formatting library for one line. */
+function whenSaved(at: number): string {
+  return new Date(at).toLocaleString();
+}
 
 export function MergeFlow({
   gateway,
@@ -63,8 +76,17 @@ export function MergeFlow({
   onOpenRecord,
   subscribeToKdfProgress,
 }: MergeFlowProps): React.JSX.Element {
-  const [phase, setPhase] = useState<Phase>({ kind: 'preparing' });
+  const [phase, setPhase] = useState<Phase>({ kind: 'looking' });
+  /** Set when the user picks a copy; `undefined` means "open the file dialog". */
+  const [chosenId, setChosenId] = useState<string | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
+  /**
+   * Whether the scan for conflicted copies has already been offered.
+   *
+   * Once, per flow. Offering the list again after the user has said "pick a file instead"
+   * would be the screen arguing with them, and it would loop: `prepare` re-runs on retry.
+   */
+  const [looked, setLooked] = useState(false);
 
   // Read through a function, never as a bare boolean. TypeScript narrows a `let live = true`
   // to the literal `true` inside the closure below and then reads the guard as dead code,
@@ -78,10 +100,29 @@ export function MergeFlow({
     };
   }, []);
 
+  // Look for conflicted copies first, once. A sync client leaving one beside the vault is the
+  // single most likely reason somebody is merging at all, and making them find that file in a
+  // dialog — under a name their client invented, in a folder they did not choose — is asking
+  // them to do the app's job.
   useEffect(() => {
+    if (looked) return;
+    void (async () => {
+      const found = await gateway.candidates().catch(() => []);
+      if (!isLive()) return;
+      setLooked(true);
+      // Nothing found is the ordinary case and gets no screen of its own: straight to the
+      // dialog, exactly as before this existed.
+      if (found.length > 0) setPhase({ kind: 'choosing', candidates: found });
+      else setPhase({ kind: 'preparing' });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [looked]);
+
+  useEffect(() => {
+    if (phase.kind !== 'preparing') return;
     void (async () => {
       try {
-        const preview = await gateway.prepare();
+        const preview = await gateway.prepare(chosenId);
 
         // Dismissing the file dialog is not an error and not a screen. It means the user
         // changed their mind before anything happened, so the flow simply ends.
@@ -116,10 +157,72 @@ export function MergeFlow({
         }
       }
     })();
-    // `attempt` is the retry trigger. `gateway` is deliberately absent: it is rebuilt on
-    // every render of the caller, and depending on it would re-run the file dialog forever.
+    // `attempt` is the retry trigger, `phase.kind` the gate. `gateway` is deliberately absent:
+    // it is rebuilt on every render of the caller, and depending on it would re-run the file
+    // dialog forever.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attempt]);
+  }, [attempt, phase.kind]);
+
+  if (phase.kind === 'looking') {
+    // Deliberately nothing. Reading a handful of plaintext headers is over in a moment, and a
+    // spinner that appears and vanishes inside one frame is worse than no spinner.
+    return <div className="kh-merge" />;
+  }
+
+  if (phase.kind === 'choosing') {
+    return (
+      <div className="kh-merge">
+        <header className="kh-merge__header">
+          <h1 className="kh-merge__title">A copy of this vault is sitting next to it</h1>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+        </header>
+
+        <p className="kh-merge-found__lead">
+          Your sync client wrote {phase.candidates.length === 1 ? 'this' : 'these'} when two devices
+          saved the same vault. {phase.candidates.length === 1 ? 'It holds' : 'They hold'} real
+          edits — merging keeps both sides and asks about anything that disagrees.
+        </p>
+
+        <ul className="kh-merge-found">
+          {phase.candidates.map((candidate) => (
+            <li key={candidate.id} className="kh-merge-found__item">
+              <div className="kh-merge-found__text">
+                <span className="kh-merge-found__name">{candidate.fileName}</span>
+                <span className="kh-merge-found__facts">
+                  {candidate.recordCount} item{candidate.recordCount === 1 ? '' : 's'} · saved{' '}
+                  {whenSaved(candidate.modifiedAt)}
+                </span>
+              </div>
+              <Button
+                onClick={() => {
+                  setChosenId(candidate.id);
+                  setPhase({ kind: 'preparing' });
+                }}
+              >
+                Merge this one
+              </Button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="kh-merge-found__actions">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              // Explicitly clearing the id, not just moving on: a stale choice here would
+              // merge a copy the user has just declined.
+              setChosenId(undefined);
+              setPhase({ kind: 'preparing' });
+            }}
+          >
+            Choose a different file instead
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (phase.kind === 'preparing') {
     return (
@@ -148,6 +251,11 @@ export function MergeFlow({
           <div className="kh-merge-failed__actions">
             <Button
               onClick={() => {
+                // The id is cleared, and that is what makes the label true. Without it this
+                // re-prepares the copy that just failed while the button says "another file" —
+                // found by injection, when removing the same line elsewhere failed nothing and
+                // the search for a reachable path led here.
+                setChosenId(undefined);
                 setPhase({ kind: 'preparing' });
                 setAttempt((previous) => previous + 1);
               }}

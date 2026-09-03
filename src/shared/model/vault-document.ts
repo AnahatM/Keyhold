@@ -167,6 +167,14 @@ export interface VaultLockedInfo {
   readonly createdAt: number;
   readonly modifiedAt: number;
   readonly generation: number;
+  /**
+   * How many records the header says it holds.
+   *
+   * Readable without the password, because the header is authenticated rather than encrypted.
+   * It is what lets a conflicted copy be described — "41 items, saved after yours" — before
+   * anyone commits to opening it.
+   */
+  readonly recordCount: number;
   /** So the unlock screen can warn that this vault will take a while to open. */
   readonly kdfMemoryKib: number;
   readonly kdfIterations: number;

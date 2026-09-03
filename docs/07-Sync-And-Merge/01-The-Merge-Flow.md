@@ -220,22 +220,67 @@ unnecessary suggestion.
 
 ---
 
+## 5c · The copies the client left behind
+
+When two devices both save, the sync client writes the loser next to the vault under a name it
+invented — `personal (Anahat's conflicted copy 2026-09-03).keep`, or
+`personal.sync-conflict-20260903-120000-ABCDEFG.keep`. Those files hold real edits, they look
+like clutter, and the usual instinct is to delete them.
+
+`kh:sync:candidates` finds them and describes each one, and `kh:sync:prepare` takes the id of
+one instead of opening a dialog. Making somebody locate that file themselves — under a name
+their client chose, in a folder they did not — is asking them to do the app's job at exactly
+the moment they are least sure what the file is.
+
+**No path, in either direction.** A candidate is an opaque id and a filename; the id → path map
+lives in the main process and is rebuilt on every scan. That is the entire security argument for
+the channel: `prepare` taking an id it minted is a closed set, where `prepare` taking a filename
+would be an instruction to read whatever the renderer named. An id the process does not
+recognise is refused, not guessed at.
+
+**Everything is read from the plaintext header**, so a candidate is described — item count, when
+it was saved, how many times — before anyone commits to opening it and before any key is used.
+That is what the header being authenticated-but-not-encrypted is for.
+
+Three exclusions, each a file that would otherwise be offered as a merge candidate when it is
+nothing of the sort:
+
+| Excluded                  | Why                                                                |
+| ------------------------- | ------------------------------------------------------------------ |
+| The vault itself          | Merging a file with itself is a no-op that looks like a real offer |
+| Our own pre-merge backups | Merging one back in silently undoes the merge that created it      |
+| A different `vaultId`     | Somebody else's vault, named like a conflicted copy                |
+
+The pre-merge exclusion is the subtle one and it looked like dead code: a backup of `personal`
+matches no conflict pattern, so nothing was testing it. It becomes reachable the moment somebody
+opens a conflicted copy _as_ their vault — an ordinary thing to do — because its backups then
+inherit the conflict wording. That case is now the test.
+
+A scan is per-file fault-tolerant. A folder a sync client is working in holds half-written and
+locked files; giving up on the first `EBUSY` would find nothing exactly when the client is
+busiest, which is when a conflicted copy has just appeared.
+
+---
+
 ## 6 · Guards
 
-| Claim                                                    | Held by                                                                                                                                        |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| No secret value reaches the screen                       | `MergeResolver.test.tsx`, driven from a report with a planted value                                                                            |
-| Nothing is written while conflicts remain                | `MergeResolver.test.tsx` → `FakeSyncGateway`, which refuses exactly as `MergeSessionStore` does                                                |
-| A plan arriving after the screen is gone is discarded    | `MergeFlow.test.tsx`                                                                                                                           |
-| A dismissed dialog is not an error                       | `MergeFlow.test.tsx`                                                                                                                           |
-| An unrecognised side is refused, not defaulted           | `register.test.ts`                                                                                                                             |
-| The merge row exists in the palette                      | `smoke.ts` → `palette-offers-every-transfer`                                                                                                   |
-| The menu command is lock-gated                           | `menu-commands.test.ts`, which compares both directions                                                                                        |
-| Reload is offered only when it loses nothing             | `external-change.test.ts`, over every combination of the flags                                                                                 |
-| A reload never runs over unsaved edits                   | `vault-service.test.ts`                                                                                                                        |
-| The banner reaches the screen at all                     | `smoke.ts` → `external-change-banner-offers-a-reload`                                                                                          |
-| A cloud folder is recognised, and an ordinary one is not | `cloud-folder.test.ts`, whose larger half is what must **not** be detected                                                                     |
-| The notice reaches the screen                            | `smoke.ts` → `cloud-folder-notice-names-the-provider`, with the run's own vault placed inside a `Dropbox` folder so there is something to find |
+| Claim                                                                 | Held by                                                                                                                                        |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| No secret value reaches the screen                                    | `MergeResolver.test.tsx`, driven from a report with a planted value                                                                            |
+| Nothing is written while conflicts remain                             | `MergeResolver.test.tsx` → `FakeSyncGateway`, which refuses exactly as `MergeSessionStore` does                                                |
+| A plan arriving after the screen is gone is discarded                 | `MergeFlow.test.tsx`                                                                                                                           |
+| A dismissed dialog is not an error                                    | `MergeFlow.test.tsx`                                                                                                                           |
+| An unrecognised side is refused, not defaulted                        | `register.test.ts`                                                                                                                             |
+| The merge row exists in the palette                                   | `smoke.ts` → `palette-offers-every-transfer`                                                                                                   |
+| The menu command is lock-gated                                        | `menu-commands.test.ts`, which compares both directions                                                                                        |
+| Reload is offered only when it loses nothing                          | `external-change.test.ts`, over every combination of the flags                                                                                 |
+| A reload never runs over unsaved edits                                | `vault-service.test.ts`                                                                                                                        |
+| The banner reaches the screen at all                                  | `smoke.ts` → `external-change-banner-offers-a-reload`                                                                                          |
+| A cloud folder is recognised, and an ordinary one is not              | `cloud-folder.test.ts`, whose larger half is what must **not** be detected                                                                     |
+| The notice reaches the screen                                         | `smoke.ts` → `cloud-folder-notice-names-the-provider`, with the run's own vault placed inside a `Dropbox` folder so there is something to find |
+| A conflicted copy is found, and a backup or a stranger's vault is not | `conflict-candidates.test.ts`                                                                                                                  |
+| The copy that was picked is the one merged                            | `MergeFlow.test.tsx`, asserting the id `prepare` was called with                                                                               |
+| No path reaches the renderer                                          | `smoke.ts` → `conflicted-copy-listed-without-a-path`, against a real copy of the run's own vault                                               |
 
 Every one of these was fault-injected with the bug it claims to catch before being trusted;
 each test file names its injections in its own header.
