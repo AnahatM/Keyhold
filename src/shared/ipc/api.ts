@@ -18,6 +18,7 @@ import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
 import type { PasswordStrength } from '../model/strength.js';
 import type { Folder, Tag, VaultLockedInfo, VaultSummary } from '../model/vault-document.js';
 import type { MenuCommandId } from '../model/menu-commands.js';
+import type { KdfProgressView } from '../model/kdf-progress.js';
 import type { VaultChangedExternally } from '../model/vault-change.js';
 import type { SettingsSnapshot } from '../model/settings-plan.js';
 import type { AttachmentAddView, AttachmentAudit, AttachmentPreview } from '../model/attachment.js';
@@ -117,6 +118,13 @@ export interface AppApi {
    * `IpcRendererEvent` hidden.
    */
   onVaultChangedExternally: (listener: (change: VaultChangedExternally) => void) => () => void;
+  /**
+   * Subscribes to the Argon2 progress estimate, for every derivation this session runs.
+   *
+   * Same shape as the others. Pushed rather than polled because the renderer has no way to
+   * know a derivation started — it made one call and is waiting on one promise.
+   */
+  onKdfProgress: (listener: (progress: KdfProgressView) => void) => () => void;
 }
 
 /**
@@ -639,6 +647,7 @@ export const EVENTS = {
    * this is not the direction paths travel.
    */
   vaultChangedExternally: 'kh:event:vault-changed-externally',
+  kdfProgress: 'kh:event:kdf-progress',
   ...IMPORT_EVENTS,
   ...THEME_EVENTS,
 } as const;

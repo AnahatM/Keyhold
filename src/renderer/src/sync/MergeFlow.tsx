@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../components/Button.js';
-import { ProgressBar } from '../chrome/ProgressBar.js';
+import { KdfProgressBar } from '../vault/KdfProgressBar.js';
 import { MergeResolver } from './MergeResolver.js';
 import { emptyTargetNames, type MergeTargetNames } from './merge-targets.js';
 import type { SyncGateway } from './sync-gateway.js';
+import type { KdfProgressView } from '@shared/model/kdf-progress.js';
 import type { MergeCommitResult, MergePreview } from '@shared/model/sync-plan.js';
 import './sync.css';
 
@@ -23,12 +24,11 @@ import './sync.css';
  * state where the backup was skipped — but it means the window sits here for as long as the
  * KDF takes.
  *
- * **The wait is indeterminate and says so.** There is no progress channel for a KDF anywhere
- * in the app yet; unlock has the same gap, and building a real one belongs with unlock rather
- * than only here. Inventing a percentage in the meantime would be worse than admitting the
- * truth, so this uses the shared `ProgressBar` in its indeterminate mode — which already
- * carries the slow-operation note and the reduced-motion fallback, and is the reason there is
- * no second progress bar in this file.
+ * **The bar is the same one unlock uses.** It was indeterminate here at first, because there
+ * was no KDF progress channel anywhere in the app; building one for merge alone would have
+ * been the second list, so it was built where unlock needed it too and this reads the same
+ * events. The position is predicted from this machine's previous derivations rather than
+ * measured — Argon2 reports nothing of its own — and `kdf-estimate.ts` carries that argument.
  */
 
 export interface MergeFlowProps {
@@ -39,6 +39,15 @@ export interface MergeFlowProps {
   /** The vault changed underneath the app; the caller re-reads its projection. */
   readonly onApplied?: ((result: MergeCommitResult) => void) | undefined;
   readonly onOpenRecord?: ((recordId: string) => void) | undefined;
+  /**
+   * Subscribes to the Argon2 progress estimate for the bar shown while `prepare` runs.
+   *
+   * A prop rather than a reach for `window.keyhold`, for the same reason `gateway` is one:
+   * this component is driven in its own tests with no preload bridge present, and a direct
+   * reach turns every one of them into a crash on `window.keyhold` being undefined. It did,
+   * once — which is the argument for the injection rather than an argument about it.
+   */
+  readonly subscribeToKdfProgress: (listener: (progress: KdfProgressView) => void) => () => void;
 }
 
 type Phase =
@@ -52,6 +61,7 @@ export function MergeFlow({
   onClose,
   onApplied,
   onOpenRecord,
+  subscribeToKdfProgress,
 }: MergeFlowProps): React.JSX.Element {
   const [phase, setPhase] = useState<Phase>({ kind: 'preparing' });
   const [attempt, setAttempt] = useState(0);
@@ -115,11 +125,11 @@ export function MergeFlow({
     return (
       <div className="kh-merge">
         <div className="kh-merge-preparing">
-          <ProgressBar
-            label="Reading the other copy"
-            note="Unlocking it with this vault's master password, then backing this one up before anything is merged."
-            slowNote="Argon2id is deliberately slow — the same wait as unlocking a vault, and the reason a stolen vault file is expensive to attack."
-          />
+          <KdfProgressBar label="Reading the other copy" subscribe={subscribeToKdfProgress} />
+          <p className="kh-merge-preparing__note">
+            Unlocking it with this vault&rsquo;s master password, then backing this one up before
+            anything is merged.
+          </p>
         </div>
       </div>
     );

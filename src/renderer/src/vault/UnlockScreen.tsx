@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../components/Button.js';
 import { Input } from '../components/Input.js';
+import { KdfProgressBar } from './KdfProgressBar.js';
 import { useSession } from './session-store.js';
 import './vault-screens.css';
 
@@ -141,13 +142,18 @@ export function UnlockScreen(): React.JSX.Element {
           }
         />
 
+        {/*
+          Argon2 is intentionally slow, and this is the moment the app is doing its most
+          important work. It used to be a sentence saying so and nothing else, which explained
+          the pause but left it unmeasured — on a vault configured for a high cost that is
+          several seconds of a window that looks stopped. The bar predicts the wait from this
+          machine's previous unlocks and says so when it overruns.
+        */}
         {busy && (
-          // Argon2 is intentionally slow. Saying so turns a worrying pause into an
-          // explained one — and this is the moment the app is doing its most important work.
-          <p className="kh-screen__note" aria-live="polite">
-            Deriving your key… this is deliberately slow, which is what makes a stolen vault file
-            expensive to attack.
-          </p>
+          <KdfProgressBar
+            label="Unlocking your vault"
+            subscribe={(listener) => window.keyhold.app.onKdfProgress(listener)}
+          />
         )}
 
         <div className="kh-screen__actions">

@@ -308,6 +308,7 @@ function TransferFlows({
       <MergeFlow
         gateway={createIpcSyncGateway(window.keyhold.sync)}
         names={names}
+        subscribeToKdfProgress={(listener) => window.keyhold.app.onKdfProgress(listener)}
         onClose={close}
         onApplied={() => {
           // A merge rewrites the vault body, so every projection the renderer holds is stale

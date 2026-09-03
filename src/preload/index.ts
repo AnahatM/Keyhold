@@ -21,6 +21,7 @@ import type {
   AttachmentPreview,
 } from '@shared/model/attachment.js';
 import { isMenuCommandId, type MenuCommandId } from '@shared/model/menu-commands.js';
+import type { KdfProgressView } from '@shared/model/kdf-progress.js';
 import type { VaultChangedExternally } from '@shared/model/vault-change.js';
 import type { MergeReport } from '@shared/model/sync.js';
 import type {
@@ -145,6 +146,40 @@ const api: KeyholdApi = {
       ipcRenderer.on(EVENTS.vaultChangedExternally, forward);
       return () => {
         ipcRenderer.removeListener(EVENTS.vaultChangedExternally, forward);
+      };
+    },
+
+    /**
+     * The Argon2 progress estimate.
+     *
+     * Shape-checked like every other pushed payload, and the numbers are clamped rather than
+     * merely validated: this feeds a width, and a fraction outside 0..1 arriving from anywhere
+     * would draw a bar out of its track. Anything unreadable is dropped — the honest response
+     * to "we cannot read this progress report" is to leave the bar where it was.
+     */
+    onKdfProgress: (listener: (progress: KdfProgressView) => void) => {
+      const forward = (_event: unknown, progress: unknown): void => {
+        if (typeof progress !== 'object' || progress === null) return;
+        const raw = progress as Record<string, unknown>;
+        if (
+          typeof raw.fraction !== 'number' ||
+          !Number.isFinite(raw.fraction) ||
+          typeof raw.elapsedMs !== 'number' ||
+          typeof raw.estimatedMs !== 'number' ||
+          typeof raw.overdue !== 'boolean'
+        ) {
+          return;
+        }
+        listener({
+          fraction: Math.min(1, Math.max(0, raw.fraction)),
+          elapsedMs: Math.max(0, raw.elapsedMs),
+          estimatedMs: Math.max(0, raw.estimatedMs),
+          overdue: raw.overdue,
+        });
+      };
+      ipcRenderer.on(EVENTS.kdfProgress, forward);
+      return () => {
+        ipcRenderer.removeListener(EVENTS.kdfProgress, forward);
       };
     },
   },

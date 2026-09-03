@@ -2,6 +2,7 @@
 import { join } from 'node:path';
 import { Worker } from 'node:worker_threads';
 import { KEY_BYTES, type KdfParams } from '@shared/format/types.js';
+import { estimateMs, kdfProgressAt, type KdfProgress } from './kdf-estimate.js';
 import { assertUsableKdfParams } from './kdf.js';
 import { SecretBytes } from './secret.js';
 import type { KdfRequest, KdfResponse } from './kdf-worker.js';
@@ -65,15 +66,44 @@ export class InProcessKdf implements KdfProvider {
   }
 }
 
+/** How often the progress estimate is recomputed while a derivation is in flight. */
+const PROGRESS_TICK_MS = 100;
+
+export interface KdfRunnerOptions {
+  /**
+   * Called on a timer while a derivation runs, and never after it settles.
+   *
+   * The position is predicted rather than measured — see `kdf-estimate.ts` for why Argon2 can
+   * report nothing of its own. This is a UI signal and nothing else: no caller waits on it,
+   * and a listener that throws must not take a derivation down with it.
+   */
+  readonly onProgress?: ((progress: KdfProgress) => void) | undefined;
+  /**
+   * This machine's learned milliseconds-per-cost-unit, or `null` before anything is known.
+   *
+   * A function rather than a value: it is kept in machine preferences and updated after every
+   * derivation, so a value captured at construction would be the one from before this session
+   * started learning.
+   */
+  readonly rate?: (() => number | null) | undefined;
+  /** How long a derivation actually took, so the rate can move toward the truth. */
+  readonly onMeasured?: ((params: KdfParams, measuredMs: number) => void) | undefined;
+}
+
 export class KdfRunner implements KdfProvider {
   #worker: Worker | null = null;
   #pending = new Map<number, Pending>();
   #nextId = 1;
   #idleTimer: NodeJS.Timeout | undefined;
   readonly #workerPath: string;
+  readonly #options: KdfRunnerOptions;
 
-  constructor(workerPath = join(import.meta.dirname, 'kdf-worker.js')) {
+  constructor(
+    workerPath = join(import.meta.dirname, 'kdf-worker.js'),
+    options: KdfRunnerOptions = {}
+  ) {
     this.#workerPath = workerPath;
+    this.#options = options;
   }
 
   /**
@@ -88,24 +118,75 @@ export class KdfRunner implements KdfProvider {
     const worker = this.#ensureWorker();
     const id = this.#nextId++;
 
-    return new Promise<SecretBytes>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.#pending.delete(id);
-        reject(
-          new Error(
-            'Key derivation did not finish in time. The vault may be configured with a cost this machine cannot meet.'
-          )
-        );
-        // A worker that missed its deadline is in an unknown state; replace it rather
-        // than reusing it for the next attempt.
-        this.#disposeWorker();
-      }, DERIVATION_TIMEOUT_MS);
+    // Started before the message is posted, so the estimate covers the whole wait the user
+    // sees — including the worker's own start-up on the first derivation of a session, which
+    // is real time they are looking at a bar.
+    const startedAt = performance.now();
+    const stopTicking = this.#startProgress(params, startedAt);
 
-      this.#pending.set(id, { resolve, reject, timer });
+    try {
+      const key = await new Promise<SecretBytes>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          this.#pending.delete(id);
+          reject(
+            new Error(
+              'Key derivation did not finish in time. The vault may be configured with a cost this machine cannot meet.'
+            )
+          );
+          // A worker that missed its deadline is in an unknown state; replace it rather
+          // than reusing it for the next attempt.
+          this.#disposeWorker();
+        }, DERIVATION_TIMEOUT_MS);
 
-      const request: KdfRequest = { id, password, params, hashLength };
-      worker.postMessage(request);
-    });
+        this.#pending.set(id, { resolve, reject, timer });
+
+        const request: KdfRequest = { id, password, params, hashLength };
+        worker.postMessage(request);
+      });
+
+      // Only a derivation that finished is a measurement of how long one takes. A rejection
+      // is a timeout or a dead worker, and folding either into the rate would teach the
+      // estimator that this machine is enormously slow on the strength of it not working.
+      this.#options.onMeasured?.(params, performance.now() - startedAt);
+      return key;
+    } finally {
+      // In a `finally` for the same reason the write guard is: a derivation that throws must
+      // still stop the ticker, or the bar keeps climbing over a screen that has given up.
+      stopTicking();
+    }
+  }
+
+  /**
+   * Emits a predicted position every {@link PROGRESS_TICK_MS} until the returned stop is called.
+   *
+   * Silent when no listener was supplied, which is the case in every test that does not care
+   * and in `InProcessKdf` entirely — a timer that exists to call nothing is a timer keeping a
+   * process awake for no reason.
+   */
+  #startProgress(params: KdfParams, startedAt: number): () => void {
+    const onProgress = this.#options.onProgress;
+    if (onProgress === undefined) return () => undefined;
+
+    const estimated = estimateMs(params, this.#options.rate?.() ?? null);
+
+    const tick = (): void => {
+      try {
+        onProgress(kdfProgressAt(performance.now() - startedAt, estimated));
+      } catch (error) {
+        // Swallowed deliberately. This is a progress bar; a listener that throws must not be
+        // able to fail an unlock.
+        console.error('[kdf] a progress listener threw:', error);
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, PROGRESS_TICK_MS);
+    // Never hold the process open for a progress bar.
+    interval.unref();
+
+    return () => {
+      clearInterval(interval);
+    };
   }
 
   /** Tears the worker down. Safe to call at any time; a new one is created on demand. */

@@ -90,6 +90,39 @@ be somewhat faster but would add a compiled artefact per platform to every build
 same WASM implementation also serves the KDBX importer, which requires an Argon2 supplied
 from outside.
 
+#### Showing the wait
+
+`CLAUDE.md` asks for determinate progress during Argon2 and calls a frozen window a bug. Argon2
+makes that awkward: `hash-wasm` exposes one call that returns when it is finished, there is no
+progress callback, and the memory-hard construction cannot be decomposed into steps that could
+report one.
+
+So the bar is **predicted from a measurement of this machine**, not invented, and not measured
+from the algorithm. Running time is very nearly linear in `memoryKib × iterations`, so
+`crypto/kdf-estimate.ts` keeps a rate — milliseconds per KiB-iteration — in machine
+preferences, predicts each derivation from it, and folds the real duration back in afterwards
+with a low smoothing factor. The first derivation on a machine uses a shipped default and is
+the only one that can be badly wrong; every one after it is corrected by the last.
+
+Parallelism is deliberately **not** divided out of the cost. It sets Argon2's lane count, and
+`hash-wasm` is single-threaded WebAssembly — the lanes interleave on one thread, so raising it
+does not shorten the wall clock. Dividing by it would predict a speed-up that never happens,
+hardest on exactly the expensive vaults where being wrong shows most.
+
+Two properties keep it from being decorative:
+
+- **It never reaches 100% before the work ends.** The curve is linear to the estimate and
+  asymptotic after it, so an underestimate shows a bar that visibly slows rather than one that
+  completes and then sits there.
+- **It says when it has overrun**, so the screen can explain rather than leaving a stalled bar
+  to speak for itself.
+
+The rate is machine-scoped and never travels in a vault: a `.keep` carried to a slower laptop
+must not bring the fast machine's timing with it. It is pushed to the renderer on
+`kh:event:kdf-progress` for every derivation the session runs — unlocking, creating, re-keying,
+and reading the other copy during a merge — because each of those is a wait somebody is
+looking at.
+
 ### AES-256-GCM — encryption
 
 An AEAD: encryption and authentication in one primitive. A modified ciphertext fails

@@ -402,9 +402,11 @@ prompt, the saved report and cloud-folder awareness. Full notes:
 - [x] **The step in front of the resolver** — `prepare` is one call so a file can never be
       picked without the backup being taken, which means the window waits for a KDF; the wait
       is indeterminate and says so
-- [ ] **A KDF progress channel, shared with unlock** — CLAUDE.md asks for determinate progress
-      during Argon2 and there is none anywhere: not on unlock, not on merge. One channel, two
-      callers; building it only for merge would be the second list
+- [x] **A KDF progress channel, shared with unlock** — `kh:event:kdf-progress`, one channel and
+      three callers. Determinate by prediction rather than measurement, because Argon2 reports
+      nothing and cannot be chunked: the rate is learned from this machine's own derivations and
+      corrected after every one. Never reaches 100% before the work ends, and says when it has
+      overrun. See `docs/02-Security/00-Cryptography.md` §3
 - [x] **Mandatory pre-merge backup** — enforced rather than requested: a private-constructor
       receipt only the backup path can mint, minted after the copy is verified on disk, and
       required by every step that follows. Named, dated and retained, because the rolling
