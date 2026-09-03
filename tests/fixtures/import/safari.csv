@@ -1,0 +1,3 @@
+Title,URL,Username,Password,Notes,OTPAuth
+Example Mail,https://mail.example.com,ada@example.com,hunter2,"Backup codes: 1111, 2222, 3333",otpauth://totp/Example:ada@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example
+Example Forum,https://forum.example.org,ada,correct-horse-battery-staple,,

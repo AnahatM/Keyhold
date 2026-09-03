@@ -1,0 +1,6 @@
+url,username,password,totp,extra,name,grouping,fav
+https://shop.example.com,ada@example.com,hunter2,,"Delivery address: 12 High Street, Springfield",Example Shop,Shopping,1
+http://sn,,,,"NoteType:Server
+Hostname:build.example.com
+Username:deploy",Build Server,Work\Infrastructure,0
+https://bank.example.org,ada,tr0ub4dor,JBSWY3DPEHPK3PXP,,Example Bank,Finance,0

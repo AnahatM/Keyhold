@@ -32,16 +32,20 @@ release/
 *.keepbak
 *.keep.tmp
 vaults/
-!tests/**/fixtures/*.keep
-!tests/**/fixtures/*.keepx
+# `tests/fixtures/**`, not `tests/**/fixtures/*`. The layout is tests/fixtures/<area>/<file>,
+# so the old pattern required a `fixtures` directory whose *direct* child was the file and
+# matched nothing. Ten import fixtures were therefore never committed; every test that reads
+# one passed locally, where the files exist, and failed on every CI runner, where they do not.
+!tests/fixtures/**/*.keep
+!tests/fixtures/**/*.keepx
 
 # Import/export fixtures that may contain real credentials
 *.kdbx
 *.csv
 *.1pux
-!tests/**/fixtures/*.csv
-!tests/**/fixtures/*.kdbx
-!tests/**/fixtures/*.1pux
+!tests/fixtures/**/*.csv
+!tests/fixtures/**/*.kdbx
+!tests/fixtures/**/*.1pux
 
 # Secrets & local config
 .env

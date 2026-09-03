@@ -1,0 +1,3 @@
+username,username2,username3,title,password,note,url,category,otpSecret
+ada@example.com,ada.lovelace@example.com,,Example Mail,hunter2,"Shared with the team, rotate quarterly",https://mail.example.com,Work,JBSWY3DPEHPK3PXP
+ada,,,Example Forum,correct-horse-battery-staple,,https://forum.example.org,Personal,
