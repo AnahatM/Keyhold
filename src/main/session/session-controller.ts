@@ -270,10 +270,22 @@ export class SessionController {
   }
 
   lock(reason: LockReason = 'manual'): void {
+    // Read before anything is torn down: after `#vault.lock()` the header is gone, and this
+    // is the only record of which vault the user was in.
+    //
+    // Without it, `status()` reported `no-vault` after every lock — idle, manual, sleep,
+    // blur, all of them — because `#afterOpen` clears `#pendingVault` and nothing put it
+    // back. The renderer's `screenFor` maps that to the welcome screen, so locking threw the
+    // user out to the vault list and the app forgot which file they had open. It also made
+    // `lastLockReason` dead data: the unlock screen is the only thing that shows it, and the
+    // unlock screen never rendered.
+    const wasOpen = this.#vault.lockedInfo;
+
     this.#autoLock.disarm();
     this.#clipboard.clearOnExit();
     this.#vault.lock();
     this.#lastLockReason = reason;
+    if (wasOpen !== null) this.#pendingVault = wasOpen;
 
     // After the key is gone, not before. A listener that reads the vault on its way out gets
     // a locked one, which is the state it is being told about.

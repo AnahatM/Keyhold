@@ -209,6 +209,32 @@ export class VaultService {
     return this.#broker;
   }
 
+  /**
+   * What an unlock screen needs in order to name this vault, read while it is still open.
+   *
+   * The same shape `inspect` returns, but taken from the header already in memory rather
+   * than by reading the file again — locking must not wait on I/O, and by the time a caller
+   * knows the vault is locked the header is gone.
+   *
+   * `hasOrphanedTemp` is false by construction. The field reports an interrupted *previous*
+   * write, which is a thing to warn about when first opening a file; this vault has been
+   * open and saving atomically since, so raising it again on a re-unlock would be a warning
+   * about nothing.
+   */
+  get lockedInfo(): VaultLockedInfo | null {
+    const open = this.#open;
+    if (open === null) return null;
+    return {
+      path: open.path,
+      vaultId: open.header.vaultId,
+      createdAt: open.header.createdAt,
+      modifiedAt: open.header.modifiedAt,
+      generation: open.header.generation,
+      kdfMemoryKib: open.header.kdf.memoryKib,
+      kdfIterations: open.header.kdf.iterations,
+      hasOrphanedTemp: false,
+    };
+  }
 
   // ── Opening ────────────────────────────────────────────────────────────────
 
