@@ -25,6 +25,26 @@ import type {
 } from '../model/vault-document.js';
 import type { MachineSettings } from '../model/settings-plan.js';
 import type { AttachmentAddView, AttachmentAudit } from '../model/attachment.js';
+import type { ExportFormatDescriptor } from '../model/export.js';
+import type { ImportFormatDescriptor } from '../model/import.js';
+import {
+  EXPORT_CHANNELS,
+  type ExportOutcome,
+  type ExportPlan,
+  type ExportPreview,
+  type ExportPreviewRequest,
+} from '../model/export-plan.js';
+import {
+  IMPORT_CHANNELS,
+  IMPORT_EVENTS,
+  type ImportCommitRequest,
+  type ImportCommitResult,
+  type ImportPreview,
+  type ImportPreviewRequest,
+  type ImportSource,
+  type ImportUndoRequest,
+  type ImportUndoResult,
+} from '../model/import-plan.js';
 
 /**
  * The IPC contract — one source of truth for what the renderer can ask the main process
@@ -417,6 +437,44 @@ export interface AttachmentsApi {
   audit: () => Promise<IpcResult<AttachmentAudit>>;
 }
 
+/**
+ * Exporting.
+ *
+ * No channel hands bytes back. `run` writes the file itself, after opening the save dialog
+ * itself, and returns only where it went -- see {@link EXPORT_CHANNELS} for why that is the
+ * whole surface rather than a convenience.
+ *
+ * `preview` carries no passphrase and no confirmation by type, because a preview happens
+ * before the user has been asked for either and a request shape that *could* carry a
+ * passphrase is one that eventually does.
+ */
+export interface ExporterApi {
+  formats: () => Promise<IpcResult<readonly ExportFormatDescriptor[]>>;
+  preview: (request: ExportPreviewRequest) => Promise<IpcResult<ExportPreview>>;
+  /** Opens the save dialog, writes the file, and reports the outcome. Cancelling is not an error. */
+  run: (plan: ExportPlan) => Promise<IpcResult<ExportOutcome>>;
+}
+
+/**
+ * Importing.
+ *
+ * The main process owns the file: `chooseFile` opens the dialog, reads the bytes and keeps
+ * them, and hands back a descriptor with an opaque id. The renderer never learns the path
+ * and never sees a byte of a file that is, at that moment, a plaintext dump of every
+ * password the user has.
+ *
+ * `discard` is not optional politeness. It is how those bytes stop existing, and the wizard
+ * calls it on every exit -- finish, cancel, or unmount.
+ */
+export interface ImporterApi {
+  formats: () => Promise<IpcResult<readonly ImportFormatDescriptor[]>>;
+  chooseFile: () => Promise<IpcResult<ImportSource | null>>;
+  preview: (request: ImportPreviewRequest) => Promise<IpcResult<ImportPreview>>;
+  commit: (request: ImportCommitRequest) => Promise<IpcResult<ImportCommitResult>>;
+  undo: (request: ImportUndoRequest) => Promise<IpcResult<ImportUndoResult>>;
+  discard: (sourceId: string) => Promise<IpcResult<null>>;
+}
+
 export interface KeyholdApi {
   app: AppApi;
   session: SessionApi;
@@ -428,6 +486,8 @@ export interface KeyholdApi {
   organisation: OrganisationApi;
   settings: SettingsApi;
   attachments: AttachmentsApi;
+  exporter: ExporterApi;
+  importer: ImporterApi;
 }
 
 /** IPC channel names. Never build one by string concatenation at a call site. */
@@ -498,6 +558,11 @@ export const CHANNELS = {
   attachmentsRemove: 'kh:attachments:remove',
   attachmentsSave: 'kh:attachments:save',
   attachmentsAudit: 'kh:attachments:audit',
+
+  // Spread, not restated. Both groups declare their names beside the payload types they
+  // carry, and a name that exists in two places is a name that will disagree with itself.
+  ...EXPORT_CHANNELS,
+  ...IMPORT_CHANNELS,
 } as const;
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
@@ -511,6 +576,7 @@ export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
  */
 export const EVENTS = {
   sessionChanged: 'kh:event:session-changed',
+  ...IMPORT_EVENTS,
 } as const;
 
 /** Every channel name, for the allow-list check in the main process. */

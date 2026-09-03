@@ -256,3 +256,23 @@ export const PLAINTEXT_AFTERMATH_REMINDER =
   'Keyhold does not shred files. Copies may already exist in a backup, a sync folder, or your ' +
   'operating system’s search index. Treat it as readable until the whole drive is encrypted or ' +
   'replaced.';
+
+// ── Channels ─────────────────────────────────────────────────────────────────
+
+/**
+ * The export IPC surface.
+ *
+ * Three calls and no fourth. There is deliberately no "give me the bytes" channel: the file
+ * is written by the main process, to a path the user chose in an OS dialog, and the renderer
+ * learns only where it landed. A channel that returned the bytes would put a plaintext copy
+ * of the whole vault in the renderer for as long as the garbage collector felt like keeping
+ * it -- which is decision D13's exact prohibition, arrived at from the other direction.
+ *
+ * Spread into `CHANNELS` in `@shared/ipc/api.ts` rather than restated there, so the names
+ * exist once. `ExporterApi` in that file is the typed half of the same contract.
+ */
+export const EXPORT_CHANNELS = {
+  exportFormats: 'kh:export:formats',
+  exportPreview: 'kh:export:preview',
+  exportRun: 'kh:export:run',
+} as const;

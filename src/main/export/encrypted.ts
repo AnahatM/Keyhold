@@ -8,7 +8,12 @@ import { uuid } from '../crypto/random.js';
 import { writeContainer } from '../format/container.js';
 import { newHeader } from '../format/header.js';
 import { serialiseKeyholdJson } from './keyhold-json.js';
-import { reportSelectionLosses, selectRecords, type ExportSelection } from './select.js';
+import {
+  reportSelectionLosses,
+  selectRecords,
+  type ExportSelection,
+  type SelectedRecords,
+} from './select.js';
 import { encryptedExport, LossLog, type EncryptedExport } from './types.js';
 
 /**
@@ -75,11 +80,25 @@ export interface EncryptedExportOptions extends ExportSelection {
   readonly derive?: DeriveKeyFn | undefined;
 }
 
-export async function exportEncrypted(
-  document: VaultDocument,
-  options: EncryptedExportOptions
-): Promise<EncryptedExport> {
-  const selected = selectRecords(document, options);
+/**
+ * Everything about a parcel that can be known **without deriving a key**: which attachment
+ * chunks it will carry, and what it will lose.
+ *
+ * Split out of {@link exportEncrypted} so the export dialog's preview can call it. The
+ * alternative -- a preview that recomputes "what a parcel loses" in its own words -- is rule
+ * 8's second list, and the failure mode is specific and bad: a dialog that promises the
+ * attachments are coming along, and a file that does not contain them.
+ *
+ * A preview cannot simply run the real export and throw the bytes away, the way the
+ * plaintext previews do, because sealing a parcel means an Argon2id derivation. That is a
+ * second of deliberate work on every change in the dialog, for a result that is discarded.
+ * So this is the seam: the losses are shared code, and the only thing the preview skips is
+ * the part that has no bearing on them.
+ */
+export function parcelPlan(
+  selected: SelectedRecords,
+  supplied: readonly AttachmentChunk[]
+): { readonly losses: LossLog; readonly chunks: readonly AttachmentChunk[] } {
   const losses = new LossLog();
   reportSelectionLosses(selected, losses);
 
@@ -88,7 +107,6 @@ export async function exportEncrypted(
     for (const attachment of record.attachments) wanted.add(attachment.id);
   }
 
-  const supplied = options.attachments ?? [];
   const chunks = supplied.filter((chunk) => wanted.has(chunk.id));
   const missing = wanted.size - chunks.length;
   if (missing > 0) {
@@ -99,6 +117,16 @@ export async function exportEncrypted(
       missing
     );
   }
+
+  return { losses, chunks };
+}
+
+export async function exportEncrypted(
+  document: VaultDocument,
+  options: EncryptedExportOptions
+): Promise<EncryptedExport> {
+  const selected = selectRecords(document, options);
+  const { losses, chunks } = parcelPlan(selected, options.attachments ?? []);
 
   // Named field by field rather than spread from `options`, so the passphrase and the
   // attachment chunks cannot drift into the payload serialiser on some future refactor.
