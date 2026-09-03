@@ -64,6 +64,7 @@ import {
   serialiseSnapshot,
   snapshotIsSafeToStore,
 } from '../sync/index.js';
+import { historyExportFileName, serialiseCredentialHistory } from '../export/history-export.js';
 import { parseVaultDocument, VaultService } from '../vault/vault-service.js';
 import { createElectronImportFilePicker } from '../import-service/file-picker.js';
 import {
@@ -618,6 +619,44 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.historyClear, (credentialId) =>
     vault.clearHistory(requireId(CHANNELS.historyClear, credentialId, 'credentialId'))
   );
+
+  // The audit trail for one record, written to a file the user picks.
+  //
+  // Built from `getProjection` rather than from the document, and that is the whole security
+  // story: the projection is what the renderer already receives, so there is no path from here
+  // to a secret value. Decision D27 — the file carries provenance, and lengths where a value
+  // would be, which is why it needs no confirmation step.
+  //
+  // The name comes back, never the path. Nothing the renderer holds should be able to become a
+  // filesystem location, and the name is what a "saved as…" message needs.
+  handle(CHANNELS.historyExport, async (credentialId) => {
+    const id = requireId(CHANNELS.historyExport, credentialId, 'credentialId');
+    const credential = vault.getProjection(id);
+    if (credential === null) return null;
+
+    const now = Date.now();
+    const suggested = historyExportFileName(credential, now);
+
+    const window = context.getWindow();
+    const options: SaveDialogOptions = {
+      title: 'Export this credential’s history',
+      defaultPath: suggested,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      properties: ['createDirectory', 'showOverwriteConfirmation'],
+    };
+    const chosen =
+      window === null
+        ? await dialog.showSaveDialog(options)
+        : await dialog.showSaveDialog(window, options);
+    if (chosen.canceled) return null;
+
+    await writeFile(
+      chosen.filePath,
+      serialiseCredentialHistory(credential, { appVersion: context.appVersion, exportedAt: now }),
+      'utf8'
+    );
+    return basename(chosen.filePath);
+  });
 
   // ── import ─────────────────────────────────────────────────────────────────
   //

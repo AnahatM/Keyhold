@@ -335,6 +335,18 @@ export interface HistoryApi {
     from: HistoryPointRef,
     to: HistoryPointRef
   ) => Promise<IpcResult<FieldDiffProjection[] | null>>;
+  /**
+   * Writes one credential's audit trail to a file the user picks.
+   *
+   * **Provenance, not passwords** — decision D27. Every secret is a length, because the export
+   * is built from the same safe projection the renderer receives and every field is named on
+   * the way out rather than copied. That is why this needs no type-to-confirm and no shred
+   * reminder, unlike the full export, which really does write plaintext.
+   *
+   * Returns the chosen file's **name**, never its path, or `null` when the dialog was
+   * dismissed. The dialog opens and the file is written in the main process.
+   */
+  exportHistory: (credentialId: string) => Promise<IpcResult<string | null>>;
   /** Puts the record back to the state before that edit, recording the restore itself. */
   restoreVersion: (
     credentialId: string,
@@ -588,6 +600,7 @@ export const CHANNELS = {
   historyRestoreVersion: 'kh:history:restore-version',
   historyRestoreField: 'kh:history:restore-field',
   historyClear: 'kh:history:clear',
+  historyExport: 'kh:history:export',
   historyNetworkName: 'kh:history:network-name',
 
   organisationList: 'kh:organisation:list',

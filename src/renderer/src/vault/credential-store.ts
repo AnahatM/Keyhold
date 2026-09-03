@@ -82,6 +82,13 @@ interface CredentialState {
     field: VersionedField
   ) => Promise<boolean>;
   clearHistory: (credentialId: string) => Promise<boolean>;
+  /**
+   * Writes one record's audit trail to a file the user picks.
+   *
+   * Resolves to the chosen file's name, or `null` if the dialog was dismissed. Never a path —
+   * the dialog opens and the file is written in the main process.
+   */
+  exportHistory: (credentialId: string) => Promise<string | null>;
 
   clearUndo: () => void;
 }
@@ -275,6 +282,9 @@ export const useCredentials = create<CredentialState>((set) => ({
       set({ busy: false });
     }
   },
+
+  exportHistory: async (credentialId) =>
+    unwrap(await window.keyhold.history.exportHistory(credentialId)),
 
   clearHistory: async (credentialId) => {
     set({ busy: true });
