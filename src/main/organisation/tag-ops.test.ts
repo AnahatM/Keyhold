@@ -6,6 +6,7 @@ import { OrganisationError } from './errors.js';
 import type { OrganisationContext } from './folder-ops.js';
 import { DEFAULT_TAG_COLOUR } from './tag-colours.js';
 import {
+  MAX_TAGS,
   MAX_TAG_NAME_LENGTH,
   createTag,
   deleteTag,
@@ -334,5 +335,35 @@ describe('ensureTags', () => {
     const twice = ensureTags(once.document, ['a', 'b'], context());
     expect(twice.document.tags).toHaveLength(2);
     expect(twice.document).toBe(once.document);
+  });
+});
+
+describe('the tag-count cap', () => {
+  it('refuses the tag past MAX_TAGS, and does not count a name it already has', () => {
+    // N33: `MAX_TAGS`, `tooManyTags` and `TOO_MANY_TAGS` appeared only in source, while every
+    // neighbouring limit had a test. The second half matters as much as the first — the cap
+    // sits *after* the existing-name short-circuit, so a full vault must still resolve a tag
+    // it already holds rather than refusing to touch anything.
+    const tags = Array.from({ length: MAX_TAGS }, (_value, index) => ({
+      id: `pre-${index}`,
+      name: `Tag ${index}`,
+      colour: DEFAULT_TAG_COLOUR,
+    }));
+    const full: VaultDocument = { ...emptyVaultDocument(), tags };
+
+    expect(() => createTag(full, { name: 'One too many' }, context())).toThrow(
+      expect.objectContaining({ code: 'TOO_MANY_TAGS' })
+    );
+    try {
+      createTag(full, { name: 'One too many' }, context());
+    } catch (error) {
+      expect(error).toBeInstanceOf(OrganisationError);
+      expect((error as OrganisationError).message).toContain(String(MAX_TAGS));
+    }
+
+    // Already present, so nothing is created and nothing is refused.
+    const existing = createTag(full, { name: 'tag 7' }, context());
+    expect(existing.tag.id).toBe('pre-7');
+    expect(existing.document).toBe(full);
   });
 });

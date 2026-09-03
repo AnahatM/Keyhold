@@ -310,14 +310,23 @@ export function deleteFolder(
   const folder = requireFolder(document, folderId);
 
   if (policy === 'reparent') {
+    /*
+     * N20. Where the survivors rise to — and it is `null` rather than `folder.parentId` when
+     * the folder is its own parent, which a merge, a partial restore or a hand-edited export
+     * can produce even though `moveFolder` refuses to create it. Rising to `folder.parentId`
+     * there means rising to the id of the folder being deleted: the child folders become
+     * orphans and the records end up filed under a folder that no longer exists, absent from
+     * every folder view and reachable only by search. That is exactly the failure this
+     * function's policy argument exists to prevent.
+     */
+    const risenTo = folder.parentId === folderId ? null : folder.parentId;
+
     const folders = document.folders
       .filter((other) => other.id !== folderId)
-      .map((other) =>
-        other.parentId === folderId ? { ...other, parentId: folder.parentId } : other
-      );
+      .map((other) => (other.parentId === folderId ? { ...other, parentId: risenTo } : other));
 
     const records = document.records.map((record) =>
-      record.folderId === folderId ? { ...record, folderId: folder.parentId } : record
+      record.folderId === folderId ? { ...record, folderId: risenTo } : record
     );
     return withFolders({ ...document, records }, folders);
   }

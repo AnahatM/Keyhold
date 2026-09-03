@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { isImportFolderId } from '@shared/model/import.js';
 import type { VaultDocument } from '@shared/model/vault-document.js';
-import { childrenOf, walkAncestors } from './folder-tree.js';
+import { childrenByParent, findFolderCycles } from './folder-tree.js';
 import { tagKey } from './tag-ops.js';
 
 /**
@@ -141,15 +141,30 @@ function checkImportPlaceholders(document: VaultDocument): readonly Organisation
 /**
  * Folders with a missing parent, and folders caught in a loop.
  *
- * Both come from the same walk, because they are the same question asked of every folder:
- * does the chain above it reach a root? A cycle is reported once per distinct loop rather
- * than once per member — the loop is the finding — and is canonicalised by its sorted member
- * ids so the same cycle reached from two different folders is one entry.
+ * Both are the same question asked of every folder — does the chain above it reach a root? —
+ * but they are answered differently. A missing parent is a property of the folder itself, so
+ * it is read straight off `known`. A loop is a property of a *set* of folders, so it comes
+ * from `findFolderCycles`, which classifies the whole tree in one linear pass.
+ *
+ * That is N19's fix and a correctness fix in the same move. Walking ancestors once per folder
+ * rebuilt the folder index once per folder, which is what made this quadratic; and the walk's
+ * `seen` set holds the path rather than the loop, so a folder that merely *pointed at* a
+ * cycle was reported as a member of it and the same loop reached from two starting folders
+ * canonicalised two different ways and was reported twice. `findFolderCycles` returns the
+ * loop, so a cycle is reported once and names only the folders in it.
+ *
+ * Folders are still visited in document order, so the issue list keeps the order a caller
+ * comparing two reports either side of a merge already sees.
  */
 function checkFolderParents(document: VaultDocument): readonly OrganisationIssue[] {
   const issues: OrganisationIssue[] = [];
   const known = new Set(document.folders.map((folder) => folder.id));
-  const reportedCycles = new Set<string>();
+
+  const cycleByMember = new Map<string, readonly string[]>();
+  for (const cycle of findFolderCycles(document.folders)) {
+    for (const id of cycle) cycleByMember.set(id, cycle);
+  }
+  const reported = new Set<readonly string[]>();
 
   for (const folder of document.folders) {
     if (folder.parentId !== null && !known.has(folder.parentId)) {
@@ -163,15 +178,9 @@ function checkFolderParents(document: VaultDocument): readonly OrganisationIssue
       continue;
     }
 
-    const walk = walkAncestors(document.folders, folder.id);
-    if (walk.stoppedAt !== 'cycle') continue;
-
-    // The loop is the ancestors the walk collected plus the folder itself. Sorting makes the
-    // key independent of where the walk started.
-    const members = [...new Set([folder.id, ...walk.ids])].sort();
-    const key = members.join(',');
-    if (reportedCycles.has(key)) continue;
-    reportedCycles.add(key);
+    const members = cycleByMember.get(folder.id);
+    if (members === undefined || reported.has(members)) continue;
+    reported.add(members);
 
     issues.push(
       issue(
@@ -209,14 +218,19 @@ function checkRecordTags(document: VaultDocument): readonly OrganisationIssue[] 
   );
 }
 
-/** Siblings sharing a name — permitted, but it makes their paths ambiguous. */
+/**
+ * Siblings sharing a name — permitted, but it makes their paths ambiguous.
+ *
+ * Grouped once rather than filtered and sorted once per distinct parent, which was the
+ * second super-linear term N19 measured. `childrenByParent` keys in first-appearance order
+ * and sorts each group exactly as `childrenOf` does, so the report is unchanged.
+ */
 function checkDuplicateFolderNames(document: VaultDocument): readonly OrganisationIssue[] {
   const issues: OrganisationIssue[] = [];
-  const parents = new Set<string | null>(document.folders.map((folder) => folder.parentId));
 
-  for (const parentId of parents) {
+  for (const siblings of childrenByParent(document.folders).values()) {
     const byName = new Map<string, { readonly name: string; readonly ids: string[] }>();
-    for (const folder of childrenOf(document.folders, parentId)) {
+    for (const folder of siblings) {
       const key = folder.name.toLowerCase();
       const group = byName.get(key);
       if (group === undefined) byName.set(key, { name: folder.name, ids: [folder.id] });

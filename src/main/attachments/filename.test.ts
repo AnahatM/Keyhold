@@ -104,6 +104,40 @@ describe('length', () => {
   it('leaves a name that already fits alone', () => {
     expect(sanitiseAttachmentName('passport-scan.png')).toBe('passport-scan.png');
   });
+
+  it('does not put back the trailing dot or space it just removed', () => {
+    // N25(a). A tail longer than 17 characters is not treated as an extension, so the whole
+    // name becomes the stem and the cut can land immediately after a `.` or a space —
+    // re-creating exactly what the earlier strip existed to prevent, and with it a pair of
+    // names that Windows silently collapses into one file.
+    for (const separator of ['.', ' ']) {
+      const raw = `${'a'.repeat(254)}${separator}${'b'.repeat(20)}`;
+      const result = sanitiseAttachmentName(raw);
+      expect(result.length).toBeLessThanOrEqual(MAX_ATTACHMENT_NAME_LENGTH);
+      expect(result.endsWith(separator)).toBe(false);
+      expect(sanitiseAttachmentName(result)).toBe(result);
+    }
+  });
+});
+
+describe('characters that lie about the name', () => {
+  it('strips the bidi and format controls', () => {
+    // N25(b). `invoice<RLO>fdp.exe` renders as `invoiceexe.pdf` everywhere the user reads it,
+    // and `looksDisguised` cannot help — there is only one real extension.
+    const result = sanitiseAttachmentName('invoice\u202efdp.exe');
+    expect(result).toBe('invoice_fdp.exe');
+    expect(result).not.toContain('\u202e');
+    expect(checkAttachmentName('invoice\u202efdp.exe').executable).toBe(true);
+  });
+
+  it('covers the whole family, and replaces rather than deletes', () => {
+    for (const control of ['\u200e', '\u200f', '\u202a', '\u202e', '\u2066', '\u2069', '\ufeff']) {
+      expect(sanitiseAttachmentName(`a${control}b.txt`)).toBe('a_b.txt');
+    }
+    // Replacing keeps the property the control range already has: two names that differed
+    // only by the control character do not converge onto one file.
+    expect(sanitiseAttachmentName('a\u202eb.txt')).not.toBe(sanitiseAttachmentName('ab.txt'));
+  });
 });
 
 describe('the executable warning', () => {
@@ -155,6 +189,11 @@ describe('the invariant every caller depends on', () => {
     'report.pdf\u0000.exe',
     '.hidden',
     '😀/😀.png',
+    // N25(a): a tail too long to be an extension, so the cut lands on the separator itself.
+    `${'a'.repeat(254)}.${'b'.repeat(20)}`,
+    `${'a'.repeat(254)} ${'b'.repeat(20)}`,
+    // N25(b): a right-to-left override, which renders the rest of the name backwards.
+    'invoice\u202efdp.exe',
   ];
 
   it('never produces an empty name or one containing a separator', () => {

@@ -22,6 +22,20 @@ import type { Folder } from '@shared/model/vault-document.js';
  * rather than returning a partial one, because a partial path is a confident lie about
  * where a folder lives.
  *
+ * ## One index per pass, not one per call — N19
+ *
+ * Every walk needs the same `id → Folder` map, and each of them used to build its own. A
+ * caller that walks once per folder therefore rebuilt it once per folder, which made
+ * `checkOrganisation` quadratic and `folderPathsById` quadratic times the depth: measured at
+ * `MAX_FOLDERS` (2,000) on a realistic shallow tree, 196 ms and 211 ms respectively, on the
+ * main thread with no worker under it. So `indexFoldersById` and `childrenByParent` are
+ * exported, every walk takes an optional prebuilt index, and the whole-tree functions build
+ * one and pass it down. `folder-tree.test.ts` holds the budget that keeps it that way.
+ *
+ * That removes the cost rather than capping the input, which is why there is no
+ * `too-many-folders` check here: with the index shared, a pass over the tree is linear in
+ * the folders plus one sort, so there is no size at which a correct document hangs.
+ *
  * ## Descendants live in `@shared/search/filter.ts`
  *
  * `collectDescendantFolderIds` was written there for the sidebar's "include subfolders"
@@ -51,9 +65,44 @@ export function findFolder(folders: readonly Folder[], folderId: string): Folder
   return folders.find((folder) => folder.id === folderId) ?? null;
 }
 
+/**
+ * The `id → Folder` index every walk below needs.
+ *
+ * Exported so a caller doing more than one walk builds it once — see the N19 note in the
+ * module header. Passing it is always optional and never changes an answer: it is the same
+ * map the walk would have built for itself.
+ */
+export function indexFoldersById(folders: readonly Folder[]): ReadonlyMap<string, Folder> {
+  return new Map(folders.map((folder) => [folder.id, folder]));
+}
+
 /** The direct children of `parentId` (`null` for the roots), in display order. */
 export function childrenOf(folders: readonly Folder[], parentId: string | null): readonly Folder[] {
   return folders.filter((folder) => folder.parentId === parentId).sort(compareSiblings);
+}
+
+/**
+ * Every parent's children at once, each group in the same display order `childrenOf` gives.
+ *
+ * The grouping form for a caller that wants all of them; `childrenOf` stays the single
+ * lookup, so neither pays for the other. They are two traversals of one rule, which is the
+ * drift hard rule 8 warns about — `folder-tree.test.ts` asserts they agree for every parent,
+ * including a parent id that names no folder.
+ *
+ * Keys include a `parentId` naming no folder, exactly as `childrenOf` would answer for it:
+ * orphans are grouped, never dropped, so nothing here papers over a dangling parent.
+ */
+export function childrenByParent(
+  folders: readonly Folder[]
+): ReadonlyMap<string | null, readonly Folder[]> {
+  const groups = new Map<string | null, Folder[]>();
+  for (const folder of folders) {
+    const siblings = groups.get(folder.parentId);
+    if (siblings === undefined) groups.set(folder.parentId, [folder]);
+    else siblings.push(folder);
+  }
+  for (const siblings of groups.values()) siblings.sort(compareSiblings);
+  return groups;
 }
 
 /** How a walk up the tree ended. `'root'` is the only healthy answer. */
@@ -73,8 +122,12 @@ export interface AncestorWalk {
  * depth check treats the ids it got as a lower bound, a path builder refuses outright, and
  * the integrity report wants to name the folders involved.
  */
-export function walkAncestors(folders: readonly Folder[], folderId: string): AncestorWalk {
-  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+export function walkAncestors(
+  folders: readonly Folder[],
+  folderId: string,
+  index?: ReadonlyMap<string, Folder>
+): AncestorWalk {
+  const byId = index ?? indexFoldersById(folders);
   const start = byId.get(folderId);
   if (start === undefined) return { ids: [], stoppedAt: 'missing-parent' };
 
@@ -102,15 +155,69 @@ export function ancestorIds(folders: readonly Folder[], folderId: string): reado
 }
 
 /**
+ * Every distinct parent loop in the tree: the folders **in** each loop, sorted, once each.
+ *
+ * Derived from `walkAncestors` per folder before, and that was wrong in two ways at once.
+ * The walk's `seen` set holds the whole path — the starting folder and the tail leading into
+ * the loop — not the loop, so `f0 → f1 → f2 → f1` named `f0` as a member although `f0` is
+ * healthy; and because the tail changes the member set, the same loop reached from two
+ * different folders canonicalised to two different keys and was reported twice. The cut here
+ * is the suffix of the path from the repeated id, which *is* the loop.
+ *
+ * Sorted members and a key-sorted result, so the report is a function of the tree rather
+ * than of the order the folders happen to sit in the array — which is what makes two runs
+ * either side of a merge comparable.
+ *
+ * Linear: folder parentage is a functional graph, so each folder is pushed onto exactly one
+ * path across all the walks and marked settled after. No folder is walked twice, at any depth.
+ */
+export function findFolderCycles(folders: readonly Folder[]): readonly (readonly string[])[] {
+  const byId = indexFoldersById(folders);
+  const settled = new Set<string>();
+  const cycles: string[][] = [];
+
+  for (const start of folders) {
+    if (settled.has(start.id)) continue;
+
+    const path: string[] = [];
+    const positions = new Map<string, number>();
+    let currentId: string | null = start.id;
+
+    while (currentId !== null && !settled.has(currentId)) {
+      const repeatedAt = positions.get(currentId);
+      if (repeatedAt !== undefined) {
+        cycles.push([...path.slice(repeatedAt)].sort());
+        break;
+      }
+      positions.set(currentId, path.length);
+      path.push(currentId);
+      // A parent naming no folder ends the walk without a loop; `integrity.ts` reports that
+      // separately, and reporting it here as well would make one defect look like two.
+      const parentId: string | null = byId.get(currentId)?.parentId ?? null;
+      currentId = parentId !== null && byId.has(parentId) ? parentId : null;
+    }
+
+    for (const id of path) settled.add(id);
+  }
+
+  return cycles.sort((left, right) => (left.join() < right.join() ? -1 : 1));
+}
+
+/**
  * 1 for a root, 2 for its child, and so on. 0 for an unknown id.
  *
  * On a broken or cyclic chain this is a *lower bound*, which is the conservative direction:
  * the depth limit then refuses a move it might have allowed, rather than allowing one that
  * pushes a subtree past the limit.
  */
-export function folderDepth(folders: readonly Folder[], folderId: string): number {
-  if (findFolder(folders, folderId) === null) return 0;
-  return walkAncestors(folders, folderId).ids.length + 1;
+export function folderDepth(
+  folders: readonly Folder[],
+  folderId: string,
+  index?: ReadonlyMap<string, Folder>
+): number {
+  const byId = index ?? indexFoldersById(folders);
+  if (!byId.has(folderId)) return 0;
+  return walkAncestors(folders, folderId, byId).ids.length + 1;
 }
 
 /**
@@ -123,14 +230,7 @@ export function folderDepth(folders: readonly Folder[], folderId: string): numbe
 export function subtreeHeight(folders: readonly Folder[], folderId: string): number {
   if (findFolder(folders, folderId) === null) return 0;
 
-  const childrenByParent = new Map<string, Folder[]>();
-  for (const folder of folders) {
-    if (folder.parentId === null) continue;
-    const siblings = childrenByParent.get(folder.parentId);
-    if (siblings === undefined) childrenByParent.set(folder.parentId, [folder]);
-    else siblings.push(folder);
-  }
-
+  const byParent = childrenByParent(folders);
   const seen = new Set<string>([folderId]);
   let frontier: string[] = [folderId];
   let height = 0;
@@ -139,7 +239,7 @@ export function subtreeHeight(folders: readonly Folder[], folderId: string): num
     height += 1;
     const next: string[] = [];
     for (const id of frontier) {
-      for (const child of childrenByParent.get(id) ?? []) {
+      for (const child of byParent.get(id) ?? []) {
         if (seen.has(child.id)) continue;
         seen.add(child.id);
         next.push(child.id);
@@ -158,18 +258,23 @@ export function subtreeHeight(folders: readonly Folder[], folderId: string): num
  */
 export function folderPathSegments(
   folders: readonly Folder[],
-  folderId: string
+  folderId: string,
+  index?: ReadonlyMap<string, Folder>
 ): readonly string[] | null {
-  const folder = findFolder(folders, folderId);
-  if (folder === null) return null;
+  const byId = index ?? indexFoldersById(folders);
+  const folder = byId.get(folderId);
+  if (folder === undefined) return null;
 
-  const walk = walkAncestors(folders, folderId);
+  const walk = walkAncestors(folders, folderId, byId);
   if (walk.stoppedAt !== 'root') return null;
 
   const segments: string[] = [];
   for (const id of walk.ids) {
-    const ancestor = findFolder(folders, id);
-    if (ancestor === null) return null;
+    const ancestor = byId.get(id);
+    // Unreachable while the walk reports `root` — kept because the walk's contract is what
+    // guarantees it, and a future change to the walk should surface here rather than as an
+    // `undefined` in a path.
+    if (ancestor === undefined) return null;
     segments.push(ancestor.name);
   }
   segments.push(folder.name);
@@ -184,16 +289,27 @@ export function folderPathSegments(
  * would produce a path that reads as two folders, and the import commit stage would then
  * file records under a folder nobody created.
  */
-export function folderPath(folders: readonly Folder[], folderId: string): string | null {
-  const segments = folderPathSegments(folders, folderId);
+export function folderPath(
+  folders: readonly Folder[],
+  folderId: string,
+  index?: ReadonlyMap<string, Folder>
+): string | null {
+  const segments = folderPathSegments(folders, folderId, index);
   return segments === null ? null : segments.join(FOLDER_PATH_SEPARATOR);
 }
 
-/** Every resolvable folder's path, keyed by id. Folders on a broken chain are omitted. */
+/**
+ * Every resolvable folder's path, keyed by id. Folders on a broken chain are omitted.
+ *
+ * The index is built once for the whole map rather than once per folder — this is the
+ * function N19 measured worst, and it has three production callers (`import-service`'s
+ * commit and undo stages), one of which calls it inside a loop.
+ */
 export function folderPathsById(folders: readonly Folder[]): ReadonlyMap<string, string> {
+  const byId = indexFoldersById(folders);
   const paths = new Map<string, string>();
   for (const folder of folders) {
-    const path = folderPath(folders, folder.id);
+    const path = folderPath(folders, folder.id, byId);
     if (path !== null) paths.set(folder.id, path);
   }
   return paths;

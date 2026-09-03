@@ -87,6 +87,47 @@ describe('the claimed type', () => {
     expect(check.kind).toBe('other');
   });
 
+  it('refuses a parser-selecting claim whose signature is simply absent', () => {
+    // N8. `mismatch` needs the bytes to match some *other* known format; bytes matching
+    // nothing fall to `unknown`, and the claim was previously believed there — so a file
+    // that fails every signature test still selected the PDF or image viewer on its name.
+    // A signature-bearing format with no signature is a lie, not an unknown.
+    for (const claim of [
+      'application/pdf',
+      'application/x-pdf',
+      'image/png',
+      'image/jpg',
+      'application/zip',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]) {
+      const check = checkMimeClaim(claim, NOTHING);
+      expect(check.status).toBe('unknown');
+      expect(check.kind).toBe('other');
+      // Not merely the kind: the *stored* type must not carry the lie either, or the next
+      // reader of `AttachmentMeta.mime` resurrects the parser through `previewKindForMime`.
+      expect(check.stored).toBe('application/octet-stream');
+    }
+  });
+
+  it('still believes a claim no signature could have confirmed', () => {
+    // The other half of the same rule: a type that is not in the registry has no signature
+    // to be missing, so keeping it costs nothing and loses no information.
+    const check = checkMimeClaim('image/svg+xml', NOTHING);
+    expect(check.stored).toBe('image/svg+xml');
+    expect(check.kind).toBe('other');
+  });
+
+  it('sniffs a PDF only from its first bytes, and says so by storing nothing else', () => {
+    // Detection reads SNIFF_BYTES; pdf.js scans the first 1024 for `%PDF-`. A PDF behind a
+    // 100-byte prefix is therefore unrecognised here — and must be stored as unrecognised
+    // rather than as the caller's `application/pdf`.
+    const buried = new Uint8Array([...new Uint8Array(100), ...ascii('%PDF-1.7')]);
+    const check = checkMimeClaim('application/pdf', buried);
+    expect(check.detected).toBeNull();
+    expect(check.stored).toBe('application/octet-stream');
+    expect(check.kind).toBe('other');
+  });
+
   it('still previews plain text, which has no signature', () => {
     const check = checkMimeClaim('text/plain', ascii('recovery codes'));
     expect(check.status).toBe('unknown');
