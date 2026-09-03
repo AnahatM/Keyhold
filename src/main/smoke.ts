@@ -653,6 +653,18 @@ export function runSmokeCheck(window: BrowserWindow): void {
           `document.querySelector('[role="combobox"], .kh-palette') !== null`,
           true
         );
+        // The first-run flow, which spans the whole window when it shows.
+        //
+        // Checked because every other check below would pass or fail for the wrong reason if
+        // it were on screen, and because both directions are bad: a returning user handed a
+        // tour, or a new user who never sees one. At this point the probe has created and
+        // unlocked a real vault, so this machine is emphatically a returning one.
+        const onboarding: unknown = await window.webContents.executeJavaScript(
+          `document.querySelector('.kh-onboarding') !== null`,
+          true
+        );
+        emit(`SMOKE-CHECK onboarding-absent-for-a-returning-user ${String(onboarding === false)}`);
+
         emit(`SMOKE-CHECK palette-opens-on-its-shortcut ${String(paletteOpen === true)}`);
 
         // (moved: see the shell-stays-put check after the settings view, which needs a long page)

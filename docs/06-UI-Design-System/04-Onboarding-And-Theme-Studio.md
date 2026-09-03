@@ -5,11 +5,13 @@
 > reference. Implemented by `src/renderer/src/onboarding/`,
 > `src/renderer/src/theme-studio/`, `src/shared/theme/keeptheme.ts` and `src/main/theme/`.
 >
-> **Status: both are built and tested. The theme studio is now reachable; the onboarding flow
-> is not.** `ThemeStudio` is mounted inside `SettingsScreen`, and `SettingsScreen` is the
-> `settings` tool view — reachable from the sidebar's tool rows and from the native
-> **Settings** menu item through `menu-bridge.ts`. `OnboardingFlow` is still mounted nowhere.
-> The studio's native file dialogs also remain unwired: there is no `kh:theme:*` channel, so
+> **Status: both are built and tested. The theme studio is reachable; the onboarding flow is
+> mount-ready and not yet mounted.** `ThemeStudio` is mounted inside `SettingsScreen`, and
+> `SettingsScreen` is the `settings` tool view — reachable from the sidebar's tool rows and
+> from the native **Settings** menu item through `menu-bridge.ts`. `OnboardingFlow` now owns
+> the decision about when a first run is a first run (`onboarding-visibility.ts`, §3a) and
+> exits on Escape as well as on Skip; what is left is the mount itself, in `App.tsx`. The
+> studio's native file dialogs also remain unwired: there is no `kh:theme:*` channel, so
 > `theme-file-bridge.ts` falls back to the browser transport. See §7.
 
 ---
@@ -105,7 +107,8 @@ focus without becoming a tab stop of its own, and Tab from there lands on the fi
 dialog, writes no credential and navigates nowhere — so the same component can be mounted from
 the app root today and from a "run the tour again" command later without either being a
 special case. The skip control is rendered by the flow rather than by the steps, so it is in
-the same place on every screen and cannot be forgotten by a step added later.
+the same place on every screen and cannot be forgotten by a step added later, and **Escape
+dispatches the same action** — see §3a.
 
 ---
 
@@ -145,6 +148,82 @@ found and cleaned up.
 
 The strength estimate comes from the main process's estimator, never from a second definition
 invented in the renderer, and **`null` is never a pass**.
+
+---
+
+## 3a. When the flow shows
+
+The flow was finished long before anything decided to render it, and that is the more
+interesting half. A tour that never appears and a tour that appears to a returning user are
+both silent failures: neither throws, neither fails a build, and both are found by a user.
+`onboarding-visibility.ts` holds the decision, as named functions over facts rather than as a
+boolean inlined at a mount site.
+
+> **The condition: this machine has never had a vault open on it, and the flow has not already
+> been finished or skipped here.**
+
+"First run" reads like one obvious fact and is actually four candidates:
+
+| Candidate                             | Why it is wrong                                                                                                                                                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| No vault is open right now            | True at every launch, for everybody. That is the welcome screen's condition, not a first run's                                                                                                                                 |
+| No `.keep` exists on this disk        | The renderer cannot look and must not learn to (D13) — and it is the wrong question anyway: a vault on a USB stick that has never been opened here genuinely _is_ a first run on this machine                                  |
+| They have never seen the flow         | On its own this is a `localStorage` fact, and `localStorage` is lost to things unrelated to Keyhold's history. A long-standing user would be handed the tour again on a machine full of their vaults                           |
+| **Nothing has ever been opened here** | `recentVaults` is written by the main process the moment a vault is opened — created _or_ unlocked, in `SessionController.#afterOpen` — into `preferences.json`. Empty means nobody has ever got into a vault on this computer |
+
+`hasNeverOpenedAVaultHere` checks both `state === 'no-vault'` **and** an empty recent list, and
+neither clause is redundant. `recentVaults` only gains an entry once a vault has been
+_opened_, so somebody who has picked a `.keep` in the file dialog and is sitting on the unlock
+screen has `state === 'locked'` and an empty recent list. That person is one password away
+from their data, and covering their unlock screen with a tour about creating a vault is the
+worst thing this component could do. **Nothing may put the flow in front of an unlock.**
+
+### Where "they have already seen it" is remembered
+
+In `localStorage`, through `onboarding-storage.ts` — and deliberately **not** as a vault
+setting. Vault settings live inside the `.keep` file and travel with it, so recording
+"onboarding done" there would suppress the first run on a second machine that has never shown
+it. That is the same argument `preferences.ts` makes for the network kill-switch and
+`appearance-store.ts` makes for the theme: a property of this machine does not belong in the
+data. `localStorage` in a packaged Electron app is a file in this user's profile on this
+computer, which is exactly the scope the fact has.
+
+The pairing is what makes it robust. `localStorage` remembers the **decision**;
+`recentVaults` — which no renderer can clear — remembers the **history**. Losing the first
+costs at most a repeated tour; the second is what keeps that tour away from a returning user
+whose profile has been wiped.
+
+The record is read under the pending (`new-vault`) scope, because a machine that has never
+opened a vault cannot have a record under any other one.
+
+### The decision is latched for the launch
+
+`useFirstRunGate` answers the question once, from the first session that can answer it, and
+never re-asks. **This is correctness, not caching.** Creating a vault opens it, so
+`recentVaults` gains its entry the instant the flow's own second step succeeds — a host that
+re-derived the condition from the live session would tear the flow down at exactly that
+moment, dropping the user into the vault having never been shown where their file lives.
+
+It comes down when the flow exits, by either route, through `FirstRunGate.close`. The only way
+to reopen it is a relaunch, which is also what makes a future "run the tour again" command an
+explicit mount rather than an edit to this predicate.
+
+### Escape leaves, exactly as Skip does
+
+Both dispatch the same `dismiss` action, so they cannot come to mean different things, and
+Escape is gated on `busy` for the same reason the skip button is disabled while busy — a
+keyboard user must not be able to abandon a vault creation that a mouse user cannot. The
+listener is on the document rather than on the panel: this surface fills the window, and a
+click on its own background leaves focus on `document.body`, outside the component's subtree,
+where a React `onKeyDown` would never see the key. Somebody who has just clicked the backdrop
+is precisely the person reaching for Escape. An event with `defaultPrevented` set is ignored,
+so a dialog opened over the flow closes itself and nothing more.
+
+An outcome is now **terminal in both directions**: `onboardingReducer` refuses every action
+once the flow is finished, `dismiss` and `complete` included. Escape is a key somebody can
+still be holding as the last step lands, and letting it rewrite a _completed_ flow as
+_dismissed_ would record "the user was never told anything" about a user who was told
+everything.
 
 ---
 
@@ -343,12 +422,22 @@ basename ever crosses back; an OS error carries the absolute path and is never e
 
 - **`OnboardingFlow` is not mounted.** Roadmap Phase 16 still lists "first-run onboarding
   tour, skippable and re-runnable" as outstanding, which is true of the _wiring_ and no longer
-  true of the code. The host has to decide when a first run is a first run
-  (`shouldShowOnboarding`) and supply the callbacks: creating the vault, estimating strength,
-  saving the optional first credential, and navigating out.
+  true of the code. The decision about when to show it is now built and tested (§3a) —
+  `useFirstRunGate(status)` is the whole question — so what is left is one edit in `App.tsx`:
+  render `OnboardingFlow` instead of `ScreenView` while the gate is open, and supply the
+  callbacks.
+- **Three of the flow's callbacks have nowhere to go yet, by choice.** `onImport`,
+  `onEnableQuickUnlock` and `onOpenAutoLockSettings` open tool views that only exist inside
+  the unlocked vault screen, so wiring them from the first-run flow would open a panel behind
+  the flow — a dead control. Left absent, each card renders the fallback sentence naming where
+  the thing lives, which is honest. Likewise `onRevealInFolder`: there is no `kh:shell:*`
+  channel to reveal a path in the file manager.
 - **"Run the tour again"** — the flow is written so this costs nothing (every side effect is a
-  passed-in callback), and there is no command or menu item for it. The command palette is
-  mounted now, so there is somewhere to put one; nothing has been put there.
+  passed-in callback), and there is no command or menu item for it. It would be an _explicit_
+  mount rather than a change to the first-run predicate: re-opening the gate would mean
+  `clearProgress` **and** `forgetFirstRunDecision()`, and it would still refuse on a machine
+  that has a vault — correctly, because that is not a first run. The command palette is mounted
+  now, so there is somewhere to put one; nothing has been put there.
 - **The native theme dialogs are unwired.** There is no `kh:theme:*` entry in `CHANNELS`;
   `src/main/theme/` (`readKeepThemeFile`, `writeKeepThemeFile`, `chooseKeepThemeToOpen`,
   `chooseKeepThemeDestination`, `importKeepTheme`, `exportKeepTheme`) is complete and has no
@@ -367,16 +456,17 @@ basename ever crosses back; an OS error carries the absolute path and is never e
 
 ## 8. Tests
 
-| File                                                      | Tests | Covers                                                                                                                                                          |
-| --------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/main/theme/keeptheme-format.test.ts`                 | 41    | Every built-in round-tripping exactly · every category of hostile or broken file · the three admission tiers · that every floor pair is declared in `tokens.ts` |
-| `src/renderer/src/onboarding/onboarding-state.test.ts`    | 23    | The gates — `canCreateVault` and `canFinishOnboarding` — step arithmetic, and resume reconciliation                                                             |
-| `src/renderer/src/theme-studio/theme-draft.test.ts`       | 23    | The two-layer palette, invalid colours, and that every palette change clears the acknowledgement                                                                |
-| `src/renderer/src/theme-studio/theme-file-bridge.test.ts` | 17    | Both transports, the size cap, and the cancelled/failed outcomes                                                                                                |
-| `src/renderer/src/onboarding/onboarding-storage.test.ts`  | 16    | That only the six named values are written, with markers planted to prove it · every corrupt-record path starting at the beginning                              |
-| `src/main/theme/keeptheme-file.test.ts`                   | 13    | `stat`-before-read, the write ordering, and that no path reaches an error message                                                                               |
-| `src/renderer/src/onboarding/OnboardingFlow.test.tsx`     | 8     | Sequencing, focus on the heading, and the skip control                                                                                                          |
-| `src/renderer/src/theme-studio/token-groups.test.ts`      | 5     | That the groups cover `COLOUR_TOKENS` exactly once each                                                                                                         |
+| File                                                        | Tests | Covers                                                                                                                                                          |
+| ----------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/main/theme/keeptheme-format.test.ts`                   | 41    | Every built-in round-tripping exactly · every category of hostile or broken file · the three admission tiers · that every floor pair is declared in `tokens.ts` |
+| `src/renderer/src/onboarding/onboarding-state.test.ts`      | 24    | The gates — `canCreateVault` and `canFinishOnboarding` — step arithmetic, resume reconciliation, and that an outcome is terminal                                |
+| `src/renderer/src/onboarding/onboarding-visibility.test.ts` | 22    | The show/hide condition in every session state · that nothing may cover an unlock screen · the launch latch · that a dismissal survives a restart               |
+| `src/renderer/src/theme-studio/theme-draft.test.ts`         | 23    | The two-layer palette, invalid colours, and that every palette change clears the acknowledgement                                                                |
+| `src/renderer/src/theme-studio/theme-file-bridge.test.ts`   | 17    | Both transports, the size cap, and the cancelled/failed outcomes                                                                                                |
+| `src/renderer/src/onboarding/onboarding-storage.test.ts`    | 16    | That only the six named values are written, with markers planted to prove it · every corrupt-record path starting at the beginning                              |
+| `src/main/theme/keeptheme-file.test.ts`                     | 13    | `stat`-before-read, the write ordering, and that no path reaches an error message                                                                               |
+| `src/renderer/src/onboarding/OnboardingFlow.test.tsx`       | 13    | Sequencing, focus on the heading, the skip control, and Escape — from every step, after a backdrop click, never while busy, never over a handled event          |
+| `src/renderer/src/theme-studio/token-groups.test.ts`        | 5     | That the groups cover `COLOUR_TOKENS` exactly once each                                                                                                         |
 
 ---
 

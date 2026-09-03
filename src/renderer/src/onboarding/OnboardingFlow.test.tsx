@@ -12,6 +12,7 @@ import { NO_RECOVERY_ACKNOWLEDGEMENT } from './onboarding-copy.js';
 import type { OnboardingState } from './onboarding-state.js';
 import { ONBOARDING_STEPS, type OnboardingStepId } from './onboarding-steps.js';
 import { writeProgress } from './onboarding-storage.js';
+import { forgetFirstRunDecision, isFirstRunOnThisMachine } from './onboarding-visibility.js';
 
 /**
  * The three guarantees that only exist once the components are actually rendering.
@@ -50,6 +51,8 @@ const noop = (): void => undefined;
 
 afterEach(() => {
   window.localStorage.clear();
+  // The first-run decision is launch-scoped, and a test file is many launches.
+  forgetFirstRunDecision();
   document.body.innerHTML = '';
 });
 
@@ -135,6 +138,18 @@ function toggle(checkbox: HTMLInputElement): void {
   act(() => {
     checkbox.click();
   });
+}
+
+/**
+ * Escape, as the browser delivers it.
+ *
+ * Dispatched at the document, which is where the flow listens and where a real key event
+ * ends up however it started — the point being that it works when focus is nowhere useful.
+ */
+function pressEscape(): void {
+  document.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+  );
 }
 
 function textInputs(container: HTMLElement): HTMLInputElement[] {
@@ -288,6 +303,138 @@ describe('skip', () => {
     expect(allStoredText()).toContain('"acknowledgedNoRecovery":false');
 
     tree.unmount();
+  });
+});
+
+describe('escape', () => {
+  it('leaves the flow, from any step, exactly as the skip control does', async () => {
+    for (const step of ONBOARDING_STEPS) {
+      window.localStorage.clear();
+      seed(step.id);
+      const api = handlers();
+      const tree = mount(api);
+      await settle(0);
+
+      await act(async () => {
+        pressEscape();
+        await Promise.resolve();
+      });
+
+      expect(api.onExit, `Escape did not exit from step "${step.id}"`).toHaveBeenCalledWith(
+        'dismissed'
+      );
+      tree.unmount();
+    }
+  });
+
+  it('works after a click has left focus on the document body', async () => {
+    // The reason the listener is on the document and not on the panel: a click on the
+    // flow's own background blurs everything, and that is precisely the person reaching
+    // for Escape.
+    seed('welcome');
+    const api = handlers();
+    const tree = mount(api);
+    await settle(0);
+
+    act(() => {
+      (document.activeElement as HTMLElement | null)?.blur();
+    });
+    expect(document.activeElement).toBe(document.body);
+
+    await act(async () => {
+      pressEscape();
+      await Promise.resolve();
+    });
+    expect(api.onExit).toHaveBeenCalledWith('dismissed');
+    tree.unmount();
+  });
+
+  it('ignores an Escape another surface has already handled', async () => {
+    // `Modal` prevents and stops Escape so it closes the topmost surface only. A dialog
+    // opened over the flow must not also cancel the whole setup behind it.
+    seed('welcome');
+    const api = handlers();
+    const tree = mount(api);
+    await settle(0);
+
+    await act(async () => {
+      const handled = new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      });
+      handled.preventDefault();
+      document.dispatchEvent(handled);
+      await Promise.resolve();
+    });
+
+    expect(api.onExit).not.toHaveBeenCalled();
+    tree.unmount();
+  });
+
+  it('is unavailable while the flow is busy, exactly like the skip button', async () => {
+    // Both routes to the same action, gated the same way — a keyboard user must not be able
+    // to abandon a vault creation that a mouse user cannot.
+    seed('master-password');
+    const api = handlers();
+    const tree = mountReact(
+      <OnboardingFlow
+        vaultKey={VAULT_KEY}
+        vaultPath={VAULT_PATH}
+        estimateStrength={api.estimateStrength as never}
+        onCreateVault={api.onCreateVault as never}
+        busy
+        error={null}
+        onExit={api.onExit as never}
+      />
+    );
+    await settle(0);
+
+    expect(buttonWith(tree.container, 'Skip setup')?.disabled).toBe(true);
+    await act(async () => {
+      pressEscape();
+      await Promise.resolve();
+    });
+    expect(api.onExit).not.toHaveBeenCalled();
+
+    tree.unmount();
+  });
+
+  it('records the dismissal where the next launch will find it', async () => {
+    // The end-to-end promise: Escape here, and a brand-new-looking session on the next
+    // launch still does not get the tour. Nothing about the machine has changed — only the
+    // record the flow wrote.
+    window.localStorage.clear();
+    forgetFirstRunDecision();
+    const brandNewMachine = { state: 'no-vault', recentVaults: [] } as const;
+    expect(isFirstRunOnThisMachine(brandNewMachine)).toBe(true);
+
+    const api = handlers();
+    const tree = mountReact(
+      // `vaultKey` is null: a first run, by definition, has no vault yet, so the record
+      // lands under the pending scope — the one the mount-site question reads.
+      <OnboardingFlow
+        vaultKey={null}
+        vaultPath={null}
+        estimateStrength={api.estimateStrength as never}
+        onCreateVault={api.onCreateVault as never}
+        busy={false}
+        error={null}
+        onExit={api.onExit as never}
+      />
+    );
+    await settle(0);
+
+    await act(async () => {
+      pressEscape();
+      await Promise.resolve();
+    });
+    expect(api.onExit).toHaveBeenCalledWith('dismissed');
+    tree.unmount();
+
+    // A fresh launch: forget the in-memory latch and ask again from storage alone.
+    forgetFirstRunDecision();
+    expect(isFirstRunOnThisMachine(brandNewMachine)).toBe(false);
   });
 });
 

@@ -2,7 +2,9 @@
 import { useEffect, useState } from 'react';
 import { ErrorState, LoadingState } from './components/Feedback.js';
 import { AppearancePanel } from './settings/AppearancePanel.js';
+import { OnboardingFlow, useFirstRunGate, type FirstCredentialDraft } from './onboarding/index.js';
 import { CreateVaultScreen } from './vault/CreateVaultScreen.js';
+import { useCredentials } from './vault/credential-store.js';
 import { UnlockScreen } from './vault/UnlockScreen.js';
 import { VaultScreen } from './vault/VaultScreen.js';
 import { WelcomeScreen } from './vault/WelcomeScreen.js';
@@ -38,6 +40,11 @@ function MenuBridge(): null {
 
 export function App(): React.JSX.Element {
   const { screen, status, refresh } = useSession();
+  // Answered once per launch, from the first status that can answer it. Creating a vault
+  // records it as opened, so a moment later the machine looks like a returning user's —
+  // see `onboarding/onboarding-visibility.ts` for why this must not be re-derived per
+  // render: the flow would unmount itself during its own vault-creation step.
+  const firstRun = useFirstRunGate(status);
   const [bootError, setBootError] = useState<string | null>(null);
   const [booted, setBooted] = useState(false);
 
@@ -111,8 +118,67 @@ export function App(): React.JSX.Element {
           state and are wired when that screen owns them. */}
       <CommandsProvider />
       <MenuBridge />
-      <ScreenView screen={screen} />
+      {/* Above the screen switch, not inside it: the flow spans the states the switch is
+          made of — it begins with no vault and ends with one open — so putting it in a
+          `case` would unmount it at the moment it succeeded. */}
+      {firstRun.show ? <FirstRunFlow onExit={firstRun.close} /> : <ScreenView screen={screen} />}
     </>
+  );
+}
+
+/**
+ * The first-run flow, wired to the session.
+ *
+ * The flow owns no vault and opens no dialog by design — that is its contract, and it is
+ * what makes it testable against an in-memory fake. So everything irreversible happens here.
+ *
+ * Three of its callbacks are deliberately not supplied. `onImport`, `onEnableQuickUnlock`
+ * and `onOpenAutoLockSettings` open surfaces that exist only inside the unlocked vault
+ * screen, so wiring them from here would open a panel *behind* the flow — a control that
+ * appears to do nothing. Left off, each card renders the sentence naming where the thing
+ * lives instead, which is the honest version.
+ */
+function FirstRunFlow({ onExit }: { readonly onExit: () => void }): React.JSX.Element {
+  const { status, workingPath, busy, error, estimateStrength } = useSession();
+  const quickUnlock = status?.quickUnlock ?? null;
+
+  return (
+    <OnboardingFlow
+      // Null until the vault exists; the flow re-scopes its stored progress when it changes.
+      vaultKey={status?.vault?.vaultId ?? null}
+      vaultPath={status?.vault?.path ?? workingPath}
+      estimateStrength={estimateStrength}
+      onCreateVault={async (secret) => {
+        // The flow shows the path and never chooses it. A first run has no location yet, so
+        // the OS dialog opens here, at the moment the user commits rather than before.
+        const session = useSession.getState();
+        if (session.workingPath === null) {
+          await session.chooseNewVaultLocation();
+          if (useSession.getState().workingPath === null) {
+            // Cancelling has to say something. A Create button that silently does nothing is
+            // the dead end the step's own blocker copy exists to prevent.
+            useSession.getState().setError('Choose where to save your vault file to continue.');
+            return false;
+          }
+        }
+        return useSession.getState().createVault(secret);
+      }}
+      onCreateFirstCredential={async (draft: FirstCredentialDraft) => {
+        // Empty optionals are omitted rather than sent as `''`: `exactOptionalPropertyTypes`
+        // is on, and an empty string is a value while an absent field is not.
+        const created = await useCredentials.getState().create({
+          title: draft.title,
+          ...(draft.username === '' ? {} : { username: draft.username }),
+          ...(draft.url === '' ? {} : { urls: [draft.url] }),
+          ...(draft.secretPassword === '' ? {} : { password: draft.secretPassword }),
+        });
+        return created !== null;
+      }}
+      {...(quickUnlock?.available === true ? { quickUnlockName: quickUnlock.mechanism } : {})}
+      busy={busy}
+      error={error}
+      onExit={onExit}
+    />
   );
 }
 

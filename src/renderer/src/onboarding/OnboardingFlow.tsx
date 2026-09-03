@@ -52,6 +52,10 @@ import './onboarding.css';
  * flow dismissed without ever claiming the user was told anything, and it creates nothing —
  * someone who skips on step one lands on the ordinary create screen, which carries the same
  * no-recovery acknowledgement.
+ *
+ * **Escape does the same thing as the skip button**, because a full-screen surface that
+ * swallows Escape is how a first-run flow becomes a trap. The two paths share one action, so
+ * they cannot come to mean different things.
  */
 
 export interface OnboardingFlowProps {
@@ -115,6 +119,33 @@ export function OnboardingFlow({
   useEffect(() => {
     headingRef.current?.focus();
   }, [state.stepId]);
+
+  /*
+   * Escape leaves the flow, exactly as the skip control does.
+   *
+   * On the document rather than on the panel: this surface fills the window, and a click on
+   * its background leaves focus on `document.body` — outside this component's subtree, so a
+   * React `onKeyDown` here would never see the key. Somebody who has clicked the backdrop is
+   * precisely the person reaching for Escape.
+   *
+   * `defaultPrevented` is the guard against a dialog opened over the top. `Modal` prevents
+   * and stops Escape so it closes the topmost surface only; this checks the flag as well,
+   * because stopping propagation is the caller's discipline and the flag is the record.
+   *
+   * Gated on `busy` for the same reason the skip button is disabled while busy: the two
+   * routes to the same action must not be able to disagree about when it is available.
+   */
+  useEffect(() => {
+    if (busy) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      dispatch({ type: 'dismiss' });
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [busy]);
 
   // Guarded by a ref rather than by unmounting, because the host decides when to unmount
   // and an in-flight promise resolving afterwards must not fire a second exit.
