@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+version: 2
+updates:
+  # Grouping the routine tooling churn into one pull request keeps the queue readable, so
+  # that an ungrouped PR is a signal rather than noise. Electron, electron-builder and the
+  # crypto dependencies are deliberately left ungrouped — each deserves reading.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      dev-tooling:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  # This is what makes SHA-pinned actions maintainable: Dependabot rewrites both the SHA
+  # and the trailing version comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
