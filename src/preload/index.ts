@@ -25,6 +25,7 @@ import { isMenuCommandId, type MenuCommandId } from '@shared/model/menu-commands
 import type { KdfProgressView } from '@shared/model/kdf-progress.js';
 import type { KdfCost } from '@shared/model/settings-plan.js';
 import type { SavedSearch } from '@shared/model/saved-search.js';
+import type { SiteRule } from '@shared/model/site-rules.js';
 import type { VaultChangedExternally } from '@shared/model/vault-change.js';
 import type { MergeReport } from '@shared/model/sync.js';
 import type {
@@ -423,6 +424,17 @@ const api: KeyholdApi = {
       ipcRenderer.invoke(CHANNELS.searchesDelete, searchId) as Promise<
         IpcResult<readonly SavedSearch[]>
       >,
+  },
+
+  siteRules: {
+    read: () =>
+      ipcRenderer.invoke(CHANNELS.siteRulesList) as Promise<IpcResult<readonly SiteRule[]>>,
+    set: (url: string, options: Record<string, unknown>, note?: string) =>
+      ipcRenderer.invoke(CHANNELS.siteRulesSet, url, options, note) as Promise<
+        IpcResult<readonly SiteRule[]>
+      >,
+    remove: (host: string) =>
+      ipcRenderer.invoke(CHANNELS.siteRulesDelete, host) as Promise<IpcResult<readonly SiteRule[]>>,
   },
 
   attachments: {

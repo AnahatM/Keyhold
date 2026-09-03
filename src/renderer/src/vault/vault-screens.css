@@ -1016,3 +1016,31 @@
   outline: 2px solid var(--kh-color-focus-ring);
   outline-offset: 2px;
 }
+
+/*
+ * The generator, folded into the editor beside the password field.
+ *
+ * `align-items: start` so the disclosure button keeps its own width rather than stretching
+ * across the form — it opens a panel underneath it, and a full-width button implies the panel
+ * is already there.
+ */
+.kh-editor__generate {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: var(--kh-space-2);
+  margin-top: var(--kh-space-2);
+}
+
+/*
+ * Shown only when a rule is actually being applied. A line reading "no rule for this site" on
+ * every ordinary credential would be noise that teaches people to stop reading the place the
+ * real message appears.
+ */
+.kh-editor__rule {
+  display: flex;
+  gap: var(--kh-space-2);
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}

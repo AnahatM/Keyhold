@@ -9,6 +9,7 @@ import {
   type SaveDialogOptions,
 } from 'electron';
 import { SAVED_SEARCH_NAME_MAX, SAVED_SEARCH_QUERY_MAX } from '@shared/model/saved-search.js';
+import { SITE_RULE_HOST_MAX, SITE_RULE_NOTE_MAX } from '@shared/model/site-rules.js';
 import { CHANNELS, EVENTS, type IpcResult, type SettingsView } from '@shared/ipc/api.js';
 import {
   requireCredentialEdit,
@@ -1391,6 +1392,43 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.searchesDelete, (searchId) => {
     vault.deleteSavedSearch(requireId(CHANNELS.searchesDelete, searchId, 'searchId'));
     return vault.savedSearches();
+  });
+
+  // ── site rules ─────────────────────────────────────────────────────────────
+  //
+  // What a site will accept. Every handler answers with the whole list, like the saved
+  // searches above, and `set` is an upsert keyed by host so the renderer never has to know
+  // whether a rule already exists.
+
+  handle(CHANNELS.siteRulesList, () => vault.siteRules());
+
+  handle(CHANNELS.siteRulesSet, (url, options, note) => {
+    if (typeof options !== 'object' || options === null || Array.isArray(options)) {
+      throw new IpcValidationError(CHANNELS.siteRulesSet, 'options must be an object');
+    }
+
+    vault.setSiteRule({
+      url: requireBoundedString(CHANNELS.siteRulesSet, url, 'url', SITE_RULE_HOST_MAX),
+      // Not validated key by key against the generator's own option names: that would be a
+      // second copy of a list `generator.ts` owns, and an unrecognised key is inert anyway —
+      // `applySiteRule` spreads it and the generator reads only what it knows.
+      // `siteRuleProblem` refuses the shapes that are not inert: nesting, non-finite numbers,
+      // unbounded strings, and more keys than any real rule needs.
+      options,
+      ...(note === undefined
+        ? {}
+        : {
+            note: requireBoundedString(CHANNELS.siteRulesSet, note, 'note', SITE_RULE_NOTE_MAX),
+          }),
+    });
+    return vault.siteRules();
+  });
+
+  handle(CHANNELS.siteRulesDelete, (host) => {
+    vault.deleteSiteRule(
+      requireBoundedString(CHANNELS.siteRulesDelete, host, 'host', SITE_RULE_HOST_MAX)
+    );
+    return vault.siteRules();
   });
 
   // ── folders and tags ───────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ import {
 import { Button } from '../components/Button.js';
 import { Input } from '../components/Input.js';
 import { useCredentials } from './credential-store.js';
+import { PasswordGeneratorField } from './PasswordGeneratorField.js';
 
 /**
  * The create / edit form.
@@ -271,6 +272,26 @@ export function CredentialEditor({
             touch();
           }}
           hint="Shown rather than masked while editing — you cannot check a value you cannot see."
+        />
+
+        {/*
+          The generator, which was written, tested, exported and mounted nowhere — so a user
+          editing a credential had a password box and no way to fill it. It reads the URLs
+          from the *form* rather than from the saved record, because somebody typing a new
+          credential has saved nothing yet and somebody correcting a URL expects the next
+          password to obey the new site's rule.
+
+          Replacing the value here versions the old one automatically: `updateCredential`
+          writes a history entry for every field that moved, and the password is one of them.
+          There is no separate "generate and replace" path to keep in step with the ordinary
+          edit path, which is the point — one of those two would eventually stop versioning.
+        */}
+        <PasswordGeneratorField
+          urls={urls}
+          onUse={(secret) => {
+            setPassword(secret);
+            touch();
+          }}
         />
       </section>
 
