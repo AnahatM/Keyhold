@@ -202,6 +202,16 @@ export const MENU_COMMANDS: readonly MenuCommand[] = [
     exposesCredentialData: false,
   },
   {
+    id: 'tools.activity',
+    label: 'Session Activity…',
+    needsUnlockedVault: true,
+    // The log holds record ids, never titles and never secrets — `ActivityEntry` has no
+    // field that could carry either. Ids are shown as names only when the vault's own audit
+    // privacy level permits it, and that resolution happens in the renderer against the safe
+    // projection it already holds. Nothing here exposes credential data.
+    exposesCredentialData: false,
+  },
+  {
     id: 'app.settings',
     label: 'Settings…',
     needsUnlockedVault: false,

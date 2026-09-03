@@ -56,6 +56,11 @@ const MUST_BE_LOCKED: readonly MenuCommandId[] = [
   'view.sidebar',
   'vault.trash',
   'tools.health',
+  // The session log holds record ids and counts for the vault that is open. It is emptied on
+  // lock, so an ungated menu item would open an empty screen — but the reason to gate it is
+  // the other one: it must not be reachable from a state where there is no vault to be
+  // reporting on.
+  'tools.activity',
 ];
 
 /**

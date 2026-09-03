@@ -4,6 +4,8 @@ import { basename } from 'node:path';
 import type { BrowserWindow } from 'electron';
 import type { SecretRef } from '@shared/model/credential.js';
 import type { PasswordStrength } from '@shared/model/strength.js';
+import type { ActivityEntry, ActivityUnlockMethod } from '@shared/model/activity.js';
+import { SessionActivity } from '../activity/index.js';
 import type { VaultLockedInfo, VaultSummary } from '@shared/model/vault-document.js';
 import { DEFAULT_SECRET_REVEAL_LIMITS, type MachineSettings } from '@shared/model/settings-plan.js';
 import { learnRate, type KdfProgress } from '../crypto/kdf-estimate.js';
@@ -57,8 +59,23 @@ export class SessionController {
   readonly #preferences = new PreferencesStore();
   readonly #autoLock: AutoLock;
 
+  /**
+   * What this session has done, for the activity view.
+   *
+   * Owned here rather than by `VaultService`, because most of what it records is not about
+   * the file: a failed unlock has no vault, a lock is the vault going away, and a clipboard
+   * clear is the OS. The session is the only object that sees all of them.
+   *
+   * In-memory and cleared on lock — see `activity-log.ts`, which argues at length for why
+   * this must never be persisted.
+   */
+  readonly #activity = new SessionActivity();
+
   #pendingVault: VaultLockedInfo | null = null;
   #lastLockReason: LockReason | null = null;
+  /** Previous `hasSecret`, so a clear is distinguishable from a copy. See the constructor. */
+  #clipboardHadSecret = false;
+  #lastLockNotice: ActivityEntry | null = null;
   #window: BrowserWindow | null = null;
   #onStatusChange: (() => void) | null = null;
   readonly #lockListeners = new Set<() => void>();
@@ -105,6 +122,23 @@ export class SessionController {
           });
         },
       });
+    // A clipboard clear is recorded from the state transition rather than from the two
+    // methods that cause one, because there are three causes and only one of them is a
+    // call: the auto-clear timer fires inside `SecretClipboard`, `clearClipboard()` is the
+    // user, and `clearOnExit()` is the lock. Watching `hasSecret` go true → false catches
+    // all three with nothing to keep in sync.
+    //
+    // Gated on an open vault. `lock()` clears the clipboard and then clears this log, and
+    // the clipboard write is deliberately fire-and-forget, so its notification can land
+    // after the lock — appending an entry to the log of a vault that is no longer open.
+    this.#clipboard.onChange((state) => {
+      const had = this.#clipboardHadSecret;
+      this.#clipboardHadSecret = state.hasSecret;
+      if (had && !state.hasSecret && this.#vault.state === 'unlocked') {
+        this.#activity.clipboardCleared();
+      }
+    });
+
     this.#autoLock = new AutoLock((reason) => {
       this.lock(reason);
       // The renderer has to be told, or it keeps rendering a vault that is no longer open.
@@ -163,6 +197,29 @@ export class SessionController {
     return this.#vault;
   }
 
+  /**
+   * What this session has done.
+   *
+   * Exposed so the IPC layer can read it and the import service can write to it. Handing out
+   * the recorder rather than a snapshot is deliberate: the import service needs to record,
+   * and threading a callback through three constructors to avoid saying so would hide the
+   * dependency rather than remove it.
+   */
+  get activity(): SessionActivity {
+    return this.#activity;
+  }
+
+  /**
+   * The notice from the most recent lock.
+   *
+   * The lock entry is the one thing `locked()` does not store — it clears the log and hands
+   * the notice back — so a renderer that reads the log after a lock would find nothing at
+   * all and be unable to say why the vault closed. Held here for exactly one read.
+   */
+  get lastLockNotice(): ActivityEntry | null {
+    return this.#lastLockNotice;
+  }
+
   get preferences(): Preferences {
     return this.#preferences.get();
   }
@@ -189,7 +246,10 @@ export class SessionController {
       derive: (pw, params) => this.#kdf.derive(pw, params),
     });
 
-    this.#afterOpen(summary);
+    // 'created', not 'password'. The model already distinguishes them, and a log whose first
+    // line says "unlocked" for a vault that did not exist a second earlier is a log that
+    // misreports the one event a reader most wants to find.
+    this.#afterOpen(summary, 'created');
     return summary;
   }
 
@@ -214,11 +274,14 @@ export class SessionController {
         this.#kdf.derive(pw, params)
       );
       this.#throttle.recordSuccess();
-      this.#afterOpen(summary);
+      this.#afterOpen(summary, 'password');
       return summary;
     } catch (error) {
       if (error instanceof VaultError && error.code === 'WRONG_PASSWORD') {
         this.#throttle.recordFailure();
+        // Recorded before the wipe check, so a vault destroyed by the last failed attempt
+        // still has that attempt in the log the user is looking at.
+        this.#activity.unlockFailed();
         await this.#maybeWipe(path);
       }
       throw error;
@@ -249,7 +312,7 @@ export class SessionController {
 
     const summary = await this.#vault.unlockWithKey(path, dekBytes);
     this.#throttle.recordSuccess();
-    this.#afterOpen(summary);
+    this.#afterOpen(summary, 'quick-unlock');
     return summary;
   }
 
@@ -339,6 +402,11 @@ export class SessionController {
     this.#lastLockReason = reason;
     if (wasOpen !== null) this.#pendingVault = wasOpen;
 
+    // Clears the log as well as returning the notice. A lock that left behind a list of
+    // everything the session revealed would be a lock in name only — and that list is more
+    // useful to somebody who sits down at the locked machine than the lock screen is.
+    this.#lastLockNotice = this.#activity.locked(reason);
+
     // After the key is gone, not before. A listener that reads the vault on its way out gets
     // a locked one, which is the state it is being told about.
     for (const listener of this.#lockListeners) {
@@ -353,7 +421,9 @@ export class SessionController {
   }
 
   async save(): Promise<VaultSummary> {
-    return this.#vault.save();
+    const summary = await this.#vault.save();
+    this.#activity.vaultSaved(summary.recordCount);
+    return summary;
   }
 
   /**
@@ -375,11 +445,29 @@ export class SessionController {
 
   // ── Secrets ────────────────────────────────────────────────────────────────
 
+  /**
+   * Reveals a secret for display, and records that it happened.
+   *
+   * Here rather than straight onto `VaultService` from the IPC handler, which is how the
+   * channel used to reach it. A reveal is the single most sensitive thing this app does on
+   * a user's behalf and the one action the vault's own history cannot record — history
+   * covers changes, and reading changes nothing. Routing it through the session means the
+   * recording is not something a future second caller can forget to do.
+   */
+  revealSecret(ref: SecretRef): string | null {
+    const value = this.#vault.revealSecret(ref);
+    // Only when something was actually revealed. A refused or expired grant is not a reveal,
+    // and logging one would make the log disagree with what the user saw.
+    if (value !== null) this.#activity.secretRevealed(ref);
+    return value;
+  }
+
   /** Reveals a secret and copies it, with the configured auto-clear. */
   async copySecret(ref: SecretRef): Promise<ClipboardState | null> {
     const value = this.#vault.revealSecret(ref);
     if (value === null) return null;
 
+    this.#activity.secretCopied(ref);
     return this.#clipboard.copySecret(value, {
       clearAfterMs: this.#preferences.get().clipboardClearMs,
     });
@@ -435,9 +523,15 @@ export class SessionController {
 
   // ── Internals ──────────────────────────────────────────────────────────────
 
-  #afterOpen(summary: VaultSummary): void {
+  #afterOpen(summary: VaultSummary, method: ActivityUnlockMethod): void {
     this.#pendingVault = null;
     this.#lastLockReason = null;
+
+    // First, and before anything else can record: `vaultOpened` applies the vault's own
+    // audit-privacy level to the log, and an entry written ahead of it would carry a label
+    // the user asked never to be kept. One entry per unlock, forever, is exactly the kind of
+    // off-by-one that is invisible in review and permanent in behaviour.
+    this.#activity.vaultOpened(summary, method);
     this.#preferences.recordOpened({
       path: summary.path,
       displayName: summary.displayName || basename(summary.path),

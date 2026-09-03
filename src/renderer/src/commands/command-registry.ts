@@ -98,6 +98,7 @@ export interface CommandDefinition {
 const TOOL_SECTION: Readonly<Record<ToolViewId, CommandSection>> = {
   generator: 'Vault',
   health: 'Vault',
+  activity: 'Vault',
   settings: 'Navigate',
   help: 'Help',
   about: 'Help',

@@ -21,6 +21,7 @@ import type { MenuCommandId } from '../model/menu-commands.js';
 import type { KdfProgressView } from '../model/kdf-progress.js';
 import type { VaultChangedExternally } from '../model/vault-change.js';
 import type { KdfCost, SettingsSnapshot } from '../model/settings-plan.js';
+import type { ActivityEntry, ActivitySnapshot } from '../model/activity.js';
 import type { AttachmentAddView, AttachmentAudit, AttachmentPreview } from '../model/attachment.js';
 import type { ExportFormatDescriptor } from '../model/export.js';
 import {
@@ -423,6 +424,34 @@ export type FolderDeletePolicyName = 'reparent' | 'unfile';
  * Both updates are **merges**, so a caller sending one field cannot silently reset the rest
  * to whatever its own defaults happened to be.
  */
+/**
+ * What this session has done.
+ *
+ * One channel, and a poll rather than a push. The log is a bounded in-memory ring the main
+ * process appends to on nearly every action, so an event per entry would be a stream of IPC
+ * traffic to feed a panel that is usually closed — and the panel is a thing people open to
+ * answer a question, not a feed they watch.
+ *
+ * The payload carries no secret material and no record titles: `ActivityEntry` has no field
+ * that could hold either, which is stated and guarded in `@shared/model/activity.ts`. It
+ * carries record *ids*, and only when the vault's own audit-privacy level allows them.
+ */
+export interface ActivityApi {
+  read: () => Promise<IpcResult<ActivityView>>;
+}
+
+/**
+ * The snapshot plus the notice from the last lock.
+ *
+ * The lock entry is the one thing the log does not store — `locked()` clears the ring and
+ * returns the notice — so without carrying it separately a renderer reading the log after a
+ * lock would find an empty list and no way to say why the vault closed.
+ */
+export interface ActivityView {
+  readonly snapshot: ActivitySnapshot;
+  readonly lastLock: ActivityEntry | null;
+}
+
 export interface SettingsApi {
   read: () => Promise<IpcResult<SettingsView>>;
   updateMachine: (patch: Record<string, unknown>) => Promise<IpcResult<SettingsView>>;
@@ -567,6 +596,7 @@ export interface KeyholdApi {
   history: HistoryApi;
   organisation: OrganisationApi;
   settings: SettingsApi;
+  activity: ActivityApi;
   attachments: AttachmentsApi;
   exporter: ExporterApi;
   importer: ImporterApi;
@@ -641,6 +671,8 @@ export const CHANNELS = {
   settingsClearAllHistory: 'kh:settings:clear-all-history',
   settingsChangeMasterPassword: 'kh:settings:change-master-password',
   settingsRekey: 'kh:settings:rekey',
+
+  activityList: 'kh:activity:list',
 
   attachmentsAdd: 'kh:attachments:add',
   attachmentsRemove: 'kh:attachments:remove',

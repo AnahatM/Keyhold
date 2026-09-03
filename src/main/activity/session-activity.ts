@@ -48,6 +48,42 @@ export interface ActivityVaultRef {
   readonly settings: { readonly auditPrivacyLevel: AuditPrivacyLevel };
 }
 
+/**
+ * The three numbers a committed import produced.
+ *
+ * Three `number`s and nothing else, deliberately. `ImportCommitOutcome` — the shape the
+ * commit actually returns — also carries the whole new `VaultDocument` and the undo batch's
+ * pre-merge record snapshots, which is to say **every password in the vault**. Taking that
+ * object here would put it one property access away from an in-memory log the user can read
+ * on screen, and the property access that reached it would look entirely innocent in review.
+ *
+ * So the commit hands over a fresh object built from three of its fields, and this type is
+ * what makes that a compile-time fact rather than a convention: there is no `document` to
+ * reach for, because the parameter's type does not have one. Same reasoning as
+ * `ActivityLog.record` assigning detail fields through a single gate — a field that was never
+ * assigned cannot leak.
+ */
+export interface ImportOutcomeCounts {
+  /** Incoming records that became a new credential. */
+  readonly importedCount: number;
+  /** Incoming records folded into another record. */
+  readonly mergedCount: number;
+  /** Incoming records deliberately not written, or that the vault refused. */
+  readonly skippedCount: number;
+}
+
+/**
+ * The one method an import commit needs in order to record itself.
+ *
+ * Declared here rather than in `import-service/commit.ts` so there is one definition of what
+ * an import may tell the log, and so the dependency runs one way: the import service knows
+ * about the activity log, and the activity log knows nothing about imports. `SessionActivity`
+ * satisfies it, and so does a spy in a test.
+ */
+export interface ImportActivityRecorder {
+  imported(outcome: ImportOutcomeCounts): ActivityEntry;
+}
+
 export class SessionActivity {
   readonly #log: ActivityLog;
   #vaultLabel: string | null = null;
@@ -148,8 +184,34 @@ export class SessionActivity {
     return this.#record({ kind: 'save', count: recordCount });
   }
 
-  imported(recordCount: number): ActivityEntry {
-    return this.#record({ kind: 'import', count: recordCount });
+  /**
+   * An import was committed into the vault.
+   *
+   * **Takes the whole set of counts and picks the one to record itself.** A bare `number`
+   * parameter would let a call site pass `mergedCount`, or `plan.secretRecords.length` — which
+   * counts rows in a file rather than records in a vault — and the log would then quietly be
+   * describing something other than what happened. Which number the entry means is a decision
+   * about what the log says, so it is made once, here, exactly as the vault label and the
+   * privacy level are.
+   *
+   * The number recorded is `importedCount`: the records this import **created**. That is the
+   * question the log exists to answer — how much bigger did the vault just get, and did I ask
+   * for that — and it is the number the renderer's "N records imported" row already reads.
+   *
+   * The merged and skipped counts, and the source format, are deliberately **not** in the
+   * entry. `ActivityEntry` carries one count, no free text, and no field a format id could go
+   * in, and that shape is a security decision rather than an oversight — see the header of
+   * `@shared/model/activity.ts`, which makes the same argument about not inventing a field so
+   * a higher privacy level has something to unlock. The full breakdown is not lost: it travels
+   * to the user on `ImportCommitResult`, on the wizard's own result screen, which is where
+   * somebody is actually looking at the moment it matters.
+   *
+   * Recorded at the commit rather than after the save, so the entry marks the moment the
+   * records entered the vault. Whether they reached the disk is the `save` entry's fact, and
+   * it states it separately — an import followed by no save is a pair a reader can see.
+   */
+  imported(outcome: ImportOutcomeCounts): ActivityEntry {
+    return this.#record({ kind: 'import', count: outcome.importedCount });
   }
 
   /**
