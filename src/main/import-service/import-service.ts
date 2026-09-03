@@ -20,6 +20,7 @@ import { importFormatDescriptors } from '../import/index.js';
 import type { ImportActivityRecorder } from '../activity/session-activity.js';
 import { commitImport, toDuplicateAction, type ImportBatchRecord } from './commit.js';
 import { stalePlan, staleUndo } from './errors.js';
+import { readVaultAsImportSource } from './vault-source.js';
 import type { ImportFilePicker } from './file-picker.js';
 import { buildImportPlan, type HeldImportPlan } from './plan.js';
 import { holdSource, type HeldSource } from './source-store.js';
@@ -134,6 +135,31 @@ export class ImportService {
 
     const sourceId = this.#mint('source');
     const source = holdSource(sourceId, file);
+    this.#sources.set(sourceId, source);
+    return source.descriptor;
+  }
+
+  /**
+   * Opens another Keyhold vault as an import source, given its passphrase.
+   *
+   * Deliberately a separate entry point from `chooseFile`, and the reason is the passphrase.
+   * Every other source is a file the parser can read on its own; this one needs a credential,
+   * and a credential must not travel through a method that eleven formats share and none of
+   * them can use. See D30.
+   *
+   * The passphrase reaches `readVaultAsImportSource` and stops there. What comes back is an
+   * ordinary source holding Keyhold JSON, so everything after this line — detection, the dry
+   * run, duplicate matching, the commit, the undo — is the path every other format takes.
+   */
+  async openVault(input: {
+    readonly fileName: string;
+    readonly bytes: Uint8Array;
+    readonly secretPassphrase: string;
+  }): Promise<ImportSource> {
+    const decrypted = await readVaultAsImportSource(input);
+
+    const sourceId = this.#mint('source');
+    const source = holdSource(sourceId, decrypted);
     this.#sources.set(sourceId, source);
     return source.descriptor;
   }

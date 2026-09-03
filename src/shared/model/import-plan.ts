@@ -657,6 +657,22 @@ export interface ImporterApi {
    * `null` means they cancelled.
    */
   chooseFile: () => Promise<IpcResult<ImportSource | null>>;
+  /**
+   * Opens another Keyhold vault — a `.keep`, or a `.keepx` parcel — as a source.
+   *
+   * Separate from `chooseFile` because of the passphrase, not because of the file type. A
+   * credential must not travel through a method that every other format shares and none of
+   * them can use, and it must not outlive the one decrypt it is for. See D30.
+   *
+   * The passphrase crosses the bridge, which is the safe direction: it is typed in the
+   * renderer, so it is already there, and the alternative — a second password prompt owned by
+   * the main process — would be another place in the app that collects passphrases. Nothing
+   * about it comes back, and nothing stores it.
+   *
+   * `null` means the user cancelled the file dialog. A wrong passphrase is an error, not a
+   * `null`: those are different answers and the screen says different things about them.
+   */
+  openVault: (secretPassphrase: string) => Promise<IpcResult<ImportSource | null>>;
   /** The dry run. Writes nothing, and mints the plan id a commit requires. */
   preview: (request: ImportPreviewRequest) => Promise<IpcResult<ImportPreview>>;
   commit: (request: ImportCommitRequest) => Promise<IpcResult<ImportCommitResult>>;
@@ -719,6 +735,7 @@ export type ImportErrorCode = (typeof IMPORT_ERROR_CODES)[keyof typeof IMPORT_ER
 export const IMPORT_CHANNELS = {
   importerFormats: 'kh:import:formats',
   importerChooseFile: 'kh:import:choose-file',
+  importerOpenVault: 'kh:import:open-vault',
   importerPreview: 'kh:import:preview',
   importerCommit: 'kh:import:commit',
   importerUndo: 'kh:import:undo',

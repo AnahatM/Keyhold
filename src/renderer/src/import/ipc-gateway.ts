@@ -40,6 +40,8 @@ export function createIpcImportGateway(bridge: ImporterApi): ImportGateway {
       unwrap(await bridge.formats()),
 
     chooseFile: async (): Promise<ImportSource | null> => unwrap(await bridge.chooseFile()),
+    openVault: async (secretPassphrase: string): Promise<ImportSource | null> =>
+      unwrap(await bridge.openVault(secretPassphrase)),
 
     preview: async (request: ImportPreviewRequest): Promise<ImportPreview> =>
       unwrap(await bridge.preview(request)),

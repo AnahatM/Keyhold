@@ -10,6 +10,7 @@ import {
 } from 'electron';
 import { SAVED_SEARCH_NAME_MAX, SAVED_SEARCH_QUERY_MAX } from '@shared/model/saved-search.js';
 import { SITE_RULE_HOST_MAX, SITE_RULE_NOTE_MAX } from '@shared/model/site-rules.js';
+import { readVaultFile } from '../vault/atomic-write.js';
 import { CHANNELS, EVENTS, type IpcResult, type SettingsView } from '@shared/ipc/api.js';
 import {
   requireCredentialEdit,
@@ -709,6 +710,47 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.importerFormats, () => importer.formats());
 
   handle(CHANNELS.importerChooseFile, () => importer.chooseFile());
+
+  /**
+   * Another Keyhold vault, or a `.keepx` parcel, as an import source.
+   *
+   * The dialog opens in the main process, like every other file the app reads: a path the
+   * user picked in an OS dialog is consent, and a path the renderer supplied is not.
+   *
+   * The passphrase is the one thing the renderer does send, and that is the safe direction —
+   * it was typed there, so it is already there. It reaches `readVaultAsImportSource` and
+   * stops; nothing stores it, nothing logs it, and no part of the answer is derived from it.
+   */
+  handle(CHANNELS.importerOpenVault, async (secretPassphrase) => {
+    const passphrase = requireNonEmptyString(
+      CHANNELS.importerOpenVault,
+      secretPassphrase,
+      'secretPassphrase'
+    );
+
+    const window = context.getWindow();
+    const options: OpenDialogOptions = {
+      title: 'Import from another Keyhold vault',
+      filters: [
+        { name: 'Keyhold vault or parcel', extensions: ['keep', 'keepx'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    };
+    const chosen =
+      window === null
+        ? await dialog.showOpenDialog(options)
+        : await dialog.showOpenDialog(window, options);
+
+    const path = chosen.canceled ? undefined : chosen.filePaths[0];
+    if (path === undefined) return null;
+
+    return await importer.openVault({
+      fileName: basename(path),
+      bytes: await readVaultFile(path),
+      secretPassphrase: passphrase,
+    });
+  });
 
   handle(CHANNELS.importerPreview, (raw) => {
     const channel = CHANNELS.importerPreview;

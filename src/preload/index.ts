@@ -481,6 +481,10 @@ const api: KeyholdApi = {
         IpcResult<readonly ImportFormatDescriptor[]>
       >,
     // No argument, and no path in the result. The dialog opens on the other side.
+    openVault: (secretPassphrase: string) =>
+      ipcRenderer.invoke(CHANNELS.importerOpenVault, secretPassphrase) as Promise<
+        IpcResult<ImportSource | null>
+      >,
     chooseFile: () =>
       ipcRenderer.invoke(CHANNELS.importerChooseFile) as Promise<IpcResult<ImportSource | null>>,
     preview: (request: ImportPreviewRequest) =>

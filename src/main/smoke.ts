@@ -1195,6 +1195,70 @@ export function runSmokeCheck(window: BrowserWindow): void {
         );
         emit(`SMOKE-CHECK palette-offers-every-transfer ${String(transferRows === true)}`);
 
+        // ── The import wizard's second route in ──────────────────────────────
+        //
+        // A `.keep` or `.keepx` needs a passphrase, so it cannot go through the same button
+        // as a CSV (D30) — it is a disclosure on the file step. Opened here rather than
+        // asserted in a unit test because the failure worth catching is reachability: the
+        // route existed in the gateway, the channel and the service, and would have been a
+        // feature nobody could find if the disclosure had not been rendered.
+        //
+        // Nothing is typed into the passphrase field and no dialog is opened. The check is
+        // that the way in is on screen, which is the part that keeps going missing.
+        await window.webContents.executeJavaScript(
+          `(() => {
+            // A palette row is a div[role=option] driven by mousedown, not a button — the
+            // first version of this check called .click() and silently did nothing, which is
+            // the same class of mistake it was written to catch.
+            const row = [...document.querySelectorAll('.kh-palette__row')].find(
+              (element) => element.textContent?.includes('Import from another password manager')
+            );
+            row?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            return row !== undefined;
+          })()`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 400));
+
+        const vaultRoute: unknown = await window.webContents.executeJavaScript(
+          `(() => {
+            const wizard = document.body.textContent ?? '';
+            if (!wizard.includes('Bring a vault in from somewhere else')) return 'no-wizard';
+
+            const toggle = [...document.querySelectorAll('button')].find(
+              (element) => element.textContent?.trim() === 'Open a .keep or .keepx'
+            );
+            if (toggle === undefined) return 'no-disclosure';
+            toggle.click();
+            return 'opened';
+          })()`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+
+        // The field, and that it is a password field rather than a text one — a passphrase
+        // box that renders its contents is a passphrase on somebody's screen recording.
+        const passphraseField: unknown = await window.webContents.executeJavaScript(
+          `(() => {
+            const inputs = [...document.querySelectorAll('.kh-import-vault input')];
+            return inputs.length === 1 && inputs[0].type === 'password';
+          })()`,
+          true
+        );
+
+        emit(
+          `SMOKE-CHECK import-offers-a-keyhold-vault ${String(vaultRoute === 'opened' && passphraseField === true)}`
+        );
+        await captureNamedShot(window, 'Keyhold-Screenshot-16');
+
+        // Out of the wizard, so the screens after this are not taken behind a modal.
+        await window.webContents.executeJavaScript(
+          `(document.activeElement ?? document.body).dispatchEvent(
+             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+
         await window.webContents.executeJavaScript(
           `(document.activeElement ?? document.body).dispatchEvent(
              new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,

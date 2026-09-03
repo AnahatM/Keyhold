@@ -210,6 +210,22 @@ export function ImportWizard({
     }
   }, [gateway, failure]);
 
+  const openVault = useCallback(
+    async (secretPassphrase: string): Promise<void> => {
+      dispatch({ type: 'busy', busy: true });
+      try {
+        const source = await gateway.openVault(secretPassphrase);
+        // Same rule as `chooseFile`: `null` is a cancelled dialog, not a failure. A wrong
+        // passphrase throws and lands in the error slot, because those are different answers.
+        if (source !== null) dispatch({ type: 'source-chosen', source });
+        dispatch({ type: 'busy', busy: false });
+      } catch (error) {
+        failure(error);
+      }
+    },
+    [gateway, failure]
+  );
+
   const advance = useCallback(async (): Promise<void> => {
     const target = nextStep(state);
     if (target === null) return;
@@ -317,6 +333,9 @@ export function ImportWizard({
           onChooseFile={() => {
             void chooseFile();
           }}
+          onOpenVault={(secretPassphrase) => {
+            void openVault(secretPassphrase);
+          }}
           onFormat={(formatId) => {
             dispatch({ type: 'format-chosen', formatId });
           }}
@@ -394,6 +413,7 @@ function primaryLabel(step: ImportStep, mapping: boolean, additions: number): st
 function StepBody({
   state,
   onChooseFile,
+  onOpenVault,
   onFormat,
   onMapping,
   onDecision,
@@ -402,6 +422,7 @@ function StepBody({
 }: {
   readonly state: ImportWizardState;
   readonly onChooseFile: () => void;
+  readonly onOpenVault: (secretPassphrase: string) => void;
   readonly onFormat: (formatId: string) => void;
   readonly onMapping: (mapping: ColumnMapping) => void;
   readonly onDecision: (key: string, action: ImportDuplicateAction) => void;
@@ -410,7 +431,14 @@ function StepBody({
 }): React.JSX.Element | null {
   switch (state.step) {
     case 'choose':
-      return <ChooseFileStep source={state.source} busy={state.busy} onChoose={onChooseFile} />;
+      return (
+        <ChooseFileStep
+          source={state.source}
+          busy={state.busy}
+          onChoose={onChooseFile}
+          onOpenVault={onOpenVault}
+        />
+      );
 
     case 'format':
       if (state.source === null) return null;

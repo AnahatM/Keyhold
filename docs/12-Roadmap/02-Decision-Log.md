@@ -655,6 +655,59 @@ renderer ever naming it — not a channel that trusts a renderer-supplied path.
 
 ---
 
+### D30 — A Keyhold vault is imported by decrypting it into the format we already read
+
+**Decision:** importing a `.keep` or `.keepx` decrypts the container in the main process,
+re-serialises the document as **Keyhold JSON**, and hands that to the existing
+`keyhold-json` parser as an ordinary import source. No new parser, no change to
+`ImportParser`, and no second record-mapping.
+
+**The problem.** Every other format is a file the parser can read on its own.
+`ImportParser.parse` takes `content: string` and nothing else — no bytes, and no credential.
+A Keyhold vault needs both: it is binary, and it cannot be opened without a passphrase the
+user types.
+
+**Rejected: add a passphrase to the parser contract.** An optional `passphrase` on
+`ImportParser` puts a field on eleven text formats that none of them can use, and turns "does
+this format need a password?" into a runtime question with no type behind it. Worse, the
+passphrase would then have to reach wherever parsers are called — which is the import
+service, holding a source for the whole length of the wizard. A secret that only needs to
+exist for one decrypt would acquire the lifetime of a multi-screen flow.
+
+**Rejected: treat it as a merge.** The merge engine already opens a second `.keep`, so this
+looks like the natural home — and it is exactly wrong. A merge is between two copies of _one_
+vault, keyed by the same master password, and `readOtherCopyUnsafe` is safe **because** a
+genuinely different vault fails to decrypt. That failure is the guard. Importing a foreign
+vault would union two record-id spaces that were never related, through an engine whose
+survival rules assume a shared ancestor.
+
+**Rejected: a `parseBytes` on the parser interface.** This is the right long-term shape and it
+is still the right answer for `.1pux` and, one day, KDBX — formats that are binary but need no
+credential. It does not solve this one: the passphrase is the hard part, not the bytes. Doing
+it here would mean designing the bigger seam under the pressure of the smaller case. Left as
+the open item it is.
+
+**Why the chosen shape is the smallest true one.** A `.keep` _is_ a Keyhold JSON document with
+a different envelope. Decrypting it produces exactly the `VaultDocument` the JSON exporter
+serialises, so re-serialising and reusing the existing importer means:
+
+- **One mapping.** `keyhold-json.ts` already decides how a Keyhold record becomes a
+  `NewCredentialInput`, which fields cannot survive, and how those losses are reported. A
+  second mapping would drift, and the way it would drift is that one of them would quietly
+  stop reporting a dropped field.
+- **The passphrase never outlives the decrypt.** It is a parameter to one function in main.
+  The import source holds plaintext, exactly as every other source does — the same lifetime
+  and the same risk that is already reasoned about, rather than a new one.
+- **No contract change**, so nothing about the other seventeen formats moves.
+
+**Consequence, stated plainly:** what is imported is what a Keyhold JSON export carries.
+Record ids, created/updated dates and history do not survive, and are **reported** rather than
+dropped silently — the same losses `keyhold-json` already names, because it is the same code
+saying so. Importing a vault is a merge of contents, not a restore; restoring is copying the
+`.keep` file back.
+
+---
+
 ## Decisions deferred to implementation
 
 Recorded so they are consciously decided rather than accidentally defaulted.

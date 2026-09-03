@@ -623,3 +623,26 @@
   font-size: var(--kh-text-sm);
   color: var(--kh-color-text-muted);
 }
+
+/*
+ * The "open a Keyhold vault" disclosure on the file step.
+ *
+ * Its own block rather than a row, because it holds a passphrase field and a field that
+ * shares a line with the button that submits it is a field people press Enter in by accident.
+ */
+.kh-import-vault {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  margin-top: var(--kh-space-4);
+  padding: var(--kh-space-4);
+  border: var(--kh-edge);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-fill-surface);
+}
+
+.kh-import-vault__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+}

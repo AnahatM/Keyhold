@@ -34,6 +34,14 @@ export interface ImportGateway {
   listFormats(): Promise<readonly ImportFormatDescriptor[]>;
   /** Opens the main process's file dialog. `null` when the user cancelled it. */
   chooseFile(): Promise<ImportSource | null>;
+  /**
+   * Opens another Keyhold vault, or a `.keepx` parcel, with its passphrase.
+   *
+   * Separate from {@link chooseFile} because of the credential, not the file type — see D30.
+   * `null` is still a cancelled dialog; a wrong passphrase throws, because those are
+   * different answers and the screen says different things about them.
+   */
+  openVault(secretPassphrase: string): Promise<ImportSource | null>;
   /** The dry run. Writes nothing; mints the plan id {@link commit} requires. */
   preview(request: ImportPreviewRequest): Promise<ImportPreview>;
   commit(request: ImportCommitRequest): Promise<ImportCommitResult>;

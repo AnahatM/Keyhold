@@ -382,7 +382,11 @@ and the activity-log entry. Full notes: `docs/09-Import-Export/00-Import-Formats
 - [ ] KDBX 3/4 — **blocked on `kdbxweb`, which is not installed** (MANUAL-BACKLOG M-KDBX)
 - [ ] KeePass XML — needs an XML parser, which is a dependency decision. KeePass **CSV** is
       already supported and is the path most KeePass users take
-- [ ] Keyhold's own `.keep`/`.keepx` as an import source
+- [x] Keyhold's own `.keep`/`.keepx` as an import source — **D30**: a `.keep` is a Keyhold
+      JSON document in a different envelope, so importing one decrypts the container in main,
+      re-serialises, and hands it to the parser that already exists. One record-mapping, no
+      change to `ImportParser`, and the passphrase never outlives the decrypt. `.keepx` works
+      through the same path, which is the receiving end of the transfer feature
 - [x] **Tests** across the parsers, the service and the wizard, and six fault injections, two of
       which found real holes
 - [x] `docs/09-Import-Export/00-Import-Formats.md` and `02-Import-Service.md` written

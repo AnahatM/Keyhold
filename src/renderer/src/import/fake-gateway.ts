@@ -123,6 +123,19 @@ export class FakeImportGateway implements ImportGateway {
     if (this.scenario.cancelFileDialog && this.fileDialogCalls === 1) return Promise.resolve(null);
     return Promise.resolve(this.scenario.source);
   }
+  /**
+   * The same source, reached with a passphrase.
+   *
+   * The fake does not model a wrong one: the wizard's job is to show whatever the gateway
+   * throws, and `failsWith` already drives that path for every method. A second, bespoke
+   * wrong-passphrase mode here would be a second way to test one behaviour.
+   */
+  // The passphrase is deliberately unused: recorded as a call, never as a value. A fake that
+  // kept it would be a copy of a credential living in test state for the length of a suite.
+  openVault(_secretPassphrase: string): Promise<ImportSource | null> {
+    this.calls.push('openVault');
+    return this.chooseFile();
+  }
 
   preview(request: ImportPreviewRequest): Promise<ImportPreview> {
     this.calls.push(`preview:${request.formatId}`);
