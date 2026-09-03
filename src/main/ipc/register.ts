@@ -855,7 +855,25 @@ export function registerIpcHandlers(context: IpcContext): void {
   // the app's lifetime rather than to a vault: the snapshots outlive any one open vault, and
   // the merge session must be droppable on lock from a place that can see the session.
   const snapshots = createBaseSnapshotStore(context.userDataPath);
-  const merges = new MergeSessionStore({ now: Date.now });
+  const merges = new MergeSessionStore({
+    now: Date.now,
+    // The provenance stamped on every record a merge rewrites.
+    //
+    // Read at the moment of merging, not captured once: both the privacy level and the
+    // "record merges" switch live in the vault, the user can move either mid-session, and what
+    // gets written must honour the setting they have now. Same arrangement as the import.
+    //
+    // `null` writes nothing at all. A merge is the one operation that rewrites records the
+    // user did not individually touch, so it must not also be the one operation the audit
+    // trail cannot see — but it is their audit trail, and a large first merge can put a version
+    // on hundreds of records at once (hard rule 7).
+    mergeOrigin: () => {
+      if (!vault.settings().historyRecordsMerges) return null;
+      return context.originCapture === undefined
+        ? { action: 'merge' }
+        : context.originCapture.capture('merge', vault.settings().auditPrivacyLevel);
+    },
+  });
   session.onLock(() => {
     // A held merge is a decrypted copy of another whole vault. A lock means nothing derived
     // from any vault is still in memory, and that includes the one being merged in.

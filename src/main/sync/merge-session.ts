@@ -4,6 +4,7 @@ import type { VaultDocument } from '@shared/model/vault-document.js';
 import type { ConflictChoice, MergeReport } from '@shared/model/sync.js';
 import type { MergeCommitResult, MergePreview } from '@shared/model/sync-plan.js';
 import type { SyncErrorCode } from '@shared/model/sync-plan.js';
+import type { ChangeOrigin } from '@shared/model/credential.js';
 import { mergeDocuments } from './merge-document.js';
 import { PreMergeBackup } from './pre-merge-backup.js';
 
@@ -83,6 +84,19 @@ export interface OpenMerge {
 export interface MergeSessionStoreOptions {
   readonly now: () => number;
   readonly newId?: (() => string) | undefined;
+  /**
+   * Provenance for the version a merge writes on each record it changed, or `null` to write
+   * none.
+   *
+   * A function, called at the moment of merging rather than at construction, for the reason
+   * `OpsContext.captureOrigin` gives: the audit privacy level and the "record merges" setting
+   * both live in the vault, the user can change either mid-session, and what gets written must
+   * honour the setting they have now.
+   *
+   * Absent records nothing, which is the safe direction: an embedding that forgets to wire it
+   * captures less than it could, never more than the user asked for.
+   */
+  readonly mergeOrigin?: (() => ChangeOrigin | null) | undefined;
 }
 
 /**
@@ -98,9 +112,24 @@ export class MergeSessionStore {
   readonly #newId: () => string;
   #open: OpenMerge | null = null;
 
+  readonly #mergeOrigin: () => ChangeOrigin | null;
+
   constructor(options: MergeSessionStoreOptions) {
     this.#now = options.now;
     this.#newId = options.newId ?? randomUUID;
+    this.#mergeOrigin = options.mergeOrigin ?? ((): null => null);
+  }
+
+  /**
+   * The `mergeOrigin` option for one call to the engine.
+   *
+   * Spread rather than passed as a possibly-`undefined` property: under
+   * `exactOptionalPropertyTypes` an explicit `undefined` is a different type from an absent
+   * key, and the engine's own comment ties "omitted" to "write no merge versions".
+   */
+  #mergeOriginOption(): { readonly mergeOrigin?: ChangeOrigin } {
+    const origin = this.#mergeOrigin();
+    return origin === null ? {} : { mergeOrigin: origin };
   }
 
   get openPlanId(): string | null {
@@ -125,7 +154,11 @@ export class MergeSessionStore {
 
     const { backup, result } = await PreMergeBackup.runMerge(
       { vaultPath: input.vaultPath },
-      ({ merge }) => merge(input.base, input.ours, input.theirs, { now: this.#now() })
+      ({ merge }) =>
+        merge(input.base, input.ours, input.theirs, {
+          now: this.#now(),
+          ...this.#mergeOriginOption(),
+        })
     );
 
     const planId = this.#newId();
@@ -159,6 +192,7 @@ export class MergeSessionStore {
     const outcome = mergeDocuments(open.base, open.ours, open.theirs, {
       now: this.#now(),
       resolutions: Object.fromEntries(open.choices),
+      ...this.#mergeOriginOption(),
     });
     open.latest = { document: outcome.document, report: outcome.report };
     return outcome.report;

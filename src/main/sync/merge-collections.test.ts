@@ -248,7 +248,7 @@ interface PolicyCase {
  * Every case is run two-way. That is not laziness: `historyEnabledByDefault` is a boolean, and
  * a boolean cannot conflict when there is an ancestor — one side matching the base means one
  * side simply did not move. Without an ancestor every difference is a conflict, so this is the
- * only shape in which all five policies are reachable at once.
+ * only shape in which every policy is reachable at once.
  */
 const POLICY_CASES: Readonly<
   Record<Exclude<keyof typeof SETTING_POLICY, 'health' | 'attachments' | 'breachCheck'>, PolicyCase>
@@ -259,6 +259,15 @@ const POLICY_CASES: Readonly<
     ours: withSetting('historyEnabledByDefault', true),
     theirs: withSetting('historyEnabledByDefault', false),
     read: (settings) => settings.historyEnabledByDefault,
+    expected: false,
+  },
+  // Off wins, and this one has a second reason on top of the privacy argument: the setting
+  // governs what *this* merge writes, so resolving it toward "record" would let a merge decide
+  // to record itself on the strength of a preference the other device holds.
+  historyRecordsMerges: {
+    ours: withSetting('historyRecordsMerges', true),
+    theirs: withSetting('historyRecordsMerges', false),
+    read: (settings) => settings.historyRecordsMerges,
     expected: false,
   },
   // `null` is unlimited, so it is the larger cap. Keeping more history destroys nothing.
