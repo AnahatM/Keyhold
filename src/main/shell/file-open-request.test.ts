@@ -179,6 +179,56 @@ describe('rejecting what the OS should not have handed us', () => {
   });
 });
 
+describe('a path that names another machine', () => {
+  /**
+   * The finding this block exists for.
+   *
+   * `\\attacker.example\share\vault.keep` satisfied every check this module had. It is
+   * absolute by `path.win32`, carries no URL scheme, has no `..` segment and ends in
+   * `.keep` — so it reached `isFile`, which in production is `statSync`. On Windows that
+   * opens an SMB session to a host the attacker chose and performs an NTLMv2 handshake with
+   * the logged-in user's credentials: an outbound connection from an app that promises zero
+   * network by default, a credential disclosure, and a synchronous hang in the main process
+   * before any window exists. Delivered by double-clicking a `.lnk` someone sent.
+   *
+   * Every case asserts **the probe was never called**, not merely that the result was a
+   * rejection. Rejecting after dialling out would be the same bug with a nicer return value.
+   */
+  const remote = [
+    ['a UNC share', String.raw`\\attacker.example\share\vault.keep`],
+    ['a UNC share with forward slashes', '//attacker.example/share/vault.keep'],
+    ['a UNC share by address', String.raw`\\192.0.2.1\s\vault.keep`],
+    ['a device path to a UNC share', String.raw`\\?\UNC\attacker.example\s\vault.keep`],
+    ['the device namespace', String.raw`\\.\pipe\vault.keep`],
+    ['a root with no drive letter', String.raw`\Users\me\vault.keep`],
+  ] as const;
+
+  for (const [name, path] of remote) {
+    it(`refuses ${name} without touching the disk`, () => {
+      let probed = false;
+      const result = parseFileOpenRequest(
+        path,
+        win(() => {
+          probed = true;
+          return true;
+        })
+      );
+
+      expect(result).toEqual({ ok: false, reason: 'not-local-storage' });
+      expect(probed, 'the filesystem probe must not run on a non-local path').toBe(false);
+    });
+  }
+
+  it('still accepts an ordinary drive path', () => {
+    // The other half of the assertion: a check that refuses everything is not a check.
+    expect(parseFileOpenRequest(String.raw`C:\Users\me\vault.keep`, win())).toEqual({
+      ok: true,
+      path: String.raw`C:\Users\me\vault.keep`,
+      kind: 'vault',
+    });
+  });
+});
+
 describe('reading a command line', () => {
   it('finds the document among the switches', () => {
     const argv = [
