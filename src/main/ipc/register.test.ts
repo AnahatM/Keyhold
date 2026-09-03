@@ -22,6 +22,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * anything that can guess the name and invisible to every review that reads the contract.
  */
 
+import type { IpcResult } from '@shared/ipc/api.js';
+
 const handled = new Map<string, unknown>();
 
 vi.mock('electron', () => ({
@@ -84,5 +86,60 @@ describe('IPC registration', () => {
     // is a good failure, but at startup, in a packaged build, after it has shipped.
     const names = Object.values(CHANNELS);
     expect(names.length).toBe(new Set(names).size);
+  });
+
+  /*
+   * The sender check, finding S8.
+   *
+   * Every handler shares one wrapper, so one channel is enough to establish that the check
+   * runs — but *which* channel matters: it has to be one whose body would be observable if
+   * the refusal did not happen. `appGetVersion` is the wrong choice, because it answers from
+   * a constant either way and the assertion would pass on a wrapper that checked nothing.
+   * `vaultSummary` reaches the stub context instead, so a refusal and a success are plainly
+   * different results.
+   *
+   * Fault injection performed: deleting the `if (!fromTopFrame(event))` block fails all three
+   * refusal tests, which then return `ok: true`. Changing `frame.parent === null` to
+   * `frame.parent !== undefined` fails "refuses a subframe". The last test was weaker on its
+   * first draft — it asserted only that the sender's URL was absent from the result, which a
+   * wrapper checking nothing also satisfies; it now asserts the refusal too.
+   */
+  const invoke = async (channel: string, event: unknown): Promise<IpcResult<unknown>> => {
+    const listener = handled.get(channel) as (
+      event: unknown,
+      ...args: unknown[]
+    ) => Promise<IpcResult<unknown>>;
+    return listener(event);
+  };
+
+  const CHANNEL = CHANNELS.vaultSummary;
+
+  it('answers the window’s own top frame', async () => {
+    const result = await invoke(CHANNEL, { senderFrame: { parent: null } });
+    expect(result.ok).toBe(true);
+  });
+
+  it('refuses a subframe, which nothing in this app should ever be', async () => {
+    const result = await invoke(CHANNEL, { senderFrame: { parent: { parent: null } } });
+    expect(result).toMatchObject({ ok: false, code: 'FORBIDDEN_SENDER' });
+  });
+
+  it('refuses a frame that has already gone', async () => {
+    // `senderFrame` is null once the frame is destroyed. Answering a caller that no longer
+    // exists is at best wasted work against the vault.
+    const result = await invoke(CHANNEL, { senderFrame: null });
+    expect(result).toMatchObject({ ok: false, code: 'FORBIDDEN_SENDER' });
+  });
+
+  it('refuses without echoing anything about the sender', async () => {
+    const result = await invoke(CHANNEL, {
+      senderFrame: { parent: { parent: null }, url: 'https://evil.example/probe' },
+    });
+    // Both halves, in one test, because the "says nothing" half alone cannot fail: a wrapper
+    // with no check at all returns a success that also happens not to mention the sender.
+    // That was found by injecting the removal and watching this pass — the assertion has to
+    // be anchored to the refusal to mean anything.
+    expect(result.ok).toBe(false);
+    expect(JSON.stringify(result)).not.toContain('evil.example');
   });
 });
