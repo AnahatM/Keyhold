@@ -237,7 +237,8 @@ interface PolicyCase {
 }
 
 /**
- * `health` and `attachments` are excluded, and for the same reason: both are **compound**,
+ * `health`, `attachments` and `breachCheck` are excluded, and for the same reason: all three
+ * are **compound**,
  * and `PolicyCase` describes a scalar settling toward one side. They are reconciled field by
  * field with no conflict entry, which is a different claim and is asserted separately.
  *
@@ -250,7 +251,7 @@ interface PolicyCase {
  * only shape in which all five policies are reachable at once.
  */
 const POLICY_CASES: Readonly<
-  Record<Exclude<keyof typeof SETTING_POLICY, 'health' | 'attachments'>, PolicyCase>
+  Record<Exclude<keyof typeof SETTING_POLICY, 'health' | 'attachments' | 'breachCheck'>, PolicyCase>
 > = {
   // Off wins: recording old passwords is a privacy decision, and the quieter answer cannot
   // surprise someone who was not asked.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { HEALTH_RULE_IDS } from '@shared/model/health.js';
 import { DEFAULT_ATTACHMENT_SETTINGS } from '@shared/model/attachment.js';
+import { DEFAULT_BREACH_CHECK_SETTINGS } from '@shared/model/breach.js';
 import { DEFAULT_VAULT_HEALTH_SETTINGS } from '@shared/model/vault-document.js';
 import { AUDIT_PRIVACY_LEVELS, type Credential } from '@shared/model/credential.js';
 import type { ExportFormatId } from '@shared/model/export.js';
@@ -178,6 +179,13 @@ function serialiseSettings(settings: VaultSettings): Record<string, unknown> {
     // Key by key for the same reason: a cap added to `AttachmentSettings` has to be written
     // here deliberately rather than riding along on a spread, which is what makes "this
     // format is lossless" a claim someone has to keep true rather than one that decays.
+    // Key by key, like everything else here: a field added to `BreachCheckSettings` has to
+    // be written in deliberately rather than riding along on a spread.
+    breachCheck: {
+      enabled: settings.breachCheck.enabled,
+      requestIntervalMs: settings.breachCheck.requestIntervalMs,
+      requestTimeoutMs: settings.breachCheck.requestTimeoutMs,
+    },
     attachments: {
       maxAttachmentBytes: settings.attachments.maxAttachmentBytes,
       maxVaultAttachmentBytes: settings.attachments.maxVaultAttachmentBytes,
@@ -370,11 +378,36 @@ function parseAttachmentSettings(raw: unknown): VaultSettings['attachments'] {
   };
 }
 
+/**
+ * The breach settings, out of an exported file.
+ *
+ * Absent means an export written before this vault carried the setting, and defaults —
+ * which means **off**, so an old file cannot turn a network feature on by omission. That is
+ * the direction a missing security setting must fall in.
+ */
+function parseBreachSettings(raw: unknown): VaultSettings['breachCheck'] {
+  if (raw === undefined) return DEFAULT_BREACH_CHECK_SETTINGS;
+
+  const source = requireObject(raw, 'settings.breachCheck');
+  return {
+    enabled: requireBoolean(source.enabled, 'settings.breachCheck.enabled'),
+    requestIntervalMs: requireNumber(
+      source.requestIntervalMs,
+      'settings.breachCheck.requestIntervalMs'
+    ),
+    requestTimeoutMs: requireNumber(
+      source.requestTimeoutMs,
+      'settings.breachCheck.requestTimeoutMs'
+    ),
+  };
+}
+
 function parseSettings(raw: unknown): VaultSettings {
   const source = requireObject(raw, 'settings');
   return {
     health: parseHealthSettings(source.health),
     attachments: parseAttachmentSettings(source.attachments),
+    breachCheck: parseBreachSettings(source.breachCheck),
     historyEnabledByDefault: requireBoolean(
       source.historyEnabledByDefault,
       'settings.historyEnabledByDefault'

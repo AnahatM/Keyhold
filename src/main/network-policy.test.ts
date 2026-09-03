@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { coercePreferences, DEFAULT_PREFERENCES } from './session/preferences.js';
 import { NetworkPolicy } from './network-policy.js';
@@ -154,13 +154,17 @@ describe('the switch cannot be routed around', () => {
       );
     });
 
-    // Zero today, and correct: nothing constructs a breach client yet. At most one ever,
-    // so the switch has one place to be consulted rather than several to be forgotten in.
+    // Exactly one, and it is named. This started at zero — nothing constructed a breach
+    // client — and the assertion was written to start constraining the moment a composition
+    // root appeared. It did, and this is that root.
+    //
+    // Naming the file rather than counting to one: a second importer and a *moved* importer
+    // are different mistakes, and only one of them is a mistake at all.
     expect(
-      importers,
-      'the module that opens a socket must be imported from at most one place, so there is ' +
-        'one site that consults NetworkPolicy rather than several that might not'
-    ).toHaveLength(0);
+      importers.map((path) => relative(resolve('src'), path).split(sep).join('/')),
+      'the module that opens a socket must be imported from exactly one place, and that ' +
+        'place must consult NetworkPolicy and drop the client on lock'
+    ).toEqual(['main/breach/service.ts']);
   });
 
   it('makes the composition root prove it honours both obligations', () => {
