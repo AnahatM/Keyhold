@@ -18,10 +18,46 @@
  * outline, and a broken folder carries a ⚠ glyph with a sentence in its tooltip.
  */
 
+/*
+ * Nothing in this sidebar shrinks below its own content.
+ *
+ * This is the actual fix for the overlap, and it is worth stating because the symptom looks
+ * like a positioning bug and is not. A flex child defaults to `flex-shrink: 1`: in a column
+ * shorter than its contents, every box is squeezed below its content height and the content
+ * paints outside it — so the boxes do not move, but what is *inside* them lands on top of
+ * the neighbours. The keyboard hint drew over the TAGS heading, and the empty-tree message,
+ * the action row and the drop zone all drew over each other.
+ *
+ * `flex: none` on every direct child says "take the height you need", and the container
+ * below scrolls instead. Found by looking at a screenshot; no test asserts that two elements
+ * do not overlap, and none realistically could.
+ */
+.kh-organisation > *,
+.kh-tree > *,
+.kh-tags > * {
+  flex: none;
+}
+
+/*
+ * One scroll region, not three.
+ *
+ * The tree and the tag list each used to cap themselves (40vh and 30vh) and scroll
+ * independently, inside a column that did not scroll at all. On a short window their caps
+ * plus their headers exceeded the space available and the sections drew over each other —
+ * the keyboard hint at the bottom of the tree landed on top of the TAGS heading. Found by
+ * looking at a screenshot; every test passed through it, because nothing asserts that two
+ * elements do not overlap.
+ *
+ * The whole sidebar scrolls now. `min-height: 0` is what lets a flex child actually shrink
+ * below its content, which is the part that is easy to leave out and hard to notice.
+ */
 .kh-organisation {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   gap: var(--kh-space-2);
   padding-bottom: var(--kh-space-3);
 }
@@ -68,9 +104,6 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 40vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 /*
@@ -279,9 +312,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  max-height: 30vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .kh-tag-row {

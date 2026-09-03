@@ -624,7 +624,10 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 300));
-        const paletteOpen = await window.webContents.executeJavaScript(
+        // Typed, not inferred: `executeJavaScript` returns `any`, and letting that flow into
+        // a boolean check means the assertion below would pass on a string, a number, or an
+        // exception object — a guard that cannot fail.
+        const paletteOpen: unknown = await window.webContents.executeJavaScript(
           `document.querySelector('[role="combobox"], .kh-palette') !== null`,
           true
         );
