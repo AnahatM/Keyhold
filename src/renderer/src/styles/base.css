@@ -23,6 +23,7 @@
   --kh-control-height: 36px;
   --kh-font-body: system-ui, sans-serif;
   --kh-font-secret: ui-monospace, monospace;
+  --kh-font-mono: ui-monospace, monospace;
 
   /* ── Space. A 4px base, scaled by density. ─────────────────────────────── */
   --kh-space-1: calc(4px * var(--kh-space-scale));

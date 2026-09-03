@@ -676,11 +676,62 @@
 
 .kh-attachments {
   display: flex;
+  /* The drop overlay below is positioned against this box. */
+  position: relative;
   flex: none;
   flex-direction: column;
   gap: var(--kh-space-2);
+  /* Enough room for the drop label when the panel is otherwise empty, which is exactly when
+     someone is most likely to drag a file at it. */
+  min-height: var(--kh-space-7);
   padding-top: var(--kh-space-4);
   border-top: 1px solid var(--kh-color-border);
+}
+
+/* ── The attachments drop target ──────────────────────────────────────────────
+ *
+ * An overlay rather than a region in the flow. It appears only while a file drag is over
+ * the panel, and reflowing the detail pane mid-drag would move the target out from under
+ * the pointer aiming at it. All state comes from `attachment-drop.ts`.
+ */
+.kh-attachments__dropzone {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--kh-space-3);
+  inset: 0;
+  border: 2px dashed var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-color-surface-raised);
+  text-align: center;
+  /* Load-bearing. Without it the overlay becomes the event target the instant it appears,
+     and the enter/leave stream the panel is counting changes shape underneath it. */
+  pointer-events: none;
+}
+
+.kh-attachments__dropzone--ready {
+  border-color: var(--kh-color-accent);
+  background: var(--kh-color-accent-subtle);
+}
+
+.kh-attachments__dropzone--refusing {
+  border-color: var(--kh-color-danger);
+  background: var(--kh-color-danger-subtle);
+}
+
+.kh-attachments__dropzone-label {
+  font-size: var(--kh-text-sm);
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-attachments__dropzone--ready .kh-attachments__dropzone-label {
+  color: var(--kh-color-accent-subtle-text);
+}
+
+.kh-attachments__dropzone--refusing .kh-attachments__dropzone-label {
+  color: var(--kh-color-danger-text);
 }
 
 .kh-attachments__header {
