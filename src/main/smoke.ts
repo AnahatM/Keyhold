@@ -705,7 +705,25 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // path auto-lock depends on — the one case where main changes state and the
         // renderer has to find out.
         notifySessionChanged(window);
-        await new Promise<void>((resolve) => setTimeout(resolve, 400));
+
+        // Waited for, not slept through. This is the one transition the whole rest of the run
+        // stands on: the probe drove the session over IPC, so the renderer knows nothing until
+        // this notification lands, refetches and re-renders.
+        //
+        // It was 400ms, which is plenty on a developer machine and was not enough on a CI
+        // runner — and the failure had no shape. The vault screen simply was not up, so every
+        // check that looks inside it found nothing, four of them reported false, and none of
+        // them said why. Waiting for the rows to exist makes the dependency explicit and the
+        // failure, if it ever comes back, a timeout on this line rather than a mystery further
+        // down.
+        const listReady = await waitFor(
+          window,
+          `document.querySelectorAll('.kh-row').length > 0 ? 'rows' : false`,
+          { timeoutMs: 20_000 }
+        );
+        emit(
+          `SMOKE-CHECK vault-screen-renders-after-the-session-changes ${String(listReady === 'rows')}`
+        );
 
         const report = outcome as {
           stage?: string;
@@ -788,15 +806,19 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // real controls rather than through a test-only hook on `window`. A backdoor would
         // be production code that exists for the harness, and it would not prove the list
         // row and the disclosure button work.
-        await window.webContents.executeJavaScript(
+        // Clicking a row that is not there yet succeeds silently — `row?.click()` on
+        // `undefined` does nothing and returns. That is how the detail pane stayed empty for
+        // the rest of a CI run with no error anywhere.
+        await waitFor(
+          window,
           `(() => {
             const row = [...document.querySelectorAll('.kh-row')].find((element) =>
               element.textContent?.includes('GitHub')
             );
-            row?.click();
-            return row !== undefined;
-          })()`,
-          true
+            if (!row) return false;
+            row.click();
+            return 'clicked';
+          })()`
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 250));
 
