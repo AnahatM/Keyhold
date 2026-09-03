@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import {
   CUSTOM_FIELD_TYPES,
+  MAX_CUSTOM_FIELDS,
+  MAX_SECURITY_QUESTIONS,
+  MAX_TAGS,
+  MAX_URLS,
   type ChangeOrigin,
   type Credential,
   type CredentialFields,
@@ -30,14 +34,15 @@ import { malformed } from '../crypto/errors.js';
 
 // ── Validation ───────────────────────────────────────────────────────────────
 
-/** Field values that a user could plausibly paste, capped so one record cannot bloat a vault. */
+/**
+ * Field values that a user could plausibly paste, capped so one record cannot bloat a vault.
+ *
+ * The array caps are not here: they are shared with the IPC boundary, which enforces the same
+ * numbers for a different reason, so they live in the model both layers already import.
+ */
 const MAX_TITLE_LENGTH = 400;
 const MAX_FIELD_LENGTH = 65_536;
 const MAX_NOTES_LENGTH = 1_048_576;
-const MAX_URLS = 32;
-const MAX_CUSTOM_FIELDS = 128;
-const MAX_SECURITY_QUESTIONS = 32;
-const MAX_TAGS = 64;
 
 function requireLength(value: string, limit: number, what: string): string {
   if (value.length > limit) {

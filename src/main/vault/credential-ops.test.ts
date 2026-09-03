@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import type { Credential, CustomField } from '@shared/model/credential.js';
+import {
+  MAX_CUSTOM_FIELDS,
+  MAX_SECURITY_QUESTIONS,
+  MAX_TAGS,
+  MAX_URLS,
+  type Credential,
+  type CustomField,
+} from '@shared/model/credential.js';
 import { DEFAULT_VAULT_SETTINGS, emptyVaultDocument } from '@shared/model/vault-document.js';
 import { VaultError } from '../crypto/errors.js';
 import {
   addCredential,
   applyPatch,
+  assertValidCredential,
   buildCredential,
   duplicateCredential,
   normaliseTags,
@@ -362,5 +370,98 @@ describe('trash retention', () => {
       settings: { ...base.settings, trashRetentionDays: null },
     };
     expect(purgeExpiredTrash(document, now).records).toHaveLength(1);
+  });
+});
+
+describe('the array caps, which nothing used to check actually fired', () => {
+  /*
+   * These caps were declared twice — here and at the IPC boundary — and the only guard on
+   * them parsed both files out of the source to check the two numbers agreed. Folding them
+   * into one exported constant made that guard vacuous. Setting the surviving constant to 2
+   * and running the whole suite then failed nothing at all: consistency had a guard, effect
+   * had none, and both layers could have stopped enforcing without a single test noticing.
+   *
+   * Built from `cap + 1` rather than from a literal, so raising a cap moves the test with it
+   * instead of turning it into an assertion that one number is larger than another.
+   */
+
+  const validRecord = (): Credential => buildCredential({ title: 'A record' }, context());
+
+  const overCap = <T>(cap: number, make: (index: number) => T): T[] =>
+    Array.from({ length: cap + 1 }, (_unused, index) => make(index));
+
+  it('refuses more URLs than the cap', () => {
+    const record = validRecord();
+    expect(() => { assertValidCredential({
+        ...record,
+        fields: {
+          ...record.fields,
+          urls: overCap(MAX_URLS, (index) => `https://example.com/${String(index)}`),
+        },
+      }); }
+    ).toThrow(VaultError);
+  });
+
+  it('refuses more tags than the cap', () => {
+    const record = validRecord();
+    expect(() => { assertValidCredential({
+        ...record,
+        tags: overCap(MAX_TAGS, (index) => `tag-${String(index)}`),
+      }); }
+    ).toThrow(VaultError);
+  });
+
+  it('refuses more custom fields than the cap', () => {
+    const record = validRecord();
+    expect(() => { assertValidCredential({
+        ...record,
+        fields: {
+          ...record.fields,
+          custom: overCap(MAX_CUSTOM_FIELDS, (index) =>
+            field({ id: `f-${String(index)}`, order: index })
+          ),
+        },
+      }); }
+    ).toThrow(VaultError);
+  });
+
+  it('refuses more security questions than the cap', () => {
+    const record = validRecord();
+    expect(() => { assertValidCredential({
+        ...record,
+        fields: {
+          ...record.fields,
+          securityQuestions: overCap(MAX_SECURITY_QUESTIONS, (index) => ({
+            id: `q-${String(index)}`,
+            question: `Question ${String(index)}?`,
+            answer: 'an answer',
+          })),
+        },
+      }); }
+    ).toThrow(VaultError);
+  });
+
+  it('accepts a record sitting exactly on every cap, so the tests above are about the cap', () => {
+    const record = validRecord();
+    expect(() => { assertValidCredential({
+        ...record,
+        tags: Array.from({ length: MAX_TAGS }, (_unused, index) => `tag-${String(index)}`),
+        fields: {
+          ...record.fields,
+          urls: Array.from(
+            { length: MAX_URLS },
+            (_unused, index) => `https://example.com/${String(index)}`
+          ),
+          custom: Array.from({ length: MAX_CUSTOM_FIELDS }, (_unused, index) =>
+            field({ id: `f-${String(index)}`, order: index })
+          ),
+          securityQuestions: Array.from({ length: MAX_SECURITY_QUESTIONS }, (_unused, index) => ({
+            id: `q-${String(index)}`,
+            question: `Question ${String(index)}?`,
+            answer: 'an answer',
+          })),
+        },
+      }); }
+    ).not.toThrow();
   });
 });

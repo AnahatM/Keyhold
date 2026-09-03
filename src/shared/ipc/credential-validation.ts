@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import {
   CUSTOM_FIELD_TYPES,
+  ICON_KINDS,
+  MAX_CUSTOM_FIELDS,
+  MAX_SECURITY_QUESTIONS,
+  MAX_TAGS,
+  MAX_URLS,
   type CustomFieldType,
   type SecurityQuestion,
 } from '../model/credential.js';
@@ -33,13 +38,9 @@ import {
  *
  * **Arrays are capped here as well as in `credential-ops`.** That layer caps them so a
  * vault is not bloated; this one caps them so ten thousand custom fields arriving over IPC
- * are rejected before anything tries to validate them one at a time.
+ * are rejected before anything tries to validate them one at a time. Both read the same
+ * exported numbers, so the two layers cannot drift into disagreeing about what the limit is.
  */
-
-const MAX_URLS = 32;
-const MAX_TAGS = 64;
-const MAX_CUSTOM_FIELDS = 128;
-const MAX_SECURITY_QUESTIONS = 32;
 
 /** Mutable, all-optional view of a shape, for building one field at a time. */
 type Draft<T> = { -readonly [K in keyof T]?: T[K] };
@@ -114,8 +115,6 @@ function parseTags(channel: string, value: unknown): string[] {
     requireString(channel, tag, `tags[${index}]`)
   );
 }
-
-const ICON_KINDS = ['auto', 'letter', 'emoji', 'custom'] as const;
 
 function parseIcon(channel: string, value: unknown): NonNullable<CredentialEdit['icon']> {
   if (!isObject(value)) throw new IpcValidationError(channel, 'icon must be an object');

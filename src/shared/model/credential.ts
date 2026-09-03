@@ -340,6 +340,24 @@ export interface CredentialMeta {
   readonly createdOrigin: ChangeOrigin;
 }
 
+/**
+ * How many entries each repeatable field may hold.
+ *
+ * Two layers enforce these and both are deliberate: `credential-validation.ts` rejects an
+ * over-long array at the IPC boundary, before anything tries to validate ten thousand entries
+ * one at a time, and `credential-ops.ts` rejects one so a single record cannot bloat a vault.
+ * Two reasons, two places, one number — which is why the number lives here rather than being
+ * written down twice.
+ *
+ * It was written down twice. Raising the ops cap alone made the IPC boundary the real limit
+ * and the ops cap unreachable, silently; a guard that parsed both files out of the source
+ * existed only because there were two files to parse. Findings S13 and S14.
+ */
+export const MAX_URLS = 32;
+export const MAX_TAGS = 64;
+export const MAX_CUSTOM_FIELDS = 128;
+export const MAX_SECURITY_QUESTIONS = 32;
+
 /** Same reasoning as `HISTORY_ACTIONS`: a parser reading an icon out of a file needs this. */
 export const ICON_KINDS = ['auto', 'letter', 'emoji', 'custom'] as const;
 
