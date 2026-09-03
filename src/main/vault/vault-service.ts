@@ -11,6 +11,7 @@ import {
   type SecretRef,
   type VersionedField,
 } from '@shared/model/credential.js';
+import type { AttachmentAddView, AttachmentAudit } from '@shared/model/attachment.js';
 import type { FieldDiffProjection } from '@shared/model/history.js';
 import type { HealthAnalysisOptions, VaultHealthReport } from '@shared/model/health.js';
 import type { Folder, Tag } from '@shared/model/vault-document.js';
@@ -59,7 +60,16 @@ import {
   type NewCredentialInput,
   type OpsContext,
 } from './credential-ops.js';
-import { pruneUnreferencedChunks } from '../attachments/audit.js';
+import {
+  assertAttachmentIntegrity,
+  auditAttachments,
+  pruneUnreferencedChunks,
+} from '../attachments/audit.js';
+import {
+  addAttachmentToDocument,
+  removeAttachment,
+  toContainerChunk,
+} from '../attachments/store.js';
 import {
   createFolder,
   deleteFolder,
@@ -558,6 +568,14 @@ export class VaultService {
         const field = state.custom.find((f) => f.id === ref.fieldId);
         return field?.value ?? null;
       }
+
+      case 'attachment':
+        // Deliberately not served here. This method's contract is "one secret, as a string",
+        // and an attachment is bytes — often megabytes of them. Encoding a file as a string
+        // to fit a signature would double it in memory and put a passport photograph through
+        // the same path as a password. `readAttachment` is the door for those, and it goes
+        // through the same broker, so nothing is bypassed by refusing here.
+        return null;
     }
   }
 
@@ -650,6 +668,107 @@ export class VaultService {
     );
     this.#open = { ...open, document: replaceCredential(open.document, versioned), dirty: true };
     return { projection: toProjection(versioned), changedFields };
+  }
+
+  // ── Attachments ──────────────────────────────────────────────────────────────
+
+  /**
+   * Attaches a file to a record.
+   *
+   * The **main process** reads the file, so the path never comes from the renderer — the same
+   * rule as opening a vault. Bytes arrive here already read, and ownership of them transfers
+   * into the attachment store, which zeroes them on every path including the failing ones.
+   *
+   * Chunks are content-addressed and shared, so attaching a file two records already have
+   * stores nothing new and returns the existing metadata.
+   */
+  addAttachment(
+    credentialId: string,
+    file: { readonly name: string; readonly mime: string; readonly bytes: Uint8Array }
+  ): AttachmentAddView {
+    const open = this.#requireOpen();
+    const result = addAttachmentToDocument(open.document, credentialId, {
+      name: file.name,
+      mime: file.mime,
+      bytes: SecretBytes.adopt(file.bytes),
+      now: Date.now(),
+      newId: uuid(),
+    });
+
+    this.#open = {
+      ...open,
+      document: result.document,
+      attachments:
+        result.chunk === null
+          ? open.attachments
+          : [...open.attachments, toContainerChunk(result.chunk)],
+      dirty: true,
+    };
+
+    // The metadata, the checks, and nothing derived from the bytes. `AttachmentMeta` is
+    // already part of the safe projection — name, size, mime and digest — so it crosses as
+    // it is; the content does not, and is fetched through the broker like any other secret.
+    return {
+      meta: result.meta,
+      deduped: result.deduped,
+      mime: result.mime,
+      name: result.name,
+      warnLarge: result.warnLarge,
+    };
+  }
+
+  /**
+   * Removes an attachment from a record.
+   *
+   * The chunk survives while any other record still points at it. Dropping it on the first
+   * removal would take a file out from under an attachment that still displays it.
+   */
+  removeAttachment(credentialId: string, attachmentId: string): boolean {
+    const open = this.#requireOpen();
+    const result = removeAttachment(open.document, credentialId, attachmentId);
+
+    this.#open = {
+      ...open,
+      document: result.document,
+      attachments: result.chunkOrphaned
+        ? open.attachments.filter((chunk) => chunk.id !== attachmentId)
+        : open.attachments,
+      dirty: true,
+    };
+    return result.chunkOrphaned;
+  }
+
+  /**
+   * The bytes of one attachment, verified against the digest recorded when it was stored.
+   *
+   * Goes through the broker, exactly like a password: one item per request, rate-limited,
+   * and every grant dropped on lock. An attachment can be a photo of a passport.
+   */
+  readAttachment(credentialId: string, attachmentId: string): Uint8Array | null {
+    this.#requireOpen();
+    const record = this.#findRecord(credentialId);
+    const meta = record?.attachments.find((entry) => entry.id === attachmentId);
+    if (record === null || meta === undefined) return null;
+
+    const chunk = this.#requireOpen().attachments.find((entry) => entry.id === attachmentId);
+    if (chunk === undefined) return null;
+
+    this.#broker.grant({ kind: 'attachment', credentialId, attachmentId });
+    // Verified on read rather than trusted: a chunk that does not match its digest means the
+    // file is damaged or was altered, and handing it over as though it were intact is how a
+    // corrupt attachment becomes a corrupt document somewhere else.
+    assertAttachmentIntegrity(meta, chunk.data);
+    return chunk.data;
+  }
+
+  /** Orphans in both directions, reported rather than repaired. */
+  auditAttachments(): AttachmentAudit {
+    const open = this.#requireOpen();
+    return auditAttachments(
+      open.document,
+      new Set(open.attachments.map((chunk) => chunk.id)),
+      new Map(open.attachments.map((chunk) => [chunk.id, chunk.data.length]))
+    );
   }
 
   // ── Vault settings ───────────────────────────────────────────────────────────

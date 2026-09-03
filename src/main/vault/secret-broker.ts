@@ -80,6 +80,8 @@ export function refKey(ref: SecretRef): string {
       return `${ref.kind}:${ref.credentialId}:${ref.versionNumber}:${ref.questionId}`;
     case 'historic-custom':
       return `${ref.kind}:${ref.credentialId}:${ref.versionNumber}:${ref.fieldId}`;
+    case 'attachment':
+      return `${ref.kind}:${ref.credentialId}:${ref.attachmentId}`;
   }
 }
 

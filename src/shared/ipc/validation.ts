@@ -151,6 +151,12 @@ export function requireSecretRef(channel: string, value: unknown): SecretRef {
         versionNumber: version(),
         fieldId: requireId(channel, value.fieldId, 'ref.fieldId'),
       };
+    case 'attachment':
+      return {
+        kind: 'attachment',
+        credentialId,
+        attachmentId: requireId(channel, value.attachmentId, 'ref.attachmentId'),
+      };
   }
 }
 

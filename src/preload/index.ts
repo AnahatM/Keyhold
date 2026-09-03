@@ -15,6 +15,7 @@ import {
   type KeyholdApi,
   type SessionStatusView,
 } from '@shared/ipc/api.js';
+import type { AttachmentAddView, AttachmentAudit } from '@shared/model/attachment.js';
 import type { CredentialProjection, SecretRef, VersionedField } from '@shared/model/credential.js';
 import type { GeneratedPassword, GeneratorOptions } from '@shared/model/generator.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '@shared/model/health.js';
@@ -244,6 +245,23 @@ const api: KeyholdApi = {
       ipcRenderer.invoke(CHANNELS.settingsUpdateVault, patch) as Promise<IpcResult<SettingsView>>,
     clearAllHistory: () =>
       ipcRenderer.invoke(CHANNELS.settingsClearAllHistory) as Promise<IpcResult<number>>,
+  },
+
+  attachments: {
+    add: (credentialId: string) =>
+      ipcRenderer.invoke(CHANNELS.attachmentsAdd, credentialId) as Promise<
+        IpcResult<AttachmentAddView | null>
+      >,
+    remove: (credentialId: string, attachmentId: string) =>
+      ipcRenderer.invoke(CHANNELS.attachmentsRemove, credentialId, attachmentId) as Promise<
+        IpcResult<boolean>
+      >,
+    save: (credentialId: string, attachmentId: string) =>
+      ipcRenderer.invoke(CHANNELS.attachmentsSave, credentialId, attachmentId) as Promise<
+        IpcResult<string | null>
+      >,
+    audit: () =>
+      ipcRenderer.invoke(CHANNELS.attachmentsAudit) as Promise<IpcResult<AttachmentAudit>>,
   },
 };
 

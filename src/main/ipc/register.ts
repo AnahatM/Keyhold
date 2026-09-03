@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { basename } from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
+import { basename, extname } from 'node:path';
 import {
   dialog,
   ipcMain,
@@ -62,6 +63,32 @@ import type { SessionController } from '../session/session-controller.js';
  * **3. Handlers return results, never throw.** The renderer gets a discriminated union it
  * has to look at, rather than a rejected promise it might not catch.
  */
+
+/**
+ * The claimed type for a file, from its extension.
+ *
+ * Only a claim: `src/main/attachments/sniff.ts` reads the leading bytes and the **detected**
+ * type is what gets stored. This exists so a mismatch can be reported — "you called this a
+ * PDF and it is a PNG" — which needs something to have been claimed in the first place.
+ */
+function lookupMime(path: string): string {
+  const types: Readonly<Record<string, string>> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.tif': 'image/tiff',
+    '.tiff': 'image/tiff',
+    '.pdf': 'application/pdf',
+    '.zip': 'application/zip',
+    '.txt': 'text/plain',
+    '.md': 'text/plain',
+    '.csv': 'text/plain',
+  };
+  return types[extname(path).toLowerCase()] ?? 'application/octet-stream';
+}
 
 function toFailure(error: unknown): IpcResult<never> {
   if (error instanceof VaultError) {
@@ -407,6 +434,83 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.historyClear, (credentialId) =>
     vault.clearHistory(requireId(CHANNELS.historyClear, credentialId, 'credentialId'))
   );
+
+  // ── attachments ────────────────────────────────────────────────────────────
+  //
+  // The renderer names no path, in either direction. Both dialogs are opened here and both
+  // the read and the write happen here, for the same reason vault paths work this way: a
+  // path the renderer chose would be attacker-controlled if the renderer were ever
+  // compromised, while a path the user picked in an OS dialog is a genuine act of consent.
+  //
+  // The bytes never cross the bridge. An attachment can be tens of megabytes and can be a
+  // photograph of a passport, and the two things a user does with one — look at it, save it
+  // — can both happen in this process.
+
+  handle(CHANNELS.attachmentsAdd, async (credentialId) => {
+    const id = requireId(CHANNELS.attachmentsAdd, credentialId, 'credentialId');
+
+    const window = context.getWindow();
+    const options: OpenDialogOptions = {
+      title: 'Attach a file',
+      properties: ['openFile'],
+    };
+    const chosen =
+      window === null
+        ? await dialog.showOpenDialog(options)
+        : await dialog.showOpenDialog(window, options);
+    const path = chosen.canceled ? undefined : chosen.filePaths[0];
+    if (path === undefined) return null;
+
+    // Read here, not in the renderer. The size is checked by the attachment engine against
+    // the vault's own cap; reading first is unavoidable, and `readFile` on a file the user
+    // just chose is bounded by their own filesystem rather than by anything we control.
+    const bytes = await readFile(path);
+    return vault.addAttachment(id, {
+      name: basename(path),
+      mime: lookupMime(path),
+      bytes,
+    });
+  });
+
+  handle(CHANNELS.attachmentsRemove, (credentialId, attachmentId) =>
+    vault.removeAttachment(
+      requireId(CHANNELS.attachmentsRemove, credentialId, 'credentialId'),
+      requireId(CHANNELS.attachmentsRemove, attachmentId, 'attachmentId')
+    )
+  );
+
+  handle(CHANNELS.attachmentsSave, async (credentialId, attachmentId) => {
+    const id = requireId(CHANNELS.attachmentsSave, credentialId, 'credentialId');
+    const attachment = requireId(CHANNELS.attachmentsSave, attachmentId, 'attachmentId');
+
+    const bytes = vault.readAttachment(id, attachment);
+    if (bytes === null) return null;
+
+    const window = context.getWindow();
+    const projection = vault.getProjection(id);
+    const suggested =
+      projection?.attachments.find((entry) => entry.id === attachment)?.name ?? 'attachment';
+    const options: SaveDialogOptions = {
+      title: 'Save attachment',
+      // `basename` again, on a name that has already been sanitised once when it was stored.
+      // Twice, because this is the only point where it becomes a path.
+      defaultPath: basename(suggested),
+    };
+    const chosen =
+      window === null
+        ? await dialog.showSaveDialog(options)
+        : await dialog.showSaveDialog(window, options);
+    // `filePath` is typed non-optional, so `canceled` is the only cancellation signal there
+    // is — checking both would read as belt and braces while actually being dead code.
+    if (chosen.canceled) return null;
+
+    await writeFile(chosen.filePath, bytes);
+    // The basename only. The directory is the user's business and does not need to travel
+    // back into a renderer that never chose it.
+    return basename(chosen.filePath);
+  });
+
+  handle(CHANNELS.attachmentsAudit, () => vault.auditAttachments());
 
   // ── settings ───────────────────────────────────────────────────────────────
   //

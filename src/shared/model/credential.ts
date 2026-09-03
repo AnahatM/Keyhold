@@ -505,6 +505,19 @@ export type SecretRef =
       readonly credentialId: string;
       readonly versionNumber: number;
       readonly fieldId: string;
+    }
+  /**
+   * An attachment's bytes.
+   *
+   * A ref kind of its own rather than a variant of `custom-value`, because the thing it
+   * addresses is not a field: it is a file, it can be tens of megabytes, and it can be a
+   * photograph of a passport. It goes through the same broker, the same rate limit and the
+   * same drop-on-lock as a password, which is the point of giving it a kind at all.
+   */
+  | {
+      readonly kind: 'attachment';
+      readonly credentialId: string;
+      readonly attachmentId: string;
     };
 
 /**
@@ -527,4 +540,5 @@ export const SECRET_REF_KINDS = [
   'historic-notes',
   'historic-answer',
   'historic-custom',
+  'attachment',
 ] as const;
