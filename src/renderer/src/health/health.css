@@ -23,9 +23,9 @@
   flex-direction: column;
   gap: var(--kh-space-5);
   padding: var(--kh-space-5);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   color: var(--kh-color-text);
 }
 
@@ -237,7 +237,7 @@
   flex-direction: column;
   gap: var(--kh-space-2);
   padding: var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
   background: var(--kh-color-surface-sunken);
 }
@@ -322,12 +322,12 @@
   gap: var(--kh-space-2);
   padding: var(--kh-space-3);
   padding-inline-start: var(--kh-space-4);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   /* The left edge is a third signal alongside the badge's word and symbol. A thickness, not
      just a hue, so it survives greyscale and the high-contrast theme. */
   border-inline-start-width: 4px;
   border-radius: var(--kh-radius-md);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
 }
 
 .kh-health-rule--critical {
@@ -396,7 +396,7 @@
   flex-direction: column;
   gap: var(--kh-space-1);
   padding: var(--kh-space-2) var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
   background: var(--kh-color-surface-sunken);
 }

@@ -249,7 +249,7 @@
   gap: var(--kh-space-2);
   padding: var(--kh-space-2) var(--kh-space-3);
   background: var(--kh-color-surface-sunken);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
   cursor: pointer;
 }
@@ -300,7 +300,7 @@
 
 .kh-import-table-scroll {
   overflow-x: auto;
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
 }
 
@@ -392,7 +392,7 @@
   padding: 0 var(--kh-space-2);
   background: var(--kh-color-surface-sunken);
   color: var(--kh-color-text-muted);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-full);
   font-size: var(--kh-text-xs);
   white-space: nowrap;
@@ -467,8 +467,8 @@
   flex-direction: column;
   gap: var(--kh-space-2);
   padding: var(--kh-space-3);
-  background: var(--kh-color-surface-raised);
-  border: 1px solid var(--kh-color-border);
+  background: var(--kh-fill-surface-raised);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
 }
 
@@ -555,9 +555,9 @@
   flex-direction: column;
   gap: var(--kh-space-1);
   padding: var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
 }
 
 .kh-import-warning--loss {

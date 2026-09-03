@@ -53,7 +53,7 @@
 /* The creation entry is the origin of the record, not a change to it. Hollow, so the
    difference is visible without relying on colour alone — the label says "Created" too. */
 .kh-timeline__entry--origin .kh-timeline__marker {
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   border: 2px solid var(--kh-color-border-strong, var(--kh-color-border));
 }
 
@@ -108,7 +108,7 @@
 .kh-timeline__diff {
   margin-block-start: var(--kh-space-2);
   padding: var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
   background: var(--kh-color-surface-sunken);
 }
@@ -191,7 +191,7 @@
   font-family: var(--kh-font-secret);
   padding: 0 var(--kh-space-1);
   border-radius: var(--kh-radius-md);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   overflow-wrap: anywhere;
 }
 
@@ -225,7 +225,7 @@
   flex-direction: column;
   gap: var(--kh-space-3);
   padding: var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
   background: var(--kh-color-surface-sunken);
 }
@@ -252,9 +252,9 @@
 .kh-compare__select {
   min-width: 0;
   padding: var(--kh-space-2);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   color: var(--kh-color-text);
   font: inherit;
 }

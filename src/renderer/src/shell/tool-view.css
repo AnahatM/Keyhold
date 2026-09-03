@@ -32,7 +32,7 @@
   /* Never shrinks: the way back must not be the thing that gets squeezed away. */
   flex: none;
   padding: var(--kh-space-2) var(--kh-space-4);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   border-bottom: 1px solid var(--kh-color-border);
 }
 
@@ -75,9 +75,9 @@
 
 .kh-tool__key {
   padding: 0 var(--kh-space-1);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-sm);
-  background: var(--kh-color-surface-raised);
+  background: var(--kh-fill-surface-raised);
   font-family: inherit;
   font-size: var(--kh-text-xs);
 }

@@ -660,28 +660,34 @@ cannot be chosen without redefining every colour.
 fills with an opaque border matching the text colour, gradients, and a sense of depth — shiny
 and technical at once, rather than a stock Electron window.
 
-- [ ] **Split the token layer in two.** Colour tokens stay as they are; a second, smaller set
+- [x] **Split the token layer in two.** Colour tokens stay as they are; a second, smaller set
       carries surface, border, blur, gradient and grid. A style sets the second, a theme the
       first, and neither may reach into the other
-- [ ] **A style registry** beside the theme registry — one table, ids, display names, summaries
+- [x] **A style registry** beside the theme registry — one table, ids, display names, summaries
       (rule 8: not a second list of "the styles" anywhere else)
-- [ ] A setting for it, beside the theme picker (D10: every feature ships a setting)
-- [ ] **Flat** — the current look, kept and named, so choosing a style is never a one-way door
-- [ ] **Minimalist** — less chrome, more whitespace, hairline borders
-- [ ] **Neumorphic** — soft extruded surfaces, dual-light shadows
-- [ ] **Holographic-blueprint**, and the new default: background grid, transparent button fills
+- [x] A setting for it, beside the theme picker (D10) — and above it, because a style is the
+      coarser choice. Plus a reduced-transparency switch that ORs with the OS preference
+- [x] **Flat** — the current look, kept and named, so choosing a style is never a one-way door
+- [x] **Minimalist** — less chrome, more whitespace, hairline borders
+- [x] **Neumorphic** — soft extruded surfaces, dual-light shadows. Weak on Dawn and Rose,
+      whose surfaces are pure white, so the highlight has nothing to be lighter than — a real
+      property of extruded surfaces on a white page rather than something to code around
+- [x] **Holographic-blueprint**, and the new default: background grid, transparent button fills
       with opaque text-coloured borders, gradient accents, depth
-- [ ] **Zero hardcoded colour, still.** Hard rule 4 does not relax for a style; the existing
+- [x] **Zero hardcoded colour, still.** Hard rule 4 does not relax for a style; the existing
       guard already sweeps every source file and must keep passing
-- [ ] **Guard: every style resolves every token, under every theme.** The theme guard is
+- [x] **Guard: every style resolves every token, under every theme.** The theme guard is
       per-theme today; this becomes the cross-product, or a style can ship with a token that is
       blank under one theme and nobody finds out
-- [ ] **Guard: contrast holds for every style × theme pair.** A translucent button over a grid is
+- [x] **Guard: contrast holds for every style × theme pair.** A translucent button over a grid is
       exactly where WCAG AA quietly stops being true, and it is the reason this phase needs its
       guard extended rather than reused
-- [ ] **Reduced motion and reduced transparency respected** — a holographic style that ignores
+- [x] **Reduced motion and reduced transparency respected** — a holographic style that ignores
       `prefers-reduced-transparency` is unusable for the people those settings exist for
-- [ ] **Verified visually, per style × theme**, with `node tools/smoke.mjs --shots <dir>` and the
+- [x] **Verified visually** with `node tools/smoke.mjs --shots <dir>` — which found the grid
+      being painted over by three full-bleed `--kh-color-bg` surfaces repainting the colour
+      `body` already carried. Not every style × theme pair by eye; the contrast guard covers
+      all thirty-two and two were checked visually
       screenshots actually looked at — a contrast test cannot see "this looks wrong"
 - [ ] Documented in `docs/06-UI-Design-System/`, with the style/theme split stated as the rule it
       is

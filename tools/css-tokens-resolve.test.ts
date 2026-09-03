@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { globSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { STYLE_TOKENS } from '../src/shared/theme/style-tokens.js';
 import { COLOUR_TOKENS } from '../src/shared/theme/tokens.js';
 
 /**
@@ -31,6 +32,8 @@ import { COLOUR_TOKENS } from '../src/shared/theme/tokens.js';
  *
  * Two sources, because tokens come from two places:
  *
+ *  - **Style** properties are generated the same way, one per entry in `STYLE_TOKENS`, as
+ *    `--kh-style-<token>`. Same reasoning, second layer.
  *  - **Colour** properties are generated, one per entry in `COLOUR_TOKENS`, as
  *    `--kh-color-<token>`. Read from that list rather than from the CSS, so a colour renamed
  *    in the token layer is caught here and not only wherever it happened to be used. It is
@@ -87,6 +90,10 @@ function declared(files: readonly string[]): ReadonlySet<string> {
   const names = new Set<string>();
 
   for (const token of COLOUR_TOKENS) names.add(`--kh-color-${token}`);
+  // The second generated layer, and it has to be read the same way. `appearance.ts` builds
+  // these names in a template literal, so the source scan below cannot see them — without
+  // this, every `var(--kh-style-…)` in a stylesheet would look undeclared.
+  for (const token of STYLE_TOKENS) names.add(`--kh-style-${token}`);
 
   for (const file of files) {
     for (const name of matchesIn(readFileSync(file, 'utf8'), DECLARATION)) names.add(name);
@@ -133,6 +140,14 @@ describe('CSS custom properties', () => {
       expect(
         known.has(`--kh-color-${token}`),
         `--kh-color-${token} is not derived from COLOUR_TOKENS`
+      ).toBe(true);
+    }
+
+    expect(STYLE_TOKENS.length, 'STYLE_TOKENS is empty').toBeGreaterThan(0);
+    for (const token of STYLE_TOKENS) {
+      expect(
+        known.has(`--kh-style-${token}`),
+        `--kh-style-${token} is not derived from STYLE_TOKENS`
       ).toBe(true);
     }
   });

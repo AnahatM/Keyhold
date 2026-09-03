@@ -53,6 +53,17 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
+ * Reached Chromium 118, so Electron has it.
+ *
+ * Read here rather than left to a media query in `base.css`, because `applyToDocument` writes
+ * inline properties on the root element and an inline property beats any `:root` rule — the
+ * media query only ever covers the frame before this runs.
+ */
+function prefersReducedTransparency(): boolean {
+  return window.matchMedia('(prefers-reduced-transparency: reduce)').matches;
+}
+
+/**
  * Writes the resolved appearance to the document.
  *
  * `color-scheme` is set alongside the custom properties so native form controls, the
@@ -68,6 +79,10 @@ export function applyToDocument(resolved: ResolvedAppearance): void {
 
   root.style.colorScheme = resolved.scheme;
   root.dataset.theme = resolved.theme.id;
+  // Exposed as an attribute as well as through the tokens, so a rule that genuinely cannot be
+  // expressed as a token — a shape that only one style draws — has a hook. Used sparingly:
+  // a stylesheet full of `[data-style=...]` branches is the style system not doing its job.
+  root.dataset.style = resolved.style.id;
   root.dataset.scheme = resolved.scheme;
   root.dataset.density = resolved.density;
 }
@@ -82,12 +97,17 @@ interface AppearanceState {
 }
 
 function resolveNow(settings: AppearanceSettings): ResolvedAppearance {
-  return resolveAppearance(settings, prefersDark(), prefersReducedMotion());
+  return resolveAppearance(
+    settings,
+    prefersDark(),
+    prefersReducedMotion(),
+    prefersReducedTransparency()
+  );
 }
 
 export const useAppearance = create<AppearanceState>((set, get) => ({
   settings: DEFAULT_APPEARANCE,
-  resolved: resolveAppearance(DEFAULT_APPEARANCE, false, false),
+  resolved: resolveAppearance(DEFAULT_APPEARANCE, false, false, false),
 
   update: (patch) => {
     const settings = { ...get().settings, ...patch };
@@ -133,11 +153,14 @@ export function initialiseAppearance(): () => void {
 
   const colourScheme = window.matchMedia('(prefers-color-scheme: dark)');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const reducedTransparency = window.matchMedia('(prefers-reduced-transparency: reduce)');
   colourScheme.addEventListener('change', onSystemChange);
   reducedMotion.addEventListener('change', onSystemChange);
+  reducedTransparency.addEventListener('change', onSystemChange);
 
   return () => {
     colourScheme.removeEventListener('change', onSystemChange);
     reducedMotion.removeEventListener('change', onSystemChange);
+    reducedTransparency.removeEventListener('change', onSystemChange);
   };
 }

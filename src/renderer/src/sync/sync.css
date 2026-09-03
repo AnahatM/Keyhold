@@ -127,8 +127,8 @@
 }
 
 .kh-merge-filter {
-  border: 1px solid var(--kh-color-border);
-  background: var(--kh-color-surface);
+  border: var(--kh-edge);
+  background: var(--kh-fill-surface);
   color: var(--kh-color-text-muted);
   border-radius: var(--kh-radius-full);
   padding: var(--kh-space-1) var(--kh-space-3);
@@ -157,9 +157,9 @@
   flex-direction: column;
   gap: var(--kh-space-2);
   padding: var(--kh-space-3) var(--kh-space-4);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
 }
 
 .kh-merge-bulk__lead {
@@ -184,7 +184,7 @@
 .kh-merge-bulk__button,
 .kh-merge-sweep__button {
   border: 1px solid var(--kh-color-border-strong);
-  background: var(--kh-color-surface-raised);
+  background: var(--kh-fill-surface-raised);
   color: var(--kh-color-text);
   border-radius: var(--kh-radius-md);
   padding: var(--kh-space-1) var(--kh-space-3);
@@ -232,9 +232,9 @@
 }
 
 .kh-merge-group {
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   overflow: hidden;
 }
 
@@ -341,9 +341,9 @@
   gap: var(--kh-space-2);
   margin: 0;
   padding: var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
-  background: var(--kh-color-surface-raised);
+  background: var(--kh-fill-surface-raised);
   min-width: 0;
 }
 
@@ -425,9 +425,9 @@
   flex: 1;
   min-width: 0;
   padding: var(--kh-space-2) var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   cursor: pointer;
 }
 
@@ -524,9 +524,9 @@
 /* ── Notes ─────────────────────────────────────────────────────────────────── */
 
 .kh-merge-notes {
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
   padding: var(--kh-space-3);
 }
 
@@ -728,7 +728,7 @@
   gap: var(--kh-space-3);
   flex-wrap: wrap;
   padding: var(--kh-space-3) var(--kh-space-4);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
   background: var(--kh-color-surface-sunken);
 }
@@ -855,9 +855,9 @@
   gap: var(--kh-space-3);
   flex-wrap: wrap;
   padding: var(--kh-space-3);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
-  background: var(--kh-color-surface);
+  background: var(--kh-fill-surface);
 }
 
 .kh-merge-found__text {

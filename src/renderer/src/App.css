@@ -176,7 +176,7 @@
   display: inline-flex;
   padding: 2px;
   background: var(--kh-color-surface-sunken);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
 }
 
@@ -225,6 +225,82 @@
 
 /* ── Theme cards ───────────────────────────────────────────────────────────── */
 
+/*
+ * The style picker, above the theme grid.
+ *
+ * Wider cards than the theme grid and no swatch, because a style is not describable by four
+ * colours — the summary is doing the work a swatch does there. Selection is a border AND a
+ * tick, the same rule the theme cards follow: colour is never the only signal (WCAG 1.4.1).
+ */
+/*
+ * A checkbox with a sentence under it, in a panel.
+ *
+ * `align-items: start` rather than `center`: the label wraps to two or three lines and a
+ * centred box floats beside the middle of the paragraph, which reads as belonging to nothing.
+ */
+.kh-panel__check {
+  display: flex;
+  align-items: start;
+  gap: var(--kh-space-2);
+  margin-top: var(--kh-space-4);
+  cursor: pointer;
+}
+
+.kh-panel__check > span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+}
+
+.kh-panel__check small {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--kh-space-3);
+  margin-top: var(--kh-space-3);
+}
+
+.kh-style-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding: var(--kh-space-3);
+  border: var(--kh-edge);
+  border-radius: var(--kh-radius-lg);
+  background: var(--kh-fill-surface);
+  box-shadow: var(--kh-shadow-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--kh-duration-fast) var(--kh-ease);
+}
+
+.kh-style-card:hover {
+  border-color: var(--kh-color-border-strong);
+}
+
+.kh-style-card[aria-pressed='true'] {
+  border-color: var(--kh-color-accent);
+  box-shadow: inset 0 0 0 1px var(--kh-color-accent);
+}
+
+.kh-style-card[aria-pressed='true'] .kh-style-card__name::after {
+  content: ' \2713';
+  color: var(--kh-color-accent);
+}
+
+.kh-style-card__name {
+  font-weight: var(--kh-weight-semibold);
+}
+
+.kh-style-card__summary {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}
+
 .kh-theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -237,8 +313,8 @@
   flex-direction: column;
   gap: var(--kh-space-1);
   padding: var(--kh-space-2);
-  background: var(--kh-color-surface);
-  border: 1px solid var(--kh-color-border);
+  background: var(--kh-fill-surface);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
   cursor: pointer;
   text-align: left;
@@ -266,7 +342,7 @@
   align-items: flex-end;
   height: 44px;
   padding: var(--kh-space-2);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
 }
 
@@ -355,7 +431,7 @@
 .kh-sample__secret {
   padding: var(--kh-space-1) var(--kh-space-3);
   background: var(--kh-color-surface-sunken);
-  border: 1px solid var(--kh-color-border);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-md);
   font-size: var(--kh-text-base);
 }
@@ -416,8 +492,8 @@
   gap: var(--kh-space-2);
   align-items: flex-start;
   padding: var(--kh-space-4);
-  background: var(--kh-color-surface);
-  border: 1px solid var(--kh-color-border);
+  background: var(--kh-fill-surface);
+  border: var(--kh-edge);
   border-radius: var(--kh-radius-lg);
 }
 

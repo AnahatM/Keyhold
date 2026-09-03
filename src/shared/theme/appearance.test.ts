@@ -13,6 +13,8 @@ import {
   toCssVariables,
   type AppearanceSettings,
 } from './appearance.js';
+import { STYLE_TOKENS } from './style-tokens.js';
+import { DEFAULT_STYLE_ID, FALLBACK_STYLE, findStyle, STYLES } from './styles.js';
 import { THEMES } from './themes.js';
 import { COLOUR_TOKENS } from './tokens.js';
 
@@ -111,6 +113,63 @@ describe('CSS variables', () => {
     for (const token of COLOUR_TOKENS) {
       expect(vars[`--kh-color-${token}`], `--kh-color-${token} missing`).toBeTruthy();
     }
+  });
+
+  it('emits every style token, under its own prefix', () => {
+    // The two layers land on the same element and must not collide: `--kh-color-*` is the
+    // theme's, `--kh-style-*` is the style's, and a stylesheet reading either can tell at a
+    // glance which axis it is asking about.
+    const vars = toCssVariables(resolveAppearance(settings(), true));
+    for (const token of STYLE_TOKENS) {
+      expect(vars[`--kh-style-${token}`], `--kh-style-${token} missing`).toBeTruthy();
+    }
+  });
+
+  it('emits the colour layer unchanged whichever style is asked for', () => {
+    // The separation, as a test rather than a promise. A style may not move a colour, and
+    // the day one does, this is what says so.
+    // Through the settings rather than a parameter, which is the path the app takes: the
+    // style is chosen once, resolved with everything else, and emitted from the resolution.
+    const base = { mode: 'fixed', themeId: 'nord' } as const;
+    const baseline = toCssVariables(
+      resolveAppearance(settings({ ...base, styleId: 'flat' }), true)
+    );
+    for (const style of STYLES) {
+      const vars = toCssVariables(
+        resolveAppearance(settings({ ...base, styleId: style.id }), true)
+      );
+      for (const token of COLOUR_TOKENS) {
+        expect(vars[`--kh-color-${token}`], `${style.id} moved --kh-color-${token}`).toBe(
+          baseline[`--kh-color-${token}`]
+        );
+      }
+    }
+  });
+
+  it('emits the asked-for style, and the default when not asked', () => {
+    const neumorphic = findStyle('neumorphic')!;
+
+    expect(
+      toCssVariables(resolveAppearance(settings({ styleId: 'neumorphic' }), true))[
+        '--kh-style-radius-scale'
+      ]
+    ).toBe(neumorphic.tokens['radius-scale']);
+    expect(toCssVariables(resolveAppearance(settings(), true))['--kh-style-radius-scale']).toBe(
+      findStyle(DEFAULT_STYLE_ID)!.tokens['radius-scale']
+    );
+  });
+
+  it('falls back rather than emitting nothing for a style that no longer exists', () => {
+    // The same failure mode as an unknown theme id — a downgrade, or a rename. An empty
+    // `--kh-style-border-width` would drop every border in the app without a word.
+    const vars = toCssVariables(
+      resolveAppearance(settings({ styleId: 'a-style-that-was-deleted' }), true)
+    );
+    for (const token of STYLE_TOKENS) {
+      expect(vars[`--kh-style-${token}`], `--kh-style-${token} missing`).toBeTruthy();
+    }
+    expect(vars['--kh-style-blur']).toBe(findStyle(DEFAULT_STYLE_ID)!.tokens.blur);
+    expect(FALLBACK_STYLE.tokens.blur).toBe('0px');
   });
 
   it('emits the density metrics', () => {
