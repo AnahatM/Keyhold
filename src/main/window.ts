@@ -41,11 +41,27 @@ export function getMainWindow(): BrowserWindow | null {
   return mainWindow;
 }
 
+/**
+ * The size the smoke run always gets, whatever the host display is.
+ *
+ * Comfortably above `AppShell`'s 900px narrow breakpoint, so the three-pane layout is the one
+ * being exercised. Without this the run inherits the saved state clamped to the screen, and a
+ * CI runner with a 1024-wide virtual display drops the app into narrow mode — where the detail
+ * pane is shown only when a record is selected. Four checks then fail on a machine nobody can
+ * look at, for a reason nothing in the output mentions.
+ *
+ * Position is left to Electron. Only the width matters here, and pinning coordinates as well
+ * would break on a runner whose display is smaller than the window.
+ */
+const SMOKE_WINDOW = { width: 1400, height: 900 } as const;
+
 export function createMainWindow(): BrowserWindow {
   const state = readWindowState();
 
   const window = new BrowserWindow({
     ...windowOptionsFromState(state),
+    // A gate whose result depends on the host's screen resolution is not a gate.
+    ...(process.env.KEYHOLD_SMOKE === '1' ? SMOKE_WINDOW : {}),
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
     // Shown only once the first paint has landed — an empty white flash on a
