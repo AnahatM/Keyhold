@@ -22,8 +22,9 @@ documented platform behaviour rather than from a reproduction — neither audit 
 findings.** They exist so the next person does not re-investigate settled ground, and so
 nobody "fixes" a deliberate choice into a defect.
 
-**Nothing was changed.** These audits were read-only over `src/`; every fix named here is
-still outstanding unless a later commit says otherwise.
+**Nothing was changed by the audits themselves.** All three were read-only over `src/`. A
+finding is outstanding unless it carries a `STATUS:` line saying otherwise, and those lines are
+added by whoever fixes the finding, after reading the code that fixes it.
 
 **Every page has a scope note at the top, and it matters.** `src/` was being written while
 each ran. The first two pages do **not** cover nine main-process subsystems — `activity`,
@@ -32,19 +33,26 @@ landed after their sweep; **`02-Subsystem-Audit.md` covers exactly those**, plus
 modules that landed with them, and carries a plain verdict on whether `breach/` is safe to
 wire up.
 
-**The gap none of the three pages covers:** `src/main/ipc/register.ts` has grown from 40
-handlers to 58, and the 18 that landed since have not been read against the secret-boundary
-checklist by any audit. That is the next pass.
+**The gap none of the three pages covers:** `src/main/ipc/register.ts` held 40 handlers when
+the security audit read it and has kept growing since — the six `kh:import:*` channels and the
+`kh:settings:*` group both landed afterwards. None of the handlers added since that sweep has
+been read against the secret-boundary checklist by any audit. That is the next pass. Count them
+with `grep -c 'handle(CHANNELS\.' src/main/ipc/register.ts` rather than trusting a number
+written here.
 
 ---
 
 ## Standing items
 
-- `docs/_INDEX.md` does not yet list this folder, and the Phase 17 and Phase 19 checklist
-  items still point at `docs/13-Appendix/`. See doc-audit finding F10 — it has to be fixed by
-  hand, because these pages cannot edit the index that would reach them.
-- `docs/superpowers/specs/` is **out of scope for both audits, permanently.** It is history:
-  a spec that has drifted from the code is the record of an earlier decision, not a bug.
+- **Findings are marked as they are fixed, and only against read code.** A `STATUS:` line on a
+  finding means someone opened the file and saw the fix, not that a commit message claimed it.
+  An optimistic status column is worse than none: it is the one thing that would make these
+  pages actively misleading rather than merely dated.
+- `docs/superpowers/specs/` is **out of scope for all three audits, permanently.** It is
+  history: a spec that has drifted from the code is the record of an earlier decision, not a
+  bug.
+- **`PRIVACY.md` needs a hand.** It is a published promise about behaviour and has gone stale in
+  the direction that under-claims — see doc-audit finding F7. Recorded in `MANUAL-BACKLOG.md`.
 
 ---
 

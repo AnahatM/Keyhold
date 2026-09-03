@@ -3,8 +3,10 @@
 > Files inside the vault, and the three decisions that shape the whole design.
 > Current reference. Implemented by `src/main/attachments/`.
 >
-> **Status: the engine is built and tested. Reading files from disk, the IPC channels, the
-> preview components and the drag-and-drop are not.** See §7.
+> **Status: the engine is built and tested, and the four `kh:attachments:*` channels are
+> registered — the main process opens the dialog, reads the file, adds the chunk, and writes a
+> saved copy back to disk. What is missing is the UI: nothing in the renderer adds, opens or
+> previews an attachment beyond showing a count on the detail pane.** See §7 and §8.
 
 ---
 
@@ -121,25 +123,31 @@ it as redundant.
 
 ---
 
-## 7. Wired into the vault, but not yet reachable
+## 7. Wired into the vault, and reachable over IPC
 
-`VaultService.save()` now prunes chunks nothing references, and `assertValidCredential`
-enforces attachment-id uniqueness — so a record arriving from an import or a merge is held
-to the rule as well as one built here.
+`VaultService.save()` prunes chunks nothing references, and `assertValidCredential` enforces
+attachment-id uniqueness — so a record arriving from an import or a merge is held to the rule as
+well as one built here.
 
-**Neither is tested at the vault layer, and that is deliberate rather than an oversight.**
-There is no public path to put a chunk into an open vault yet — that arrives with the
-`kh:attachments:*` channels. A test at this layer today could only assert that zero chunks
-prune to zero chunks, which is a guard that cannot fail, and this project treats those as
-worse than no guard at all. The pruning rule itself is covered by 80 tests in
-`src/main/attachments/`; the wiring gets its test when the channel that exercises it lands.
+Four channels carry it: `kh:attachments:add` (the main process opens the dialog and reads the
+file — a path the renderer supplied would be attacker-controlled, exactly as for the vault and
+import dialogs), `:remove`, `:save` (writes a decrypted copy where the user chose) and `:audit`
+(orphan reconciliation in both directions).
+
+**The vault-layer wiring is still not tested, and that remains deliberate.** The rule itself is
+covered thoroughly in `src/main/attachments/`; a test at the vault layer that only asserted zero
+chunks prune to zero chunks would be a guard that cannot fail, and this project treats those as
+worse than no guard at all. The honest statement is that the test arrives with the UI that can
+actually put a chunk in and take it out again.
 
 ---
 
 ## 8. Not built
 
-- Reading a file from disk, the IPC channels, drag-and-drop, the save-to-disk flow and its
-  plaintext warning, the preview components and the image lightbox.
+- **The whole renderer half.** Nothing calls `window.keyhold.attachments.*`: no attach control,
+  no list with a remove action, no drag-and-drop, no save-to-disk button and no plaintext warning
+  on it, no preview components and no image lightbox. `CredentialDetail.tsx` shows a count and
+  nothing more.
 - `VaultSettings` does not yet carry the attachment caps, so the defaults are in force rather
   than the vault's own choice (hard rule 7 wants them travelling with the file).
 - **Digest verification on read** is implemented but not yet called from the vault service.

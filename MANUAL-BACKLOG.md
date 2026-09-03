@@ -5,7 +5,7 @@ the conversation.
 
 **Legend:** 🔴 blocks further building · 🟡 needed before release · 🟢 whenever convenient
 
-Last updated: 2026-09-02
+Last updated: 2026-09-03
 
 ---
 
@@ -161,7 +161,9 @@ exist yet. Each needs a channel group added to `src/shared/ipc/api.ts`, a handle
 - ~~`kh:settings:*`~~ — **done**, except the master-password change and the KDF re-key.
   Those two are envelope-crypto operations rather than settings writes, and belong in a slice
   of their own with the re-wrap tested against a real vault file.
-- `kh:import:*` — list formats, detect, preview (a dry run), commit, undo.
+- ~~`kh:import:*`~~ — **done**. Six channels plus a determinate progress event; no channel
+  takes a path and none returns file content. What remains is mounting `ImportWizard`, which is
+  renderer work, not a channel.
 - ~~`kh:export:*`~~ — **done**. Three channels, none returning bytes; the save dialog and
   the file write are in the main process and no path travels renderer → main. What remains
   is mounting the dialog, which is renderer work, not a channel.
@@ -171,6 +173,52 @@ exist yet. Each needs a channel group added to `src/shared/ipc/api.ts`, a handle
 - `kh:totp:*`, `kh:recovery:*`, `kh:sync:*` — once those engines are finished.
 
 Each agent's report names the exact payloads.
+
+---
+
+## 🟡 M-PRIVACY · `PRIVACY.md` has gone stale in the under-claiming direction
+
+**Why it is amber rather than green:** `PRIVACY.md` is a published promise about behaviour, and
+a promise that is wrong — in either direction — is the one kind of documentation defect that
+costs trust rather than time. It is outside the paths the documentation pass may edit.
+
+It was corrected once (doc-audit finding F7) to say that the settings screen, the consent screen
+and the global network kill-switch did not exist. Two of those three have since landed:
+
+1. **The settings screen is reachable.** `SettingsScreen` is the `settings` tool view, mounted by
+   `src/renderer/src/vault/VaultScreen.tsx` and openable from the sidebar's tool rows or the
+   native **Settings** menu item. "Settings → Privacy" no longer names a route that does not
+   exist — and the audit-privacy-level control (`none` / `device` / `network` / `full`) really is
+   in the history-and-audit section of that screen, so that sentence is now simply true.
+2. **The global network kill-switch exists** — `src/main/network-policy.ts` plus the
+   machine-scoped `Preferences.networkAllowed`, off by default and fail-closed (decision D23).
+   What does **not** exist is a UI control for it: it is writable over
+   `kh:settings:update-machine` and nothing renders a toggle, so today it is reachable only by
+   editing `preferences.json` in the user-data directory. Say that plainly rather than implying
+   a switch in Settings.
+3. **Still true, and worth keeping as the strongest sentence on the page:** the breach check is
+   unreachable. Nothing constructs a transport, so no code path in the running app makes a
+   request — a guarantee stronger than a setting.
+
+---
+
+## 🟢 M-GUARD · Numbers in prose that hard rule 9 says should be guarded
+
+Rule 9 says a number written in prose gets a test that parses it back out of the doc. Two such
+guards already exist (`docs/14-Audits/01-Doc-Code-Audit.md`, "Two new guards"). The documentation
+catch-up pass removed most remaining unguarded counts by describing what is covered instead of
+counting it — but a guard would be better than a deletion in two places, and writing one means
+adding a file under `tools/`, which that pass may not touch:
+
+1. **`docs/04-Vault-Format/00-KEEP-Format-Spec.md`** — the byte offsets and field counts in the
+   container layout. This document is written to be implementable by a third party, so a drifted
+   number here produces a wrong reader rather than a confused colleague. A test that parses the
+   layout table and compares it against the constants in `src/shared/format/types.ts` would be
+   the highest-value guard left unwritten.
+2. **The per-file test-count tables** in the feature pages. These were replaced with "run
+   `npx vitest run <dir>`" wherever the pass touched them. A test that reads the tables and
+   compares them against a real Vitest run would let the numbers come back — worth it only if
+   the numbers are actually wanted.
 
 ---
 

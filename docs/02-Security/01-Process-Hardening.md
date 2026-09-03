@@ -91,8 +91,9 @@ blocked, including directives added to the platform in future.
 line: it is what makes an injected `<script>` inert.
 
 **`connect-src 'none'`** — the renderer cannot originate a network request at all, even if
-something in the dependency tree tries. The one opt-in network feature (the HIBP check)
-runs in the main process, where it can be gated by a setting and a global kill-switch.
+something in the dependency tree tries. It is **unconditional**: no setting relaxes it, and
+the global kill-switch in §5 deliberately does not touch it. The one opt-in network feature
+(the HIBP check) runs in the main process, where both switches apply.
 
 **`style-src` allows `'unsafe-inline'`**, and this is a deliberate, bounded exception:
 Vite injects a `<style>` tag, and inline _styles_ cannot execute script. It is a
@@ -117,7 +118,82 @@ one.
 
 ---
 
-## 5. Single-instance lock
+## 5. The global network kill-switch
+
+`src/main/network-policy.ts`. Hard rule 5 promises the breach check sits behind **two**
+switches — its own opt-in, and a machine-scoped master switch that denies the network whatever
+any per-feature setting says. This is the second one, and until it was written the rule
+described two switches and the code had one (subsystem audit finding N38). Decision D23 carries
+the full argument.
+
+**Two switches, ANDed, kill-switch dominant.** `NetworkPolicy.allowsBreachCheck` composes both
+in one place, deliberately, rather than leaving a call site to write
+`policy.allowsNetwork() && settings.enabled` itself — a second copy of that expression is the
+one that forgets a switch.
+
+| Switch                        | Scope                                 | Default |
+| ----------------------------- | ------------------------------------- | ------- |
+| `Preferences.networkAllowed`  | **The machine.** Never leaves it      | `false` |
+| `BreachCheckSettings.enabled` | The vault. Travels inside the `.keep` | `false` |
+
+Neither is redundant. A vault carried to a friend's laptop must not be able to turn that
+machine's network on, which is exactly what would happen if the only switch lived in the file.
+
+**It fails closed.** Only the literal boolean `true` enables it. A missing key, `null`, the
+string `"true"`, a truncated preferences file or one written by a future build all read as
+`false`. The `=== true` comparison is against a value TypeScript already calls a boolean, which
+is the point: what reaches it came out of a JSON file a person can edit and a half-finished
+write can truncate, and the annotation was erased long before any of that.
+
+**"Off" means the capability is absent, not disabled.** The policy decides whether a transport
+is _constructed_. There is no `if (allowed)` inside a request path for a future refactor to
+skip, and `NetworkPolicy.observe` exists so anything holding a transport built while the switch
+was on is told to drop it — which is what keeps "off" meaning _no transport exists_ rather than
+_a transport that promises not to_.
+
+**It does not gate `shell.openExternal`.** Handing a URL to the user's own browser makes the
+request _as the user_; Keyhold is not the one talking to the network, and a switch that silently
+broke every documentation link would teach people to leave it on. That is why the setting is
+worded "let Keyhold make network requests" rather than "go offline". It also does not touch the
+CSP in §3, which is unconditional.
+
+**The policy has no caller yet.** `Preferences.networkAllowed` is persisted, validated at the
+IPC boundary and carried in the settings snapshot; `NetworkPolicy` itself is constructed only by
+its own tests, because nothing constructs a breach transport for it to gate. Wiring the breach
+check is now a matter of using this rather than of inventing it. See
+[`../05-Features/07-Breach-Check.md`](../05-Features/07-Breach-Check.md) §7.
+
+---
+
+## 6. Paths from outside are checked for naming local storage, not for being absolute
+
+`src/shared/model/local-path.ts`, and it is a security check rather than a formatting one.
+
+On Windows, touching a path is not a local operation. `\\attacker.example\share\x.keep` is a
+perfectly ordinary absolute path — no URL scheme, no `..` segment, a `.keep` extension — and the
+moment anything calls `stat` on it the OS opens an SMB connection to a host the attacker named
+and, by default, performs an NTLMv2 handshake with the logged-in user's credentials. That is an
+outbound connection from an app whose hard rule 5 is zero network by default, a credential
+disclosure, and a synchronous hang in the main process before any window exists — none of which
+requires the file to exist or the user to do more than double-click a `.lnk` someone sent them.
+(Subsystem audit finding N1; decision D25.)
+
+So the check is an **allow-list of shapes that name this machine's own storage**: a Windows
+drive letter followed by a separator, or a single POSIX `/` — and explicitly **not** a doubled
+one, because `//host/share/x.keep` is both a valid POSIX path and the forward-slash spelling of
+a UNC share, and the validator at the IPC boundary does not know which OS the string came from.
+A deny-list of the known-bad shapes would be one Windows path syntax away from being wrong
+again.
+
+Two places ask, and rule 8 says they ask one function: `src/main/shell/file-open-request.ts`
+for paths the OS hands over (a double-click, a drag, an `argv` entry) and
+`src/shared/ipc/validation.ts` for paths the renderer hands back after a dialog the main
+process opened. Both were letting a UNC path through. It is a regex rather than `node:path`
+because the module compiles into the renderer's project and must stay free of Node built-ins.
+
+---
+
+## 7. Single-instance lock
 
 Two Keyhold processes could hold the same vault file open and race each other's atomic
 writes — a data-loss bug (goal G1). Rather than solving that race, it is made unreachable:
@@ -125,7 +201,7 @@ the second launch hands its arguments to the first and exits.
 
 ---
 
-## 6. Lint as a structural guard
+## 8. Lint as a structural guard
 
 Rules are not only style here; two of them enforce the architecture:
 
@@ -139,7 +215,7 @@ for it here, and a lint error is a better mechanism than remembering.
 
 ---
 
-## 7. The preload contract
+## 9. The preload contract
 
 `src/preload/index.ts` is the narrowest and most security-critical surface in the app.
 
@@ -167,7 +243,7 @@ real built app and verifies the bridge is present. Run it after any change to `s
 
 ---
 
-## 8. Related
+## 10. Related
 
 - [`00-Cryptography.md`](./00-Cryptography.md) — the key hierarchy and primitives
 - [`../00-Overview/03-Threat-Model.md`](../00-Overview/03-Threat-Model.md) — what this does and does not defend against

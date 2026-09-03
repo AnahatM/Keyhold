@@ -3,8 +3,16 @@
 > The twelve parsers, what each column becomes, and what is deliberately dropped.
 > Current reference. Implemented by `src/main/import/`.
 >
-> **Status: the parsing half is built and tested. The commit half — IPC, the wizard,
-> deduplication, dry-run, undo — is not.** See §6.
+> **Status: the parsing half is built and tested, and so is the commit half** — the
+> `kh:import:*` channels, the mapping wizard, deduplication, the dry run and undo all landed
+> after this page was first written and are documented in
+> [`02-Import-Service.md`](./02-Import-Service.md). **Nothing mounts the wizard**, so none of it
+> is reachable by a user yet. What is outstanding on this page is the format list in §6.
+>
+> **That count is guarded.** `tools/doc-counts.test.ts` imports `PARSERS` from
+> `src/main/import/index.ts` and fails if this page's number, the `_INDEX` row, or the §3
+> table's row count stops matching the registry — hard rule 9, because this number had already
+> rotted once from eleven to twelve with nothing to catch it.
 
 ---
 
@@ -116,10 +124,13 @@ by `normaliseColumnKey`, which also trims one; and the warning leak guard descri
 
 ## 6. Not built yet
 
-- **The commit half of Phase 10**: IPC, the mapping wizard, deduplication against the
-  existing vault, dry-run, undo, and the activity log.
 - **Formats on the roadmap but not here**: KDBX 3/4, KeePass XML, 1PUX, Proton Pass, Enpass,
-  Keeper, RoboForm, Dashlane JSON, and Keyhold's own `.keep`/`.keepx`.
+  Keeper, RoboForm, Dashlane JSON, and Keyhold's own `.keep`/`.keepx`. Keyhold's own JSON
+  export _is_ registered — `keyhold-json.ts`, first in `PARSERS`, and the one strict parser;
+  see [`01-Export-Formats.md`](./01-Export-Formats.md) §7.
+- **The activity-log entry** an import should write. The rest of the commit half — the
+  channels, the wizard, dedupe, the dry run and undo — is built; see
+  [`02-Import-Service.md`](./02-Import-Service.md).
 - **Bitwarden's encrypted exports** are refused with an explicit reason rather than parsed.
 - **Security questions** — none of these formats export them as structured data, so nothing
   maps to `securityQuestions`.

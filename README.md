@@ -44,7 +44,9 @@ It is free, GPL-3.0, and there is nothing to pay for and nothing to host.
 
 - **Unlimited custom fields** — 13 types, reorderable, individually hidden, alongside usernames, emails, multiple URLs, security questions and notes. Notes are treated as secret, because people keep recovery codes in them.
 
-- **Import from eleven formats** — Bitwarden (CSV and JSON), LastPass, Chrome/Edge/Brave, Firefox, Safari, 1Password 8, Dashlane, NordPass, KeePass, and a generic CSV mapper for everything else. Nothing is dropped silently; anything that could not be carried is named.
+- **Import from the manager you are leaving** — Bitwarden (CSV and JSON), LastPass, Chrome/Edge/Brave, Firefox, Safari, 1Password 8, Dashlane, NordPass, KeePass, Keyhold's own JSON export, and a generic CSV mapper for everything else. Nothing is dropped silently; anything that could not be carried is named.
+
+- **An import you can take back** — a dry run over the real parse, so what you approve is exactly what gets written; duplicate detection against your vault; a merge that fills empty fields and never removes a URL or moves a record out of the folder you filed it in; and an undo that refuses rather than swallowing an edit you made in the meantime.
 
 - **Export you can actually leave with** — lossless Keyhold JSON, a flat CSV, Bitwarden's exact column set for moving to another manager, and an encrypted `.keepx` parcel for sending. Spreadsheet formula injection is neutralised, and the cost of doing so is reported rather than hidden.
 

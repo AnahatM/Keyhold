@@ -3,8 +3,10 @@
 > Four ways out, what each one loses, and why a plaintext export is treated as dangerous.
 > Current reference. Implemented by `src/main/export/`.
 >
-> **Status: the engine is built and tested, and Keyhold's own JSON export re-imports. The
-> IPC channel, the export dialog and KDBX are not.** See §8.
+> **Status: the engine, the preview and the three `kh:export:*` channels are built and
+> tested, and Keyhold's own JSON export re-imports.** `ExportDialog` is written and nothing
+> mounts it, so there is no user-reachable way to reach the channels yet; KDBX 4 export does
+> not exist. See §8 for the channels and §10 for what is outstanding.
 
 ---
 
@@ -270,6 +272,13 @@ same fact, and the user is owed it in both directions — a dialog that could on
 
 ## 10. Not built
 
+- **Mounting `ExportDialog`.** The dialog, its steps, the loss list, the passphrase strength
+  meter and the type-to-confirm surface are all written and tested against
+  `fake-export-gateway.ts`; nothing renders the component, so the three channels above have no
+  caller in the running app. The native menu carries a `vault.export` command and
+  `src/renderer/src/shell/menu-bridge.ts` routes menu commands into the renderer, but it has
+  no case for that one. The import wizard is in exactly the same position — see
+  [`02-Import-Service.md`](./02-Import-Service.md) §9.
 - **KDBX 4 export** (roadmap Phase 11) — needs `kdbxweb` plus our WASM Argon2, and
   verification against a real KeePassXC.
 - **Bitwarden _JSON_ export.** The compatible CSV covers the leaving-Keyhold path; the JSON

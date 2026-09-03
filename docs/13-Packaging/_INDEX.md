@@ -16,11 +16,12 @@ two independent places are the integrity story instead. Releases are drafted by 
 `npm run format` pass so the new CI formatting check does not fail on day one. All three
 are at the top of `00-Building-And-Releasing.md`.
 
-> **Numbering note.** `docs/_INDEX.md` reserves `13-Appendix/` for the Phase 17 audit
-> findings, so `13` is currently claimed twice. Renumbering is a documentation-tree
-> decision, not a packaging one; whoever settles it should update `docs/_INDEX.md`, this
-> folder, and the Phase 19 roadmap line that names `docs/13-Appendix/03-Doc-Audit-Findings.md`
-> together, in one pass.
+> **Numbering note, settled.** An earlier plan reserved `13-Appendix/` for the Phase 17 audit
+> findings, which would have claimed `13` twice. It was resolved the other way: **the audit
+> findings live in [`../14-Audits/`](../14-Audits/_INDEX.md)**, `13` belongs to packaging
+> alone, and `13-Appendix/` was never created and is not planned. `docs/_INDEX.md`, the Phase
+> 17 and Phase 19 roadmap items and the audit pages themselves all name `14-Audits/`. If you
+> find a pointer at `docs/13-Appendix/`, it is stale — fix it rather than creating the folder.
 
 **Related:** [`electron-builder.yml`](../../electron-builder.yml) is the configuration and
 is commented throughout; [`build/README.md`](../../build/README.md) covers icons and

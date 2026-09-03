@@ -128,16 +128,30 @@ Use these terms consistently in code, comments, docs and UI copy.
 
 ## 5. Naming conventions in code
 
-| Thing                   | Convention                         | Example                        |
-| ----------------------- | ---------------------------------- | ------------------------------ |
-| TypeScript files        | `kebab-case.ts`                    | `vault-service.ts`             |
-| React components        | `PascalCase.tsx`                   | `CredentialDetail.tsx`         |
-| Types and interfaces    | `PascalCase`                       | `Credential`, `SafeProjection` |
-| Functions and variables | `camelCase`                        | `unwrapDek`, `safeProjection`  |
-| Constants               | `SCREAMING_SNAKE_CASE`             | `DEFAULT_CLIPBOARD_TTL_MS`     |
-| CSS tokens              | `--kh-<category>-<name>`           | `--kh-color-surface-raised`    |
-| IPC channels            | `kh:<domain>:<action>`             | `kh:vault:unlock`              |
-| Test files              | `<name>.test.ts` beside the source | `container.test.ts`            |
+Every example below is a symbol that exists in `src/`. That is a rule about this table, not a
+coincidence: a glossary whose examples are invented teaches the wrong names, and an invented
+example is unfalsifiable in a way a real one is not — grep for it and the answer is immediate.
 
-**One hard rule:** anything holding secret material carries `secret`, `Secret` or `SecretString` in
-its name, so a reviewer scanning a diff can see at a glance where secrets flow.
+| Thing                   | Convention                         | Example                                             |
+| ----------------------- | ---------------------------------- | --------------------------------------------------- |
+| TypeScript files        | `kebab-case.ts`                    | `vault-service.ts`, `network-policy.ts`             |
+| React components        | `PascalCase.tsx`                   | `CredentialDetail.tsx`, `SettingsScreen.tsx`        |
+| Types and interfaces    | `PascalCase`                       | `Credential`, `CredentialProjection`, `MergeReport` |
+| Functions and variables | `camelCase`                        | `unwrapDek`, `mergeDocuments`, `isLocalPath`        |
+| Constants               | `SCREAMING_SNAKE_CASE`             | `VERSIONED_FIELDS`, `MAX_IMPORT_FILE_BYTES`         |
+| CSS tokens              | `--kh-<category>-<name>`           | `--kh-color-surface-raised`                         |
+| IPC channels            | `kh:<domain>:<action>`             | `kh:vault:unlock`, `kh:import:preview`              |
+| Pushed events           | `kh:event:<name>`                  | `kh:event:import-progress`, `kh:event:menu-command` |
+| Test files              | `<name>.test.ts` beside the source | `container.test.ts`                                 |
+
+**One hard rule:** anything holding secret material carries `secret`, `Secret` or
+`SecretBytes`/`SecretString` in its name, so a reviewer scanning a diff can see at a glance
+where secrets flow. Real instances: `SecretBytes` (the zeroable buffer),
+`HeldImportPlan.secretRecords`, `readSecretText`, `secretBytes` on a plaintext export result,
+and the `kh:credentials:reveal-secret` channel.
+
+**The safe projection is not one type.** The glossary term above is a concept; in code it is a
+family, one per thing being projected — `CredentialProjection` (`src/main/vault/projection.ts`),
+`VersionProjection`, `BreachProjection`, and the `ConflictSide` shapes in
+`src/main/sync/conflict-projection.ts`. Each is built field by field rather than by spreading,
+because a spread is additive and a new field would silently start crossing the bridge.

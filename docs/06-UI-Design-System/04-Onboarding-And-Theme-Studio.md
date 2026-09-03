@@ -5,11 +5,11 @@
 > reference. Implemented by `src/renderer/src/onboarding/`,
 > `src/renderer/src/theme-studio/`, `src/shared/theme/keeptheme.ts` and `src/main/theme/`.
 >
-> **Status: both are built and tested — 47 tests for onboarding, 45 for the studio, 54 for
-> the `.keeptheme` format and its file layer. Neither is reachable.** `OnboardingFlow` is not
-> mounted anywhere. `ThemeStudio` is mounted inside `SettingsScreen`, and `SettingsScreen` is
-> itself not mounted — `App.tsx` imports only `AppearancePanel` from `settings/`. The
-> studio's native file dialogs are also unwired: there is no `kh:theme:*` channel, so
+> **Status: both are built and tested. The theme studio is now reachable; the onboarding flow
+> is not.** `ThemeStudio` is mounted inside `SettingsScreen`, and `SettingsScreen` is the
+> `settings` tool view — reachable from the sidebar's tool rows and from the native
+> **Settings** menu item through `menu-bridge.ts`. `OnboardingFlow` is still mounted nowhere.
+> The studio's native file dialogs also remain unwired: there is no `kh:theme:*` channel, so
 > `theme-file-bridge.ts` falls back to the browser transport. See §7.
 
 ---
@@ -347,10 +347,8 @@ basename ever crosses back; an OS error carries the absolute path and is never e
   (`shouldShowOnboarding`) and supply the callbacks: creating the vault, estimating strength,
   saving the optional first credential, and navigating out.
 - **"Run the tour again"** — the flow is written so this costs nothing (every side effect is a
-  passed-in callback), and there is no command or menu item for it. There is also no command
-  palette mounted to put one in.
-- **`SettingsScreen` is not mounted**, so `ThemeStudio` is unreachable even though it is
-  wired into that screen. `App.tsx` imports only `AppearancePanel` from `settings/`.
+  passed-in callback), and there is no command or menu item for it. The command palette is
+  mounted now, so there is somewhere to put one; nothing has been put there.
 - **The native theme dialogs are unwired.** There is no `kh:theme:*` entry in `CHANNELS`;
   `src/main/theme/` (`readKeepThemeFile`, `writeKeepThemeFile`, `chooseKeepThemeToOpen`,
   `chooseKeepThemeDestination`, `importKeepTheme`, `exportKeepTheme`) is complete and has no

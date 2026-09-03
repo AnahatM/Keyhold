@@ -148,7 +148,8 @@ interrupt a synchronous infinite loop.
 - **The query-bar UI**: prefix autocomplete driven by `QUERY_FIELDS`/`QUERY_FLAGS`, the
   diagnostics line (which is where the `note:` degradation explains itself), and saved
   searches.
-- **Folder and tag sidebars** wired to `folderId` / `tagIds` (Phase 7).
+- ~~**Folder and tag sidebars** wired to `folderId` / `tagIds`~~ — built and mounted; see
+  [`06-Organisation.md`](./06-Organisation.md).
 - **A sort control.** `visibleCredentials` currently picks relevance when there is a query
   and title when there is not; the key and direction want to become a user preference.
 - **Fuzzy matching and highlight offsets.** `FieldMatch` already carries what a highlighter

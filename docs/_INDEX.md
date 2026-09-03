@@ -25,27 +25,30 @@ status blockquote saying exactly what is missing.
 | [`06-UI-Design-System/`](./06-UI-Design-System/_INDEX.md) | Tokens, themes, the accent system, the shell, components, a11y rules, the palette, onboarding and the theme studio      | **Written** |
 | [`07-Sync-And-Merge/`](./07-Sync-And-Merge/_INDEX.md)     | The three-way merge engine, the conflict matrix and the merge report                                                    | **Written** |
 | [`08-Diagnostics/`](./08-Diagnostics/_INDEX.md)           | Reading a damaged `.keep` without a password, ranking the copies beside it, and the report that carries no user content | **Written** |
-| [`09-Import-Export/`](./09-Import-Export/_INDEX.md)       | Every supported format, with per-format field-mapping tables                                                            | **Partial** |
+| [`09-Import-Export/`](./09-Import-Export/_INDEX.md)       | Every supported format with its field-mapping table, plus the import service — the dry run, the duplicate rule and undo | **Written** |
 | [`11-Development/`](./11-Development/_INDEX.md)           | Setup, scripts, conventions, testing policy, toolchain decisions                                                        | **Written** |
 | [`12-Roadmap/`](./12-Roadmap/_INDEX.md)                   | Master checklist · feature backlog · decision log                                                                       | **Written** |
 | [`13-Packaging/`](./13-Packaging/_INDEX.md)               | Building, the unsigned-binary reality, the release checklist and CI                                                     | **Written** |
 | [`14-Audits/`](./14-Audits/_INDEX.md)                     | The security audit and the docs-vs-code audit, with anchored findings                                                   | **Written** |
 | [`superpowers/specs/`](./superpowers/specs/)              | Point-in-time design specs. **History, not current reference**                                                          | **Written** |
 
-### Two planned folders had their numbers taken
+### Numbering, and the three slots that got claimed by something else
 
-`07-Sync-And-Merge/` and `08-Diagnostics/` were written into the two slots this table had
-previously reserved for `07-Main-Process-Services/` and `08-Renderer-State/`, both of which are
-still unwritten. Those two need new numbers when they land, and neither is referenced anywhere
-else in the tree.
+Three numbers ended up somewhere other than an early plan expected. All three are settled; they
+are recorded here so nobody re-opens them, and so a stale pointer is recognisable as stale.
 
-The merge engine also lands here rather than at `10-Sync-And-Transfer/`, which is the path
-[`12-Roadmap/00-Master-Checklist.md`](./12-Roadmap/00-Master-Checklist.md) Phase 12 still names
-as its documentation deliverable. That checklist line is now stale; the page it is asking for
-is [`07-Sync-And-Merge/00-Merge-Engine.md`](./07-Sync-And-Merge/00-Merge-Engine.md). The
-`.keepx` parcel — the other half of the old "sync and transfer" heading — is documented with
-the exporter that writes it, in
-[`09-Import-Export/01-Export-Formats.md`](./09-Import-Export/01-Export-Formats.md) §6.
+- **`07-` and `08-`** were reserved for `07-Main-Process-Services/` and `08-Renderer-State/`,
+  and were taken by `07-Sync-And-Merge/` and `08-Diagnostics/`. The two reserved pages are still
+  unwritten and need new numbers when they land; neither is referenced anywhere else.
+- **`10-Sync-And-Transfer/`** was the merge engine's planned home and does not exist. The engine
+  is documented at
+  [`07-Sync-And-Merge/00-Merge-Engine.md`](./07-Sync-And-Merge/00-Merge-Engine.md), and the
+  `.keepx` parcel — the other half of that old heading — with the exporter that writes it, in
+  [`09-Import-Export/01-Export-Formats.md`](./09-Import-Export/01-Export-Formats.md) §6.
+- **`13-Appendix/`** was reserved for the Phase 17 audit findings and was never created,
+  because `13-Packaging/` had taken the number by the time they were written. They live in
+  [`14-Audits/`](./14-Audits/_INDEX.md). Anything still pointing at `docs/13-Appendix/` is
+  stale — repoint it rather than creating the folder.
 
 ---
 
