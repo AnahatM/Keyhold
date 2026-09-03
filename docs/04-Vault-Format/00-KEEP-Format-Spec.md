@@ -300,7 +300,47 @@ newest data, and nothing can tell without the password.
 
 ---
 
-## 12. Reference implementation
+## 12. Conformance vector
+
+A specification you can follow carefully and still get wrong is a specification without a
+vector. This one ships a real `.keep` file so an independent reader can be checked against
+something rather than against a careful reading.
+
+|                     |                                                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **File**            | `tests/fixtures/format/conformance.keep`                                                                                |
+| **Master password** | `keep-conformance-vector`                                                                                               |
+| **Argon2id cost**   | memory 19456 KiB, iterations 2, parallelism 1                                                                           |
+| **Format version**  | 1                                                                                                                       |
+| **Records**         | 2 — `Example Login` (username `someone@example.com`, password `correct-horse`) and `Example Note` (a note, no password) |
+
+A conforming reader must:
+
+1. Recognise the magic `KEYHOLD` and format version 1.
+2. Parse the plaintext header **without the password**, and report an Argon2id KDF at the
+   cost above, an `AES-256-GCM` cipher — the id is upper-case, and §3 has said so all along —
+   and `recordCount` 2. This is §2's central claim: a
+   tool can describe a vault it cannot open.
+3. Derive the KEK from the published password and the header's own salt, unwrap the DEK, and
+   decrypt the body with the **serialised header as additional authenticated data**. Getting
+   the AAD wrong is the single most likely way to produce a reader that seems right and fails
+   here, which is why the vector exists.
+4. Find both records, with those titles.
+
+**Nothing about the vector is byte-exact, and it cannot be.** The salt is random and every
+nonce is fresh, so two vaults built from identical inputs share no bytes — a byte-exact
+vector would require weakening the property it is meant to check. What is fixed is the
+password, the cost, and the plaintext that must come back out.
+
+The file is committed and then only ever read. `tools/keep-conformance.test.ts` opens it with
+the current code, so the day a format change stops it opening is the day that test fails —
+which is the same day every vault already on somebody's disk would have stopped opening. It
+also asserts that this section still publishes the password and the path it actually uses, so
+the document and the file cannot drift apart.
+
+---
+
+## 13. Reference implementation
 
 | Concern                   | File                             |
 | ------------------------- | -------------------------------- |
