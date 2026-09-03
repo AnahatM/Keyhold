@@ -5,6 +5,7 @@ import { useToast } from '../chrome/index.js';
 import { useCredentials } from '../vault/credential-store.js';
 import { unwrap, useSession } from '../vault/session-store.js';
 import { TOOL_VIEWS, useToolView } from '../shell/index.js';
+import { useTransfer } from '../vault/transfer-store.js';
 import { CommandPalette } from './CommandPalette.js';
 import { resolveCommands, type CommandHandlers } from './command-registry.js';
 import { anyOverlayOpen, loadPlatform, usePaletteStore } from './palette-store.js';
@@ -78,6 +79,7 @@ export function CommandsProvider({
   const platform = usePaletteStore((state) => state.platform);
 
   const toggleTool = useToolView((state) => state.toggle);
+  const openTransfer = useTransfer((state) => state.open);
 
   const locked = status?.state !== 'unlocked';
   const selected = credentials.find((credential) => credential.id === selectedId);
@@ -154,6 +156,17 @@ export function CommandsProvider({
       'nav.toggleSidebar': toggleSidebar,
       'search.focus': focusSearch,
       'help.shortcuts': openHelp,
+      // Both need an open vault: one writes into it, the other reads all of it.
+      'vault.import': locked
+        ? undefined
+        : (): void => {
+            openTransfer('import');
+          },
+      'vault.export': locked
+        ? undefined
+        : (): void => {
+            openTransfer('export');
+          },
       // Built from the same table the palette entries are, so a fifth tool view gets its
       // handler for free rather than becoming a row that does nothing when clicked — which
       // is the worse half of the failure a hand-written list produces.
@@ -174,6 +187,7 @@ export function CommandsProvider({
       ),
     };
   }, [
+    openTransfer,
     toggleTool,
     locked,
     lock,

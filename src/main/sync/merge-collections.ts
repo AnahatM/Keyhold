@@ -517,7 +517,10 @@ export function mergeSettings(
   // already been answered correctly on their behalf. No conflict entry, deliberately —
   // `ConflictSide` carries a scalar, and there is no scalar question here.
   const mergedAttachments: VaultSettings['attachments'] = {
-    maxAttachmentBytes: Math.max(ours.attachments.maxAttachmentBytes, theirs.attachments.maxAttachmentBytes),
+    maxAttachmentBytes: Math.max(
+      ours.attachments.maxAttachmentBytes,
+      theirs.attachments.maxAttachmentBytes
+    ),
     maxVaultAttachmentBytes: Math.max(
       ours.attachments.maxVaultAttachmentBytes,
       theirs.attachments.maxVaultAttachmentBytes

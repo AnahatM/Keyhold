@@ -668,6 +668,20 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         emit(`SMOKE-CHECK palette-lists-every-tool-view ${String(toolRows === true)}`);
+
+        // The import wizard and the export dialog, opened the way a person would: by picking
+        // the row out of the palette. Both were finished and bound to live channels and
+        // rendered by nothing at all, so a check that they *appear* is worth more here than
+        // anything about their internals.
+        const transferRows: unknown = await window.webContents.executeJavaScript(
+          `(() => {
+            const text = document.querySelector('.kh-palette__list')?.textContent ?? '';
+            return text.includes('Import from another password manager')
+              && text.includes('Export this vault');
+          })()`,
+          true
+        );
+        emit(`SMOKE-CHECK palette-offers-import-and-export ${String(transferRows === true)}`);
         await window.webContents.executeJavaScript(
           `(document.activeElement ?? document.body).dispatchEvent(
              new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,

@@ -21,7 +21,6 @@ import type { MenuCommandId } from '../model/menu-commands.js';
 import type { SettingsSnapshot } from '../model/settings-plan.js';
 import type { AttachmentAddView, AttachmentAudit } from '../model/attachment.js';
 import type { ExportFormatDescriptor } from '../model/export.js';
-import type { ImportFormatDescriptor } from '../model/import.js';
 import {
   EXPORT_CHANNELS,
   type ExportOutcome,
@@ -29,17 +28,8 @@ import {
   type ExportPreview,
   type ExportPreviewRequest,
 } from '../model/export-plan.js';
-import {
-  IMPORT_CHANNELS,
-  IMPORT_EVENTS,
-  type ImportCommitRequest,
-  type ImportCommitResult,
-  type ImportPreview,
-  type ImportPreviewRequest,
-  type ImportSource,
-  type ImportUndoRequest,
-  type ImportUndoResult,
-} from '../model/import-plan.js';
+import type { ImporterApi } from '../model/import-plan.js';
+import { IMPORT_CHANNELS, IMPORT_EVENTS } from '../model/import-plan.js';
 
 /**
  * The IPC contract — one source of truth for what the renderer can ask the main process
@@ -460,24 +450,15 @@ export interface ExporterApi {
 }
 
 /**
- * Importing.
+ * Importing — the namespace declared in `@shared/model/import-plan.ts`, beside its payloads.
  *
- * The main process owns the file: `chooseFile` opens the dialog, reads the bytes and keeps
- * them, and hands back a descriptor with an opaque id. The renderer never learns the path
- * and never sees a byte of a file that is, at that moment, a plaintext dump of every
- * password the user has.
- *
- * `discard` is not optional politeness. It is how those bytes stop existing, and the wizard
- * calls it on every exit -- finish, cancel, or unmount.
+ * Re-exported rather than restated. It was briefly written out here in full, and the two
+ * copies had already diverged by the time anything used both: this one was missing
+ * `onProgress`, so the wizard's progress subscription would not have compiled against the
+ * bridge it is handed. Exactly what the model file's own comment warned about — "one line
+ * rather than a second copy of nine signatures".
  */
-export interface ImporterApi {
-  formats: () => Promise<IpcResult<readonly ImportFormatDescriptor[]>>;
-  chooseFile: () => Promise<IpcResult<ImportSource | null>>;
-  preview: (request: ImportPreviewRequest) => Promise<IpcResult<ImportPreview>>;
-  commit: (request: ImportCommitRequest) => Promise<IpcResult<ImportCommitResult>>;
-  undo: (request: ImportUndoRequest) => Promise<IpcResult<ImportUndoResult>>;
-  discard: (sourceId: string) => Promise<IpcResult<null>>;
-}
+export type { ImporterApi };
 
 export interface KeyholdApi {
   app: AppApi;
