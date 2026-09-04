@@ -38,10 +38,6 @@ the second half is what makes an entry worth doing later rather than deleting.
 
 ## Owed tests
 
-- [ ] `src/main/vault/mirror-backup.ts` — no test. The temp-then-rename, the prune order, the
-      same-folder refusal and the path-free error messages are all unasserted. **The
-      path-free messages are the one worth doing first**: a destination path names a server
-      and often a person, and this string reaches a screen.
 - [ ] `blockScreenCapture` — nothing asserts `applyContentProtection` is actually called on
       window creation or on a settings change.
 
@@ -56,12 +52,8 @@ the second half is what makes an entry worth doing later rather than deleting.
 - [ ] `kh:recovery:save-report` — nothing tests that it refuses when nothing was diagnosed,
       or that the report is dropped on lock.
 
-- [ ] `src/main/vault/vault-service.ts` `totpCode` — no direct test. Covered only by the smoke
-      run and by the generator's own RFC vectors, so a wrong `expiresAt` or a missed
-      `otp-secret` type check would ship.
 - [ ] `src/renderer/src/vault/TotpField.tsx` — no test. The self-refresh timer, the expiring
       state and the copy-through-the-broker path are all unasserted.
-- [ ] `src/shared/ipc/validation.ts` — `totp-code` ref shape has no case in the validator test.
 
 - [ ] `src/main/kdbx/header.ts` — no test of its own. Covered indirectly by the KDBX round
       trip, so a refusal that stopped firing would be caught only if it also broke a read.
@@ -75,10 +67,6 @@ the second half is what makes an entry worth doing later rather than deleting.
 - [ ] `src/renderer/src/settings/SecuritySessionSection.tsx` — the breach opt-in row has no
       test. The confirm dialog is the consent step, and nothing asserts it appears before the
       setting flips.
-- [ ] `src/shared/ipc/settings-validation.ts` — `requireBreachCheckPatch` refuses a
-      renderer-supplied `requestIntervalMs`, and nothing tests that refusal. It is what stops
-      a compromised renderer turning the check into a denial-of-service run from the user's
-      own address.
 
 ## Owed documentation
 
@@ -108,8 +96,8 @@ the second half is what makes an entry worth doing later rather than deleting.
 
 ## Owed guards
 
-- [ ] Nothing asserts that `BreachSection` is reachable from a running app. The subsystem was
-      finished and unmounted for months and every test passed the whole time; a smoke check
-      that opens the health view and finds the panel is the only thing that would have caught
-      it. **This is the highest-value item on this page.**
-- [ ] No fault injection on `requireBreachCheckPatch`.
+- [ ] Nothing generalises the "a built subsystem is reachable from the running app" rule.
+      `breach-panel-reachable-and-idle` in `src/main/smoke.ts` covers the one that went
+      wrong; the rule that every tool view mounts every panel it is supposed to is still
+      enforced one hand-written check at a time. **This is the highest-value item on this
+      page.**

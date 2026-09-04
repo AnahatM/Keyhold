@@ -196,7 +196,7 @@ describe('vault paths', () => {
 });
 
 describe('secret references — the most security-sensitive payload in the contract', () => {
-  it('accepts each of the four legitimate shapes', () => {
+  it('accepts each of the live shapes', () => {
     expect(requireSecretRef(CHANNEL, { kind: 'password', credentialId: 'cred-1' })).toEqual({
       kind: 'password',
       credentialId: 'cred-1',
@@ -215,6 +215,12 @@ describe('secret references — the most security-sensitive payload in the contr
     expect(
       requireSecretRef(CHANNEL, { kind: 'custom-value', credentialId: 'cred-1', fieldId: 'f-1' })
     ).toEqual({ kind: 'custom-value', credentialId: 'cred-1', fieldId: 'f-1' });
+    // `totp-code` is the one that resolves to something the vault does not store: the seed
+    // is in the record, the code is generated on demand and rate-limited under its own key.
+    // A ref shape that arrived unvalidated would be a field id chosen by the renderer.
+    expect(
+      requireSecretRef(CHANNEL, { kind: 'totp-code', credentialId: 'cred-1', fieldId: 'f-1' })
+    ).toEqual({ kind: 'totp-code', credentialId: 'cred-1', fieldId: 'f-1' });
   });
 
   it('rejects an unknown kind rather than falling through to a default', () => {
@@ -238,6 +244,9 @@ describe('secret references — the most security-sensitive payload in the contr
       /questionId/
     );
     expect(() => requireSecretRef(CHANNEL, { kind: 'custom-value', credentialId: 'a' })).toThrow(
+      /fieldId/
+    );
+    expect(() => requireSecretRef(CHANNEL, { kind: 'totp-code', credentialId: 'a' })).toThrow(
       /fieldId/
     );
   });

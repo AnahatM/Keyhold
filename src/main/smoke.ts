@@ -1649,6 +1649,44 @@ export function runSmokeCheck(window: BrowserWindow): void {
             emit(`SMOKE-CHECK shell-chrome-stays-put ${String(shellHeld === true)}`);
           }
 
+          // The breach panel, which is the reason this whole block of checks exists.
+          //
+          // `BreachSection` was finished, tested six ways and mounted nowhere for months, and
+          // every one of those tests passed the entire time — because no test of a component
+          // can see that nothing renders it. It is still one `undefined` away from going back
+          // there: `HealthDashboard` renders it only when a caller passes `onOpenSettings`, so
+          // dropping that prop makes the panel disappear with nothing failing anywhere.
+          //
+          // Two assertions, and the second is not decoration. The panel must be **present**,
+          // and it must be **inert**: no report on screen means nothing ran on mount, which is
+          // the promise the feature is built around. Every other panel in this app fetches
+          // when it appears; if this one ever did, opening the health screen would be a
+          // network request the user did not ask for, and it would show up here as a result
+          // rendered by nobody.
+          if (label === 'Vault health') {
+            const breach: unknown = await window.webContents.executeJavaScript(
+              `(() => {
+                const panel = document.querySelector('.kh-breach');
+                if (!panel) return 'missing';
+                // Exactly one way forward, whichever state the two switches are in: the
+                // button that starts a check, or the one that takes you to the switch that
+                // is off. A panel with neither is a dead end wearing an explanation.
+                const actions = panel.querySelectorAll('button').length;
+                if (actions === 0) return 'no-way-in';
+                if (panel.querySelector('.kh-breach__result')) return 'ran-on-its-own';
+                // An error is the other shape a run on mount takes here: with the network
+                // switch off, a sweep nobody asked for is refused rather than reported, so
+                // the only trace it leaves on screen is this paragraph.
+                if (panel.querySelector('.kh-breach__error')) return 'tried-on-its-own';
+                return 'present-and-idle';
+              })()`,
+              true
+            );
+            emit(
+              `SMOKE-CHECK breach-panel-reachable-and-idle ${String(breach === 'present-and-idle')}`
+            );
+          }
+
           await captureNamedShot(window, name);
         }
 
