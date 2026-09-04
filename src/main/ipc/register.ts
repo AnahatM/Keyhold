@@ -14,6 +14,7 @@ import { readVaultFile } from '../vault/atomic-write.js';
 import type { BreachAvailability } from '@shared/model/breach.js';
 import type { RecoveryReport } from '@shared/model/recovery.js';
 import { diagnoseVault } from '../recovery/diagnose.js';
+import { applyContentProtection } from '../window.js';
 import { renderRecoveryReport } from '../recovery/report.js';
 import type { BreachSweepClient } from '../breach/sweep.js';
 import { CHANNELS, EVENTS, type IpcResult, type SettingsView } from '@shared/ipc/api.js';
@@ -1441,6 +1442,10 @@ export function registerIpcHandlers(context: IpcContext): void {
     session.updateMachineSettings(
       requireMachineSettingsPatch(CHANNELS.settingsUpdateMachine, patch)
     );
+    // Applied here rather than only at window creation, so turning it on takes effect on the
+    // window that is already open. A switch that needs a restart to protect you is one people
+    // flip and then assume is working.
+    applyContentProtection(context.getWindow(), session.machineSettings().blockScreenCapture);
     return settingsView();
   });
 

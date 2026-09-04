@@ -55,6 +55,23 @@ export function getMainWindow(): BrowserWindow | null {
  */
 const SMOKE_WINDOW = { width: 1400, height: 900 } as const;
 
+/**
+ * Asks the OS to keep the window out of screenshots and screen recordings.
+ *
+ * `WDA_EXCLUDEFROMCAPTURE` on Windows, `NSWindowSharingNone` on macOS. It is a real
+ * OS-enforced exclusion rather than a watermark — a capture gets a black rectangle — but it
+ * is the **OS's** promise, not Keyhold's: a camera pointed at the screen still works, and on
+ * Linux neither X11 nor Wayland has an equivalent, so Electron accepts the call and nothing
+ * happens. The setting's own copy says so rather than letting somebody infer a guarantee.
+ *
+ * Exported so the settings handler can apply a change to the window that is already open. A
+ * protection that needed a restart is one people turn on and then assume is working.
+ */
+export function applyContentProtection(window: BrowserWindow | null, enabled: boolean): void {
+  if (window === null || window.isDestroyed()) return;
+  window.setContentProtection(enabled);
+}
+
 export function createMainWindow(): BrowserWindow {
   const state = readWindowState();
 

@@ -166,6 +166,7 @@ export class SessionController {
       wipeAfterFailedAttempts: preferences.wipeAfterFailedAttempts,
       secretReveal: DEFAULT_SECRET_REVEAL_LIMITS,
       networkAllowed: preferences.networkAllowed,
+      blockScreenCapture: preferences.blockScreenCapture,
     };
   }
 

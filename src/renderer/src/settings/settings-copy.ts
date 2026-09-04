@@ -134,6 +134,12 @@ export const SETTING_COPY: Readonly<Record<SettingId, SettingCopy>> = {
     tradeOff:
       'Turning this on lets the breach check reach the internet, if you also turn that on. Nothing else in Keyhold will use it.',
   },
+  blockScreenCapture: {
+    label: 'Hide this window from screenshots and screen recordings',
+    help: 'On. Asks the operating system to exclude the Keyhold window from screen capture, so a password on screen does not end up in a recording of a shared call. A capture gets a black rectangle where the window was. **This is the operating system’s promise, not Keyhold’s** — a camera pointed at the screen still works, and on Linux there is nothing equivalent to ask for, so it does nothing there.',
+    tradeOff:
+      'Turning it off means anything that can record your screen can record your passwords.',
+  },
   'breachCheck.enabled': {
     label: 'Check this vault’s passwords against Have I Been Pwned',
     help: 'Off. This is the only feature in Keyhold that uses the internet, and it needs the switch above turned on as well. It never sends a password: each one is hashed with SHA-1 locally, the **first five characters** of that hash are sent, and the service answers with every leaked hash sharing those five — hundreds of thousands of them — which Keyhold searches on your machine. The service therefore cannot tell which password you asked about, or whether it was found. This setting travels with the vault file, so a copy of it on another machine is not checked unless you turn this on there too.',

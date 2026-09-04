@@ -64,6 +64,7 @@ export function SecuritySessionSection({
   const [pendingWipe, setPendingWipe] = useState<number | null>(null);
   const [pendingNetwork, setPendingNetwork] = useState(false);
   const [pendingBreachCheck, setPendingBreachCheck] = useState(false);
+  const [pendingCapture, setPendingCapture] = useState(false);
 
   const setAutoLock = (patch: Partial<MachineSettings['autoLock']>, announce: string): void => {
     controller.updateMachine({ autoLock: { ...machine.autoLock, ...patch } }, announce);
@@ -248,6 +249,50 @@ export function SecuritySessionSection({
       </fieldset>
 
       <fieldset className="kh-fieldset">
+        <legend className="kh-fieldset__legend">On screen</legend>
+
+        {/*
+          The one switch on this screen that is ON by default, and the only one whose
+          confirm dialog guards turning it *off*. Every other control here asks before it
+          gives the app a capability; this one asks before it takes a protection away.
+        */}
+        <SettingSwitch
+          settingId="blockScreenCapture"
+          checked={machine.blockScreenCapture}
+          tradeOffActive={!machine.blockScreenCapture}
+          onChange={(blocked) => {
+            if (blocked) {
+              controller.updateMachine(
+                { blockScreenCapture: true },
+                'Keyhold’s window is hidden from screen capture.'
+              );
+              return;
+            }
+            setPendingCapture(true);
+          }}
+        />
+      </fieldset>
+
+      <ConfirmDialog
+        open={pendingCapture}
+        title="Let this window appear in screenshots?"
+        message="Keyhold currently asks the operating system to exclude its window from screenshots and screen recordings, so a password on screen does not end up in a recording of a shared call."
+        consequence="Turning this off means anything that can record your screen can record your passwords, including a call you forgot was being recorded."
+        confirmLabel="Allow screen capture"
+        busy={controller.busy}
+        onCancel={() => {
+          setPendingCapture(false);
+        }}
+        onConfirm={() => {
+          setPendingCapture(false);
+          controller.updateMachine(
+            { blockScreenCapture: false },
+            'Keyhold’s window can now appear in screen capture.'
+          );
+        }}
+      />
+
+      <fieldset className="kh-fieldset">
         <legend className="kh-fieldset__legend">Network</legend>
 
         <SettingSwitch
@@ -307,7 +352,6 @@ export function SecuritySessionSection({
             setPendingBreachCheck(true);
           }}
         />
-
       </fieldset>
 
       <ConfirmDialog

@@ -85,6 +85,7 @@ export function requireMachineSettingsPatch(
     clipboardClearMs?: number | null;
     wipeAfterFailedAttempts?: number | null;
     networkAllowed?: boolean;
+    blockScreenCapture?: boolean;
   } = {};
 
   if (value.networkAllowed !== undefined) {
@@ -92,6 +93,13 @@ export function requireMachineSettingsPatch(
     // setting where a renderer bug and an attack look identical from here, and the boundary
     // should not have to tell them apart to refuse both.
     patch.networkAllowed = requireBoolean(channel, value.networkAllowed, 'networkAllowed');
+  }
+  if (value.blockScreenCapture !== undefined) {
+    patch.blockScreenCapture = requireBoolean(
+      channel,
+      value.blockScreenCapture,
+      'blockScreenCapture'
+    );
   }
 
   if (value.autoLock !== undefined) {

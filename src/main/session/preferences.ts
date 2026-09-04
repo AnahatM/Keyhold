@@ -56,6 +56,7 @@ export interface Preferences {
    * thing that reads it — hard rule 8 — and the coercion below is fail-closed.
    */
   readonly networkAllowed: boolean;
+  readonly blockScreenCapture: boolean;
   /** Quick-unlock enrolments, keyed by vault id. */
   readonly quickUnlock: Readonly<Record<string, QuickUnlockRecord>>;
   /**
@@ -77,6 +78,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   clipboardClearMs: 30_000,
   wipeAfterFailedAttempts: null,
   networkAllowed: false,
+  blockScreenCapture: true,
   quickUnlock: {},
   kdfMsPerCostUnit: null,
 };
@@ -158,6 +160,11 @@ export function coercePreferences(value: unknown): Preferences {
     // key, `null`, the string "true", a truncated file or one written by a future build all
     // read as false, because a kill-switch that fails open on corruption is not one.
     networkAllowed: raw.networkAllowed === true,
+    // `!== false`, the mirror of the line above and for the same reason read the other way.
+    // This one is on by default, so a missing key, a corrupt file or one written by an older
+    // build must read as **on**: the failure that costs something here is a password ending
+    // up in a screen recording, not a screenshot somebody has to take twice.
+    blockScreenCapture: raw.blockScreenCapture !== false,
     quickUnlock,
     // A finite positive number or nothing. A stored `0`, a negative, a `NaN` round-tripped
     // through JSON as `null`, or a string all fall back to "not measured yet" — which costs

@@ -21,7 +21,7 @@ import { isSmokeRun, runSmokeCheck } from './smoke.js';
 import { installOpenFileHandler, NativeShell, type MenuCommandId } from './shell/index.js';
 import { SessionController } from './session/session-controller.js';
 import { VaultService } from './vault/vault-service.js';
-import { createMainWindow, focusMainWindow } from './window.js';
+import { applyContentProtection, createMainWindow, focusMainWindow } from './window.js';
 
 /** Baked in at build time by electron-vite. */
 declare const APP_VERSION: string;
@@ -284,6 +284,11 @@ if (!gotTheLock) {
     const window = createMainWindow();
     mainWindow = window;
 
+    // Before the first paint, so a screenshot taken the instant the window appears is already
+    // excluded. On by default — see `MachineSettings.blockScreenCapture` for why this one
+    // switch runs the other way from the two beside it.
+    applyContentProtection(window, session.machineSettings().blockScreenCapture);
+
     // ── The native shell: menus, tray, and window behaviour ──────────────────
     //
     // Replaces the hand-written menu that used to live in `window.ts`. That was a second
@@ -345,6 +350,7 @@ if (!gotTheLock) {
       if (BrowserWindow.getAllWindows().length !== 0) return;
       const reopened = createMainWindow();
       mainWindow = reopened;
+      applyContentProtection(reopened, session.machineSettings().blockScreenCapture);
       // The shell must follow a recreated window, or the tray and the menu act on a window
       // that no longer exists.
       shell?.attachWindow(reopened);

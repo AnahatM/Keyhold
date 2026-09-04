@@ -124,6 +124,20 @@ export interface MachineSettings {
    * immediate.
    */
   readonly networkAllowed: boolean;
+  /**
+   * Ask the OS to keep this window out of screenshots and screen recordings.
+   *
+   * `BrowserWindow.setContentProtection`, which is `WDA_EXCLUDEFROMCAPTURE` on Windows and
+   * `NSWindowSharingNone` on macOS. **On by default**, unlike the other two switches on this
+   * screen, and the asymmetry is deliberate: a password on screen during a shared call is a
+   * password disclosed, and the cost of the default being wrong is a screenshot somebody has
+   * to take twice rather than a secret they cannot take back.
+   *
+   * It is a real OS-enforced exclusion, not a watermark — but it is the OS's promise, not
+   * Keyhold's. A camera pointed at the screen still works, and on Linux it does nothing at
+   * all, because neither X11 nor Wayland has an equivalent. The setting says so.
+   */
+  readonly blockScreenCapture: boolean;
 }
 
 export const DEFAULT_MACHINE_SETTINGS: MachineSettings = {
@@ -132,6 +146,8 @@ export const DEFAULT_MACHINE_SETTINGS: MachineSettings = {
   wipeAfterFailedAttempts: null,
   secretReveal: DEFAULT_SECRET_REVEAL_LIMITS,
   networkAllowed: false,
+  // On, unlike the other two. See the field's own note for why the default runs the other way.
+  blockScreenCapture: true,
 };
 
 // ── Vault-scoped ─────────────────────────────────────────────────────────────
@@ -192,6 +208,7 @@ export const SETTING_IDS = [
   'quickUnlock',
   'networkAllowed',
   'breachCheck.enabled',
+  'blockScreenCapture',
   'historyEnabledByDefault',
   'historyMaxVersions',
   'auditPrivacyLevel',
@@ -226,6 +243,8 @@ export const SETTING_SCOPE: Readonly<Record<SettingId, SettingsScope>> = {
   // whether its own passwords are checked. A vault copied to a machine with the switch down
   // stays unchecked there, and a vault that never opted in stays unchecked everywhere.
   'breachCheck.enabled': 'vault',
+  // Machine-scoped: it is a property of the screen you are sitting at, not of the file.
+  blockScreenCapture: 'machine',
   historyEnabledByDefault: 'vault',
   historyMaxVersions: 'vault',
   auditPrivacyLevel: 'vault',
@@ -395,6 +414,7 @@ export function kdfPresetFor(cost: KdfCost): KdfPresetId | null {
 
 export function clampMachineSettings(settings: MachineSettings): MachineSettings {
   return {
+    blockScreenCapture: settings.blockScreenCapture,
     autoLock: {
       ...settings.autoLock,
       idleMinutes: clampOptional(settings.autoLock.idleMinutes, SETTING_BOUNDS.idleMinutes),

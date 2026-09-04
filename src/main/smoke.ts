@@ -1585,6 +1585,25 @@ export function runSmokeCheck(window: BrowserWindow): void {
             );
             emit(`SMOKE-CHECK network-kill-switch-present-and-off ${String(killSwitch === 'off')}`);
 
+            // The screen-capture switch, checked the same way and for the same reason: a
+            // setting nothing renders is a setting nobody can change. Its default runs the
+            // other way from the kill-switch above -- it is ON -- and the same caveat applies
+            // about what this can and cannot prove: it reports what is stored, not what the
+            // default is, and the default is guarded in `preferences.test.ts`.
+            const capture: unknown = await window.webContents.executeJavaScript(
+              `(() => {
+                const label = [...document.querySelectorAll('label, .kh-setting')]
+                  .find((element) => element.textContent?.includes('Hide this window from screenshots'));
+                if (!label) return 'missing';
+                const box = label.querySelector('input[type="checkbox"]')
+                  ?? label.parentElement?.querySelector('input[type="checkbox"]');
+                if (!box) return 'no-control';
+                return box.checked ? 'on' : 'off';
+              })()`,
+              true
+            );
+            emit(`SMOKE-CHECK screen-capture-switch-present-and-on ${String(capture === 'on')}`);
+
             // Scrolled to Security & session before the shot. Appearance is the top of this
             // screen and the theme picker is already shown elsewhere; the security block is
             // the part that is actually Keyhold's argument — auto-lock, quick unlock, and
