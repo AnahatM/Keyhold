@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<KeePassFile>
+	<Meta>
+		<Generator>KeePassXC</Generator>
+		<DatabaseName>Example Vault</DatabaseName>
+		<RecycleBinEnabled>True</RecycleBinEnabled>
+		<RecycleBinUUID>3zK5vQqGSk2xQ2mB1kXY9A==</RecycleBinUUID>
+	</Meta>
+	<Root>
+		<Group>
+			<UUID>vTq0Wm3hQ0ay8QpJf2cX7g==</UUID>
+			<Name>Example Vault</Name>
+			<Notes></Notes>
+			<Entry>
+				<UUID>Ab1kQ2mB3zK5vQqGSk2xQg==</UUID>
+				<String>
+					<Key>Title</Key>
+					<Value>Example Bank</Value>
+				</String>
+				<String>
+					<Key>UserName</Key>
+					<Value>alice@example.com</Value>
+				</String>
+				<String>
+					<Key>Password</Key>
+					<Value Protected="True">correct-horse-battery-staple</Value>
+				</String>
+				<String>
+					<Key>URL</Key>
+					<Value>https://bank.example.com/login</Value>
+				</String>
+				<String>
+					<Key>Notes</Key>
+					<Value>Recovery kit is in the safe, not the drawer
+Second line, so a Windows export exercises line-ending handling</Value>
+				</String>
+				<Times>
+					<LastModificationTime>2024-04-11T09:14:03Z</LastModificationTime>
+					<Expires>False</Expires>
+				</Times>
+			</Entry>
+			<Group>
+				<UUID>Ck9pR4tL7wYe2QnH5vB0Zg==</UUID>
+				<Name>Work</Name>
+				<Entry>
+					<UUID>Dm2sT6uN8xZf3RoJ7cC1Ah==</UUID>
+					<String>
+						<Key>Title</Key>
+						<Value>Example Payroll</Value>
+					</String>
+					<String>
+						<Key>UserName</Key>
+						<Value>a.mudgal</Value>
+					</String>
+					<String>
+						<Key>Password</Key>
+						<Value Protected="True">hunter2-payroll</Value>
+					</String>
+					<String>
+						<Key>URL</Key>
+						<Value>https://payroll.example.com</Value>
+					</String>
+					<String>
+						<Key>Employee number</Key>
+						<Value>EMP-0042199</Value>
+					</String>
+					<String>
+						<Key>otp</Key>
+						<Value Protected="True">otpauth://totp/Example%20Payroll:a.mudgal?secret=JBSWY3DPEHPK3PXP&amp;issuer=Example</Value>
+					</String>
+					<Times>
+						<LastModificationTime>2025-01-02T18:40:55Z</LastModificationTime>
+						<Expires>True</Expires>
+						<ExpiryTime>2025-06-30T00:00:00Z</ExpiryTime>
+					</Times>
+					<History>
+						<Entry>
+							<UUID>Dm2sT6uN8xZf3RoJ7cC1Ah==</UUID>
+							<String>
+								<Key>Title</Key>
+								<Value>Example Payroll (old)</Value>
+							</String>
+							<String>
+								<Key>Password</Key>
+								<Value Protected="True">hunter2-was-here</Value>
+							</String>
+						</Entry>
+					</History>
+				</Entry>
+				<Group>
+					<UUID>En3tU7vO9yAg4SpK8dD2Bi==</UUID>
+					<Name>Cloud</Name>
+					<Entry>
+						<UUID>Fo4uV8wP0zBh5TqL9eE3Cj==</UUID>
+						<String>
+							<Key>Title</Key>
+							<Value>Example Object Storage</Value>
+						</String>
+						<String>
+							<Key>UserName</Key>
+							<Value>svc-backup</Value>
+						</String>
+						<String>
+							<Key>Password</Key>
+							<Value Protected="True"><![CDATA[p<ssw>rd&with&markup]]></Value>
+						</String>
+						<String>
+							<Key>Notes</Key>
+							<Value>Rotate before the audit, ticket OPS-118</Value>
+						</String>
+					</Entry>
+				</Group>
+			</Group>
+			<Group>
+				<UUID>3zK5vQqGSk2xQ2mB1kXY9A==</UUID>
+				<Name>Recycle Bin</Name>
+				<Entry>
+					<UUID>Gp5vW9xQ1aCi6UrM0fF4Dk==</UUID>
+					<String>
+						<Key>Title</Key>
+						<Value>Cancelled Subscription</Value>
+					</String>
+					<String>
+						<Key>Password</Key>
+						<Value Protected="True">deleted-on-purpose</Value>
+					</String>
+				</Entry>
+			</Group>
+		</Group>
+	</Root>
+</KeePassFile>

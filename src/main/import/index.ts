@@ -10,6 +10,7 @@ import { genericCsvParser } from './generic-csv.js';
 import { dashlaneJsonParser } from './dashlane-json.js';
 import { enpassJsonParser } from './enpass-json.js';
 import { keepassCsvParser } from './keepass-csv.js';
+import { keepassXmlParser } from './keepass-xml.js';
 import { keeperCsvParser } from './keeper-csv.js';
 import { onePassword1puxParser } from './onepassword-1pux.js';
 import { protonPassJsonParser } from './proton-pass-json.js';
@@ -41,6 +42,10 @@ export const PARSERS: readonly ImportParser[] = [
   // the presence of `export.data` — the only detection in this registry that reads a header
   // rather than inferring a shape, and so the only one that cannot be wrong.
   onePassword1puxParser,
+
+  // Then the one XML format, for the same reason: `<KeePassFile` is a marker no other export
+  // in this registry can produce, so it cannot be confused with a CSV or a JSON file.
+  keepassXmlParser,
 
   // JSON next: decided by content shape, not by a header row, so it can never be confused
   // with a CSV. Keyhold's own format leads, because its marker is unambiguous — everything

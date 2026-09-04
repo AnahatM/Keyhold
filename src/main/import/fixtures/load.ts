@@ -93,6 +93,7 @@ export const FIXTURE_FOR_PARSER: Readonly<Record<string, string>> = {
   'keeper-csv': 'keeper.csv',
   'roboform-csv': 'roboform.csv',
   'keepass-csv': 'keepass.csv',
+  'keepass-xml': 'keepass.xml',
   'onepassword-csv': 'onepassword.csv',
   'safari-csv': 'safari.csv',
   'chrome-csv': 'chrome.csv',

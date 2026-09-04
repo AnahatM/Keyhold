@@ -60,8 +60,9 @@ Windows is the development machine. These need a Mac to verify, and cannot be si
 gate run in this repo depends on it. Kept as a heading rather than deleted so the numbering
 stays stable — M4, M5 and M6 are referenced from the docs by number.
 
-**The one dependency that is still outstanding is `kdbxweb`** — that is M-KDBX below, and it
-is a separate decision rather than a rerun of this.
+**Nothing is outstanding.** This once said `kdbxweb` still was; that item is withdrawn (D32),
+and Keyhold's dependency list is closed at `@zxcvbn-ts/core`, `@zxcvbn-ts/language-common`,
+`hash-wasm`, `react`, `react-dom` and `zustand`.
 
 ---
 
@@ -181,51 +182,29 @@ Each agent's report names the exact payloads.
 
 ---
 
-## 🔴 M-KDBX · Install `kdbxweb`, which the stack claims is already here
+## ~~M-KDBX~~ — Install `kdbxweb` — **withdrawn; nothing here is blocked on you**
 
-**Blocks:** KDBX import (roadmap Phase 8) and KDBX 4 export (Phase 10). Both are the last
-unbuilt formats, and neither can start without this.
+**Withdrawn by decision D32.** This asked you to install `kdbxweb` so KDBX import and export
+could start. It was wrong, and it was wrong in the way worth recording: nobody had checked
+whether the primitives were already here, so "blocked" was a label rather than a finding.
 
-**Where it stands.** `CLAUDE.md`'s stack table already says this honestly — "`kdbxweb` + our
-WASM Argon2 — planned (Phase 11), not installed" — so nothing there needs correcting.
-`package.json`'s `dependencies` are `@zxcvbn-ts/core`, `@zxcvbn-ts/language-common`,
-`hash-wasm`, `react`, `react-dom` and `zustand`, and no source file imports `kdbxweb`. The
-roadmap's two KDBX lines are simply waiting on this install, and this entry is the step that
-unblocks them.
+They were. Argon2id is in `src/main/crypto/kdf.ts` over `hash-wasm` — the same WASM Argon2 the
+vault itself uses. AES-256-CBC, ChaCha20 and HMAC-SHA256 are all present in Node's own crypto
+and were verified rather than assumed. gzip is `node:zlib`, already used by the KEEP container.
+The inner XML is read by `src/main/import/xml-reader.ts` (D31). So the dependency would have
+bought a schema mapping — the part that has to be written and tested here whichever way this
+went — at the price of a third-party parser in the path of an untrusted file, on a project
+whose pitch is that it ships almost nothing.
 
-**Why I have not done it.** Installing a package is yours by rule (§7): it writes
-`package-lock.json`, it pulls a dependency tree I cannot review the provenance of on your
-behalf, and this one will end up parsing untrusted files that users hand it.
+**What this changes for you:** nothing to run, nothing to install, nothing to approve.
 
-**Steps.**
+**What it changes in the roadmap:** KDBX **4** import and export are ordinary unbuilt work.
+KDBX **3** is decided against rather than deferred — its inner values are protected with
+Salsa20, which Node does not provide, and hand-writing a stream cipher is precisely what
+"never invent cryptography" forbids. A version-3 file is refused **by name**, telling the user
+to re-save it from KeePassXC as KDBX 4, which that application does by default.
 
-1. From `C:\Dev\Credentials-App`:
-   ```
-   npm install kdbxweb@2.1.1 --save-exact
-   ```
-   Pinned exactly, like `hash-wasm@4.12.0` beside it — this library reads attacker-supplied
-   files, so the version that was reviewed is the version that should ship.
-2. Confirm it landed in `dependencies` and **not** `devDependencies`. It ships in the app,
-   so a `devDependencies` entry would work in `npm run dev` and be missing from the packaged
-   build — the failure only users see.
-3. Run `npm run verify:full` and tell me it is green.
-4. Tell me it is installed and I will build the importer and the exporter.
-
-**Two things worth knowing before you run it.**
-
-- `kdbxweb` does **not** bundle Argon2; it expects the host to supply one. That is exactly
-  why the stack table pairs it with our WASM Argon2, and it is good news: the KDF stays the
-  audited `hash-wasm` path already used for `.keep` files, and no native binding enters the
-  tree.
-- Check what the install adds. If it pulls a native module, stop and tell me — hard rule
-  "`hash-wasm` (pure WASM — **never** a native binding)" exists because a native binding
-  breaks the cross-platform build, and the same reasoning applies to anything arriving
-  underneath this.
-
-**If you would rather not add it at all**, say so and I will mark KDBX import and export as
-declined in the roadmap rather than leaving two lines open forever. Keyhold can already
-import KeePass **CSV**, which is the path most KeePass users take; `.kdbx` is the better one
-because it is lossless and needs no plaintext intermediate file, but it is not the only door.
+Kept as a heading rather than deleted, like M3 above: the docs reference these by name.
 
 ---
 

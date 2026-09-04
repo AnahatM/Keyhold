@@ -4,7 +4,7 @@ Getting data in from other password managers, and out again.
 
 | Page                                             | Phase | What it covers                                                                                                                                                            |
 | ------------------------------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`00-Import-Formats.md`](./00-Import-Formats.md) | 10    | The eighteen parsers, the full column→field mapping per format, and what each one drops and reports                                                                       |
+| [`00-Import-Formats.md`](./00-Import-Formats.md) | 10    | The nineteen parsers, the full column→field mapping per format, and what each one drops and reports                                                                       |
 | [`01-Export-Formats.md`](./01-Export-Formats.md) | 11    | The four ways out, what each loses, why a plaintext export is treated as dangerous, CSV injection, the round trip, and the `kh:export:*` channels                         |
 | [`02-Import-Service.md`](./02-Import-Service.md) | 10    | The transaction between a parser and a vault: the held file, the dry run, the duplicate rule, the merge policy, the three-part undo guard, and the `kh:import:*` channels |
 

@@ -205,8 +205,8 @@ shapes Phase 2 and every phase after it, so it had to be decided up front.
 
 **Status:** Accepted
 **Why:** Avoids a per-platform native binary in the Electron build matrix, which is the single most
-common source of cross-platform packaging pain. `kdbxweb` needs an Argon2 implementation supplied
-externally anyway, so one WASM implementation serves both the native format and KDBX interop.
+common source of cross-platform packaging pain. One WASM implementation serves both the native
+format and KDBX interop — which is part of why, later, D32 found KDBX needed no library at all.
 **Rejected:** `@node-rs/argon2` and `argon2` native bindings — marginally faster, materially harder
 to ship.
 **Consequence:** conflicts with backlog D5 (memory-locking key material), which would need a native
@@ -705,6 +705,87 @@ Record ids, created/updated dates and history do not survive, and are **reported
 dropped silently — the same losses `keyhold-json` already names, because it is the same code
 saying so. Importing a vault is a merge of contents, not a restore; restoring is copying the
 `.keep` file back.
+
+---
+
+### D31 — A restricted XML reader, written here, rather than a parser dependency
+
+**Decision:** Keyhold reads XML with a small reader of its own (`src/main/import/xml-reader.ts`)
+that supports elements, attributes, text, CDATA and the five predefined entities — and refuses
+everything else. No XML dependency.
+
+**Why this came up.** Two roadmap lines need XML: KeePass's plain `.xml` export, and the inner
+payload of a `.kdbx` file. Both were parked as "needs an XML parser, which is a dependency
+decision", which was a decision waiting to be made rather than a blocker.
+
+**Rejected: an XML parser from npm.** The realistic candidates are large, general, and solve a
+problem this app does not have. Keyhold reads two known schemas, written by two known tools,
+neither of which uses namespaces, processing instructions, DTDs or external entities. A
+general parser brings all of that along — and the parts it brings are exactly the parts with a
+history of vulnerabilities.
+
+**Rejected: reading it with a regex.** It is the obvious shortcut for a known schema and it is
+wrong for the same reason it always is: a value containing `<` ends the element early, and the
+failure is silent and data-dependent — the one import in fifty that quietly loses a field.
+
+**What "restricted" buys, and it is the whole argument.** XML's dangerous features are
+features. A reader that cannot express them cannot be attacked through them:
+
+- **No DTD, no `DOCTYPE`.** Refused outright, so the billion-laughs entity expansion has
+  nowhere to live — the classic XML denial of service is not mitigated here, it is
+  unimplementable.
+- **No external entities.** XXE is the reason "just use a parser" is bad advice for untrusted
+  input; a reader with no entity resolution cannot be made to open a file or a socket.
+- **Only the five predefined entities** (`&lt; &gt; &amp; &quot; &apos;`) plus numeric
+  character references, bounded to valid code points.
+- **Bounded depth and node count**, so a deeply nested document cannot exhaust the stack — the
+  same reasoning as the ZIP reader's entry caps, and the same file it sits beside.
+
+**Precedent.** The `.1pux` importer needed a ZIP reader and got a small hardened one rather
+than a dependency, for these reasons and with these kinds of caps. This is the same trade,
+made the same way, in the same place.
+
+**Consequence:** the reader is deliberately not a general XML parser and must never grow into
+one. A schema that needs namespaces is a schema Keyhold does not read.
+
+---
+
+### D32 — KDBX 4 is implemented from stock primitives, not from `kdbxweb`
+
+**Decision:** KDBX 4 support is written against Node's own crypto and this project's existing
+Argon2, and `kdbxweb` is not installed. `MANUAL-BACKLOG.md` M-KDBX is withdrawn.
+
+**The finding that reversed the earlier call.** KDBX was recorded as blocked on installing
+`kdbxweb`, and that was checked rather than assumed only after the fact. Every primitive KDBX 4
+requires is already present:
+
+| KDBX 4 needs                       | Where it already is                                                               |
+| ---------------------------------- | --------------------------------------------------------------------------------- |
+| Argon2id key derivation            | `src/main/crypto/kdf.ts`, over `hash-wasm` — the same WASM Argon2 the vault uses  |
+| AES-256-CBC                        | Node `crypto`, verified available                                                 |
+| ChaCha20 (inner stream protection) | Node `crypto`, verified available — it takes a 16-byte IV, which is the KDBX form |
+| HMAC-SHA256 block authentication   | Node `crypto`                                                                     |
+| gzip                               | `node:zlib`, already used by the KEEP container                                   |
+| The inner XML                      | D31's reader                                                                      |
+
+So the dependency would have bought a schema mapping, which is the part that has to be written
+and tested here regardless.
+
+**Rejected: install `kdbxweb`.** It is a good library and it was the plan. Against it: it is a
+dependency in the path of parsing an untrusted file, on a project whose pitch is that it ships
+almost nothing; the install is a step only the repo owner can take, so the feature would stay
+blocked on somebody else's evening; and it would still not remove the need for our own Argon2,
+because `kdbxweb` does not bundle one.
+
+**Rejected: leave it blocked.** That was the position this decision replaces, and it was a
+label rather than a finding — nobody had checked whether the primitives were there.
+
+**Scope, stated honestly.** **KDBX 4 only.** KDBX 3 protects its inner values with Salsa20,
+which Node does not provide, and writing a stream cipher by hand is exactly what "never invent
+cryptography" forbids — composing a published primitive that ships in the platform is not the
+same act as implementing one. KDBX 3 therefore stays unbuilt and is recorded as such rather
+than as "coming"; a `.kdbx` that is version 3 is refused **by name**, telling the user to
+re-save it from KeePassXC as KDBX 4, which that application does by default.
 
 ---
 

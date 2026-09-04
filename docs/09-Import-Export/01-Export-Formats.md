@@ -279,8 +279,9 @@ same fact, and the user is owed it in both directions — a dialog that could on
   `src/renderer/src/shell/menu-bridge.ts` routes menu commands into the renderer, but it has
   no case for that one. The import wizard is in exactly the same position — see
   [`02-Import-Service.md`](./02-Import-Service.md) §9.
-- **KDBX 4 export** (roadmap Phase 11) — needs `kdbxweb` plus our WASM Argon2, and
-  verification against a real KeePassXC.
+- **KDBX 4 export** (roadmap Phase 11) — composed from Node's own crypto and our WASM Argon2,
+  with no dependency (D32), and verified against a real KeePassXC. KDBX **3** is decided
+  against rather than deferred: its inner protection is Salsa20, which Node does not provide.
 - **Bitwarden _JSON_ export.** The compatible CSV covers the leaving-Keyhold path; the JSON
   is a second, richer target and a separate serialiser.
 - **The parcel's record chooser**, and deliberately **no advisory expiry**: an expiry nothing

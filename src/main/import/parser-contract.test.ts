@@ -13,6 +13,7 @@ import {
 import { parseCsvTable } from './csv.js';
 import { buildZip } from './fixtures/zip-writer.js';
 import { ZIP_METHOD_STORED, ZipArchive } from './zip-reader.js';
+import { parseXml, type XmlElement } from './xml-reader.js';
 import { PARSERS } from './index.js';
 
 /**
@@ -59,6 +60,7 @@ const COMMA_VALUE: Readonly<Record<string, string>> = {
   'keeper-csv': 'Recovery codes are in the safe, not the drawer',
   'roboform-csv': 'Renew the domain before 30 June, ask Bob',
   'onepassword-1pux': 'The recovery kit is in the safe, not the drawer',
+  'keepass-xml': 'Recovery kit is in the safe, not the drawer',
 };
 
 /**
@@ -79,6 +81,12 @@ const COMMA_VALUE: Readonly<Record<string, string>> = {
  */
 const BINARY_PARSERS: ReadonlySet<string> = new Set(['onepassword-1pux']);
 
+function shapeOf(parserId: string): FixtureShape {
+  if (JSON_FIXTURES.has(parserId)) return 'json';
+  if (XML_FIXTURES.has(parserId)) return 'xml';
+  return 'csv';
+}
+
 /**
  * Fixtures that are JSON, whose leak guard walks string leaves rather than CSV cells.
  *
@@ -93,6 +101,15 @@ const JSON_FIXTURES: ReadonlySet<string> = new Set([
   'enpass-json',
   'dashlane-json',
 ]);
+
+/**
+ * Fixtures that are XML, whose values are element text and attributes rather than cells.
+ *
+ * Same reasoning as `JSON_FIXTURES` and the same trap: without a branch here the leak guard
+ * would run an XML document through `parseCsvTable`, get a nonsense cell list, and hold
+ * against nothing.
+ */
+const XML_FIXTURES: ReadonlySet<string> = new Set(['keepass-xml']);
 
 /** Converts a `latin1`-carried archive back to bytes. The exact inverse of `loadBinaryFixture`. */
 function latin1(bytes: Uint8Array): string {
@@ -146,6 +163,11 @@ function emptyOf(parserId: string, fixture: string): string {
       ])
     );
   }
+  if (parserId === 'keepass-xml') {
+    // A database with its group tree and no entries in it — what KeePass exports from a file
+    // somebody has only just created.
+    return '<?xml version="1.0"?><KeePassFile><Meta><DatabaseName>Empty</DatabaseName></Meta><Root><Group><Name>Empty</Name></Group></Root></KeePassFile>';
+  }
   if (parserId === 'keyhold-json') {
     // Built from the fixture rather than hand-written, so the envelope this asserts against
     // stays the envelope the exporter actually produces.
@@ -172,6 +194,18 @@ function withMalformedRow(parserId: string, fixture: string): string {
   }
   if (parserId === 'dashlane-json') {
     return fixture.replace('"AUTHENTIFIANT": [', '"AUTHENTIFIANT": [\n    "not an item",');
+  }
+  if (parserId === 'keepass-xml') {
+    // The XML analogue of a ragged row: a well-formed entry carrying a value the exporter
+    // withheld. There is no such thing as a "wrong number of cells" in a document whose
+    // structure is named rather than positional, so the case this stands in for is the one
+    // that actually happens — a field arrives that cannot be read, and the other entries must
+    // still come across.
+    return fixture.replace(
+      '</Root>',
+      '<Entry><String><Key>Title</Key><Value>Withheld</Value></String>' +
+        '<String><Key>Password</Key><Value Protected="True"/></String></Entry></Root>'
+    );
   }
   if (parserId === 'onepassword-1pux') {
     // The archive analogue of a ragged row: a well-formed ZIP whose `export.data` holds an
@@ -203,10 +237,17 @@ function withMalformedRow(parserId: string, fixture: string): string {
  * Column *headers* are excluded, because naming the column is the whole job of a warning.
  * Short values are excluded because "0", "true" and "Work" appear in ordinary English.
  */
-function fixtureValues(fixture: string, isJson: boolean): string[] {
-  const values = isJson ? jsonStringLeaves(fixture) : csvCellValues(fixture);
+type FixtureShape = 'csv' | 'json' | 'xml';
+
+function fixtureValues(fixture: string, shape: FixtureShape): string[] {
+  const values =
+    shape === 'json'
+      ? jsonStringLeaves(fixture)
+      : shape === 'xml'
+        ? xmlTextValues(fixture)
+        : csvCellValues(fixture);
   const headers = new Set(
-    isJson ? [] : parseCsvTable(fixture).table.columns.map((column) => column.toLowerCase())
+    shape === 'csv' ? parseCsvTable(fixture).table.columns.map((column) => column.toLowerCase()) : []
   );
   return [...new Set(values)].filter(
     (value) => value.trim().length >= 8 && !headers.has(value.trim().toLowerCase())
@@ -226,6 +267,22 @@ function jsonStringLeaves(fixture: string): string[] {
   };
   walk(JSON.parse(fixture));
   return leaves;
+}
+
+/**
+ * Every element's text and every attribute value in an XML fixture.
+ *
+ * Attributes included deliberately: `Protected="True"` is an attribute, and a future warning
+ * that echoed one back would be leaking from the same file as any other value.
+ */
+function xmlTextValues(fixture: string): string[] {
+  const values: string[] = [];
+  const walk = (node: XmlElement): void => {
+    values.push(node.text, ...Object.values(node.attributes));
+    node.children.forEach(walk);
+  };
+  walk(parseXml(fixture));
+  return values;
 }
 
 describe.each(PARSERS.map((parser) => [parser.id, parser] as const))(
@@ -312,8 +369,8 @@ describe.each(PARSERS.map((parser) => [parser.id, parser] as const))(
       // without it the empty strings in any fixture become needles, and `''` is contained in
       // every warning ever written.
       const values = binary
-        ? fixtureValues(readOnePasswordExportData(fixture), true)
-        : fixtureValues(fixture, JSON_FIXTURES.has(id));
+        ? fixtureValues(readOnePasswordExportData(fixture), 'json')
+        : fixtureValues(fixture, shapeOf(id));
       expect(values.length, 'the fixture has no values worth checking').toBeGreaterThan(3);
 
       for (const source of [fixture, withMalformedRow(id, fixture), emptyOf(id, fixture)]) {
