@@ -340,7 +340,7 @@ drag-and-drop and a lightbox. Full notes: `docs/05-Features/04-Attachments.md`._
 - [x] **Tests (80)** and nine fault injections, all caught
 - [x] `docs/05-Features/04-Attachments.md` written
 
-## Phase 10 — Import ~ MOUNTED, MORE FORMATS TO COME
+## Phase 10 — Import ✅
 
 _The parser registry, the import service with its six `kh:import:*` channels, and the wizard
 itself — reachable from the File menu and the palette. What is left is more source formats
@@ -379,13 +379,16 @@ and the activity-log entry. Full notes: `docs/09-Import-Export/00-Import-Formats
       `"folders"`), which Enpass and Proton Pass both satisfy — an Enpass export was being
       auto-detected as Bitwarden and imported as untitled records whose every field was
       called "Field". Now narrowed to a Bitwarden-only key
-- [ ] KDBX **4** — **D32**: not blocked and never was. Every primitive it needs is already
-      here (Argon2id in `crypto/kdf.ts`, AES-256-CBC, ChaCha20 and HMAC-SHA256 in Node,
-      gzip in `node:zlib`, the inner XML in `xml-reader.ts`), so `kdbxweb` would have bought
-      only the schema mapping — the part that has to be written and tested here regardless.
-      M-KDBX is withdrawn. **KDBX 3 is decided against**, not deferred: its inner values use
-      Salsa20, which Node does not provide, and a `.kdbx` that is version 3 is refused by
-      name with the advice to re-save it as a 4
+- [x] KDBX **4** import — **D32**, and it was never blocked. Every primitive was already here
+      (Argon2 in `crypto/kdf.ts`; AES-256-CBC, ChaCha20 and HMAC-SHA256 in Node; gzip in
+      `node:zlib`; the inner XML in `xml-reader.ts`), so `kdbxweb` would have bought only the
+      schema mapping — the part that had to be written and tested here regardless. M-KDBX is
+      withdrawn. A `.kdbx` takes the encrypted door a `.keep` takes, dispatched on the file
+      signature rather than the extension, and the decrypted XML goes to the KeePass parser
+      that already existed — **no KDBX-specific record mapper anywhere**, which is D30's shape
+      applied again. **KDBX 3 is decided against**, not deferred: its values are protected
+      with Salsa20, which Node does not provide, so a version-3 file is refused by name with
+      the advice to re-save it as a 4. Twofish and KeePass 1's `.kdb` are refused the same way
 - [x] KeePass XML — **D31**: read with `xml-reader.ts`, a restricted reader of our own that
       refuses `DOCTYPE`, external entities and unbounded nesting outright, rather than an XML
       dependency in the path of an untrusted file. Carries what the CSV drops: the group tree,
@@ -401,7 +404,7 @@ and the activity-log entry. Full notes: `docs/09-Import-Export/00-Import-Formats
       which found real holes
 - [x] `docs/09-Import-Export/00-Import-Formats.md` and `02-Import-Service.md` written
 
-## Phase 11 — Export & the transfer parcel ~ MOUNTED, TWO FORMATS TO COME
+## Phase 11 — Export & the transfer parcel ✅
 
 _The serialisers, the preview and the three `kh:export:*` channels are built and tested,
 Keyhold's own JSON export re-imports, and the dialog is mounted with its shred reminder. What
@@ -438,7 +441,13 @@ is left is KDBX 4 and Bitwarden JSON export. Full notes:
       `menu-bridge.ts` routes `vault.export` and the palette offers the row
 - [x] Bitwarden JSON export — the leaving-Keyhold path, round-tripped through our own
       importer, with every dropped field named rather than silently lost
-- [ ] KDBX 4 export
+- [x] KDBX 4 export — **D32**, no dependency. Encrypted under its own passphrase, so no
+      plaintext warning; AES-256-CBC and Argon2id at the vault's own cost parameters, so an
+      exported database is never the easier of the two to attack. History, attachments and
+      origins are dropped and each is named and counted — KeePass stores previous _entries_
+      rather than which fields changed, so writing them would invent times the vault never
+      had. Round-tripped back through Keyhold's own KeePass reader; interop with KeePassXC
+      itself is a manual step (MANUAL-BACKLOG M-KDBX-INTEROP)
 - [x] **Tests** and sixteen engine fault injections (one of which found a guard that was not
       the one doing the work), plus six on the preview and six on the IPC boundary
 - [x] `docs/09-Import-Export/01-Export-Formats.md` written

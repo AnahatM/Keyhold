@@ -1,12 +1,13 @@
 # Export formats
 
-> Four ways out, what each one loses, and why a plaintext export is treated as dangerous.
+> Six ways out, what each one loses, and why a plaintext export is treated as dangerous.
 > Current reference. Implemented by `src/main/export/`.
 >
 > **Status: the engine, the preview and the three `kh:export:*` channels are built and
-> tested, and Keyhold's own JSON export re-imports.** `ExportDialog` is written and nothing
-> mounts it, so there is no user-reachable way to reach the channels yet; KDBX 4 export does
-> not exist. See §8 for the channels and §10 for what is outstanding.
+> tested, Keyhold's own JSON export re-imports, and KDBX 4 export re-imports through
+> Keyhold's own KeePass reader.** `ExportDialog` is written and nothing mounts it, so there
+> is no user-reachable way to reach the channels yet. See §8 for the channels, §10 for what
+> is outstanding, and [`03-KDBX.md`](./03-KDBX.md) for the KeePass format in detail.
 
 ---
 
@@ -16,12 +17,18 @@ That is the whole reason this exists, and it is why the **compatible CSV** is no
 afterthought: it writes Bitwarden's exact eleven columns, and the test that proves it works
 runs Keyhold's own `bitwardenCsvParser` over the output rather than eyeballing the header.
 
-| Format           | File     | Loses                                                            |
-| ---------------- | -------- | ---------------------------------------------------------------- |
-| Keyhold JSON     | `.json`  | Nothing. Round-trips exactly, including history and its origins  |
-| Keyhold CSV      | `.csv`   | History, attachments, icons, custom-field types, record identity |
-| Compatible CSV   | `.csv`   | The above, plus all dates and trash state                        |
-| Encrypted parcel | `.keepx` | Nothing, and it is the only one that is safe to send             |
+| Format           | File     | Encrypted | Loses                                                            |
+| ---------------- | -------- | --------- | ---------------------------------------------------------------- |
+| Encrypted parcel | `.keepx` | yes       | Nothing                                                          |
+| KeePass database | `.kdbx`  | yes       | History, attachments, origins — see [`03-KDBX.md`](./03-KDBX.md) |
+| Keyhold JSON     | `.json`  | no        | Nothing. Round-trips exactly, including history and its origins  |
+| Keyhold CSV      | `.csv`   | no        | History, attachments, icons, custom-field types, record identity |
+| Bitwarden JSON   | `.json`  | no        | History, attachments, origins, security questions                |
+| Compatible CSV   | `.csv`   | no        | The above, plus all dates and trash state                        |
+
+**The two encrypted formats are the two that are safe to send.** A parcel is Keyhold talking
+to itself and loses nothing; a `.kdbx` goes somewhere else and is what makes "you can leave"
+true rather than a slogan.
 
 ---
 
@@ -40,7 +47,7 @@ holding the reason not to.
 no temp directory to leak into, because the filesystem is entirely the caller's.
 
 **Trashed records are excluded unless `includeTrashed === true`** — an explicit `true`, not
-any truthy value — in all four formats, and the exclusion is _itself reported as a loss_, so
+any truthy value — in every format, and the exclusion is _itself reported as a loss_, so
 the count is visible either way. Exporting someone's deleted records into a file they email
 themselves is a real harm.
 
@@ -279,11 +286,12 @@ same fact, and the user is owed it in both directions — a dialog that could on
   `src/renderer/src/shell/menu-bridge.ts` routes menu commands into the renderer, but it has
   no case for that one. The import wizard is in exactly the same position — see
   [`02-Import-Service.md`](./02-Import-Service.md) §9.
-- **KDBX 4 export** (roadmap Phase 11) — composed from Node's own crypto and our WASM Argon2,
-  with no dependency (D32), and verified against a real KeePassXC. KDBX **3** is decided
-  against rather than deferred: its inner protection is Salsa20, which Node does not provide.
-- **Bitwarden _JSON_ export.** The compatible CSV covers the leaving-Keyhold path; the JSON
-  is a second, richer target and a separate serialiser.
+- **The KDBX interop check.** The format is built in both directions and a vault survives
+  export → import through Keyhold's own KeePass reader. What no offline test can prove is that
+  **KeePassXC** opens the file, because a round trip passes for any self-consistent
+  implementation. That is `MANUAL-BACKLOG.md` M-KDBX-INTEROP, and it is the one outstanding
+  thing about this format. KDBX **3** is decided against rather than deferred: its inner
+  protection is Salsa20, which Node does not provide.
 - **The parcel's record chooser**, and deliberately **no advisory expiry**: an expiry nothing
   enforces and nothing checks is a false sense of security, and half of it is worse than
   none.

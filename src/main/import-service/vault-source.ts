@@ -3,6 +3,7 @@ import { unlock as unlockKeys } from '../crypto/envelope.js';
 import { serialiseKeyholdJson } from '../export/keyhold-json.js';
 import { readContainer, readPreamble } from '../format/container.js';
 import { parseVaultDocument } from '../vault/vault-service.js';
+import { looksLikeKdbx, readKdbxAsImportSource } from './kdbx-source.js';
 import type { PickedImportFile } from './source-store.js';
 
 /**
@@ -72,6 +73,19 @@ export interface VaultSourceInput {
  * words for the same conditions.
  */
 export async function readVaultAsImportSource(input: VaultSourceInput): Promise<PickedImportFile> {
+  // A KeePass database takes the same door, and deliberately so. From the user's side both
+  // are "an encrypted file I have the passphrase for", and giving them two IPC channels, two
+  // dialogs and two wizard branches would be three duplicates of one act. Dispatched on the
+  // file's own signature rather than on its extension, because a file somebody renamed is
+  // still the file it was.
+  if (looksLikeKdbx(input.bytes)) {
+    return await readKdbxAsImportSource({
+      fileName: input.fileName,
+      bytes: input.bytes,
+      secretPassphrase: input.secretPassphrase,
+    });
+  }
+
   const { header } = readPreamble(input.bytes);
 
   // The whole reason this function is async. Argon2 is seconds by design, and the caller is

@@ -4,6 +4,7 @@ import type { ExportFormatId } from '@shared/model/export.js';
 import type { ExportPreview, ExportScope } from '@shared/model/export-plan.js';
 import type { VaultDocument } from '@shared/model/vault-document.js';
 import { parcelPlan } from './encrypted.js';
+import { kdbxPlan } from './kdbx.js';
 import { findExportFormat } from './formats.js';
 import { exportBitwardenJson } from './bitwarden-json.js';
 import { exportCompatibleCsv } from './generic-csv.js';
@@ -79,6 +80,16 @@ export function previewExport(document: VaultDocument, input: ExportPreviewInput
     return { ...base, losses: losses.all };
   }
 
+  // The other encrypted format, and the reason `kdbxPlan` is a function of its own: a preview
+  // must show what a KDBX export will drop **before** the user commits to a passphrase, and
+  // it must not spend Argon2's seconds to find out. One function, two callers, so the screen
+  // cannot promise one thing while the file does another.
+  if (input.format === 'kdbx') {
+    const losses = kdbxPlan(selected);
+    losses.flush();
+    return { ...base, losses: losses.all };
+  }
+
   const output = runReadableExport(document, input, selection);
   try {
     // `recordCount` from the exporter, not from `selected`: if the two ever disagree the
@@ -107,9 +118,10 @@ function runReadableExport(
     case 'bitwarden-json':
       return exportBitwardenJson(document, selection);
     case 'keyhold-parcel':
-      // Unreachable: the parcel returned above, from `previewExport`. Named as a case rather
-      // than left to a `default`, so adding a format is a non-exhaustive-switch error here
-      // instead of a preview that silently reports no losses at all.
+    case 'kdbx':
+      // Unreachable: both encrypted formats returned above, from `previewExport`. Named as
+      // cases rather than left to a `default`, so adding a format is a non-exhaustive-switch
+      // error here instead of a preview that silently reports no losses at all.
       throw new Error(`No readable preview path for export format: ${input.format}`);
   }
 }

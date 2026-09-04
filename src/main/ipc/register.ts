@@ -1067,6 +1067,23 @@ export function registerIpcHandlers(context: IpcContext): void {
     const request: ExportRequest = ((): ExportRequest => {
       const now = Date.now();
       if (plan.kind === 'encrypted') {
+        // Two encrypted formats now, and the passphrase reaches both. Switched on the format
+        // *inside* this branch rather than beside it, so the passphrase is still only
+        // reachable where the type says one exists — the property the outer `plan.kind`
+        // branch was written for, kept rather than traded away for a flatter switch.
+        if (plan.format === 'kdbx') {
+          return {
+            format: 'kdbx',
+            ...scope,
+            now,
+            secretPassword: plan.secretPassphrase,
+            // The vault's own cost parameters, for the same reason the parcel uses them: a
+            // KeePass database derived under weaker settings than the vault it came from
+            // would be the easier of the two to attack, and nobody chose that by clicking
+            // "export".
+            kdf: vault.kdfParams(),
+          };
+        }
         return {
           format: 'keyhold-parcel',
           ...scope,
@@ -1090,10 +1107,14 @@ export function registerIpcHandlers(context: IpcContext): void {
         case 'bitwarden-json':
           return { format: 'bitwarden-json', ...scope };
         case 'keyhold-parcel':
+        case 'kdbx':
           // Refused twice already -- by the validator, and by the registry cross-check.
           // Thrown rather than sealed under an empty passphrase, because that would be a
           // file that looks encrypted and is not, and "unreachable" is a claim that expires.
-          throw new IpcValidationError(CHANNELS.exportRun, 'a parcel requires a passphrase');
+          throw new IpcValidationError(
+            CHANNELS.exportRun,
+            'an encrypted export requires a passphrase'
+          );
       }
     })();
 

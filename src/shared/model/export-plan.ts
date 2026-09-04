@@ -141,20 +141,28 @@ export interface PlaintextExportPlan {
 }
 
 /**
- * An export sealed in a KEEP container under its own passphrase.
+ * An export sealed under a passphrase of its own — a `.keepx` parcel, or a KeePass `.kdbx`.
+ *
+ * One shape for both, because from the dialog's point of view they are the same act: choose a
+ * scope, type a passphrase twice, get a file that is safe to send. What differs is what the
+ * file is, and that is `format`'s job.
+ *
+ * The union is written out rather than derived from the registry's `encrypted` flag, because
+ * a type cannot read a runtime array — and the main process cross-checks the two anyway, so a
+ * format added to one and not the other is refused rather than mis-handled.
  *
  * Named `secretPassphrase` per the naming rule, because it is secret material: it travels
  * renderer → main, which is the direction secrets are allowed to travel (the user typed
  * it), and it must never travel back, be logged, or appear in an error.
  */
-export interface ParcelExportPlan {
+export interface EncryptedExportPlan {
   readonly kind: 'encrypted';
-  readonly format: 'keyhold-parcel';
+  readonly format: 'keyhold-parcel' | 'kdbx';
   readonly scope: ExportScope;
   readonly secretPassphrase: string;
 }
 
-export type ExportPlan = PlaintextExportPlan | ParcelExportPlan;
+export type ExportPlan = PlaintextExportPlan | EncryptedExportPlan;
 
 // ── Preview ──────────────────────────────────────────────────────────────────
 

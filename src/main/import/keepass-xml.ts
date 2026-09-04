@@ -1,14 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { normaliseFolderPath } from '@shared/model/import.js';
 import { VaultError } from '../crypto/errors.js';
-import {
-  addCustom,
-  addNote,
-  addUrls,
-  finishDraft,
-  newDraft,
-  type DraftRecord,
-} from './mapping.js';
+import { addCustom, addNote, addUrls, finishDraft, newDraft, type DraftRecord } from './mapping.js';
 import type { ImportWarning } from '@shared/model/import.js';
 import type { ImportParser, ImportResult } from './types.js';
 import { child, childText, children, parseXml, type XmlElement } from './xml-reader.js';
@@ -198,6 +191,25 @@ function parse(content: string): ImportResult {
     }
   }
 
+  // Attachments, from either shape they arrive in: a plain XML export carries them inline as
+  // `<Binary>` elements on an entry, and a `.kdbx` carries them in its inner header — which
+  // `import-service/kdbx-source.ts` counts and passes on as a comment, because a comment is
+  // the one thing the reader skips and so the one thing that cannot be mistaken for data.
+  //
+  // Neither is imported. The importer creates records, not chunks, which is exactly the line
+  // the `.1pux` and `.keep` importers draw. What matters is that the user is *told*: somebody
+  // who imported a database and lost the PDF stapled to their insurance login should hear it
+  // from the import report, not discover it a year later.
+  const inlineBinaries = countInlineBinaries(root);
+  const declaredBinaries = countDeclaredBinaries(content);
+  const attachments = inlineBinaries + declaredBinaries;
+  if (attachments > 0) {
+    warnings.push({
+      kind: 'dropped-value',
+      message: `${String(attachments)} attached file(s) were not imported. Keep the original database if you need them.`,
+    });
+  }
+
   if (expiring > 0) {
     // Reported rather than mapped. `NewCredentialInput` does have an `expiresAt`, but
     // KeePass's expiry is a flag *plus* an `ExpiryTime`, and importing one already in the past
@@ -233,3 +245,37 @@ export const keepassXmlParser: ImportParser = {
   detect,
   parse,
 };
+
+/**
+ * `<Binary>` elements anywhere under the root, counted rather than read.
+ *
+ * Walked iteratively over the whole tree, including inside `History`, because an attachment
+ * on a superseded version is still a file the user had and still one this import will not
+ * carry. Counting it there costs nothing and understating the number would be the one
+ * mistake worth avoiding in a message whose whole job is to be honest about a loss.
+ */
+function countInlineBinaries(root: XmlElement): number {
+  let count = 0;
+  const queue: XmlElement[] = [root];
+
+  while (queue.length > 0) {
+    const node = queue.pop();
+    if (node === undefined) break;
+    if (node.name === 'Binary') count += 1;
+    queue.push(...node.children);
+  }
+
+  return count;
+}
+
+/**
+ * The count a `.kdbx` source declares, read out of the comment it appended.
+ *
+ * A comment rather than an element because `xml-reader.ts` skips comments — so it travels
+ * through the parse without becoming part of the schema either side has to agree about. Read
+ * from the raw text for the same reason: after parsing it is gone.
+ */
+function countDeclaredBinaries(content: string): number {
+  const found = /<!--\s*keyhold-kdbx-attachments:(\d+)\s*-->/.exec(content);
+  return found === null ? 0 : Number.parseInt(found[1] ?? '0', 10);
+}

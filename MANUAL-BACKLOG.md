@@ -208,6 +208,49 @@ Kept as a heading rather than deleted, like M3 above: the docs reference these b
 
 ---
 
+## 🟡 M-KDBX-INTEROP · Open a Keyhold-written `.kdbx` in real KeePassXC
+
+**Why it is amber rather than red:** nothing is blocked on it. KDBX 4 import and export are
+built, tested and shipped. This is the one claim about them that **no offline test can make**,
+and it should be checked before anybody is told the format is interoperable.
+
+**The gap, stated precisely.** Keyhold's reader and writer agree with each other, and a vault
+survives export → import through Keyhold's own KeePass reader — two halves written months apart
+for different reasons, neither adjusted to make the other pass. The cryptography is pinned to
+published vectors: ChaCha20 against RFC 8439's own test vectors, with an independent reference
+implementation in the test file so the assertion is not Node agreeing with itself.
+
+What none of that proves is the **schema**: that KeePass wants these element names, in this
+nesting, with times in this encoding. A round trip passes for any self-consistent
+implementation, including a wrong one. Only KeePassXC can settle it.
+
+**Steps.**
+
+1. Install KeePassXC if it is not already there (keepassxc.org, or `winget install
+KeePassXCTeam.KeePassXC`).
+2. In Keyhold, export a vault with a few records, at least one folder, at least one custom
+   field and at least one security question. Choose **KeePass database (KDBX 4)** and give it a
+   passphrase you will remember for the next step.
+3. Open the file in KeePassXC with that passphrase, and check four things:
+   - every record is there, in the right group;
+   - passwords are **hidden** in the entry list, not shown as plain text — that is the
+     `Protected="True"` attribute working;
+   - the created and modified dates look like real dates, **not the year 1** — a wrong date
+     means the timestamp encoding is KDBX 3's ISO string rather than KDBX 4's base64 uint64;
+   - custom fields carry their labels, and a secret one is shown as protected.
+4. In KeePassXC, create a small database of your own with an **attachment** on one entry, save
+   it as KDBX 4, and import it into Keyhold. The attachment must be **reported as not
+   imported** — that path counts attachments out of the inner header and is the one branch no
+   test in this repo can reach, because Keyhold's own writer never emits one.
+5. Tell me what you saw. If anything is wrong the fix is in `src/main/export/kdbx.ts` (the
+   schema) or `src/main/kdbx/` (the framing), and the failure you describe will say which.
+
+**One thing worth knowing.** If KeePassXC refuses the file outright rather than opening it
+wrongly, that is the better failure — it means the framing or the key chain is off, which is
+the half with the most test coverage and the easiest to bisect.
+
+---
+
 ## 🟡 M-PRIVACY · `PRIVACY.md` has gone stale in the under-claiming direction
 
 **Why it is amber rather than green:** `PRIVACY.md` is a published promise about behaviour, and

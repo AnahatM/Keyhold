@@ -134,6 +134,36 @@ describe('what it refuses to bring across', () => {
     expect(messages.some((message) => message.includes('expiring'))).toBe(true);
   });
 
+  it('reports an inline attachment rather than dropping it silently', () => {
+    // A plain XML export carries attachments inline as `<Binary>`. They are not imported —
+    // the importer creates records, not chunks, exactly as the `.1pux` and `.keep` importers
+    // do — so the whole job here is to say so.
+    const withFile = FIXTURE.replace(
+      '<Times>',
+      '<Binary><Key>notes.pdf</Key><Value>QUJD</Value></Binary><Times>'
+    );
+    const messages = keepassXmlParser
+      .parse(withFile)
+      .warnings.map((warning) => warning.message)
+      .join(' ');
+
+    expect(messages).toContain('1 attached file(s) were not imported');
+  });
+
+  it('reports the attachments a .kdbx declared, which live outside the XML', () => {
+    // A `.kdbx` keeps its attachments in the **inner header**, so nothing in the XML mentions
+    // them and this parser would have no way to know. `import-service/kdbx-source.ts` counts
+    // them and appends the count as an XML *comment* — the one thing `xml-reader.ts` skips,
+    // so it cannot be mistaken for data by anything that parses this.
+    const declared = `${FIXTURE}<!-- keyhold-kdbx-attachments:3 -->`;
+    const messages = keepassXmlParser
+      .parse(declared)
+      .warnings.map((warning) => warning.message)
+      .join(' ');
+
+    expect(messages).toContain('3 attached file(s) were not imported');
+  });
+
   it('reports a value the exporter withheld rather than importing a blank', () => {
     const withheld = FIXTURE.replace(
       '</Root>',

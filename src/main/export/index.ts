@@ -3,6 +3,7 @@ import type { VaultDocument } from '@shared/model/vault-document.js';
 import { EXPORT_FORMATS, findExportFormat } from './formats.js';
 import { exportCsv, type CsvExportOptions } from './csv.js';
 import { exportEncrypted, type EncryptedExportOptions } from './encrypted.js';
+import { exportKdbx, type KdbxExportOptions } from './kdbx.js';
 import { exportBitwardenJson, type BitwardenJsonOptions } from './bitwarden-json.js';
 import { exportCompatibleCsv, type CompatibleCsvOptions } from './generic-csv.js';
 import { exportKeyholdJson, type KeyholdJsonOptions } from './keyhold-json.js';
@@ -20,7 +21,8 @@ export type ExportRequest =
   | ({ readonly format: 'keyhold-json' } & KeyholdJsonOptions)
   | ({ readonly format: 'keyhold-csv' } & CsvExportOptions)
   | ({ readonly format: 'compatible-csv' } & CompatibleCsvOptions)
-  | ({ readonly format: 'bitwarden-json' } & BitwardenJsonOptions);
+  | ({ readonly format: 'bitwarden-json' } & BitwardenJsonOptions)
+  | ({ readonly format: 'kdbx' } & KdbxExportOptions);
 
 /**
  * Runs an export.
@@ -44,6 +46,8 @@ export async function runExport(
       return exportCompatibleCsv(document, request);
     case 'bitwarden-json':
       return exportBitwardenJson(document, request);
+    case 'kdbx':
+      return await exportKdbx(document, request);
   }
 }
 
@@ -54,6 +58,8 @@ export {
   type BitwardenJsonOptions,
 } from './bitwarden-json.js';
 export { exportCsv, KEYHOLD_CSV_COLUMNS, type CsvExportOptions } from './csv.js';
+export { KDBX_EXPORT_ID, serialiseKdbxXml } from './kdbx.js';
+export { exportKdbx, type KdbxExportOptions };
 export { exportEncrypted, type EncryptedExportOptions } from './encrypted.js';
 export {
   COMPATIBLE_CSV_COLUMNS,

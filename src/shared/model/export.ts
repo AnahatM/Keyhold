@@ -38,6 +38,9 @@ export const EXPORT_FORMAT_IDS = [
   /** The leaving-Keyhold path in Bitwarden's own JSON: keeps field types, folders and
    * multiple addresses, and re-imports into Bitwarden itself. */
   'bitwarden-json',
+  /** KeePass's own KDBX 4, encrypted under its own passphrase. The one every other client
+   * reads: KeePass, KeePassXC, KeePassium, KeeWeb, Strongbox and the mobile ports. */
+  'kdbx',
 ] as const;
 
 export type ExportFormatId = (typeof EXPORT_FORMAT_IDS)[number];

@@ -15,6 +15,10 @@ import type { ExportFormatDescriptor, ExportFormatId } from '@shared/model/expor
  * a plaintext dump of the whole vault at the top of the list would make the dangerous option
  * the obvious one. The lossless plaintext format comes next because it is the one that
  * actually preserves everything; the two CSVs are last, in the order of how much they lose.
+ *
+ * KDBX sits second, directly under the parcel, because it is the other encrypted option and
+ * the two belong together: whichever the user is after, neither writes a readable file. It is
+ * below the parcel rather than above it only because a parcel is lossless and this is not.
  */
 export const EXPORT_FORMATS: readonly ExportFormatDescriptor[] = [
   {
@@ -25,6 +29,15 @@ export const EXPORT_FORMATS: readonly ExportFormatDescriptor[] = [
       'The chosen records, sealed under a passphrase of their own. Safe to send or store.',
     encrypted: true,
     lossless: true,
+  },
+  {
+    id: 'kdbx',
+    name: 'KeePass database (KDBX 4)',
+    extension: '.kdbx',
+    description:
+      'KeePass’s own encrypted format, under a passphrase of its own. Opens in KeePassXC and every mobile client.',
+    encrypted: true,
+    lossless: false,
   },
   {
     id: 'keyhold-json',

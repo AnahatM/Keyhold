@@ -34,6 +34,15 @@ const WHOLE = { includeTrashed: false, recordIds: null } as const;
 
 const READABLE = ['keyhold-json', 'keyhold-csv', 'compatible-csv', 'bitwarden-json'] as const;
 
+/**
+ * The formats whose preview runs without writing bytes.
+ *
+ * Both of these have a branch of their own in `previewExport` that returns before the
+ * readable path, because both would otherwise have to run a key derivation — seconds of
+ * Argon2 — to answer a question the dialog asks on every render.
+ */
+const ENCRYPTED = ['keyhold-parcel', 'kdbx'] as const;
+
 function runReadable(format: (typeof READABLE)[number], includeTrashed: boolean) {
   const options = { now: NOW, includeTrashed };
   switch (format) {
@@ -54,7 +63,7 @@ describe('previewExport', () => {
   it('covers every format in the registry', () => {
     // Not a formality: a format with no preview branch would throw on the dialog's first
     // render, and the only place that shows up is here.
-    expect(new Set<ExportFormatId>([...READABLE, 'keyhold-parcel'])).toEqual(
+    expect(new Set<ExportFormatId>([...READABLE, ...ENCRYPTED])).toEqual(
       new Set(EXPORT_FORMAT_IDS)
     );
   });
