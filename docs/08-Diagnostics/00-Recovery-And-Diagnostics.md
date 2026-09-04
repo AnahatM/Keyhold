@@ -4,10 +4,10 @@
 > what is still wrong after it opens, and a shareable report that carries no user content.
 > Current reference. Implemented by `src/main/recovery/` and `src/shared/model/recovery.ts`.
 >
-> **Status: every analysis is built and tested — 140 tests. Nothing a user can reach
-> exists.** There is no `kh:recovery:*` channel in `CHANNELS`, no diagnostics screen, and no
-> caller that lists a directory and feeds it in. There is also, deliberately and permanently,
-> **no code anywhere that executes a repair plan.** See §9.
+> **Status: shipped and reachable.** "Diagnose a vault" is a tool view in the sidebar, three
+> `kh:recovery:*` channels carry it, and `diagnose.ts` is the caller that reads the folder and
+> feeds the analyses. There is also, deliberately and permanently, **no code anywhere that
+> executes a repair plan.** See §1 and §9.
 
 ---
 
@@ -348,41 +348,108 @@ two runs over one vault are directly comparable.
 
 ---
 
-## 9. Not built yet
+## 9. How it reaches the user
 
-- **The IPC channel.** There is no `kh:recovery:*` entry in `CHANNELS`
-  (`src/shared/ipc/api.ts`).
-- **The diagnostics screen.** Nothing renders `RecoveryReport`, and nothing calls
-  `renderRecoveryReport` outside the tests.
-- **The caller that gathers the inputs.** Every function here is pure and takes what it needs:
-  bytes for the inspection, a directory listing for the survey, a decrypted document and a
-  chunk list for the diagnosis. Nothing performs the `readdir`, reads the backups, or supplies
-  the chunk list, so today a real diagnosis would always report the attachment reconciliation
-  as skipped.
-- **A repair executor — and this one is never coming.** See §1. If a repair is ever offered,
-  it belongs in the module that owns the data (`credential-ops`, `folder-ops`,
-  `attachments`), invoked per-action by an explicit user choice, and not as "apply this plan".
-- **A "copy the file to safety" helper.** Step 1 of every plan is a proposal in words; there
-  is no code that performs it.
+Everything in §1–§8 was finished, tested and callable from nothing for two phases. This section
+is what closed that, and the gap had exactly the shape `CLAUDE.md` warns about: pure functions
+that each take precisely what they need, and no caller performing the `readdir` that would give
+them anything to work on.
+
+### The caller
+
+`src/main/recovery/diagnose.ts` is the one place here that touches the filesystem. It reads the
+vault **first and separately** — a folder that cannot be listed must not stop the file the user
+actually asked about from being inspected — then walks the folder: skipping directories,
+skipping a neighbour whose `stat` fails, and listing anything past 256 MB without reading it,
+because a 4 GB file beside the vault is not a vault and reading it to find that out would hang
+the dialog.
+
+Every one of those is a `catch` that exists so **the report arrives**. This runs when somebody
+is already in trouble and has no other tool to reach for; a diagnostic that throws on a missing
+file has failed at its one job. `diagnose.test.ts` covers them, and records the two branches it
+cannot reach from outside rather than implying it does.
+
+### The three channels
+
+| Channel                     | Does                                                                        |
+| --------------------------- | --------------------------------------------------------------------------- |
+| `kh:recovery:diagnose`      | Diagnoses the **open** vault, using its own path and its decrypted document |
+| `kh:recovery:diagnose-file` | Opens a file dialog in main and diagnoses whatever was picked               |
+| `kh:recovery:save-report`   | Writes the last report to a file the user names                             |
+
+**Neither diagnose channel takes a path.** One uses the open vault's; the other opens the dialog
+in the main process. A path travelling renderer → main would be attacker-controlled if the
+renderer were ever compromised, which is the same rule the import, export and attachment dialogs
+follow.
+
+`diagnose-file` deliberately passes **no document**: the file the user picked is almost certainly
+not the one that is open, and diagnosing one file's container against another's contents would
+produce a report that is wrong in a way nobody could see.
+
+### The report is held in main, not handed back
+
+`save-report` takes no argument. The last report this process produced is kept in `register.ts`
+and rendered there.
+
+The alternative — accepting the report back from the renderer and writing that — would mean
+validating a large nested structure at the boundary and then writing renderer-supplied text into
+a file the user believes Keyhold wrote. Holding it is smaller, needs no validator, and makes the
+saved file **necessarily** the one that was shown.
+
+Two obligations follow, and both are tested in `src/main/ipc/recovery-report.test.ts`:
+
+- **Saving before diagnosing is refused**, before a dialog is opened. A save dialog for a file
+  that cannot be written is worse than the refusal, because the user picks a name first.
+- **The held report is dropped on lock.** It describes the vault that was open — its size, its
+  structural problems, its container — and keeping it past a lock would leave a profile of that
+  vault in main-process memory after the event whose entire meaning is that nothing
+  vault-derived still is. The same obligation the breach client's range cache has.
+
+### The screen
+
+`DiagnosticsView` is the `diagnostics` tool view: an explainer, three buttons, and the report. It
+is reachable **while the vault is locked**, which is the whole point — "my vault will not open"
+is the case this feature exists for, and a tool you could only reach after unlocking would be
+useless for it.
+
+The smoke run drives it end to end: it clicks the sidebar row, presses **Diagnose this vault**,
+and asserts a rendered report comes back (`diagnostics-report-is-rendered`). Two named
+screenshots are captured from it, and each capture asserts its subject is on screen — because
+four screenshots in this repository once drifted onto the wrong one.
+
+### Still not built, and one that never will be
+
+- **A repair executor — never coming.** See §1. If a repair is ever offered it belongs in the
+  module that owns the data (`credential-ops`, `folder-ops`, `attachments`), invoked per-action
+  by an explicit user choice, and not as "apply this plan".
+- **A "copy the file to safety" helper.** Step 1 of every plan is a proposal in words; there is
+  no code that performs it.
 - **`quarantineOrphanedTemp`'s infix as a shared constant.** `survey.ts` restates
   `'.recovered-'` because `atomic-write.ts` builds it inline and does not export it. A guard
-  test pins the string; the fix is to export the constant there, and it is recorded rather
-  than made because that file is not this module's to edit.
+  test pins the string; the fix is to export the constant there, and it is recorded rather than
+  made because that file is not this module's to edit.
 
 ---
 
 ## 10. Tests
 
-140 in `src/main/recovery/`.
+In `src/main/recovery/`. No total is written here on purpose: a count in prose is true the day
+it is typed and silently false the next time a case lands, with nothing that fails when it
+drifts. Run `npx vitest run src/main/recovery` for the current number. What is worth stating is
+_what_ each file covers, which changes only when somebody decides it should.
 
-| File                         | Tests | Covers                                                                                                                  |
-| ---------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------- |
-| `file-inspection.test.ts`    | 32    | Every stage boundary, with damaged containers built in memory from a real one                                           |
-| `document-diagnosis.test.ts` | 26    | The seven document codes, delegation to the organisation and attachment checkers, and the "nothing is repaired" half    |
-| `report.test.ts`             | 24    | The marker sweep over every user string, name, title and directory · that the checklist names what ran and what did not |
-| `repair-plan.test.ts`        | 21    | The ordering, the `cannotRecover` and `reversible` flags, and the `unrecoverable` statements                            |
-| `survey.test.ts`             | 19    | Classification, case-insensitivity, the ranking tiers, and the standing temp-file note                                  |
-| `text.test.ts`               | 18    | Digit grouping without a locale, the detail cap, and the unknown-token redaction                                        |
+| File                         | Covers                                                                                                                  |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `file-inspection.test.ts`    | Every stage boundary, with damaged containers built in memory from a real one                                           |
+| `document-diagnosis.test.ts` | The seven document codes, delegation to the organisation and attachment checkers, and the "nothing is repaired" half    |
+| `report.test.ts`             | The marker sweep over every user string, name, title and directory · that the checklist names what ran and what did not |
+| `repair-plan.test.ts`        | The ordering, the `cannotRecover` and `reversible` flags, and the `unrecoverable` statements                            |
+| `survey.test.ts`             | Classification, case-insensitivity, the ranking tiers, and the standing temp-file note                                  |
+| `text.test.ts`               | Digit grouping without a locale, the detail cap, and the unknown-token redaction                                        |
+| `diagnose.test.ts`           | The folder walk: a missing vault, a file that is not one, directories beside it, a path naming nothing                  |
+
+Outside the directory, `src/main/ipc/recovery-report.test.ts` covers the save channel's two
+refusals — nothing diagnosed, and the report dropped on lock.
 
 ---
 

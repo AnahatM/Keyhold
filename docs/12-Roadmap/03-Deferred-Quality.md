@@ -61,21 +61,16 @@ the second half is what makes an entry worth doing later rather than deleting.
 
 ## Owed documentation
 
-- [ ] `docs/03-Data-Model/00-Credential-Model.md` — says nothing about record types or field
-      templates. It states a custom-field-type count that **is** guarded; the new record-type
-      count is not stated anywhere and must not be until it is.
+_Empty._ Two of the five entries that were here turned out to be **stale rather than owed**,
+which is worth recording: `docs/05-Features/` did have a one-time-codes page (`05-TOTP.md`) and
+`docs/09-Import-Export/03-KDBX.md` did document the `openVault` route — both had been written
+and the ledger entry never removed. A third was wrong in its premise: the breach panel
+introduces no `--kh-breach-*` token at all, because it is built entirely from the existing
+scale, which is the design system working rather than a gap.
 
-- [ ] `docs/08-Diagnostics/00-Recovery-And-Diagnostics.md` — predates the feature being
-      reachable. Needs the three channels, the tool view, and the "held in main rather than
-      accepted back from the renderer" decision.
-
-- [ ] `docs/05-Features/` — no page for one-time codes at all. The engine, the channel, the
-      field and the separate rate-limit key are undocumented.
-
-- [ ] `docs/09-Import-Export/03-KDBX.md` — written, but the import-service section does not
-      mention the `.kdbx` route through `openVault`, only the parser side.
-- [ ] `docs/06-UI-Design-System/` — the breach panel's tokens and the `--kh-breach-*` classes
-      are undocumented.
+The lesson is the one this file already states about itself — **it is a queue, not a record.**
+An entry that stays after the work is done costs a later reader the time it takes to discover
+that, and quietly overstates how much is outstanding.
 
 ## Owed guards
 

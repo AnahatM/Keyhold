@@ -11,7 +11,7 @@
 ```
 Credential
 ├── id                 UUID v4 from the platform CSPRNG (`crypto.randomUUID`)
-├── type               'login' (v1; the discriminator exists for the backlog's item types)
+├── type               one of CREDENTIAL_TYPES — see "A record type is a template" below
 ├── title, favorite, folderId, tags[], icon
 ├── fields
 │   ├── username, email                    non-secret
@@ -26,6 +26,30 @@ Credential
 ├── history            enabled · maxVersions · versions[]
 └── trashedAt          soft delete, and the sync tombstone
 ```
+
+### A record type is a template, not a storage shape
+
+`CREDENTIAL_TYPES` — logins, cards, notes, identities, bank details, Wi-Fi networks, SSH keys,
+API keys, licences and memberships. The count is deliberately not written here: nothing guards
+a number in this sentence, and hard rule 9 says a number in prose gets a test that parses it
+back out. Read the constant.
+
+**A type changes which fields a new record starts with and nothing else.** Every record has the
+same shape above whatever its type; a card is a `Credential` whose custom fields were
+pre-populated from a template, and the storage, the history, the merge and the search treat it
+identically to a login. That is why adding a type is additive and needed no `documentVersion`
+bump: an older build reading a `card` sees a record with an unfamiliar `type` string and a
+perfectly ordinary set of fields.
+
+**And a type never changes what is secret.** `SECRET_CUSTOM_FIELD_TYPES` decides that by _field_
+type, so a card's security code is protected because it is a `pin` — not because it sits inside
+something called a card. A classification that depended on the record's type would be one
+mislabelled record away from putting a security code in the safe projection. See §2.
+
+Changing an existing record's type **appends** the new template's missing fields and leaves
+everything already typed in place. Nothing is dropped: a value the user entered is theirs, and a
+type picker that silently discarded it would be the worst kind of destructive control — one that
+looks like a display preference.
 
 ### Ids are v4, and carry no order
 

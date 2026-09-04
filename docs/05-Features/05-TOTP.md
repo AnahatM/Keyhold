@@ -4,9 +4,11 @@
 > process, with `now` as a parameter everywhere. Current reference. Implemented by
 > `src/main/totp/` and `src/shared/model/totp.ts`.
 >
-> **Status: the engine is built and tested — 151 tests, including the published RFC 4226 and
-> RFC 6238 vectors for all three algorithms. Nothing a user can reach exists.** There is no
-> `kh:totp:*` channel in `CHANNELS`, no code display, and no countdown ring. See §8.
+> **Status: shipped and reachable.** The engine is proved against the published RFC 4226 and
+> RFC 6238 vectors for all three algorithms; `kh:totp:code` carries it, `TotpField` shows six
+> digits with a countdown ring, and copying goes through the same broker as a password. What is
+> still missing is **enrolment** — there is no way in the app to add a seed except by pasting
+> one into a custom field, or importing it. See §8.
 
 ---
 
@@ -296,17 +298,38 @@ assumption, not a fact read from the record. `totpSecretCodeFromField` and
 `src/main/export/generic-csv.ts` already hoists the first `otp-secret` field back into
 Bitwarden's `login_totp` column, so the round trip out is closed too.
 
+### How it reaches the user
+
+`kh:totp:code` takes a credential id and a field id and answers with a `TotpCodeView`: six
+digits, an absolute expiry, the period, the digit count, the issuer, and whether the URI's label
+and its `issuer` parameter disagreed. **The seed is not in that shape and never crosses.**
+
+`VaultService.totpCode` is where the seed's life begins and ends. It parses the field,
+generates, and destroys the key in a `finally` — including on the error path, which is the one
+where a leaked key matters most. Three refusals are worth naming, and all three are tested in
+`src/main/vault/totp-code.test.ts`:
+
+- **A field of the wrong type answers `null`**, and so does a field that does not exist — the
+  _same_ `null`. A caller able to tell those apart could enumerate the field types on a record
+  without ever being granted a value.
+- **`expiresAt` is the end of the window the code belongs to**, not `now` plus a period. The
+  ring on screen is drawn from it; an offset deadline empties while the code is still good.
+- **A locked vault answers nothing at all**, because `#requireOpen` runs first.
+
+**The code is rate-limited under its own key.** `refKey` puts `ref.kind` in the key, so
+`totp-code` and `custom-value` on the _same field_ are two different secrets: copying a code
+every thirty seconds cannot exhaust the grants that would let the same person reveal the seed,
+and the reverse holds too.
+
+`TotpField` renders it, refreshes itself as the window turns, marks the last five seconds as
+expiring, and copies **through the broker** — the same rate limit and the same clipboard
+auto-clear as a revealed password, rather than a second path with its own rules.
+
 ### Not built yet
 
-- **The IPC channel.** No `kh:totp:*` entry in `CHANNELS`. `totpSecretCodeFromField` is
-  written to be the handler's entry point — one field value in, one code and its absolute
-  expiry out, no key material outliving the call — and there is no handler.
-- **The code display and countdown ring.** `TotpWindow`, `totpRemainingMs` and `totpProgress`
-  are shaped for it and nothing renders them.
-- **Copying a code**, which should go through the same broker, rate limit and clipboard rules
-  as a revealed password.
-- **An enrolment UI** — pasting a URI, scanning a QR code, or entering a seed by hand. There
-  is no QR decoder in the project and adding one is a dependency decision, not an oversight.
+- **An enrolment UI** — pasting a URI, scanning a QR code, or entering a seed by hand. Today a
+  seed arrives by import, or by pasting it into an `otp-secret` custom field. There is no QR
+  decoder in the project and adding one is a dependency decision, not an oversight.
 - **`buildOtpauthSecretUri` has no caller.** The writer exists and round-trips against the
   parser in the tests; nothing offers the user a URI or a QR code to move an account
   elsewhere.
@@ -323,15 +346,26 @@ Bitwarden's `login_totp` column, so the round trip out is closed too.
 
 ## 9. Tests
 
-151 in `src/main/totp/`.
+In `src/main/totp/`. No total is written here on purpose: a count in prose is true the day it is
+typed and silently false the next time a case lands. Run `npx vitest run src/main/totp` for the
+current number.
 
-| File                   | Tests | Covers                                                                                                                                                                      |
-| ---------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `base32.test.ts`       | 56    | The RFC 4648 §10 vectors · every accepted spelling · every rejection, including the `0`/`O` case that proves a "helpful" repair yields the wrong key · the no-echo property |
-| `uri.test.ts`          | 48    | Every variation that turns up in the wild · the issuer conflict and the mismatch flag · the HOTP refusal · round-tripping through the writer                                |
-| `totp.test.ts`         | 27    | RFC 4226 Appendix D · RFC 6238 Appendix B for all three algorithms · the period boundary · the skew window and the reported step                                            |
-| `errors.test.ts`       | 13    | That no message contains any part of its input, and that a position is the only thing that gets through                                                                     |
-| `secret-field.test.ts` | 7     | Both stored forms, the reported source, and that the key is destroyed on both paths                                                                                         |
+| File                   | Covers                                                                                                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `base32.test.ts`       | The RFC 4648 §10 vectors · every accepted spelling · every rejection, including the `0`/`O` case that proves a "helpful" repair yields the wrong key · the no-echo property |
+| `uri.test.ts`          | Every variation that turns up in the wild · the issuer conflict and the mismatch flag · the HOTP refusal · round-tripping through the writer                                |
+| `totp.test.ts`         | RFC 4226 Appendix D · RFC 6238 Appendix B for all three algorithms · the period boundary · the skew window and the reported step                                            |
+| `errors.test.ts`       | That no message contains any part of its input, and that a position is the only thing that gets through                                                                     |
+| `secret-field.test.ts` | Both stored forms, the reported source, and that the key is destroyed on both paths                                                                                         |
+| `totp-ipc.test.ts`     | The seam the vault method sits on: a stored field value in, a code and a window out                                                                                         |
+
+Outside the directory:
+
+| File                                | Covers                                                                                                                                                                                    |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/main/vault/totp-code.test.ts`  | The vault method: the honest `expiresAt`, the identical `null` for a missing and a wrong-type field, the separate rate-limit key, and that no field of the returned view carries the seed |
+| `src/shared/ipc/validation.test.ts` | The `totp-code` secret-ref shape, accepted and refused                                                                                                                                    |
+| `src/main/smoke.ts`                 | `totp-code-is-rendered` — six digits on screen in the running app, from a real vault                                                                                                      |
 
 ---
 

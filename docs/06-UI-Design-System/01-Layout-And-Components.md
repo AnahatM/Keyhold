@@ -184,6 +184,26 @@ dashboard, where the whole point is flagging problems:
 - A selected accent swatch gets a ring **and** a size change.
 - Segmented options carry `aria-pressed` **and** a fill **and** a weight change.
 
+### The breach panel adds no tokens, which is the design system working
+
+`breach.css` was worth checking for exactly this reason, and it introduces **no `--kh-breach-*`
+token at all**. Every value in it is an existing one: `--kh-color-surface`, `--kh-color-border`,
+the `--kh-space-*` scale, the `--kh-text-*` ramp, `--kh-edge`. A panel that needed its own
+palette would be a panel the tokens did not cover, and a token invented for one screen is the
+beginning of a second theme nobody can switch.
+
+The two count states are the only colour it uses semantically, and they follow the rule above
+rather than breaking it:
+
+| Class                        | Colour                    | Never alone, because                                                                          |
+| ---------------------------- | ------------------------- | --------------------------------------------------------------------------------------------- |
+| `.kh-breach__count--bad`     | `--kh-color-danger-text`  | It sits under the literal label **Found in a breach**, and the headline says so in a sentence |
+| `.kh-breach__count--unknown` | `--kh-color-warning-text` | Under **Could not check**, with an explaining note beneath the counts                         |
+
+`unknown` is amber rather than red on purpose. A record that could not be reached is not a
+record that is compromised, and colouring the two the same way would say it was — the same
+conflation `BreachStatus` has three values instead of two to prevent.
+
 ### Every view has three states
 
 `EmptyState`, `LoadingState` and `ErrorState` live in one file because they are one
