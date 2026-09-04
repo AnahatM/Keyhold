@@ -379,9 +379,19 @@ and the activity-log entry. Full notes: `docs/09-Import-Export/00-Import-Formats
       `"folders"`), which Enpass and Proton Pass both satisfy — an Enpass export was being
       auto-detected as Bitwarden and imported as untitled records whose every field was
       called "Field". Now narrowed to a Bitwarden-only key
-- [ ] KDBX 3/4 — **blocked on `kdbxweb`, which is not installed** (MANUAL-BACKLOG M-KDBX)
-- [ ] KeePass XML — needs an XML parser, which is a dependency decision. KeePass **CSV** is
-      already supported and is the path most KeePass users take
+- [ ] KDBX **4** — **D32**: not blocked and never was. Every primitive it needs is already
+      here (Argon2id in `crypto/kdf.ts`, AES-256-CBC, ChaCha20 and HMAC-SHA256 in Node,
+      gzip in `node:zlib`, the inner XML in `xml-reader.ts`), so `kdbxweb` would have bought
+      only the schema mapping — the part that has to be written and tested here regardless.
+      M-KDBX is withdrawn. **KDBX 3 is decided against**, not deferred: its inner values use
+      Salsa20, which Node does not provide, and a `.kdbx` that is version 3 is refused by
+      name with the advice to re-save it as a 4
+- [x] KeePass XML — **D31**: read with `xml-reader.ts`, a restricted reader of our own that
+      refuses `DOCTYPE`, external entities and unbounded nesting outright, rather than an XML
+      dependency in the path of an untrusted file. Carries what the CSV drops: the group tree,
+      every custom string, and the TOTP settings. The database's own root group is not turned
+      into a folder, an entry's `History` is not walked, and the recycle bin is skipped —
+      each with its own case and its injection recorded
 - [x] Keyhold's own `.keep`/`.keepx` as an import source — **D30**: a `.keep` is a Keyhold
       JSON document in a different envelope, so importing one decrypts the container in main,
       re-serialises, and hands it to the parser that already exists. One record-mapping, no
@@ -755,14 +765,88 @@ library whatever is easier". A library would be a new dependency, so the set is 
 
 ## Cross-cutting rules — apply in every phase
 
-- [ ] **No hardcoded values.** Colours are tokens; tunables live in one config module; magic numbers get names.
-- [ ] **No `Math.random()` anywhere near a secret.** CSPRNG only.
-- [ ] **No secret in a log, an error message, a URL, or a crash report.** Ever.
-- [ ] **No second list.** If a system wants its own copy of "the views" or "the formats", fold it into the existing source of truth.
-- [ ] **Ship the guard with the system** — a theme gets a contrast test, a registry gets a uniqueness test, a number written in prose gets a test that parses it back out.
-- [ ] **Update the system's doc in the same pass as its code.** A stale doc is worse than no doc.
-- [ ] **Commit per completed slice**, staged by explicit path — never `git add -A`.
-- [ ] **Files stay short and single-purpose.** Split by concern before a file becomes unpleasant.
+These sat here as eight unticked checkboxes for the life of the project, and the tick was never
+coming, because **a rule is not a deliverable.** They have been split into the three things they
+actually were: rules a machine now enforces, one rule that was measured and deliberately left
+unenforced, and process that has no finished state at all.
+
+### Enforced — and here the tick is the guard, not the rule
+
+A tick means _the build fails when this is broken_. The rule itself is permanent; the guard is
+the thing that was built, and the guard is what the checkbox refers to.
+
+- [x] **No hardcoded colours.** `tools/no-hardcoded-colours.test.ts` reads every `.ts`, `.tsx`
+      and `.css` file under `src/` and fails on a colour literal outside the six files entitled
+      to hold one; `tools/css-tokens-resolve.test.ts` fails on a `var(--kh-…)` that resolves to
+      nothing, which is the silent half — an unresolved custom property drops the declaration
+      and still renders
+- [x] **No `Math.random()` anywhere near a secret.** `eslint.config.js` bans `Math.random`
+      outright through `no-restricted-properties`, across every zone, switched off only in test
+      files. A CSPRNG mistake fails `npm run lint` rather than waiting for review
+- [x] **No secret in a log, an error message, a URL, or a crash report.**
+      `tools/no-secret-in-a-log.test.ts` fails any `console.*` call, thrown `Error`, or
+      URL-building line whose **identifiers** carry `secret`, `password`, `passphrase`,
+      `plaintext`, `dek` or `kek`. Quoted prose is stripped before matching, so naming the word
+      in a message is free and interpolating the value is not. It is a naming check, not a taint
+      analysis, and the file's header states exactly what it cannot see
+- [x] **Files stay short and single-purpose.** `tools/file-length.test.ts` caps a file at **500
+      code lines** — non-blank, non-comment, so the long explanatory headers this repo runs on
+      are never what pushes a file over the line. Sixteen files exceed it today and each is
+      allow-listed with a reason; entries that are debt rather than justification say so, and a
+      second test fails when a listed file stops exceeding the ceiling, so the list has to
+      shrink as the code improves
+
+### Measured, then deliberately not guarded
+
+**Tunables live in one config module; magic numbers get names.** This is the unguarded half of
+the old "no hardcoded values" line, and it stays a practice rather than becoming a test. A
+magic-number guard was built and measured against this codebase before being rejected on its own
+numbers: **624** candidate literals across 110 files raw, and **142** across 34 files after
+excluding radices, byte widths, unit factors, commented lines and fixtures — of which, on
+inspection, **none** was a genuine magic number. They are WCAG's sRGB coefficients in
+`contrast.ts`, PNG and ZIP magic bytes in `sniff.ts` and `zip-reader.ts`,
+`{ value: 30, label: '30 minutes' }` rows in `settings-copy.ts` where the number sits beside its
+own label, and settle delays in `smoke.ts`. A narrower variant looking for the same literal in
+three or more files — the duplicated-tunable shape the rule actually points at — found ten
+values across 77 sites, and every one was a numeric coincidence: `30` is a TOTP period, a
+trash-retention default, an entropy floor and a dropdown label, all at once.
+
+A guard with a zero true-positive rate gets muted in its first week, and a muted guard is worse
+than no guard, because it makes the rule look covered. Recorded here so nobody builds it twice.
+
+### Standing rules — not deliverables, and not tickable
+
+No checkboxes below, because there is no state in which any of them is done. They are conditions
+on how work happens here; a tick could only ever mean "so far", which is what the phase sections
+above already record.
+
+**No second list.** One route table, one format registry, one token file. It cannot be guarded in
+general — nothing can distinguish a duplicated list from two lists that merely resemble each
+other — but it is guarded case by case each time a list is made, which is the enforceable form of
+it: `tools/alias-parity.test.ts` binds the path aliases in `electron.vite.config.ts` to every
+`tsconfig`, `tools/css-tokens-resolve.test.ts` asserts that the CSS sweep reads `COLOUR_TOKENS`
+itself rather than a copy of it, and `tools/doc-counts.test.ts` parses counts back out of prose
+so a documented number cannot drift from the registry it describes. The actionable form of this
+rule is the next one.
+
+**Ship the guard with the system.** A theme gets a contrast test, a registry gets a uniqueness
+test, a number written in prose gets a test that parses it back out, a list gets a test binding
+its consumers to it. This is the rule that produced every guard named on this page, and it is
+process by nature: it applies to the next system, always.
+[`../11-Development/01-Testing-Policy.md`](../11-Development/01-Testing-Policy.md) carries the
+standard a guard has to meet — above all that it is fault-injected with the exact defect it
+claims to catch before anyone is allowed to trust it.
+
+**Update the system's doc in the same pass as its code.** Partially guarded, and only partially:
+`tools/doc-paths.test.ts` fails on a path the docs cite that does not exist, and
+`tools/doc-counts.test.ts` fails when a count stated in prose stops matching the code behind it.
+Neither can tell whether a paragraph is still _true_, which is most of what staleness is. The
+remainder is habit, and the phase sections are where it shows.
+
+**Commit per completed slice, staged by explicit path — never `git add -A`.** Pure process, and
+unguardable from inside the repo by construction: the commit is made once the working tree is
+already what it should be, so nothing in the tree can check it. It lives in `CLAUDE.md`, which is
+the right place for it.
 
 ---
 
