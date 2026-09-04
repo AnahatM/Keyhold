@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Credential } from '@shared/model/credential.js';
 import { bareRecord, buildDocument } from '../export/test-fixtures.js';
 import type { BreachCheckInput, BreachRunSummary } from './client.js';
+import { PwnedPasswordsClient } from './client.js';
 import { sweepVaultForBreaches, type BreachSweepClient } from './sweep.js';
 
 /**
@@ -152,6 +153,52 @@ describe('the report it produces', () => {
     expect(serialised).not.toContain('correct-horse-battery-staple');
     expect(serialised).not.toContain('24230577');
     expect(report.results[0]?.band).toBe('severe');
+  });
+
+  /**
+   * The abort path, end to end, through the real client.
+   *
+   * The check above proves only that the signal is handed over — which is what the ledger
+   * called out as insufficient, and it was right: a sweep that passed the signal to a client
+   * that ignored it would satisfy it completely. What matters to a user is the *report*, and
+   * specifically that a run they stopped does not come back reading like a clean one.
+   *
+   * So this uses `PwnedPasswordsClient` itself with a fake transport, and asserts the three
+   * things that would each be a lie on their own: the reason is `cancelled` and not `offline`
+   * or `timeout`; the headline refuses to claim a clean result; and no record is reported as
+   * `safe` on the strength of an answer that never arrived.
+   */
+  it('reports a cancelled run as cancelled, all the way out to the report', async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    const client = new PwnedPasswordsClient({
+      // Booby-trapped rather than merely unused: if cancellation stopped working, this says so
+      // loudly here instead of letting the assertions below fail for an unrelated reason.
+      transport: {
+        fetchRange: () => {
+          throw new Error('a cancelled sweep must not reach the transport');
+        },
+      },
+      requestIntervalMs: 0,
+    });
+
+    const report = await sweepVaultForBreaches({
+      document: documentOf([
+        bareRecord({ id: 'a', title: 'A', password: 'password' }),
+        bareRecord({ id: 'b', title: 'B', password: 'hunter2' }),
+      ]),
+      client,
+      now: NOW,
+      signal: controller.signal,
+    });
+
+    expect(report.incompleteReason).toBe('cancelled');
+    expect(report.requestCount).toBe(0);
+    // The number that must never be inflated by a run that did not happen.
+    expect(report.safeCount).toBe(0);
+    expect(report.breachedCount).toBe(0);
+    expect(report.unknownCount).toBe(2);
   });
 
   it('passes the abort signal through, so a slow sweep can be cancelled', async () => {
