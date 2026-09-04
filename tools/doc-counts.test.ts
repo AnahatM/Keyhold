@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CUSTOM_FIELD_TYPES } from '../src/shared/model/credential.js';
 import { HEALTH_RULE_IDS } from '../src/shared/model/health.js';
+import { EXPORT_FORMAT_IDS } from '../src/shared/model/export.js';
 import { PARSERS } from '../src/main/import/index.js';
 
 /**
@@ -113,6 +114,24 @@ describe('counts stated in prose', () => {
   it("the import doc's parser count matches the registry", () => {
     expectCount('docs/09-Import-Export/00-Import-Formats.md', 'parsers,', PARSERS.length);
     expectCount('docs/09-Import-Export/_INDEX.md', 'parsers,', PARSERS.length);
+  });
+
+  /**
+   * The README is the one document most people read and the one least likely to be revisited
+   * when a registry grows. It said "eighteen formats" for as long as there were nineteen.
+   */
+  it("the README's import-format count matches the registry", () => {
+    // "import formats:" rather than "formats:" — the export line a few bullets down says
+    // "six export formats:", and a suffix that matched both made one count fail the other.
+    expectCount('README.md', 'import formats:', PARSERS.length);
+  });
+
+  it("the README's export-format count matches the registry", () => {
+    expectCount('README.md', 'export formats:', EXPORT_FORMAT_IDS.length);
+  });
+
+  it("the README's health-rule count matches the registry", () => {
+    expectCount('README.md', 'rules, eight of them on by default', HEALTH_RULE_IDS.length);
   });
 
   it("the testing policy's import-format count matches the registry", () => {

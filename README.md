@@ -13,7 +13,7 @@
 [![Electron](https://img.shields.io/badge/Electron-44-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev)
-[![Platform](https://img.shields.io/badge/Platform-Windows_%7C_macOS-0078d4?style=flat-square&logo=windows&logoColor=white)](#)
+[![Platform](https://img.shields.io/badge/Platform-Windows_%C2%B7_macOS_%C2%B7_Linux-0078d4?style=flat-square&logo=windows&logoColor=white)](#download)
 [![License](https://img.shields.io/badge/License-GPL--3.0-blue?style=flat-square)](LICENSE)
 
 [![Portfolio](https://img.shields.io/badge/Portfolio-anahatmudgal.com-796eb3?style=flat-square&logo=googlechrome&logoColor=white)](https://anahatmudgal.com)
@@ -26,13 +26,63 @@
 
 ---
 
+| ![A credential's version history, with the device each change came from](docs/images/Keyhold-Screenshot-03.png) |
+| :-------------------------------------------------------------------------------------------------------------: |
+|   Version history — what changed, when, and which machine changed it. Any single field restorable on its own    |
+
+| ![The vault, with a cloud-folder warning](docs/images/Keyhold-Screenshot-01.png) | ![Two versions compared](docs/images/Keyhold-Screenshot-12.png) |
+| :------------------------------------------------------------------------------: | :-------------------------------------------------------------: |
+| The vault, and an unprompted warning that this file is in a folder Dropbox syncs |         Comparing any two points in a record's history          |
+
+|              ![The health dashboard](docs/images/Keyhold-Screenshot-07.png)               |     ![A one-time code](docs/images/Keyhold-Screenshot-16-totp.png)      |
+| :---------------------------------------------------------------------------------------: | :---------------------------------------------------------------------: |
+| The offline health check, with the arithmetic behind the score shown rather than asserted | One-time codes, generated here from a seed the interface never receives |
+
+|    ![The session activity log](docs/images/Keyhold-Screenshot-13.png)     | ![A diagnostics report](docs/images/Keyhold-Screenshot-18-diagnostics-report.png) |
+| :-----------------------------------------------------------------------: | :-------------------------------------------------------------------------------: |
+| What this session read, revealed and copied — cleared the moment you lock | Diagnosing a vault file without its password, in a report safe to attach to a bug |
+
+> Generated from the real app rather than hand-made:
+> `npm run build && node tools/smoke.mjs --shots docs/images`
+>
+> The smoke run seeds a deterministic vault, drives the interface by clicking real controls,
+> and captures every named view — and **each capture asserts that its subject is on screen at
+> the instant it is taken**. That check is not decoration: it found four files that had drifted
+> onto the wrong screen, one of which was in this README under a caption describing something
+> else entirely.
+
+---
+
 ## What is Keyhold?
 
-Keyhold keeps your credentials in a single encrypted file on your own disk. There is no account, no server, no sync service and no telemetry — the app makes exactly zero network requests, and the one exception planned (a breach check) is opt-in and off by default. You copy the file to another machine and it opens there, because the key comes from your master password and nothing else.
+Keyhold keeps your credentials in a single encrypted file on your own disk. There is no account, no server, no sync service and no telemetry — the app makes exactly zero network requests, and the single exception (a check against known breaches) is opt-in, off by default, and behind a second machine-wide switch. You copy the file to another machine and it opens there, because the key comes from your master password and nothing else.
 
 What it does that other free, local managers do not: **it records where every change came from.** Each edit stores which fields moved, what they held before, and — at a privacy level you choose — the device, the account and the network it happened from. That trail lives inside the encrypted body, so it travels with the vault and the file itself reveals none of it. Every entry in the timeline is a state you can restore, and restoring is itself recorded, so the one operation that rewrites a record is not the one the audit trail cannot see.
 
 It is free, GPL-3.0, and there is nothing to pay for and nothing to host.
+
+---
+
+## Download
+
+**Releases here carry the Windows build only.** macOS and Linux build from source, and that is
+a deliberate position rather than an oversight: there is no Mac on this project, and shipping an
+unsigned Mac build that Gatekeeper refuses to open would be worse than saying so. There is no
+native code anywhere in Keyhold, so building is one command and needs no toolchain beyond Node.
+
+| Platform    | How                                                                                                       |
+| ----------- | --------------------------------------------------------------------------------------------------------- |
+| **Windows** | [Download from Releases](https://github.com/AnahatM/Keyhold/releases) — an installer and a portable build |
+| **macOS**   | `npm install && npm run package:mac` — produces a DMG and a zip                                           |
+| **Linux**   | `npm install && npm run package:linux` — produces an AppImage, a `.deb` and an `.rpm`                     |
+
+Builds are **unsigned**, so your operating system will warn you the first time. What the warning
+says and how to get past it is in _Installing a downloaded build_ below — including why the
+project has decided not to buy a certificate.
+
+> The macOS and Linux branches of quick unlock, the network-name probe and the packaging
+> configuration are all written and have **never been run**. The first person to build on a Mac
+> is the first person to find out.
 
 ---
 
@@ -48,13 +98,13 @@ It is free, GPL-3.0, and there is nothing to pay for and nothing to host.
 
 - **Unlimited custom fields** — 13 types, reorderable, individually hidden, alongside usernames, emails, multiple URLs, security questions and notes. Notes are treated as secret, because people keep recovery codes in them.
 
-- **Import from the manager you are leaving** — eighteen formats: Bitwarden (CSV and JSON), LastPass, Chrome/Edge/Brave, Firefox, Safari, 1Password (CSV and the `.1pux` archive), Dashlane (CSV and JSON), NordPass, KeePass CSV, Proton Pass, Enpass, Keeper, RoboForm, Keyhold's own JSON export, and a generic CSV mapper for everything else. Nothing is dropped silently; anything that could not be carried is named.
+- **Import from the manager you are leaving** — nineteen import formats: Bitwarden (CSV and JSON), LastPass, Chrome/Edge/Brave, Firefox, Safari, 1Password (CSV and the `.1pux` archive), Dashlane (CSV and JSON), NordPass, KeePass (CSV and XML), Proton Pass, Enpass, Keeper, RoboForm, Keyhold's own JSON export, and a generic CSV mapper for everything else — plus KDBX 4, read directly. Nothing is dropped silently; anything that could not be carried is named.
 
 - **An import you can take back** — a dry run over the real parse, so what you approve is exactly what gets written; duplicate detection against your vault; a merge that fills empty fields and never removes a URL or moves a record out of the folder you filed it in; and an undo that refuses rather than swallowing an edit you made in the meantime.
 
-- **Export you can actually leave with** — lossless Keyhold JSON, a flat CSV, Bitwarden's exact column set for moving to another manager, and an encrypted `.keepx` parcel for sending. Spreadsheet formula injection is neutralised, and the cost of doing so is reported rather than hidden.
+- **Export you can actually leave with** — six export formats: lossless Keyhold JSON, a flat CSV, Bitwarden's exact column set, Bitwarden's own JSON, **KDBX 4 that opens in KeePassXC**, and an encrypted `.keepx` parcel for sending. Spreadsheet formula injection is neutralised, and the cost of doing so is reported rather than hidden. Three of the six have never been opened in the application they target, and the export screen says so on each of them rather than letting you find out later.
 
-- **An offline health check** — reuse (with the cluster, so you know _which_ records), weak, old, expiring, insecure `http://` URLs, likely duplicates. Scored with weights that are written down and arguable rather than opaque, and the report can never contain a password.
+- **An offline health check** — ten rules, eight of them on by default: reuse (with the cluster, so you know _which_ records), weak, old, expiring, expired, insecure `http://` URLs, likely duplicates and more. Scored with weights that are written down and arguable rather than opaque, and the report can never contain a password. Optionally, and only if you turn it on, the same screen will check your passwords against the Have I Been Pwned corpus — hashed here, with only the first five characters of each hash leaving the machine.
 
 - **A password generator with honest entropy** — random, passphrase over the real EFF wordlist, pronounceable and PIN. The entropy reported is computed from the alphabet that remains after your exclusions, and it is _charged_ for guaranteeing one character of each class rather than overstating it.
 
@@ -78,42 +128,19 @@ footnotes. This table is the same one in
 put here rather than buried, because "it doesn't autofill" is better learned from a README
 than from a one-star review.
 
-| Where others win               | Who                                                | Where Keyhold stands                                                                                                                                             |
-| ------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Browser autofill**           | Everyone except `pass`                             | Not built. This is the single biggest gap, and for a lot of people it is the whole decision                                                                      |
-| **Mobile apps**                | Bitwarden, Proton, 1Password, the KeePassXC family | Not in scope, and not currently mitigated — KDBX export is designed but not built, so today there is no clean path onto a phone                                  |
-| **Third-party security audit** | Bitwarden, Proton, 1Password, KeePassXC            | None, and none claimed. What there is instead: a written threat model, a small readable codebase, and a published format spec anyone can implement a reader from |
-| **Hardware keys / YubiKey**    | KeePassXC                                          | Not built. The envelope design already accommodates it — a hardware key would be another wrapping of the same data key — but it is a plan, not a feature         |
-| **Maturity**                   | KeePassXC, Bitwarden                               | A new project that has never been trusted with anybody's real vault. The answer is obsessive data-loss protection, not a claim of stability it has not earned    |
-| **Team sharing**               | Bitwarden, Passbolt, Psono                         | A deliberate non-goal. `.keepx` parcels cover handing a few credentials to one person, and nothing more                                                          |
-| **A memory-safe runtime**      | KeePassXC (C++/Qt)                                 | Electron is a fair criticism and there is no way to argue it away. It is why no secret is allowed into the renderer process at all                               |
+| Where others win               | Who                                                | Where Keyhold stands                                                                                                                                                           |
+| ------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Browser autofill**           | Everyone except `pass`                             | Not built. This is the single biggest gap, and for a lot of people it is the whole decision                                                                                    |
+| **Mobile apps**                | Bitwarden, Proton, 1Password, the KeePassXC family | Not in scope. Partly mitigated: KDBX 4 export is built, so your data opens in a mobile KeePass client — though that export has not yet been confirmed against a real KeePassXC |
+| **Third-party security audit** | Bitwarden, Proton, 1Password, KeePassXC            | None, and none claimed. What there is instead: a written threat model, a small readable codebase, and a published format spec anyone can implement a reader from               |
+| **Hardware keys / YubiKey**    | KeePassXC                                          | Not built. The envelope design already accommodates it — a hardware key would be another wrapping of the same data key — but it is a plan, not a feature                       |
+| **Maturity**                   | KeePassXC, Bitwarden                               | A new project that has never been trusted with anybody's real vault. The answer is obsessive data-loss protection, not a claim of stability it has not earned                  |
+| **Team sharing**               | Bitwarden, Passbolt, Psono                         | A deliberate non-goal. `.keepx` parcels cover handing a few credentials to one person, and nothing more                                                                        |
+| **A memory-safe runtime**      | KeePassXC (C++/Qt)                                 | Electron is a fair criticism and there is no way to argue it away. It is why no secret is allowed into the renderer process at all                                             |
 
 Where it wins is narrower and more specific: it is the only free, serverless, local manager
 that records **where every change came from**, and it is one file you own with no account
 attached to it.
-
----
-
-## Screenshots
-
-|     ![The vault, with a cloud-folder warning](docs/images/Keyhold-Screenshot-01.png)      | ![A credential's version history](docs/images/Keyhold-Screenshot-02.png) |
-| :---------------------------------------------------------------------------------------: | :----------------------------------------------------------------------: |
-| The vault, and an unprompted warning that this file is inside a folder Dropbox is syncing |    Version history, with the device and network each change came from    |
-
-| ![A field-level diff](docs/images/Keyhold-Screenshot-03.png) | ![The record editor](docs/images/Keyhold-Screenshot-04.png) |
-| :----------------------------------------------------------: | :---------------------------------------------------------: |
-|            What one edit changed, field by field             |               The editor, with custom fields                |
-
-| ![The health dashboard](docs/images/Keyhold-Screenshot-07.png) | ![The session activity log](docs/images/Keyhold-Screenshot-13.png) |
-| :------------------------------------------------------------: | :----------------------------------------------------------------: |
-|         Ten offline health checks over the whole vault         |   What this session read, revealed and copied — cleared on lock    |
-
-> Generated from the real app rather than hand-made:
-> `npm run build && node tools/smoke.mjs --shots docs/images`
->
-> The smoke run seeds a deterministic vault, drives the UI through it by clicking real
-> controls, and captures fifteen named views — so a screenshot here cannot quietly stop
-> matching the app it claims to show. Regenerating them is one command.
 
 ---
 
