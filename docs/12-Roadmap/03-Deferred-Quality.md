@@ -81,14 +81,6 @@ the second half is what makes an entry worth doing later rather than deleting.
 - [ ] `docs/05-Features/` — no page for one-time codes at all. The engine, the channel, the
       field and the separate rate-limit key are undocumented.
 
-- [ ] `docs/05-Features/07-Breach-Check.md` — exists and predates the feature being
-      reachable. Needs rewriting for what actually shipped: the two channels, the availability
-      projection, the consent dialog, and the fact that the score never includes it.
-- [ ] `docs/12-Roadmap/02-Decision-Log.md` — **D33** owed: the breach check reaches the user
-      through the health dashboard behind a settings-screen consent, rather than an automatic
-      check on unlock (refused: a zero-network app must never make a request the user did not
-      just ask for) or a per-record button (refused: N requests to answer what one range
-      lookup answers for many).
 - [ ] `docs/09-Import-Export/03-KDBX.md` — written, but the import-service section does not
       mention the `.kdbx` route through `openVault`, only the parser side.
 - [ ] `docs/06-UI-Design-System/` — the breach panel's tokens and the `--kh-breach-*` classes

@@ -789,6 +789,55 @@ re-save it from KeePassXC as KDBX 4, which that application does by default.
 
 ---
 
+### D33 — The breach check reaches the user through the health dashboard, behind a settings-screen consent
+
+**Decision:** the only way to start a breach check is a button in a panel at the bottom of the
+health dashboard, and that panel offers the button only after the vault has been opted in on the
+settings screen, through a confirmation dialog. Nothing else in the application can start one.
+
+The engine had been finished and tested for months at the point this was decided, with no channel,
+no surface and no composition root — so this decision is about **reachability**, which is the one
+question the engine's own tests could never answer.
+
+**Rejected: check automatically on unlock.** It is the obvious design and every other password
+manager does something like it. It is also incompatible with the sentence on the front of the box.
+A zero-network application must never make a request the user did not just ask for; a check that
+fires because a vault was opened turns "Keyhold makes no network requests" into "Keyhold makes
+network requests whenever you use it, unless you found the switch". The whole argument for the
+feature — that it is opt-in, paced, and k-anonymous — is worth nothing if the user is not the one
+who starts it.
+
+**Rejected: a button on each record.** Rejected on arithmetic rather than on principle. Passwords
+are grouped by hash prefix, and one range lookup answers for every password sharing those twenty
+bits — so a vault-wide sweep of a few thousand records is a few hundred requests, while a
+per-record button is one request each, against a free service run at somebody else's expense. It
+would also make the count of requests depend on how many times somebody clicked, which is exactly
+the number `BreachReport.requestCount` exists to make honest.
+
+**Rejected: fold the result into the health score.** The score is computed from offline rules
+alone. A score that moved when a network check ran would depend on whether the user had internet
+that morning, and — worse — a vault that had never been checked would score identically to one
+checked and found clean. The counts sit beside the score, never inside it.
+
+**Why the consent lives on the settings screen rather than in the panel.** Consent given at the
+moment of use is consent under pressure to get on with it. The dialog explains k-anonymity and
+then states the actual cost — that running a check reveals Keyhold is in use from this network
+address, and that the setting travels inside the vault file — which is a thing to read once,
+deliberately, not something to skim past a button. Turning the check **off** takes no dialog at
+all: making somebody confirm that they want _less_ exposure only teaches them to click through
+dialogs.
+
+**What this decision put into the codebase.** `BreachService` as the single composition root;
+`kh:breach:availability` and `kh:breach:run` as the only two channels, the second taking no
+payload at all so the renderer chooses nothing about how the request is made; `breachAvailability()`
+in `@shared` as the one derivation of "can this run", so no screen can offer a button that does
+nothing; and a smoke check, `breach-panel-reachable-and-idle`, which asserts the panel is in the
+running app **and** that nothing ran because a screen was opened.
+
+Full description in [`../05-Features/07-Breach-Check.md`](../05-Features/07-Breach-Check.md) §7.
+
+---
+
 ## Decisions deferred to implementation
 
 Recorded so they are consciously decided rather than accidentally defaulted.

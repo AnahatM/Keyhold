@@ -9,17 +9,28 @@
 
 ---
 
-## 0. Before you start: write a goal
+## 0. Before you start: set the goal
 
-**Run `/write-goal` and set a goal string before doing anything else.** An unattended session
-without one drifts; with one it has a queue, a definition of done per slice, and a rule for
-what to do when the queue empties.
+**The release goal is written.** It is in
+[`docs/12-Roadmap/03-Autonomous-Goal.md`](./docs/12-Roadmap/03-Autonomous-Goal.md) under _The
+release goal_ — copy that block and set it with `/goal`. Do not write a new one from scratch;
+edit that file if it needs to change, so the reasoning stays beside the string.
 
-The goal in force at the end of the last session traded testing depth and long-form
-documentation for build throughput, deliberately. If that is still what is wanted, say so in
-the new goal explicitly — the tests and docs skipped under it are listed in §4 and in
-[`docs/12-Roadmap/03-Deferred-Quality.md`](./docs/12-Roadmap/03-Deferred-Quality.md), and they
-do not get written unless a goal says to write them.
+Four things in it were decided rather than defaulted, and are worth knowing before overriding
+any of them:
+
+- **The landing page comes first** (§5), because it is the only part of the release not started.
+- **Harden only** in this repo — no new subsystems. Larger ideas go into
+  [`docs/12-Roadmap/01-Feature-Backlog.md`](./docs/12-Roadmap/01-Feature-Backlog.md) rather
+  than being built or dropped.
+- **No never-idle clause.** The queue here is a finite debt ledger, not a roadmap, so the run
+  stops and reports when it empties.
+- **Push each slice.** The remote exists and is private.
+
+The build-phase goal that preceded it traded testing depth and long-form documentation for
+throughput, deliberately. What was skipped under it is listed in §4 and in
+[`docs/12-Roadmap/03-Deferred-Quality.md`](./docs/12-Roadmap/03-Deferred-Quality.md), and the
+release goal's queue is that ledger.
 
 ---
 
@@ -100,27 +111,23 @@ See §2. It does not exist yet in a form that mentions the platform split.
 line each, saying what is missing and what would break. That file is the tasklist; this is the
 summary and the priority order.
 
-**The single highest-value item on that page** is a guard that a built subsystem is reachable
-from the running app. This repo's characteristic failure is finishing something and wiring it
-nowhere — it happened to the breach check, the TOTP engine, the recovery engine, the activity
-log, the settings screen and the import wizard, and every test passed the whole time. Smoke
-checks now cover the ones that were fixed; nothing generalises the rule.
+**The single highest-value item on that page** is still a guard that a built subsystem is
+reachable from the running app. This repo's characteristic failure is finishing something and
+wiring it nowhere — it happened to the breach check, the TOTP engine, the recovery engine, the
+activity log, the settings screen and the import wizard, and every test passed the whole time.
+`breach-panel-reachable-and-idle` in `src/main/smoke.ts` covers the one that went wrong and was
+fault-injected twice to prove it; **nothing generalises the rule**, and that is what is left.
 
-Ordered by what would cost most if it stayed missing:
+The four items that were top of the queue are done — `mirror-backup.ts`,
+`requireBreachCheckPatch`, `VaultService.totpCode` and the `totp-code` ref shape all have tests
+now, each fault-injected with the bug it claims to catch. What remains on that page is the long
+tail: component tests, presentation tests, exhaustive refusals, and the abort path in
+`sweep.ts`.
 
-1. **`mirror-backup.ts` has no test at all**, and its error messages must carry no path — a
-   destination names a server and often a person. That string reaches a screen.
-2. **`requireBreachCheckPatch`'s refusal of renderer-supplied request pacing** is untested. It
-   is what stops a compromised renderer turning the breach check into a denial-of-service run
-   from the user's own address.
-3. **`VaultService.totpCode` and the `totp-code` secret ref** — no direct test; covered only
-   by the smoke run.
-4. Everything else on that page: component tests, presentation tests, exhaustive refusals.
-
-**Documentation owed** is on the same page. The two that matter for a public release are
-`docs/05-Features/07-Breach-Check.md` (written before the feature was reachable, so it
-describes something that does not match what shipped) and a missing decision-log entry **D33**
-for how the breach check reaches the user.
+**Documentation owed** is on the same page. The two that mattered most for a public release —
+`docs/05-Features/07-Breach-Check.md` and the missing **D33** — are now written; what is left
+there is the recovery/diagnostics page, a page for one-time codes, record types in the
+credential model, and the breach panel's tokens.
 
 Also open, from the backlog rather than that file: **G3 · publish the KEEP format spec as a
 standalone implementable document.** It is three stars and it is central to the no-lock-in

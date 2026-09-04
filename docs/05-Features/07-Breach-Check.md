@@ -1,18 +1,17 @@
 # The breach check
 
 > Keyhold's single, opt-in, off-by-default exception to "this application makes no network
-> requests". Current reference. Implemented by `src/main/breach/` and
-> `src/shared/model/breach.ts`.
+> requests". Current reference. Implemented by `src/main/breach/`,
+> `src/shared/model/breach.ts` and `src/renderer/src/health/BreachSection.tsx`.
 >
-> **Status: the client, the transport and the projection are built and tested, including a
-> structural guard that parses every source file in `src/`. Nothing a user can reach exists.**
-> There is no `kh:breach:*` channel in `CHANNELS`, no consent or settings surface that turns
-> it on, and — the part that matters most — **no composition root that builds the transport**,
-> so today the client is constructed with none and answers `unknown` / `disabled` without
-> hashing anything.
+> **Status: shipped and reachable.** `BreachService` is the composition root, two channels
+> carry it (`kh:breach:availability` and `kh:breach:run`), the panel lives at the bottom of
+> the health dashboard, and the opt-in sits behind a confirmation dialog on the settings
+> screen. Nothing runs on its own — see §7, which is now a description rather than a list of
+> what is missing, and decision **D33** for why it reaches the user this way and not another.
 >
-> The **global network kill-switch now exists** and no longer blocks this work: see §7 and
-> decision D23. What is left is wiring, not invention. Read §6 before touching the CSP.
+> Read §6 before touching the CSP: this feature does **not** need `connect-src` relaxed and
+> would gain nothing from it.
 
 ---
 
@@ -270,14 +269,14 @@ memory-only, bounded (128 ranges by default), and dropped by `clearCache()`. Bod
 rather than parsed maps, because the string is smaller than the `Map` built from it and
 because re-parsing on a hit means a cached answer and a fresh one go through identical code.
 
-**The cache must die with the lock, and nothing calls `clearCache()` yet** (§7). It is
-deliberately not self-clearing — reopening the dashboard should not re-ask the service the
-same questions — so a client held across a lock/unlock cycle carries it over. Its keys are the
-prefixes of passwords in the vault that was open: a partial twenty-bit fingerprint of that
-vault, sitting in main-process memory after the event whose entire meaning is that nothing
-derived from the vault is still there. Whoever builds the client owns the call, next to where
-`SessionController.lock()` destroys the DEK; discarding the client entirely satisfies it just
-as well.
+**The cache dies with the lock.** It is deliberately not self-clearing — reopening the
+dashboard should not re-ask the service the same questions — so a client held across a
+lock/unlock cycle would carry it over. Its keys are the prefixes of passwords in the vault
+that was open: a partial twenty-bit fingerprint of that vault, sitting in main-process memory
+after the event whose entire meaning is that nothing derived from the vault is still there.
+`BreachService.reset()` closes that, wired to `SessionController.onLock` in
+`src/main/index.ts`, and it discards the client entirely rather than only emptying the cache.
+See §7. (Audit finding N15, closed.)
 
 ### The exact count does not cross the bridge
 
@@ -333,51 +332,115 @@ importing something that merely sounds harmless.
 
 ---
 
-## 7. What exists now, and what is still missing
+## 7. How it reaches the user
 
-### The kill-switch landed
+Everything below this line was outstanding for months while the engine above it was finished
+and tested. That gap is the reason **D33** exists, and the reason a smoke check now opens the
+health view and looks for the panel: no test of a component can see that nothing renders it.
 
-Hard rule 5 promises the check sits behind _two_ switches, and until recently the second one
-did not exist anywhere in `src/` (audit finding N38). It does now.
+### The two switches
 
-`src/main/network-policy.ts` owns both questions. `Preferences.networkAllowed` is the
-machine-scoped master switch — off by default, fail-closed on anything that is not the literal
-boolean `true`, persisted in `preferences.json`, validated at the IPC boundary and carried in
-the settings snapshot. `NetworkPolicy.allowsBreachCheck` ANDs it with this feature's own
-setting, in one place, so no call site writes the conjunction itself and forgets a switch.
+Hard rule 5 promises the check sits behind _two_, and `src/main/network-policy.ts` owns both.
+`Preferences.networkAllowed` is the machine-scoped master switch — off by default,
+fail-closed on anything that is not the literal boolean `true`, persisted in
+`preferences.json`, validated at the IPC boundary. `NetworkPolicy.allowsBreachCheck` ANDs it
+with the vault's own `breachCheck.enabled`, in one place, so no call site writes the
+conjunction itself and forgets a switch.
 
-It is machine-scoped rather than a vault setting for a reason worth repeating: vault settings
-travel inside the `.keep` file, and a vault carried to a friend's laptop must not be able to
-turn that machine's network on. Full argument in decision D23 and
+Machine-scoped rather than a vault setting, deliberately: vault settings travel inside the
+`.keep` file, and a vault carried to a friend's laptop must not be able to turn that machine's
+network on. Full argument in decision D23 and
 [`../02-Security/01-Process-Hardening.md`](../02-Security/01-Process-Hardening.md) §5.
 
-**`NetworkPolicy` has no production caller yet** — it is constructed only by its own test —
-because nothing constructs a transport for it to gate. That is the next item, not this one.
+### `BreachService` — the composition root
 
-### Still missing
+`src/main/breach/service.ts` is the only module that imports `https-transport.ts`, and it is
+a class rather than a function because the answer changes underneath it: the kill-switch can
+be flipped while the vault is open, the vault setting can be edited, and the vault can lock.
+All three take effect at the next question rather than the next restart.
 
-- **The composition root.** Nothing calls `createHttpsTransport()` and hands the result to a
-  client. The shape it must take is written down in `network-policy.ts` and is one line:
-  `policy.allowsBreachCheck(settings) ? createHttpsTransport() : undefined`, plus a
-  `policy.observe` registration so a client built while the switch was on is discarded when it
-  is turned off. Until that exists the feature is off in the strongest available sense — see §2.
-- **The IPC channel.** No `kh:breach:*` entry in `CHANNELS`.
-- **The consent and settings surface.** `DEFAULT_BREACH_CHECK_SETTINGS` exists in `@shared`
-  and nothing reads or writes it. There is also **no UI control for `networkAllowed`** — the
-  preference is writable over `kh:settings:update-machine` and no settings section renders a
-  toggle for it, so the kill-switch is currently only reachable by editing
-  `preferences.json`. Both are hard rule 7 obligations and both are outstanding.
-- **The lock-path call to `clearCache()`.** See §5. The obligation exists, the caller does
-  not, and the guard for it belongs with the lock path rather than here. (Audit finding N15,
-  still open — and note it stays open only because there is no client to hold a cache.)
-- **The health-dashboard integration.** `BreachProjection` and `BreachReport` are shaped for
-  the dashboard and nothing renders them. The offline health rules are unaffected: they
-  are, and remain, entirely local.
-- **A security audit of this code.** Roadmap Phase 17 records `breach/` as **the project's
-  first network code**, landed after the security sweep, and says plainly that it needs its
-  own pass before it ships. That is outstanding.
-- **Cancellation from a UI.** `BreachRunOptions.signal` is honoured end to end and there is
-  nothing to press.
+- **`availability()`** asks `NetworkPolicy` and returns a `BreachAvailability`. It decides
+  nothing itself. The first version of the IPC handler read `networkAllowed` off the machine
+  settings and derived the answer there; `network-policy.test.ts` failed it on the spot, and
+  the guard was right — a second module branching on that preference is the copy that
+  eventually says yes when it should say no.
+- **`client()`** returns `null` when either switch is off, and **drops the client** at the
+  same time rather than merely declining to use it. Turning the check off has to take the
+  cached prefixes with it, or the setting is a hint rather than a switch.
+- **`reset()`** is wired to the vault lock through `SessionController.onLock` in
+  `src/main/index.ts`, which closes the obligation §5 describes: the range cache is the 20-bit
+  prefixes of the open vault's passwords, and it must not outlive the event whose entire
+  meaning is that nothing vault-derived still does.
+
+The off state is still the absence of a transport. The policy decides whether
+`createHttpsTransport()` is _called_ — there is no `if (allowed)` inside a request path for a
+future refactor to skip.
+
+### The two channels
+
+| Channel                  | Answers                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `kh:breach:availability` | A `BreachAvailability`: the two switches, `canRun`, and the reason if not    |
+| `kh:breach:run`          | A `BreachReport`. Takes no arguments — the renderer chooses nothing about it |
+
+`kh:breach:run` accepting **no payload at all** is the point. Pacing, timeouts and which
+records are swept are decided in the main process; the renderer's entire contribution is that
+somebody pressed a button. `requireBreachCheckPatch` enforces the other half — a settings
+patch may carry `enabled` and nothing else, so a compromised renderer cannot set
+`requestIntervalMs` to zero and turn a privacy feature into a denial-of-service run from the
+user's own address.
+
+Both channels degrade to "off" when no service was wired — in a test, or any embedding that
+did not build one. A missing composition root must read as _the feature is not available_,
+never as an error the user has to interpret, and certainly never as a reason to reach the
+network another way.
+
+### The panel
+
+`BreachSection` sits at the bottom of the health dashboard, below the score and the rules.
+Three things about it are load-bearing:
+
+- **Nothing starts on its own.** Every other panel in the app fetches when it mounts. This one
+  waits for a click, because a request made because somebody opened a screen is a request they
+  did not ask for. `useBreachCheck` fetches _availability_ on mount — that reads two switches
+  and sends nothing — and calls `run` from the button and nowhere else. The smoke check
+  asserts both halves: the panel is present, and there is no report and no error on screen.
+- **When it cannot run, it names the switch.** There is no disabled button with a tooltip: a
+  control that looks like it might work if you clicked it right teaches people to keep
+  clicking. The three reasons — `locked`, `networkOff`, `notEnabled` — call for three
+  different actions, and `breachAvailability()` in `@shared` decides which applies so the
+  dashboard and any future surface cannot disagree.
+- **The report dies with the screen.** It is component state, so closing the dashboard drops
+  it. A breach report is a list of which of your records are compromised; keeping it alive
+  past the screen that displays it would be a small copy of the vault's worst news sitting in
+  memory for no reason.
+
+### The consent step
+
+Turning the switch on opens a `ConfirmDialog` that explains k-anonymity in the second person
+and then says the part that is genuinely a cost: _what it does reveal is that Keyhold is being
+used from your network address, each time you run a check_, and that the setting is stored in
+the vault file, so it travels with a copy of it.
+
+Turning it **off** is immediate, with no dialog. The asymmetry is deliberate: making somebody
+confirm that they want _less_ exposure only teaches them to click through dialogs.
+
+### The score never includes it
+
+`health-score.ts` is computed from the offline rules alone and has no breach input. Two
+reasons. A score that moved when a network check ran would make the number depend on whether
+somebody had internet that morning, and — worse — a vault that had never been checked would
+score the same as one that had been checked and came back clean. The counts are reported
+beside the score, never folded into it.
+
+### Still open
+
+- **A security audit of this code.** Roadmap Phase 17 records `breach/` as the project's first
+  network code, landed after the security sweep, and says it needs its own pass before it
+  ships. Outstanding.
+- **Cancellation from the UI.** `BreachRunOptions.signal` is honoured end to end and there is
+  still nothing to press. `sweep.ts`'s abort path is asserted only as "the signal is passed
+  through" — see [`../12-Roadmap/03-Deferred-Quality.md`](../12-Roadmap/03-Deferred-Quality.md).
 
 ---
 
@@ -388,21 +451,30 @@ is typed and silently false the next time a case lands, with nothing that fails 
 Run `npx vitest run src/main/breach` for the current number. What is worth stating is _what_
 each file covers, which changes only when someone decides it should.
 
-| File                      | Covers                                                                                                                                                                                                                                                                                        |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `client.test.ts`          | Every failure producing `unknown` and never `safe` · prefix deduplication and cache reuse against an injected fake · that repeated sweeps of one vault do not emit a recognisable request order · the property that nothing returned names the password, its digest, its prefix or its suffix |
-| `range.test.ts`           | Strict line parsing, padding rows, the count cap, case-insensitive matching, and each of the three faults                                                                                                                                                                                     |
-| `https-transport.test.ts` | That `Add-Padding` is sent on every request · the fixed origin and prefix validation · the capped body read · `Retry-After` normalisation                                                                                                                                                     |
-| `transport.test.ts`       | Status classification and thrown-error classification, including reading `fetch`'s wrapped `cause`                                                                                                                                                                                            |
-| `no-network.test.ts`      | The four-way guard of §2 — the repo-wide scan, the directory-strict scan and the module graph, the booby-trapped global, what is not computed, and eleven planted cases proving each detector fires — and does not fire on a clean file                                                       |
-| `projection.test.ts`      | Band boundaries, that no count survives, and that the three run counts are computed rather than subtracted                                                                                                                                                                                    |
-| `hash.test.ts`            | `password` → `5BAA6` derived from first principles rather than trusted as a copied constant, and the prefix/suffix split                                                                                                                                                                      |
+| File                      | Covers                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `client.test.ts`          | Every failure producing `unknown` and never `safe` · prefix deduplication and cache reuse against an injected fake · that repeated sweeps of one vault do not emit a recognisable request order · the property that nothing returned names the password, its digest, its prefix or its suffix                                                          |
+| `range.test.ts`           | Strict line parsing, padding rows, the count cap, case-insensitive matching, and each of the three faults                                                                                                                                                                                                                                              |
+| `https-transport.test.ts` | That `Add-Padding` is sent on every request · the fixed origin and prefix validation · the capped body read · `Retry-After` normalisation                                                                                                                                                                                                              |
+| `transport.test.ts`       | Status classification and thrown-error classification, including reading `fetch`'s wrapped `cause`                                                                                                                                                                                                                                                     |
+| `no-network.test.ts`      | The four-way guard of §2 — the repo-wide scan, the directory-strict scan and the module graph, the booby-trapped global, what is not computed, and eleven planted cases proving each detector fires — and does not fire on a clean file                                                                                                                |
+| `projection.test.ts`      | Band boundaries, that no count survives, and that the three run counts are computed rather than subtracted                                                                                                                                                                                                                                             |
+| `hash.test.ts`            | `password` → `5BAA6` derived from first principles rather than trusted as a copied constant, and the prefix/suffix split                                                                                                                                                                                                                               |
+| `service.test.ts`         | That nothing is built unless both switches say yes, and which reason is reported when not · that the client is dropped on `reset()`, on a policy change and on the opt-in being turned off · that a settings edit which changes nothing does **not** throw the range cache away · that an observer which throws cannot interrupt teardown              |
+| `sweep.test.ts`           | That trashed records and records with no password are excluded rather than counted as unchecked · that the default state makes no request at all · that no password and no count survives into the report · that the caller's clock stamps it. **The abort path is asserted only as "the signal is passed through"** — see the deferred-quality ledger |
+
+Outside the directory, two more carry this feature's weight:
+
+| File                                         | Covers                                                                                                                                                            |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/shared/ipc/settings-validation.test.ts` | That `requireBreachCheckPatch` refuses renderer-supplied pacing four ways, including when the value sent is the default                                           |
+| `src/main/smoke.ts`                          | `breach-panel-reachable-and-idle` — the panel is in the running app, and it is idle: no report and no error on screen, so nothing ran because a screen was opened |
 
 ---
 
 ## 9. Related
 
-- [`01-Health-Rules.md`](./01-Health-Rules.md) — the rules that are entirely offline, and the report this one would join
+- [`01-Health-Rules.md`](./01-Health-Rules.md) — the rules that are entirely offline, and the score this one is deliberately kept out of
 - [`../00-Overview/03-Threat-Model.md`](../00-Overview/03-Threat-Model.md) — §2, the residual leak this feature accepts
 - [`../02-Security/01-Process-Hardening.md`](../02-Security/01-Process-Hardening.md) — the CSP and the empty remote-host allow-list
-- [`../12-Roadmap/02-Decision-Log.md`](../12-Roadmap/02-Decision-Log.md) — D10 (every feature ships a setting) and D13 (the safe projection)
+- [`../12-Roadmap/02-Decision-Log.md`](../12-Roadmap/02-Decision-Log.md) — **D33** (how this reaches the user), D23 (the kill-switch is machine-scoped), D10 (every feature ships a setting), D13 (the safe projection)
