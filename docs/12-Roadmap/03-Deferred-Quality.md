@@ -50,11 +50,6 @@ the second half is what makes an entry worth doing later rather than deleting.
 - [ ] `src/renderer/src/recovery/DiagnosticsView.tsx` — no test. The dismissed-dialog case
       (which must not clear a report already on screen) is the one worth having.
 
-- [ ] `src/renderer/src/vault/TotpField.tsx` — no test. The self-refresh timer, the expiring
-      state and the copy-through-the-broker path are all unasserted.
-
-- [ ] `src/main/kdbx/header.ts` — no test of its own. Covered indirectly by the KDBX round
-      trip, so a refusal that stopped firing would be caught only if it also broke a read.
 - [ ] `src/main/import-service/kdbx-source.ts` — the attachment-marker append path has no
       reachable test, because Keyhold's own writer never emits an attachment. Needs either a
       hand-built fixture or a `binaries` input on `writeKdbx`.
