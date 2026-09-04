@@ -38,10 +38,6 @@ the second half is what makes an entry worth doing later rather than deleting.
 
 ## Owed tests
 
-- [ ] `CredentialEditor` type picker — no test. Appending a template's fields without losing
-      what was already typed is the behaviour worth pinning.
-- [ ] `iconFor` in `CredentialList` — no test that a chosen icon still beats a type icon.
-
 - [ ] `src/main/recovery/diagnose.ts` — the **256 MB size cap** is still unexercised, and
       deliberately: the smallest file that would trip it is 256 MB and writing one per run
       costs more than the branch is worth. The folder walk and the directory filter now have
