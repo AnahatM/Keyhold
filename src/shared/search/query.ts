@@ -125,6 +125,13 @@ export const QUERY_FIELDS = [
     presenceOnly: false,
   },
   {
+    prefix: 'type',
+    aliases: ['kind'],
+    label: 'type:',
+    hint: 'Match the kind of record — login, card, note, wifi, ssh-key…',
+    presenceOnly: false,
+  },
+  {
     prefix: 'note',
     aliases: ['notes'],
     label: 'note:',

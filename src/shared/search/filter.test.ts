@@ -513,3 +513,31 @@ describe('searchCredentials — deep matches from the main process', () => {
     ).toEqual(['deep']);
   });
 });
+
+/**
+ * `type:` — the prefix the record types made necessary.
+ *
+ * Fault injection: the `record.type !== 'login'` guard removed so logins are indexed too.
+ * `a bare search does not return every login` fails with the whole vault, which is what an
+ * unfiltered bucket term does to a list.
+ */
+describe('searching by record type', () => {
+  const records = [
+    projection({ id: 'card', title: 'Visa', type: 'card' }),
+    projection({ id: 'login', title: 'GitHub' }),
+  ];
+
+  it('matches a type by its id', () => {
+    expect(ids(find(records, 'type:card'))).toEqual(['card']);
+  });
+
+  it('matches a type by its human label too', () => {
+    // Somebody types `type:payment` because that is what the picker called it.
+    expect(ids(find(records, 'type:payment'))).toEqual(['card']);
+  });
+
+  it('does not index logins, so a bare search does not return every one of them', () => {
+    // `login` is the overwhelming majority. Indexing it would make the word return the vault.
+    expect(ids(find(records, 'login'))).not.toContain('login');
+  });
+});

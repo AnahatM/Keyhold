@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { credentialTypeDefinition } from '../model/credential-templates.js';
 import type { CredentialProjection, CustomFieldType } from '../model/credential.js';
 import type { Folder, Tag } from '../model/vault-document.js';
 import {
@@ -44,6 +45,9 @@ export const MATCH_FIELDS = [
   'title',
   'username',
   'email',
+  // The record's kind, matched against its id and its label alike — somebody types
+  // `type:card` and somebody else types `type:payment`, and both mean the same thing.
+  'type',
   'tag',
   'url',
   'folder',
@@ -68,6 +72,10 @@ export const MATCH_FIELD_WEIGHTS: Readonly<Record<MatchField, number>> = {
   email: 7,
   tag: 6,
   url: 5,
+  // Below tag and above folder. A type is a coarse bucket — a card is one of possibly
+  // hundreds — so a bare search matching a type should not outrank one matching a name the
+  // user actually chose.
+  type: 4.5,
   folder: 4,
   customLabel: 3,
   customValue: 2,
@@ -182,6 +190,7 @@ const FIELDS_BY_QUERY_FIELD: Readonly<Record<QueryField, readonly MatchField[]>>
   tag: ['tag'],
   folder: ['folder'],
   field: ['customLabel'],
+  type: ['type'],
   // Unreachable: the parser rewrites `note:` to the `has:notes` flag before a term is made.
   // Present so this record stays exhaustive over QueryField, which is what makes a newly
   // added prefix a type error here instead of a term that matches nothing.
@@ -271,6 +280,13 @@ function buildHaystack(
   push('title', record.title);
   push('username', record.username);
   push('email', record.email);
+  // Both the id and the human label, so `type:ssh-key` and `type:SSH key` both work. Not
+  // pushed for a login: it is the default and the overwhelming majority, so indexing it would
+  // make a bare search for "login" return the entire vault.
+  if (record.type !== 'login') {
+    push('type', record.type);
+    push('type', credentialTypeDefinition(record.type).label);
+  }
   for (const url of record.urls) push('url', url);
   for (const tagId of record.tags) push('tag', names.tagNames.get(tagId) ?? tagId);
   if (record.folderId !== null) {
