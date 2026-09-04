@@ -12,6 +12,9 @@ host, nothing to pay for.
 
 Read [`docs/00-Overview/00-What-Is-Keyhold.md`](./docs/00-Overview/00-What-Is-Keyhold.md) first.
 
+**Start with [`HANDOFF.md`](./HANDOFF.md)** — what is left before the open-source release, in
+priority order, including the deferred tests and docs and the landing-page task.
+
 **The canonical TODO is [`docs/12-Roadmap/00-Master-Checklist.md`](./docs/12-Roadmap/00-Master-Checklist.md).**
 Work the phases in order. Tick items as they land. Nothing lives only in chat.
 
@@ -143,6 +146,8 @@ test could never fail. No coverage target is chased.
 | Security posture                                      | [`docs/00-Overview/03-Threat-Model.md`](./docs/00-Overview/03-Threat-Model.md)                                             |
 | Frozen founding design (**history — never "fix" it**) | [`docs/superpowers/specs/2026-09-02-keyhold-product-spec.md`](./docs/superpowers/specs/2026-09-02-keyhold-product-spec.md) |
 | Things only Anahat can do                             | [`MANUAL-BACKLOG.md`](./MANUAL-BACKLOG.md)                                                                                 |
+| **What is left before release**                       | [`HANDOFF.md`](./HANDOFF.md)                                                                                               |
+| Tests and docs deliberately skipped                   | [`docs/12-Roadmap/03-Deferred-Quality.md`](./docs/12-Roadmap/03-Deferred-Quality.md)                                       |
 
 ---
 

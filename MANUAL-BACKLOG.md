@@ -38,19 +38,27 @@ it stays green.
 
 ---
 
-## 🟡 M2 — Test on a real macOS machine
+## 🟢 M2 — macOS is a compile-it-yourself platform
 
-**Blocks:** the macOS half of Phase 18, and honest cross-platform claims in the README.
+**Decided.** There is no Mac available, and buying one to ship a build nobody has asked for
+yet is not a good trade. So:
 
-Windows is the development machine. These need a Mac to verify, and cannot be simulated:
+- **Releases on GitHub carry the Windows build only.**
+- macOS users build from source. `npm install && npm run package:mac` on any Mac produces a
+  DMG and a zip; `electron-builder.yml` already has the `mac` block, and there is no native
+  code anywhere in Keyhold, so nothing needs compiling per-architecture.
+- Linux users can do the same with `npm run package:linux` — AppImage, deb and rpm.
 
-1. `npm run package` produces a working DMG on both Intel and Apple Silicon
-2. **Touch ID** quick-unlock enrols, unlocks, and revokes correctly (Electron `safeStorage` → Keychain)
-3. **Gatekeeper** behaviour on an unsigned build — confirm the exact right-click → Open steps, and the wording of the dialog, for the README
-4. **SSID detection** via `system_profiler SPAirPortDataType` returns what we expect, and fails gracefully with WiFi off
-5. Clipboard `org.nspasteboard.ConcealedType` genuinely keeps secrets out of clipboard-history apps
-6. The native menu bar reads correctly (macOS conventions differ from Windows)
-7. `.keep` file association works on double-click
+**What this means for the README and the release notes:** say it plainly, in the download
+section, rather than leaving macOS users to discover there is no asset. "Windows builds are
+published here. macOS and Linux: build from source — one command, no toolchain beyond Node."
+That is an honest position for a GPL project and a better one than an unsigned Mac build
+Gatekeeper refuses to open anyway.
+
+**Still true and worth knowing:** nothing in Keyhold is Windows-only. Quick unlock, the
+network-name probe and the packaging targets all have their macOS and Linux branches written;
+they have simply never been _run_. The first person to build on a Mac is the first person to
+find out, and that is the honest state to publish.
 
 ---
 

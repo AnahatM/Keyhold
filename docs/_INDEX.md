@@ -1,5 +1,8 @@
 # Keyhold — Documentation
 
+> **Before starting a session, read [`../HANDOFF.md`](../HANDOFF.md)** — what is left before
+> the open-source release, in priority order.
+
 > **Keyhold** is a free, open-source, fully offline credential manager for Windows and macOS.
 > Your passwords, in a file you own, encrypted with a key only you have.
 
