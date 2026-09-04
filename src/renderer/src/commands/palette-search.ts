@@ -124,6 +124,7 @@ const CREDENTIAL_FIELD_LABELS: Readonly<Record<MatchField, string>> = {
   username: 'username',
   email: 'email',
   tag: 'tag',
+  type: 'kind of record',
   url: 'web address',
   folder: 'folder',
   customLabel: 'field name',

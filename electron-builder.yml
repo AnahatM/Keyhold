@@ -203,6 +203,54 @@ mac:
   extendInfo:
     NSHumanReadableCopyright: Copyright © 2026 Anahat Mudgal. Licensed GPL-3.0-or-later.
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Linux
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Backlog F1. Nearly free with Electron: no native code, and the two platform-specific
+# behaviours both degrade rather than break. `safeStorage` uses the desktop's secret service
+# where one exists (GNOME Keyring, KWallet) and Electron reports it unavailable where one does
+# not, which quick unlock already handles as "not available on this machine". The network-name
+# probe shells out to `nmcli`; where NetworkManager is absent it answers nothing and the
+# interface-name fallback applies, exactly as on the other two platforms.
+
+linux:
+  category: Utility
+  # AppImage first: it is the one format that runs on every distribution without a package
+  # manager, which matters most for an app somebody may be installing precisely because they
+  # do not trust a repository. deb and rpm cover the two package families that between them
+  # account for nearly every desktop install.
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+        - arm64
+    - target: rpm
+      arch:
+        - x64
+  # The icon set `npm run icons` generates. electron-builder wants a directory of
+  # `<size>x<size>.png` files, which is exactly what `build/icons/` is.
+  icon: build/icons
+  # No `desktop.mimeType` for `.keep`. Claiming a file association on Linux writes into the
+  # user's shared MIME database, and a password manager that quietly registers itself as the
+  # handler for a file type is doing something the user did not ask for.
+  synopsis: Offline password manager with a full edit history
+  description:
+    A password manager that works entirely offline. One encrypted file you own, no account, no
+    server, no telemetry, and a record of what changed, when, and from which device.
+
+deb:
+  # `libsecret` is what Electron's safeStorage talks to. Recommended rather than required:
+  # the app runs without it and simply cannot offer quick unlock, which is a real
+  # configuration on a minimal desktop rather than a broken one.
+  recommends:
+    - libsecret-1-0
+    - gnome-keyring
+
 dmg:
   # No update metadata for an app with no updater.
   writeUpdateInfo: false

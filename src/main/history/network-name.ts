@@ -67,6 +67,21 @@ export function netshPath(): string {
 /** The absolute path to `system_profiler`, for the same reason as `netshPath`. */
 export const SYSTEM_PROFILER_PATH = '/usr/sbin/system_profiler';
 
+/**
+ * `nmcli`, for Linux. Absolute for the same reason as the two above: a bare name resolves
+ * through `PATH`, and `PATH` is inherited from whatever launched the app.
+ *
+ * NetworkManager is what desktop Linux overwhelmingly runs, and `nmcli` is the only query
+ * tool that is both stable across distributions and does not need root. When it is absent —
+ * a machine running `systemd-networkd`, `iwd` alone, or nothing at all — `runCommand`
+ * answers `null` and the interface-name fallback applies, which is the same graceful
+ * degradation the other two platforms already have.
+ */
+export const NMCLI_PATH = '/usr/bin/nmcli';
+
+/** nmcli escapes a colon inside a network name as a backslash-colon pair. */
+const ESCAPED_COLON = /\\:/g;
+
 /** A network name we will never record, because it identifies nothing. */
 const USELESS_NAMES = new Set(['', 'none', 'n/a', 'not associated', 'unknown', '<none>']);
 
@@ -116,6 +131,25 @@ export function parseNetshSsid(output: string): string | null {
     if (!/ssid$/i.test(key) || /bssid$/i.test(key)) continue;
 
     const name = cleanName(line.slice(separator + 1));
+    if (name !== null) return name;
+  }
+  return null;
+}
+
+/**
+ * Parses `nmcli -t -f ACTIVE,SSID device wifi`.
+ *
+ * Each line is `yes:Network name` or `no:Other network`. A colon inside the name is escaped
+ * by nmcli as `\:`, so the split is on the **first unescaped** colon — a network called
+ * `Cafe: Free WiFi` would otherwise be truncated to `Cafe`.
+ *
+ * A machine on Ethernet has wifi devices with no active connection, and one with wifi off
+ * has no lines at all. Both answer `null`, and the interface-name fallback takes over.
+ */
+export function parseNmcliSsid(output: string): string | null {
+  for (const line of output.split(/\r?\n/)) {
+    if (!line.startsWith('yes:')) continue;
+    const name = cleanName(line.slice(4).replace(ESCAPED_COLON, ':'));
     if (name !== null) return name;
   }
   return null;
@@ -189,8 +223,13 @@ export class SystemNetworkProbe implements NetworkProbe {
       ]);
       return output === null ? null : parseAirportNetwork(output);
     }
-    // Linux is not a shipping target, and guessing at nmcli/iwgetid here would be code
-    // nobody runs and nobody tests. The interface-name fallback still applies.
+    if (this.#platform === 'linux') {
+      // `-t` for terse, `-f` for the two fields we want. The output is one line per
+      // connection, `yes:Name` or `no:Name`, so the active one is found by prefix rather
+      // than by parsing a table whose column widths depend on the terminal.
+      const output = await runCommand(NMCLI_PATH, ['-t', '-f', 'ACTIVE,SSID', 'device', 'wifi']);
+      return output === null ? null : parseNmcliSsid(output);
+    }
     return null;
   }
 }
