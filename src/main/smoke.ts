@@ -147,9 +147,43 @@ async function noteScreen(window: BrowserWindow, label: string): Promise<void> {
   emit(`SMOKE-NOTE ${label} ${String(seen)}`);
 }
 
-async function captureNamedShot(window: BrowserWindow, name: string): Promise<void> {
+/**
+ * Captures a named view, and **asserts it is the view the name claims**.
+ *
+ * `subject` is a CSS selector that must match at the instant of capture. It is not optional
+ * decoration — it is the guard, and it exists because four named screenshots were found
+ * showing the same wrong screen.
+ *
+ * ## The failure it catches
+ *
+ * A shot is a `capturePage()` of whatever happens to be on screen. Nothing about the name
+ * reaches the renderer, so a probe that navigates and does not navigate back silently
+ * repoints every capture after it. That is exactly what happened: the diagnostics check
+ * opens the "Diagnose a vault" tool view, nothing closed it, and `16-totp`, `12`, `03` and
+ * `04` were all captured there — four files claiming to be a one-time code, a comparison, a
+ * field-level diff and the editor, and all four byte-identical pictures of the diagnostics
+ * screen. `03` was on the README under the caption "What one edit changed, field by field".
+ *
+ * A screenshot is the one artefact in this repo that no test could read, so it is the one
+ * place a false claim could survive indefinitely. This makes the claim checkable: the shot
+ * is still written either way — a picture of the wrong screen is evidence, and deleting it
+ * would hide what went wrong — but the run fails and names the file.
+ *
+ * The check is emitted **before** the capture attempt, so a shot that could not be taken at
+ * all and a shot of the wrong screen are two distinct failures rather than one silence.
+ */
+async function captureNamedShot(
+  window: BrowserWindow,
+  name: string,
+  subject: string
+): Promise<void> {
   const directory = process.env.KEYHOLD_SMOKE_SHOTS;
   if (directory === undefined || directory === '') return;
+
+  const showing: unknown = await window.webContents
+    .executeJavaScript(`document.querySelector(${JSON.stringify(subject)}) !== null`, true)
+    .catch(() => 'unreadable');
+  emit(`SMOKE-CHECK shot-${name.toLowerCase()}-shows-its-subject ${String(showing === true)}`);
 
   for (let attempt = 1; attempt <= 5; attempt += 1) {
     try {
@@ -858,7 +892,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // `--shots <dir>` walks a few named views and captures each. Generated rather than
         // hand-made, so a screenshot in the README can never quietly stop matching the app
         // it claims to show — regenerating them is one command.
-        await captureNamedShot(window, 'Keyhold-Screenshot-01');
+        await captureNamedShot(window, 'Keyhold-Screenshot-01', '.kh-vault-facts');
 
         // The cloud-folder notice. The harness puts the smoke vault inside a folder called
         // `Dropbox` precisely so this has something to find — a notice nothing renders looks
@@ -1028,7 +1062,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
         emit(
           `SMOKE-CHECK cloud-folder-notice-names-the-provider ${String(cloudNotice === 'shown')}`
         );
-        await captureNamedShot(window, 'Keyhold-Screenshot-11');
+        await captureNamedShot(window, 'Keyhold-Screenshot-11', '.kh-cloud-notice');
 
         // A real conflicted copy, beside the real vault, found through the real channel.
         //
@@ -1124,7 +1158,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
         await noteScreen(window, 'before-attachments');
         emit(`SMOKE-CHECK attachments-panel-usable ${String(attachments === 'ready')}`);
 
-        await captureNamedShot(window, 'Keyhold-Screenshot-02');
+        await captureNamedShot(window, 'Keyhold-Screenshot-02', '.kh-detail');
 
         // The command palette, opened by its real shortcut rather than by calling into the
         // store. A palette that opens when a test asks it to but not when Ctrl+K is pressed
@@ -1199,7 +1233,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
         );
         await noteScreen(window, 'before-banner');
         emit(`SMOKE-CHECK external-change-banner-offers-a-reload ${String(banner === 'offered')}`);
-        await captureNamedShot(window, 'Keyhold-Screenshot-10');
+        await captureNamedShot(window, 'Keyhold-Screenshot-10', '.kh-external-change');
 
         // Dismissed again, so it does not sit over every screenshot after this point.
         await window.webContents.executeJavaScript(
@@ -1221,7 +1255,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
         emit(`SMOKE-CHECK palette-opens-on-its-shortcut ${String(paletteOpen === true)}`);
 
         // (moved: see the shell-stays-put check after the settings view, which needs a long page)
-        await captureNamedShot(window, 'Keyhold-Screenshot-05');
+        await captureNamedShot(window, 'Keyhold-Screenshot-05', '.kh-palette__list');
         // At `document.activeElement`, not at `document`.
         //
         // This used to dispatch on `document`, which cannot work and never did: a DOM event
@@ -1334,7 +1368,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
         emit(
           `SMOKE-CHECK import-offers-a-keyhold-vault ${String(vaultRoute === 'opened' && passphraseField === true)}`
         );
-        await captureNamedShot(window, 'Keyhold-Screenshot-16');
+        await captureNamedShot(window, 'Keyhold-Screenshot-16', '.kh-import-vault');
 
         // Out of the wizard, so the screens after this are not taken behind a modal.
         await window.webContents.executeJavaScript(
@@ -1406,6 +1440,29 @@ export function runSmokeCheck(window: BrowserWindow): void {
              return 'compared';
            })()`
         );
+        emit(`SMOKE-CHECK history-compare-is-reachable ${String(compared === 'compared')}`);
+        await noteScreen(window, 'before-compare');
+
+        // Captured here, while the comparison is actually open on the record it belongs to.
+        //
+        // It used to be captured after the one-time-code probe, which selects a *different*
+        // record — unmounting the panel — and after the diagnostics probe, which covers the
+        // window entirely. The file therefore showed neither a comparison nor the record it
+        // compared. `shot-…-shows-its-subject` is what found that, on its first run.
+        await captureNamedShot(window, 'Keyhold-Screenshot-12', '.kh-compare__panel');
+
+        // Closed again, so it does not sit over the detail shot.
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const hide = [...document.querySelectorAll('.kh-compare button')]
+              .find((element) => element.textContent === 'Hide comparison');
+            hide?.click();
+            return hide !== undefined;
+          })()`,
+          true
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, 200));
+        await captureNamedShot(window, 'Keyhold-Screenshot-03', '.kh-detail');
         // The history export button, which has a channel behind it and is easy to ship
         // unreachable. Not clicked: it opens a native save dialog, which would hang the run.
         // Presence is the half that fails silently; the file's contents have their own tests,
@@ -1441,6 +1498,14 @@ export function runSmokeCheck(window: BrowserWindow): void {
         emit(`SMOKE-NOTE totp-said ${String(totpCode)}`);
         emit(`SMOKE-CHECK totp-code-is-rendered ${String(totpCode === 'six-digits')}`);
 
+        // Captured **here**, while the code is on screen, and not after the diagnostics check
+        // below — which opens a tool view over the whole window and never closes it. That
+        // ordering is what produced four byte-identical files claiming to be four different
+        // screens; see `captureNamedShot`. "Six digits are in the DOM" and "this looks like a
+        // usable authenticator field" are different claims, and only the first can be
+        // asserted from here, which is why the shot is worth taking at all.
+        await captureNamedShot(window, 'Keyhold-Screenshot-16-totp', '.kh-totp__code');
+
         // ── The diagnostics report, end to end ──────────────────────────────
         //
         // src/main/recovery/ was finished, tested and reachable from nothing: every piece is
@@ -1472,30 +1537,30 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // A distinct name: the tool-view loop below captures the same screen in its empty
         // state, and shared names meant the later shot silently replaced this one — a
         // screenshot claiming to be a rendered report and showing 'Nothing diagnosed yet'.
-        await captureNamedShot(window, 'Keyhold-Screenshot-18-diagnostics-report');
-        // A shot of the code on screen, because "six digits are in the DOM" and "this looks
-        // like a usable authenticator field" are different claims and only one of them can be
-        // asserted from here.
-        await captureNamedShot(window, 'Keyhold-Screenshot-16-totp');
+        await captureNamedShot(
+          window,
+          'Keyhold-Screenshot-18-diagnostics-report',
+          '.kh-diagnostics__block'
+        );
 
-        await noteScreen(window, 'before-compare');
-        emit(`SMOKE-CHECK history-compare-is-reachable ${String(compared === 'compared')}`);
-
-        await captureNamedShot(window, 'Keyhold-Screenshot-12');
-
-        // Closed again, so it does not sit over the screenshots that follow.
+        // Back to the vault before anything else is captured.
+        //
+        // The diagnostics probe above opened a tool view, which covers the entire window, and
+        // nothing here closed it. Every capture that followed — the one-time code, the
+        // comparison, the diff and the editor — was therefore a picture of this screen under
+        // somebody else's name. Escape is what a user would press, and it is what the
+        // tool-view teardown at the end of this run asserts works.
         await window.webContents.executeJavaScript(
-          `(() => {
-            const hide = [...document.querySelectorAll('.kh-compare button')]
-              .find((element) => element.textContent === 'Hide comparison');
-            hide?.click();
-            return hide !== undefined;
-          })()`,
+          `(document.activeElement ?? document.querySelector('.kh-tool__title'))?.dispatchEvent(
+             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
           true
         );
-        await new Promise<void>((resolve) => setTimeout(resolve, 200));
-
-        await captureNamedShot(window, 'Keyhold-Screenshot-03');
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+        const backOnTheVault: unknown = await window.webContents.executeJavaScript(
+          `document.querySelector('.kh-shell__main') === null && document.querySelector('.kh-detail') !== null`,
+          true
+        );
+        emit(`SMOKE-CHECK diagnostics-hands-the-vault-back ${String(backOnTheVault === true)}`);
 
         // The editor, which is the screen the custom-field system actually shows.
         //
@@ -1514,7 +1579,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
           true
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 350));
-        await captureNamedShot(window, 'Keyhold-Screenshot-04');
+        await captureNamedShot(window, 'Keyhold-Screenshot-04', '.kh-editor');
 
         // ── The tool views ──────────────────────────────────────────────────
         //
@@ -1687,7 +1752,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
             );
           }
 
-          await captureNamedShot(window, name);
+          await captureNamedShot(window, name, '.kh-shell__main .kh-tool__title');
         }
 
         // Escape closes it. Dispatched at the focused element, which after opening a tool is
