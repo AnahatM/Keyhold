@@ -51,6 +51,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "verify": "npm run lint && npm run build && npm test",
+    "icons": "node tools/make-icons.mjs",
     "test:smoke": "node tools/smoke.mjs",
     "verify:full": "npm run format:check && npm run verify && npm run test:smoke"
   },

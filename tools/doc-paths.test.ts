@@ -55,11 +55,6 @@ const ROOT_FILES = new Set([
  * remembers deciding, and then the guard is a formality.
  */
 const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
-  'build/icon.icns':
-    'The macOS icon. Not drawn yet — MANUAL-BACKLOG M-ICON — and the packaging doc has to be ' +
-    'able to say where it will go.',
-  'build/icon.ico': 'The Windows icon. Same reason as the .icns.',
-  'build/icon.png': 'The Linux/source icon. Same reason as the .icns.',
   'docs/10-Sync-And-Transfer/':
     'The number the sync docs were originally planned under. The roadmap names it to explain ' +
     'why they are at 07- instead.',

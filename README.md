@@ -1,4 +1,8 @@
-<h1 align="center">🔐 Keyhold</h1>
+<p align="center">
+  <img src="build/icons/128x128.png" alt="Keyhold" width="112" height="112" />
+</p>
+
+<h1 align="center">Keyhold</h1>
 
 <p align="center">
   <strong>A fully offline password manager that records what changed, when, and from which device and network — in one encrypted file you own.</strong>

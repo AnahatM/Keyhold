@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Keyhold">
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3d63dd"/>
+      <stop offset="1" stop-color="#233c93"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="229.1" ry="229.1" fill="url(#plate)"/>
+  <g fill="#ffffff">
+    <circle cx="512.0" cy="409.6" r="172.0"/>
+    <path d="M 440.3 440.3 L 583.7 440.3 L 647.2 798.7 L 376.8 798.7 Z"/>
+  </g>
+</svg>

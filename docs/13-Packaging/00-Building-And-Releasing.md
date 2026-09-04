@@ -18,28 +18,19 @@ exactly which is which.
 None of them can be applied from inside `electron-builder.yml` or a workflow file. All
 three are small. The first one is load-bearing.
 
-### 1. `.gitignore` currently ignores `build/`
+### 1. ~~`.gitignore` ignores `build/`~~ — fixed
 
 `electron-builder.yml` sets `directories.buildResources: build`, which is where icons,
-installer artwork and the entitlements plist live. `.gitignore` has a line `build/` under
-"Build output" — written for an output folder this project does not have. electron-vite
-writes to `out/`; electron-builder writes to `release/`. Both are separately ignored.
+installer artwork and the entitlements plist live. `.gitignore` used to carry a line
+`build/` under "Build output", written for an output folder this project does not have —
+electron-vite writes to `out/` and electron-builder writes to `release/`, both separately
+ignored. The effect was that no CI checkout had an icon and every automated build was
+unbranded.
 
-The effect today: nothing in `build/` is committed, so a CI checkout has no icons and
-every automated build ships the stock Electron icon.
-
-```diff
-  # Build output
-  dist/
-  dist-electron/
-  out/
-  release/
-- build/
-  *.tsbuildinfo
-```
-
-Then commit `build/README.md` and `build/entitlements.mac.plist` explicitly — and, when
-they exist, the icons.
+The line is gone, and a comment stands where it was so nobody re-adds it. `build/README.md`,
+`build/entitlements.mac.plist` and the generated icons are all committed. The icons come
+from `npm run icons` — see [`build/README.md`](../../build/README.md), and do not edit them
+by hand: `tools/icons.test.ts` regenerates and compares bytes.
 
 ### 2. `package.json` — the exact diff
 
@@ -541,8 +532,8 @@ release is created as a draft rather than published.
 3. `MANUAL-BACKLOG.md` has nothing 🔴 outstanding.
 4. `package.json` `version` is the version you are about to tag. The workflow refuses to
    proceed if the tag and the file disagree, but finding out locally is quicker.
-5. `build/icon.ico` and `build/icon.icns` exist and are committed — otherwise the release
-   ships the stock Electron icon.
+5. `build/icon.ico` and `build/icon.icns` are committed and current — `npm test` covers
+   this, because `tools/icons.test.ts` regenerates them and compares bytes.
 
 **Tag**
 
