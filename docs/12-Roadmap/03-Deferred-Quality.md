@@ -38,6 +38,13 @@ the second half is what makes an entry worth doing later rather than deleting.
 
 ## Owed tests
 
+- [ ] `src/main/vault/vault-service.ts` `totpCode` — no direct test. Covered only by the smoke
+      run and by the generator's own RFC vectors, so a wrong `expiresAt` or a missed
+      `otp-secret` type check would ship.
+- [ ] `src/renderer/src/vault/TotpField.tsx` — no test. The self-refresh timer, the expiring
+      state and the copy-through-the-broker path are all unasserted.
+- [ ] `src/shared/ipc/validation.ts` — `totp-code` ref shape has no case in the validator test.
+
 - [ ] `src/main/kdbx/header.ts` — no test of its own. Covered indirectly by the KDBX round
       trip, so a refusal that stopped firing would be caught only if it also broke a read.
 - [ ] `src/main/import-service/kdbx-source.ts` — the attachment-marker append path has no
@@ -56,6 +63,9 @@ the second half is what makes an entry worth doing later rather than deleting.
       own address.
 
 ## Owed documentation
+
+- [ ] `docs/05-Features/` — no page for one-time codes at all. The engine, the channel, the
+      field and the separate rate-limit key are undocumented.
 
 - [ ] `docs/05-Features/07-Breach-Check.md` — exists and predates the feature being
       reachable. Needs rewriting for what actually shipped: the two channels, the availability

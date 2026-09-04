@@ -336,6 +336,51 @@ export function runSmokeCheck(window: BrowserWindow): void {
           tags: ['smoke', 'test'],
         });
         steps.push(['create-record', made.ok]);
+
+        // Seeded here rather than later, because the list loads once when the screen mounts:
+        // a record created after that is in the vault and not in the DOM. Its own assertion
+        // is further down, once there is a UI to look at.
+        const withTotp = await window.keyhold.credentials.create({
+          title: 'Smoke TOTP',
+          username: 'alice',
+          custom: [
+            {
+              id: 'smoke-otp',
+              label: 'Authenticator',
+              type: 'otp-secret',
+              value: 'otpauth://totp/Smoke:alice?secret=JBSWY3DPEHPK3PXP&issuer=Smoke',
+              hidden: false,
+              order: 0,
+            },
+          ],
+        });
+        steps.push(['create-record-with-a-one-time-password', withTotp.ok]);
+
+        // The channel, before any UI is involved. Six digits and a deadline in the future is
+        // the whole contract; the seed must not come back, and does not — the projection has
+        // no field for it.
+        const totpChannel = withTotp.ok
+          ? await window.keyhold.totp.code(withTotp.value.id, 'smoke-otp')
+          : null;
+        steps.push([
+          'totp-channel-answers-with-a-code',
+          totpChannel !== null &&
+            totpChannel.ok === true &&
+            totpChannel.value !== null &&
+            // An explicit 0-9 class rather than a backslash one, and NO BACKTICKS in this
+            // comment: the whole probe is a template literal. A lone backslash is eaten
+            // before the renderer sees it, so the regex silently became /^d{6}$/ and matched
+            // nothing -- it failed exactly that way once. A backtick ends the literal
+            // outright, which it also did. The DOM probe below spells its class out too.
+            /^[0-9]{6}$/.test(totpChannel.value.secretCode) &&
+            totpChannel.value.expiresAt > Date.now(),
+        ]);
+        steps.push([
+          'totp-channel-does-not-return-the-seed',
+          totpChannel !== null &&
+            totpChannel.ok === true &&
+            !JSON.stringify(totpChannel.value).includes('JBSWY3DPEHPK3PXP'),
+        ]);
         if (!made.ok) return { stage: 'cycle', ok: false, steps, detail: made.message };
 
         const id = made.value.id;
@@ -1348,6 +1393,34 @@ export function runSmokeCheck(window: BrowserWindow): void {
              .some((element) => element.textContent === 'Export history') ? 'offered' : false`
         );
         emit(`SMOKE-CHECK history-export-is-offered ${String(exportButton === 'offered')}`);
+
+        // ── The one-time code, on screen ────────────────────────────────────
+        //
+        // The channel is asserted above; this is the half that was missing for two phases.
+        // The engine was finished, correct and rendered by nothing, and every test passed the
+        // whole time — so the only check that would have noticed is one that selects a record
+        // with an `otp-secret` field and looks for six digits in the detail pane.
+        const totpCode = await waitFor(
+          window,
+          `(async () => {
+             const row = [...document.querySelectorAll('.kh-row')]
+               .find((element) => element.textContent?.includes('Smoke TOTP'));
+             if (!row) return 'row-missing';
+             row.click();
+             await new Promise((done) => setTimeout(done, 500));
+
+             const shown = document.querySelector('.kh-totp__code');
+             if (!shown) return 'field-not-rendered';
+             const digits = (shown.textContent || '').replace(/[^0-9]/g, '');
+             return digits.length === 6 ? 'six-digits' : 'no-code';
+           })()`
+        );
+        emit(`SMOKE-NOTE totp-said ${String(totpCode)}`);
+        emit(`SMOKE-CHECK totp-code-is-rendered ${String(totpCode === 'six-digits')}`);
+        // A shot of the code on screen, because "six digits are in the DOM" and "this looks
+        // like a usable authenticator field" are different claims and only one of them can be
+        // asserted from here.
+        await captureNamedShot(window, 'Keyhold-Screenshot-16-totp');
 
         await noteScreen(window, 'before-compare');
         emit(`SMOKE-CHECK history-compare-is-reachable ${String(compared === 'compared')}`);

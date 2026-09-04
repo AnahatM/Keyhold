@@ -193,3 +193,35 @@ export function totpRemainingMs(codeWindow: TotpWindow, now: number): number {
 export function totpProgress(codeWindow: TotpWindow, now: number): number {
   return 1 - totpRemainingMs(codeWindow, now) / codeWindow.periodMs;
 }
+
+// ── What crosses the bridge ──────────────────────────────────────────────────
+
+/**
+ * A TOTP code as the renderer receives it.
+ *
+ * The **seed** never crosses — it is `otp-secret` material, `src/main/totp/secret-field.ts`
+ * destroys the key before returning, and nothing here can reconstruct it. The **code** does,
+ * because a code the user cannot see is a code they cannot type. It is a live authentication
+ * factor until its window closes, so it travels the way a revealed password does: on demand,
+ * one at a time, never logged and never in an error.
+ *
+ * `expiresAt` is absolute rather than a remaining-seconds count. A duration computed in main
+ * is already stale by the length of the round trip, and a countdown that says 29 when it
+ * should say 27 is how somebody types a code that has just died.
+ */
+export interface TotpCodeView {
+  readonly secretCode: string;
+  /** Epoch ms at which this code stops being valid. The renderer counts down to it. */
+  readonly expiresAt: number;
+  readonly periodSeconds: number;
+  readonly digits: number;
+  /** The issuer the field named, when it named one. */
+  readonly issuer: string | null;
+  /**
+   * True when the URI's label and its `issuer` parameter disagreed.
+   *
+   * Surfaced rather than resolved: two different names usually means the field was pasted
+   * from somewhere else, and silently picking one shows a code under the wrong account.
+   */
+  readonly issuerMismatch: boolean;
+}

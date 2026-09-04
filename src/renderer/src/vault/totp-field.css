@@ -1,0 +1,101 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The one-time code field.
+ *
+ * Its own stylesheet rather than more of `vault-screens.css`, which is already one of the
+ * larger files in the repo — and because a code with a countdown is a different kind of
+ * control from a text row.
+ */
+
+.kh-totp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+  padding: var(--kh-space-2) 0;
+}
+
+.kh-totp__head {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-totp__label {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-totp__issuer {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-totp__mismatch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kh-space-1);
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-warning-text);
+}
+
+.kh-totp__row {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-3);
+}
+
+.kh-totp__code {
+  font-family: var(--kh-font-secret);
+  font-size: var(--kh-text-xl);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--kh-color-text);
+}
+
+.kh-totp__code--waiting {
+  color: var(--kh-color-text-subtle);
+}
+
+/*
+ * The countdown ring, drawn with a conic gradient rather than an SVG.
+ *
+ * `--kh-totp-fraction` is set inline from the remaining time, so the ring is a pure function
+ * of the same deadline the digits are — there is no second clock to drift.
+ */
+.kh-totp__ring {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--kh-color-accent) calc(var(--kh-totp-fraction) * 360deg),
+    var(--kh-color-surface-sunken) 0
+  );
+}
+
+.kh-totp__seconds {
+  font-size: var(--kh-text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--kh-color-text-muted);
+}
+
+/*
+ * Under six seconds. The code is still shown — hiding one somebody is mid-way through
+ * typing is worse than letting them watch it run out — but it says so.
+ */
+.kh-totp--expiring .kh-totp__code,
+.kh-totp--expiring .kh-totp__seconds {
+  color: var(--kh-color-warning-text);
+}
+
+.kh-totp--expiring .kh-totp__ring {
+  background: conic-gradient(
+    var(--kh-color-warning) calc(var(--kh-totp-fraction) * 360deg),
+    var(--kh-color-surface-sunken) 0
+  );
+}
+
+.kh-totp__error {
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-danger-text);
+}

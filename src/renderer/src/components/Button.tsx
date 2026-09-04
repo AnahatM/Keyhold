@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes } from 'react';
+import { Icon, type IconName } from './Icon.js';
 import './Button.css';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -8,8 +9,20 @@ export type ButtonSize = 'sm' | 'md';
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variant?: ButtonVariant;
   readonly size?: ButtonSize;
-  /** Renders a leading icon. Decorative — the label carries the meaning. */
-  readonly icon?: ReactNode;
+  /**
+   * A leading icon, by name.
+   *
+   * This used to be a `ReactNode`, and `ReactNode` accepts a `string` — so `icon="close"`
+   * typechecked at four call sites and rendered the **word** "close" where an ✕ belonged.
+   * The modal's close button had read that way for some time; no test could see it and a
+   * screenshot of an unrelated feature is what found it.
+   *
+   * Narrowed to the name rather than widened to a union, because `IconName | ReactNode`
+   * collapses back to `ReactNode` and would have accepted the bug again. Every node call
+   * site was `<Icon name="..." />` anyway, so nothing was lost. Decorative — the label, or
+   * `iconOnlyLabel`, carries the meaning.
+   */
+  readonly icon?: IconName;
   /**
    * Required when the button has no visible text.
    *
@@ -48,7 +61,11 @@ export function Button({
       // the spinner still knows the button is working rather than broken.
       aria-busy={loading || undefined}
     >
-      {loading ? <span className="kh-button__spinner" aria-hidden="true" /> : icon}
+      {loading ? (
+        <span className="kh-button__spinner" aria-hidden="true" />
+      ) : (
+        icon !== undefined && <Icon name={icon} />
+      )}
       {children !== undefined && <span className="kh-button__label">{children}</span>}
     </button>
   );

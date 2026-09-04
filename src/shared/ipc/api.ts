@@ -14,6 +14,7 @@ import type {
   GeneratorRange,
 } from '../model/generator.js';
 import type { BreachAvailability, BreachReport } from '../model/breach.js';
+import type { TotpCodeView } from '../model/totp.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '../model/health.js';
 import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
 import type { PasswordStrength } from '../model/strength.js';
@@ -342,6 +343,19 @@ export interface HealthApi {
  * second place for the default to be wrong. What this API does is *report* whether it is on,
  * and why not — see `BreachAvailability`.
  */
+/**
+ * One-time codes for `otp-secret` custom fields.
+ *
+ * One channel: the seed stays in main and the code is fetched per look, the same shape as
+ * `credentials.revealSecret`. There is deliberately no "give me every code in the vault"
+ * channel — that would put a live authentication factor for every account in one renderer
+ * message, which is the opposite of the per-reveal design.
+ */
+export interface TotpApi {
+  /** `null` when the record, the field, or its `otp-secret` type is not there. */
+  code: (credentialId: string, fieldId: string) => Promise<IpcResult<TotpCodeView | null>>;
+}
+
 export interface BreachApi {
   /** Whether a check can run, and which switch to change if not. Polled, never pushed. */
   availability: () => Promise<IpcResult<BreachAvailability>>;
@@ -669,6 +683,7 @@ export interface KeyholdApi {
   generator: GeneratorApi;
   health: HealthApi;
   breach: BreachApi;
+  totp: TotpApi;
   history: HistoryApi;
   organisation: OrganisationApi;
   settings: SettingsApi;
@@ -724,6 +739,8 @@ export const CHANNELS = {
   generatorLimits: 'kh:generator:limits',
 
   healthAnalyse: 'kh:health:analyse',
+
+  totpCode: 'kh:totp:code',
 
   breachAvailability: 'kh:breach:availability',
   breachRun: 'kh:breach:run',

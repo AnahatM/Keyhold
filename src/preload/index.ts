@@ -60,6 +60,7 @@ import type {
 import type { CredentialProjection, SecretRef, VersionedField } from '@shared/model/credential.js';
 import type { GeneratedPassword, GeneratorOptions } from '@shared/model/generator.js';
 import type { BreachAvailability, BreachReport } from '@shared/model/breach.js';
+import type { TotpCodeView } from '@shared/model/totp.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '@shared/model/health.js';
 import type { FieldDiffProjection, HistoryPointRef } from '@shared/model/history.js';
 import type { PasswordStrength } from '@shared/model/strength.js';
@@ -313,6 +314,13 @@ const api: KeyholdApi = {
       thresholds?: Partial<HealthThresholds>;
     }) =>
       ipcRenderer.invoke(CHANNELS.healthAnalyse, options) as Promise<IpcResult<VaultHealthReport>>,
+  },
+
+  totp: {
+    code: (credentialId: string, fieldId: string) =>
+      ipcRenderer.invoke(CHANNELS.totpCode, credentialId, fieldId) as Promise<
+        IpcResult<TotpCodeView | null>
+      >,
   },
 
   breach: {

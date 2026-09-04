@@ -169,6 +169,12 @@ export function requireSecretRef(channel: string, value: unknown): SecretRef {
         credentialId,
         questionId: requireId(channel, value.questionId, 'ref.questionId'),
       };
+    case 'totp-code':
+      return {
+        kind: 'totp-code',
+        credentialId,
+        fieldId: requireId(channel, value.fieldId, 'ref.fieldId'),
+      };
     case 'custom-value':
       return {
         kind: 'custom-value',

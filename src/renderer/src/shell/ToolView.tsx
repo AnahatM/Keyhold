@@ -65,7 +65,11 @@ export function ToolView({ view, onClose, children }: ToolViewProps): React.JSX.
         <Button
           variant="ghost"
           size="sm"
-          icon={<span aria-hidden="true">←</span>}
+          // The chevron, rotated by CSS, rather than a literal arrow character: a typed glyph
+          // is drawn by the OS font and cannot follow the theme, which is the whole argument
+          // the icon set was introduced on.
+          icon="chevron"
+          className="kh-tool__back"
           onClick={onClose}
         >
           Back to vault

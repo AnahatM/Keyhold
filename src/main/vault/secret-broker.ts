@@ -68,7 +68,12 @@ export function refKey(ref: SecretRef): string {
       return `${ref.kind}:${ref.credentialId}`;
     case 'security-answer':
       return `${ref.kind}:${ref.credentialId}:${ref.questionId}`;
+    // `totp-code` is keyed apart from the seed on the same field, deliberately: they are two
+    // different secrets, and a user copying a code every thirty seconds must not exhaust the
+    // grants that would let them reveal the seed — nor the reverse. `ref.kind` is in the key,
+    // so sharing this branch keeps them separate.
     case 'custom-value':
+    case 'totp-code':
       return `${ref.kind}:${ref.credentialId}:${ref.fieldId}`;
     // The version number is part of the key, so revealing v3's password and then v7's
     // costs two grants against the rate limit rather than one. Walking a record's whole

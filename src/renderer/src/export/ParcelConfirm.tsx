@@ -87,7 +87,7 @@ export function ParcelConfirm({
             // `.kh-button__label`, which is text styling for a word, and the eye was only ever
             // sitting there because an emoji is a character. `iconOnlyLabel` above already
             // carries the accessible name, so nothing is lost by moving it.
-            icon={<Icon name={reveal ? 'hide' : 'reveal'} />}
+            icon={reveal ? 'hide' : 'reveal'}
           />
         }
       />

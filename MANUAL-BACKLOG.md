@@ -213,7 +213,13 @@ exist yet. Each needs a channel group added to `src/shared/ipc/api.ts`, a handle
   constructed nowhere outside its own tests.
 - ~~`kh:searches:*`~~ — **done**. Four channels, each answering with the whole list rather
   than the entry it touched, so the sidebar cannot disagree with the vault about what exists.
-- `kh:totp:*`, `kh:recovery:*` — once those engines are finished.
+- ~~`kh:totp:*`~~ — **done**. One channel: the seed stays in main, the code and its deadline
+  cross. Copying goes through a new `totp-code` secret ref so it reaches the brokered
+  clipboard with its auto-clear, keyed apart from the seed so the two are rate-limited
+  separately. Rendered by `TotpField` in the credential detail, with a smoke check that
+  selects a record and finds six digits.
+- `kh:recovery:*` — the engine in `src/main/recovery/` is finished and reachable from nothing.
+  Next.
 
 Each agent's report names the exact payloads.
 

@@ -95,7 +95,7 @@ export function ToastItem({ toast, onDismiss }: ToastItemProps): React.JSX.Eleme
         className="kh-toast__dismiss"
         variant="ghost"
         size="sm"
-        icon={<Icon name="close" />}
+        icon="close"
         // The title is in the label because there can be three of these on screen at once,
         // and "Dismiss, button" three times over tells a screen-reader user nothing about
         // which one they are on.

@@ -502,6 +502,20 @@ export type SecretRef =
   | { readonly kind: 'notes'; readonly credentialId: string }
   | { readonly kind: 'security-answer'; readonly credentialId: string; readonly questionId: string }
   | { readonly kind: 'custom-value'; readonly credentialId: string; readonly fieldId: string }
+  /**
+   * The **current one-time code** for an `otp-secret` field — not its seed.
+   *
+   * A separate kind rather than reusing `custom-value`, because they are different secrets
+   * with different lifetimes: the seed is permanent and must never leave main, the code dies
+   * in under a minute. Copying "the OTP field" has to put six digits on the clipboard, not an
+   * `otpauth://` URI, and a caller that could not say which it meant would eventually put the
+   * seed there.
+   *
+   * Display goes through `kh:totp:code`, which carries the expiry and the issuer as well.
+   * This exists so a **copy** reaches the brokered clipboard with its auto-clear timer, the
+   * same as every other secret. Both resolve through `VaultService.totpCode`.
+   */
+  | { readonly kind: 'totp-code'; readonly credentialId: string; readonly fieldId: string }
   | {
       readonly kind: 'historic-password';
       readonly credentialId: string;
@@ -554,6 +568,7 @@ export const SECRET_REF_KINDS = [
   'notes',
   'security-answer',
   'custom-value',
+  'totp-code',
   'historic-password',
   'historic-notes',
   'historic-answer',

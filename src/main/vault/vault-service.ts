@@ -121,6 +121,8 @@ import {
 } from '../organisation/tag-ops.js';
 import { chunkIdsOrphanedBy } from '../attachments/references.js';
 import type { BreachReport } from '@shared/model/breach.js';
+import type { TotpCodeView } from '@shared/model/totp.js';
+import { generateTotpSecretCode, parseOtpSecretField } from '../totp/index.js';
 import { sweepVaultForBreaches, type BreachSweepClient } from '../breach/sweep.js';
 import { analyseVault } from '../health/rules.js';
 import { toDiffProjection } from '../history/diff-projection.js';
@@ -606,6 +608,46 @@ export class VaultService {
    * two would let a caller distinguish a missing record from a forbidden one by the error
    * type, which is a small enumeration oracle.
    */
+  /**
+   * The current one-time code for an `otp-secret` custom field.
+   *
+   * Goes through `#broker.grant` exactly as `revealSecret` does, and for the same reason: a
+   * code is a live authentication factor until its window closes, so it is rate-limited and
+   * audited like any other reveal rather than being a free read because it expires soon.
+   *
+   * The **seed never leaves this method**. `totpSecretCodeFromField` parses it, generates,
+   * and destroys the key in a `finally` — including on the error path, which is the one where
+   * a leaked key matters most. What comes back is six digits and a deadline.
+   */
+  totpCode(credentialId: string, fieldId: string, now = Date.now()): TotpCodeView | null {
+    this.#requireOpen();
+    const record = this.#findRecord(credentialId);
+    if (record === null) return null;
+
+    const field = record.fields.custom.find((candidate) => candidate.id === fieldId);
+    // `null` for both "no such field" and "not a one-time-password field", rather than an
+    // error for the second. A caller that could tell them apart could enumerate field types
+    // without reading any values.
+    if (field?.type !== 'otp-secret') return null;
+
+    this.#broker.grant({ kind: 'totp-code', credentialId, fieldId });
+
+    const configuration = parseOtpSecretField(field.value);
+    try {
+      const code = generateTotpSecretCode(configuration.secret, configuration.parameters, now);
+      return {
+        secretCode: code.secretCode,
+        expiresAt: code.window.expiresAt,
+        periodSeconds: configuration.parameters.periodSeconds,
+        digits: configuration.parameters.digits,
+        issuer: configuration.parameters.issuer ?? configuration.labelIssuer,
+        issuerMismatch: configuration.issuerMismatch,
+      };
+    } finally {
+      configuration.secret.destroy();
+    }
+  }
+
   revealSecret(ref: SecretRef): string | null {
     this.#requireOpen();
     const record = this.#findRecord(ref.credentialId);
@@ -622,6 +664,12 @@ export class VaultService {
         const question = record.fields.securityQuestions.find((q) => q.id === ref.questionId);
         return question?.answer ?? null;
       }
+      case 'totp-code':
+        // Resolved through the one implementation rather than repeated here, so the display
+        // channel and the clipboard cannot disagree about what the current code is. `grant`
+        // has already run above; `totpCode` grants again under its own key, which is what
+        // keeps the code's rate limit separate from the seed's.
+        return this.totpCode(ref.credentialId, ref.fieldId)?.secretCode ?? null;
       case 'custom-value': {
         const field = record.fields.custom.find((f) => f.id === ref.fieldId);
         if (field === undefined) return null;

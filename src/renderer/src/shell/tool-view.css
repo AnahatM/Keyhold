@@ -125,3 +125,14 @@
   margin: 0;
   padding: 0;
 }
+
+/*
+ * The back button's chevron points left.
+ *
+ * One chevron drawing, rotated, rather than a second "arrow-left" icon — the icon set's own
+ * header makes that argument for the folder twisty and it applies here too. This replaced a
+ * literal `←` character, which the OS font drew and which could not follow the theme.
+ */
+.kh-tool__back .kh-icon {
+  transform: rotate(180deg);
+}

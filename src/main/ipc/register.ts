@@ -627,6 +627,15 @@ export function registerIpcHandlers(context: IpcContext): void {
     vault.analyseHealth(requireHealthOptions(CHANNELS.healthAnalyse, options))
   );
 
+  // ── totp ───────────────────────────────────────────────────────────────────
+
+  handle(CHANNELS.totpCode, (credentialId, fieldId) =>
+    vault.totpCode(
+      requireId(CHANNELS.totpCode, credentialId, 'credentialId'),
+      requireId(CHANNELS.totpCode, fieldId, 'fieldId')
+    )
+  );
+
   // ── breach ─────────────────────────────────────────────────────────────────
   //
   // The only channels in this file whose handler can cause a network request, and they can

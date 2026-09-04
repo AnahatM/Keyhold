@@ -10,6 +10,7 @@ import { useToast } from '../chrome/toast-context.js';
 import { CompareVersions } from '../history/CompareVersions.js';
 import { HistoryTimeline } from '../history/HistoryTimeline.js';
 import { PlainField, SecretField } from './SecretField.js';
+import { TotpField } from './TotpField.js';
 
 /**
  * The detail pane for one record.
@@ -189,7 +190,24 @@ export function CredentialDetail({
         <section className="kh-detail__section">
           <h3 className="kh-detail__heading">Custom fields</h3>
           {credential.custom.map((field) =>
-            field.isSecret ? (
+            // A one-time-password field gets the code, not the seed. The engine has existed
+            // since Phase 8 and nothing rendered it — an `otp-secret` field showed as a blob
+            // you could reveal to read an `otpauth://` URI, which is not what anybody wants
+            // from it. `TotpField` fetches a code, counts down to its expiry, and refreshes
+            // itself when the window closes.
+            field.type === 'otp-secret' && field.hasValue ? (
+              <TotpField
+                key={`${credential.id}:otp:${field.id}`}
+                label={field.label}
+                credentialId={credential.id}
+                fieldId={field.id}
+                onCopyRef={{
+                  kind: 'totp-code',
+                  credentialId: credential.id,
+                  fieldId: field.id,
+                }}
+              />
+            ) : field.isSecret ? (
               <SecretField
                 key={`${credential.id}:f:${field.id}`}
                 label={field.label}

@@ -86,6 +86,9 @@ const SECRET_KIND_LABELS: Readonly<Record<SecretRef['kind'], string>> = {
   notes: 'a note',
   'security-answer': 'a security answer',
   'custom-value': 'a custom field',
+  // Named apart from the field it came from, because they are different secrets: one is a
+  // code that dies in half a minute, the other is the seed that mints every future code.
+  'totp-code': 'a one-time code',
   'historic-password': 'a past password',
   'historic-notes': 'a past note',
   // Never the filename. An attachment's name is often the most descriptive thing about it —
