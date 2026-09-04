@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { credentialTypeDefinition } from '@shared/model/credential-templates.js';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { Badge, EmptyState } from '../components/Feedback.js';
 import { Button } from '../components/Button.js';
-import { Icon } from '../components/Icon.js';
+import { Icon, type IconName } from '../components/Icon.js';
 import { Input } from '../components/Input.js';
 import { SaveSearchButton } from '../organisation/SaveSearchButton.js';
 import { QueryHelp } from './QueryHelp.js';
@@ -279,9 +280,24 @@ function VirtualRows({
 }
 
 /** A letter or emoji stand-in. Never fetches a favicon — that would tell a server which accounts exist. */
-function iconFor(credential: CredentialProjection): string {
+/**
+ * What the row's little square shows.
+ *
+ * Order matters: a user's own choice first, then the record's kind, then the initial. A
+ * type icon that overrode a chosen one would be the app overruling somebody about their own
+ * record — and an initial for every type would make a list of ten cards look like a list of
+ * ten of anything.
+ *
+ * `login` deliberately keeps the initial. It is the overwhelmingly common type, and a column
+ * of identical key icons carries less information than a column of first letters.
+ */
+function iconFor(credential: CredentialProjection): React.ReactNode {
   if (credential.icon.kind === 'emoji' && credential.icon.value !== undefined) {
     return credential.icon.value;
+  }
+  if (credential.type !== 'login') {
+    const name = credentialTypeDefinition(credential.type).icon;
+    return <Icon name={name as IconName} size="sm" />;
   }
   const source = credential.title.trim() || credential.username.trim() || '?';
   return (source[0] ?? '?').toUpperCase();

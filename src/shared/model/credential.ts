@@ -366,10 +366,49 @@ export interface CredentialIcon {
   readonly value?: string;
 }
 
+// ── Record types ─────────────────────────────────────────────────────────────
+
+/**
+ * What kind of thing a record is.
+ *
+ * `login` was the only value for the life of the project, and the discriminator was carried
+ * anyway precisely so this would be additive rather than a rewrite. It is: every type below
+ * shares the same CRUD, history, search, health, import and export machinery, and differs
+ * only in **which fields the editor offers first** and which icon the list draws.
+ *
+ * That is the whole design, and it is deliberate. The alternative — a distinct storage shape
+ * per type — would mean a migration, a second validator, a second projection and a second
+ * merge path, and every one of those is somewhere a card could be lost that a login would
+ * not be. Here a card *is* a record whose custom fields happen to be named `Number`,
+ * `Expiry` and `Security code`, so a bug that loses one loses all of them and gets found.
+ *
+ * **A record's type never changes what is secret.** `SECRET_CUSTOM_FIELD_TYPES` decides that
+ * by field type, so a card's security code is a `pin` and is protected because of what it
+ * is, not because of what it sits next to.
+ */
+export const CREDENTIAL_TYPES = [
+  'login',
+  'note',
+  'card',
+  'identity',
+  'bank',
+  'wifi',
+  'ssh-key',
+  'api-key',
+  'licence',
+  'membership',
+] as const;
+
+export type CredentialType = (typeof CREDENTIAL_TYPES)[number];
+
+export function isCredentialType(value: unknown): value is CredentialType {
+  return typeof value === 'string' && (CREDENTIAL_TYPES as readonly string[]).includes(value);
+}
+
 /** The full record. **Main process only** — this type never crosses IPC. */
 export interface Credential {
   readonly id: string;
-  readonly type: 'login';
+  readonly type: CredentialType;
   readonly title: string;
   readonly favorite: boolean;
   readonly folderId: string | null;
@@ -462,7 +501,7 @@ export interface VersionProjection {
  */
 export interface CredentialProjection {
   readonly id: string;
-  readonly type: 'login';
+  readonly type: CredentialType;
   readonly title: string;
   readonly favorite: boolean;
   readonly folderId: string | null;

@@ -16,6 +16,7 @@ import type {
 import type { BreachAvailability, BreachReport } from '../model/breach.js';
 import type { RecoveryReport } from '../model/recovery.js';
 import type { TotpCodeView } from '../model/totp.js';
+import type { CredentialType } from '../model/credential.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '../model/health.js';
 import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
 import type { PasswordStrength } from '../model/strength.js';
@@ -237,6 +238,15 @@ export interface CustomFieldInput {
 
 export interface CredentialInput {
   readonly title: string;
+  /**
+   * What kind of record this is. Defaults to `login`.
+   *
+   * Optional on the way in so every existing caller keeps working, and defaulted in one place
+   * — `credential-ops.ts` — rather than at each call site. A record's type only decides which
+   * fields the editor leads with and which icon the list draws; it never changes what is
+   * stored, what is secret, or how anything is merged.
+   */
+  readonly type?: CredentialType;
   readonly username?: string;
   readonly email?: string;
   readonly password?: string;

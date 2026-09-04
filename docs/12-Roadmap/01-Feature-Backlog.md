@@ -19,7 +19,7 @@
 These four were presented as options and not chosen. They are recorded here verbatim, at the user's
 instruction, so they are not lost.
 
-### A1 · Built-in TOTP / 2FA code generator ⭐⭐⭐
+### ~~A1~~ · Built-in TOTP / 2FA code generator — **shipped**
 
 Store the TOTP secret alongside a credential and show the rotating 6-digit code with a countdown
 ring, replacing the need for Authy or Google Authenticator for those accounts. Fully offline —
@@ -36,7 +36,13 @@ Steam Guard variant, and a TOTP-only export for migrating to a dedicated authent
 place, which weakens 2FA's separation. Ship it with a clear, non-preachy explanation of that
 trade-off and a per-vault toggle to forbid it entirely.
 
-### A2 · Extra item types beyond logins ⭐⭐⭐
+**Shipped:** the code, the issuer and a countdown ring in the credential detail, refreshing
+itself when the window closes. The seed stays in the main process; copying goes through the
+auto-clearing clipboard under its own rate-limit key. **Still open from this item:** the
+trade-off explanation on screen, the per-vault toggle to forbid seeds, QR enrolment, and a
+TOTP-only export.
+
+### ~~A2~~ · Extra item types beyond logins — **shipped, minimally**
 
 Secure notes · payment cards · identities and passports · SSH keys · software licences ·
 WiFi networks · API keys · bank accounts · medical records · membership cards.
@@ -45,6 +51,18 @@ Each gets its own field template while sharing the same CRUD, history, search an
 
 _Groundwork already in v1:_ the record model carries a `type` discriminator and the field system is
 already template-driven precisely so this is additive rather than a rewrite.
+
+**Shipped:** ten types — login, secure note, payment card, identity document, bank account,
+Wi‑Fi, SSH key, API key, software licence, membership. Each is a **field template**, not a
+storage shape: choosing one pre-fills the editor with named fields of the right types, and a
+card is a record whose custom fields happen to be called `Number` and `Security code`. A second
+storage shape would have meant a second validator, projection, merge path, import mapping and
+export column set, each of them somewhere a card could be lost that a login would not be. The
+list draws the type's icon; an unknown type falls back to `login` so a record from a newer build
+still opens.
+
+**Still open from this item:** type-aware search filters (`type:card`), per-type export columns,
+and import mapping that guesses a type from the source's own categories.
 
 ### A3 · Key file as a second factor ⭐⭐
 

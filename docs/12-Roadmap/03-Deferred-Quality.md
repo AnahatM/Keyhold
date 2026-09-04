@@ -38,6 +38,10 @@ the second half is what makes an entry worth doing later rather than deleting.
 
 ## Owed tests
 
+- [ ] `CredentialEditor` type picker — no test. Appending a template's fields without losing
+      what was already typed is the behaviour worth pinning.
+- [ ] `iconFor` in `CredentialList` — no test that a chosen icon still beats a type icon.
+
 - [ ] `src/main/recovery/diagnose.ts` — no test. The folder walk, the size cap, and the
       skip-a-bad-neighbour paths are covered only by the smoke run against one real vault.
 - [ ] `src/renderer/src/recovery/DiagnosticsView.tsx` — no test. The dismissed-dialog case
@@ -70,6 +74,10 @@ the second half is what makes an entry worth doing later rather than deleting.
       own address.
 
 ## Owed documentation
+
+- [ ] `docs/03-Data-Model/00-Credential-Model.md` — says nothing about record types or field
+      templates. It states a custom-field-type count that **is** guarded; the new record-type
+      count is not stated anywhere and must not be until it is.
 
 - [ ] `docs/08-Diagnostics/00-Recovery-And-Diagnostics.md` — predates the feature being
       reachable. Needs the three channels, the tool view, and the "held in main rather than

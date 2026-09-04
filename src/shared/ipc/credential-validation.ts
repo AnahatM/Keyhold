@@ -6,6 +6,7 @@ import {
   MAX_SECURITY_QUESTIONS,
   MAX_TAGS,
   MAX_URLS,
+  isCredentialType,
   type CustomFieldType,
   type SecurityQuestion,
 } from '../model/credential.js';
@@ -153,6 +154,16 @@ export function requireCredentialInput(channel: string, value: unknown): Credent
   const input: Draft<CredentialInput> & { title: string } = {
     title: requireNonEmptyString(channel, value.title, 'title'),
   };
+
+  if (value.type !== undefined) {
+    // Rejected rather than defaulted. A type the app does not know would draw no icon and
+    // offer no template, and silently rewriting it to `login` would lose what the caller
+    // meant on a field that is cheap to get right.
+    if (!isCredentialType(value.type)) {
+      throw new IpcValidationError(channel, 'type is not a known record type');
+    }
+    input.type = value.type;
+  }
 
   if (value.username !== undefined) {
     input.username = requireString(channel, value.username, 'username');

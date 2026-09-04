@@ -356,6 +356,29 @@ export function runSmokeCheck(window: BrowserWindow): void {
         });
         steps.push(['create-record-with-a-one-time-password', withTotp.ok]);
 
+        // A record that is not a login. The type discriminator was carried for the life of
+        // the project with one legal value; this proves the widened one survives create,
+        // validation and the read back, which is the half a unit test cannot see.
+        const card = await window.keyhold.credentials.create({
+          title: 'Smoke Card',
+          type: 'card',
+          custom: [
+            { id: 'c1', label: 'Number', type: 'password', value: '4111111111111111', hidden: false, order: 0 },
+            { id: 'c2', label: 'Security code', type: 'pin', value: '123', hidden: false, order: 1 },
+          ],
+        });
+        steps.push(['create-a-record-that-is-not-a-login', card.ok && card.value.type === 'card']);
+        steps.push([
+          'a-cards-number-does-not-cross-in-the-projection',
+          card.ok === true && !JSON.stringify(card.value).includes('4111111111111111'),
+        ]);
+
+        const badType = await window.keyhold.credentials.create({
+          title: 'Bad type',
+          type: 'not-a-real-type',
+        });
+        steps.push(['an-unknown-record-type-is-refused', badType.ok === false]);
+
         // The channel, before any UI is involved. Six digits and a deadline in the future is
         // the whole contract; the seed must not come back, and does not — the projection has
         // no field for it.

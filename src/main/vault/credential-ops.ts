@@ -8,6 +8,7 @@ import {
   type ChangeOrigin,
   type Credential,
   type CredentialFields,
+  type CredentialType,
   type CustomField,
   type CustomFieldType,
   type HistoryAction,
@@ -125,6 +126,8 @@ export function assertValidCredential(credential: Credential): void {
  * every caller to construct exactly-absent keys keeps the awkwardness in one place.
  */
 export interface NewCredentialInput {
+  /** What kind of record. Defaults to `login`; see `CREDENTIAL_TYPE_DEFINITIONS`. */
+  readonly type?: CredentialType | undefined;
   readonly title: string;
   /** How this record came to exist. `'import'` for importer output; `'create'` otherwise. */
   readonly action?: HistoryAction | undefined;
@@ -169,7 +172,9 @@ export function buildCredential(input: NewCredentialInput, context: OpsContext):
 
   const credential: Credential = {
     id: context.newId(),
-    type: 'login',
+    // Defaulted here rather than at each call site, so a caller that predates record types
+    // keeps working and there is one place the default lives.
+    type: input.type ?? 'login',
     title: input.title.trim(),
     favorite: input.favorite ?? false,
     folderId: input.folderId ?? null,

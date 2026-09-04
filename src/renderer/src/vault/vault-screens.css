@@ -1044,3 +1044,33 @@
   font-size: var(--kh-text-sm);
   color: var(--kh-color-text-muted);
 }
+
+/* ── The record-type picker, shown only when creating ─────────────────────── */
+
+.kh-type-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-1);
+}
+
+.kh-type-picker__label {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-type-picker__select {
+  align-self: flex-start;
+  min-inline-size: 16rem;
+  padding: var(--kh-space-2);
+  font: inherit;
+  color: var(--kh-color-text);
+  background: var(--kh-color-surface-sunken);
+  border: 1px solid var(--kh-color-border-strong);
+  border-radius: var(--kh-radius-sm);
+}
+
+.kh-type-picker__summary {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+}

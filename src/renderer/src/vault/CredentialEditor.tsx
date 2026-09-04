@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useEffect, useRef, useState } from 'react';
+import {
+  CREDENTIAL_TYPE_DEFINITIONS,
+  credentialTypeDefinition,
+} from '@shared/model/credential-templates.js';
 import type { CustomFieldInput } from '@shared/ipc/api.js';
 import {
   CUSTOM_FIELD_TYPES,
   SECRET_CUSTOM_FIELD_TYPES,
   type CredentialProjection,
+  type CredentialType,
   type CustomFieldType,
 } from '@shared/model/credential.js';
 import { Button } from '../components/Button.js';
@@ -61,6 +66,9 @@ export function CredentialEditor({
   const [historyEnabled, setHistoryEnabled] = useState(credential?.historyEnabled ?? true);
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [custom, setCustom] = useState<CustomFieldInput[]>([]);
+  // Only offered when creating. Changing an existing record's type would be a rename with
+  // extra steps: the fields are already there and the type decides nothing about them.
+  const [recordType, setRecordType] = useState<CredentialType>(credential?.type ?? 'login');
   const [revealError, setRevealError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(credential === null);
   const [dirty, setDirty] = useState(false);
@@ -188,7 +196,7 @@ export function CredentialEditor({
     };
 
     if (credential === null) {
-      void create(payload).then(() => {
+      void create({ ...payload, type: recordType }).then(() => {
         setDirty(false);
       });
     } else {
@@ -228,6 +236,54 @@ export function CredentialEditor({
         <p className="kh-screen__error" role="alert">
           {revealError}
         </p>
+      )}
+
+      {/*
+        Offered only when creating. A type decides which fields the editor leads with and
+        which icon the list draws — it changes nothing about what is stored — so switching an
+        existing record's would be a rename with extra steps.
+
+        Choosing one **appends** its template's fields to whatever is already there rather
+        than replacing them. Somebody who typed three fields and then realised they were
+        making a card should not lose the three.
+      */}
+      {credential === null && (
+        <div className="kh-detail__section kh-type-picker">
+          <label className="kh-type-picker__label" htmlFor="kh-record-type">
+            What is this?
+          </label>
+          <select
+            id="kh-record-type"
+            className="kh-type-picker__select"
+            value={recordType}
+            onChange={(event) => {
+              const next = event.target.value as CredentialType;
+              setRecordType(next);
+              touch();
+              setCustom((previous) => {
+                const already = new Set(previous.map((field) => field.label.toLowerCase()));
+                const added = credentialTypeDefinition(next)
+                  .fields.filter((field) => !already.has(field.label.toLowerCase()))
+                  .map((field, index) => ({
+                    id: `template-${next}-${String(index)}`,
+                    label: field.label,
+                    type: field.type,
+                    value: '',
+                    hidden: false,
+                    order: previous.length + index,
+                  }));
+                return [...previous, ...added];
+              });
+            }}
+          >
+            {CREDENTIAL_TYPE_DEFINITIONS.map((definition) => (
+              <option key={definition.id} value={definition.id}>
+                {definition.label}
+              </option>
+            ))}
+          </select>
+          <p className="kh-type-picker__summary">{credentialTypeDefinition(recordType).summary}</p>
+        </div>
       )}
 
       <section className="kh-detail__section kh-editor">
