@@ -108,7 +108,17 @@ export interface IpcSuccess<T> {
 export type IpcResult<T> = IpcSuccess<T> | IpcFailure;
 
 export interface AppApi {
-  getVersion: () => Promise<string>;
+  /**
+   * The version is **not** here.
+   *
+   * It used to be, as `getVersion()`, and it was a second route to a value the renderer
+   * already had: `electron.vite.config.ts` bakes `APP_VERSION` in at build time with `define`,
+   * and both `AboutView` and `ChangelogView` read that constant directly. The preload's
+   * implementation did not even make an IPC call — it resolved the same constant into a
+   * promise. Two routes to one value is the duplicate hard rule 8 exists to stop, and the
+   * dead one was also a live IPC channel nobody called. `tools/bridge-is-used.test.ts` found
+   * it: exposed to the renderer, never used by it.
+   */
   getPlatform: () => Promise<Platform>;
   /**
    * Subscribes to native menu and tray commands the main process could not handle itself.
@@ -751,7 +761,6 @@ export interface KeyholdApi {
 
 /** IPC channel names. Never build one by string concatenation at a call site. */
 export const CHANNELS = {
-  appGetVersion: 'kh:app:get-version',
   appGetPlatform: 'kh:app:get-platform',
 
   vaultInspect: 'kh:vault:inspect',

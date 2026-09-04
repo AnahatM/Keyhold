@@ -109,8 +109,8 @@ describe('IPC registration', () => {
    *
    * Every handler shares one wrapper, so one channel is enough to establish that the check
    * runs — but *which* channel matters: it has to be one whose body would be observable if
-   * the refusal did not happen. `appGetVersion` is the wrong choice, because it answers from
-   * a constant either way and the assertion would pass on a wrapper that checked nothing.
+   * the refusal did not happen. A channel that answers from a constant either way is the wrong
+   * choice, because the assertion would pass on a wrapper that checked nothing.
    * `vaultSummary` reaches the stub context instead, so a refusal and a success are plainly
    * different results.
    *

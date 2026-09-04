@@ -92,12 +92,8 @@ import type { VaultLockedInfo, VaultSummary } from '@shared/model/vault-document
  *    equivalent of exposing `invoke`.
  */
 
-/** Baked in at build time by electron-vite so the app can report its version. */
-declare const APP_VERSION: string;
-
 const api: KeyholdApi = {
   app: {
-    getVersion: () => Promise.resolve(APP_VERSION),
     getPlatform: () => Promise.resolve(process.platform),
 
     /**

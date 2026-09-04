@@ -397,7 +397,6 @@ export function registerIpcHandlers(context: IpcContext): void {
   const vault = session.vault;
 
   // ── app ────────────────────────────────────────────────────────────────────
-  handle(CHANNELS.appGetVersion, () => context.appVersion);
   handle(CHANNELS.appGetPlatform, () => process.platform);
 
   // ── session ────────────────────────────────────────────────────────────────

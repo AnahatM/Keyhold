@@ -88,8 +88,10 @@ the second half is what makes an entry worth doing later rather than deleting.
 
 ## Owed guards
 
-- [ ] Nothing generalises the "a built subsystem is reachable from the running app" rule.
-      `breach-panel-reachable-and-idle` in `src/main/smoke.ts` covers the one that went
-      wrong; the rule that every tool view mounts every panel it is supposed to is still
-      enforced one hand-written check at a time. **This is the highest-value item on this
-      page.**
+- [ ] The **second half** of the reachability rule is still one hand-written check at a time.
+      `tools/bridge-is-used.test.ts` now generalises the first half — every member of
+      `KeyholdApi` must be used somewhere under `src/renderer/`, which catches a capability
+      that was never wired up, and found three on its first run. What it cannot see is a call
+      site that _exists_ inside a component nothing renders; that is how `BreachSection` was
+      stranded despite `useBreachCheck` calling the bridge. Only the smoke run reaches it, and
+      only where somebody wrote the check. **This is the highest-value item left on this page.**
