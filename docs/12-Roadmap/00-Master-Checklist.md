@@ -672,7 +672,16 @@ M2). Full notes: `docs/13-Packaging/00-Building-And-Releasing.md`._
 - [x] `asarUnpack` for the Argon2 worker: it is started from a runtime path, so inside an asar
       it would build, launch, show the unlock screen and never derive a key — and nothing in
       build, test or test:smoke would notice
-- [ ] Produce a real build on each platform and confirm a vault unlocks in it (MANUAL-BACKLOG)
+- [~] Produce a real build on each platform and confirm a vault unlocks in it. **The Windows
+  build now exists** — `npm run package:dir` completed and wrote `release/win-unpacked/`.
+  Verified from the artefacts: `out/main/kdf-worker.js` carries `"unpacked": true` in the
+  asar header and is present under `app.asar.unpacked/`, which is the redirect the Argon2
+  worker's runtime path depends on and the specific risk this line was written around; and
+  the icon is genuinely embedded, since `build/icons/256x256.png`'s bytes appear in
+  `Keyhold.exe` and not in stock `electron.exe`. `tools/asar-unpack.test.ts` guards both
+  halves of the worker arrangement from here on. What is left is **launching** it and
+  watching a real Argon2 derivation finish, which is MANUAL-BACKLOG M-PKG, and macOS,
+  which needs a Mac (M2)
 - [x] App icons — **drawn as code**, not as an asset. `tools/make-icons.mjs` defines the mark
       as geometry constants and derives everything from them: the SVG documents use, the 1024
       PNG electron-builder wants, the `.ico` with the seven sizes Windows asks for, the

@@ -53,6 +53,22 @@ function stubContext(): never {
   return stub as never;
 }
 
+/**
+ * Longer than vitest's 10-second default, and for a measured reason rather than a hopeful one.
+ *
+ * The hook below calls `vi.resetModules()` and then re-imports `register.js`, which pulls in
+ * most of the main process — the whole IPC surface, the vault service, the export engine, the
+ * import registry. Transforming that fresh takes **5 to 7 seconds** on an idle machine, so the
+ * default leaves two or three seconds of headroom, and it ran out the first time this suite
+ * shared a machine with a packaging build.
+ *
+ * It failed as `Hook timed out in 10000ms`, which reads exactly like a hang and nothing like
+ * "the machine was busy". A guard that fails for a reason unrelated to what it checks is a
+ * guard people learn to re-run rather than read — and this one asserts that **every declared
+ * IPC channel has a handler**, which is not a thing anyone should be trained to shrug at.
+ */
+const REGISTRATION_HOOK_TIMEOUT_MS = 60_000;
+
 describe('IPC registration', () => {
   beforeEach(async () => {
     handled.clear();
@@ -66,7 +82,7 @@ describe('IPC registration', () => {
       userDataPath: join(tmpdir(), 'keyhold-register-test'),
       getWindow: () => null,
     });
-  });
+  }, REGISTRATION_HOOK_TIMEOUT_MS);
 
   it('registers a handler for every declared channel', () => {
     const missing = ALL_CHANNELS.filter((channel) => !handled.has(channel));

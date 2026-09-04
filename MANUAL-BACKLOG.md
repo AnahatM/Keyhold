@@ -130,26 +130,42 @@ browser's own address-bar icon. It was checked by eye at 16, 32 and 256.
 "The geometry" — change them, run `npm run icons`, and every file follows. That is the one
 thing left here and it is a preference, not a blocker.
 
-## M-PKG · Confirm a packaged build actually unlocks a vault
+## 🟡 M-PKG · Launch the packaged build and unlock a vault
 
-**Unblocks:** the first release. Nothing else can be verified until this is done once.
+**Unblocks:** the first release. **Smaller than it was** — the build itself has now been
+produced, and the specific risk this entry was written to contain has been checked as far as
+it can be without launching.
 
-`electron-builder.yml` is written and schema-valid, but **no packaged build has ever been
-produced**. The specific risk it was written to contain: `src/main/crypto/kdf-runner.ts`
-starts the Argon2 worker from a **runtime path**, not an import. Inside an asar that depends
-on Electron's fs shim reaching into the archive from a worker thread. If it fails, the app
-builds, launches, shows the unlock screen — and can never derive a key. Nothing in `build`,
-`test` or `test:smoke` would notice, because none of them run against an asar.
+**What has been done.** `npm run package:dir` ran to completion on Windows and wrote
+`release/win-unpacked/`. Three things were then verified from the artefacts:
 
-`asarUnpack` should prevent it. Confirming it costs one run:
+1. **`out/main/kdf-worker.js` is marked `"unpacked": true` in the asar's own header**, and the
+   file is present at `release/win-unpacked/resources/app.asar.unpacked/out/main/kdf-worker.js`.
+   That flag is what makes Electron's loader redirect the runtime path
+   `…/app.asar/out/main/kdf-worker.js` to the unpacked copy — which is the exact mechanism the
+   Argon2 worker depends on, and the exact thing this entry was written to worry about.
+2. **The icon is genuinely embedded.** The bytes of `build/icons/256x256.png` appear inside
+   `Keyhold.exe` and do not appear inside the stock `node_modules/electron/dist/electron.exe`.
+3. **`tools/asar-unpack.test.ts` now guards the arrangement** — that the worker is in
+   `asarUnpack`, and that the filename `kdf-runner.ts` builds at runtime is the one the config
+   covers. Both halves, because a config-only check would miss a rename in the code.
 
-```bash
-npm run package:dir
-# then launch the unpacked build and unlock a vault
-```
+**What is left, and it is only yours because it means running a binary.**
 
-Then the full path: `npm run package:win`, install it, unlock a vault.
-macOS needs a Mac (see M2).
+1. Launch `release\win-unpacked\Keyhold.exe`.
+2. Create a vault, set a master password, and **watch the unlock progress bar move**. That is
+   Argon2 running in the worker inside the packaged app, and it is the one thing none of the
+   above proves. If it hangs at 0% or the app reports it cannot derive a key, the redirect
+   failed and I want to know immediately.
+3. Add a credential, lock, unlock again with the same password.
+4. Then the installer path: `npm run package:win`, install it, and unlock a vault from the
+   installed copy. SmartScreen will warn — the build is unsigned by decision D16 (M4).
+5. macOS needs a Mac (M2).
+
+Tell me what you saw. A failure here is a packaging fix, not a code fix, and the shape of what
+you describe will say which.
+
+---
 
 ## 🟢 M-CI · One packaging step left, and it is gated on going public
 
