@@ -42,8 +42,11 @@ the second half is what makes an entry worth doing later rather than deleting.
       what was already typed is the behaviour worth pinning.
 - [ ] `iconFor` in `CredentialList` — no test that a chosen icon still beats a type icon.
 
-- [ ] `src/main/recovery/diagnose.ts` — no test. The folder walk, the size cap, and the
-      skip-a-bad-neighbour paths are covered only by the smoke run against one real vault.
+- [ ] `src/main/recovery/diagnose.ts` — the **256 MB size cap** is still unexercised, and
+      deliberately: the smallest file that would trip it is 256 MB and writing one per run
+      costs more than the branch is worth. The folder walk and the directory filter now have
+      tests. The read-before-listing ordering is not observable from outside — recorded in
+      `diagnose.test.ts` rather than claimed.
 - [ ] `src/renderer/src/recovery/DiagnosticsView.tsx` — no test. The dismissed-dialog case
       (which must not clear a report already on screen) is the one worth having.
 
