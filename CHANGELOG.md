@@ -51,16 +51,27 @@ Nothing has been released yet. Everything below is on `main` and unversioned.
 ### Getting data in and out
 
 - **Import from every format in the `PARSERS` registry**: Bitwarden (CSV and JSON), LastPass,
-  Chrome/Edge/Brave, Firefox, Safari, 1Password 8, Dashlane, NordPass, KeePass, Keyhold's own
-  JSON, and a generic CSV mapper. Nothing is dropped silently.
+  Chrome/Edge/Brave, Firefox, Safari, 1Password (CSV and `.1pux`), Dashlane (CSV and JSON),
+  NordPass, KeePass (CSV and XML), Keeper, RoboForm, Proton Pass, Enpass, Keyhold's own JSON,
+  and a generic CSV mapper. Nothing is dropped silently.
+- **KeePass `.kdbx` (version 4), both directions**, with no dependency added: the format is
+  composed from Node's own crypto and Keyhold's existing Argon2. An encrypted KeePass database
+  imports without a plaintext intermediate file, and exporting one is the door out that every
+  other password manager can read. Version 3 is refused by name — its values use Salsa20,
+  which the platform does not provide — with the instruction to re-save it as a 4.
+- **A `.keep` or `.keepx` is itself an import source**, decrypted and read back through the
+  parser that already existed.
 - **An import that can be undone.** A dry run over the real parse, duplicate detection against
   the vault on title + login identity + host, a merge that fills empty fields and never removes
   a URL or moves a record out of the folder you filed it in, and an undo guarded so it refuses
   rather than swallowing an edit you made afterwards.
-- **Export in four**: lossless Keyhold JSON, a flat CSV, Bitwarden's exact column set for
-  leaving, and an encrypted `.keepx` parcel. Spreadsheet formula injection is neutralised,
-  and the cost of doing so is reported rather than hidden.
-- The JSON export **re-imports**, closing the round trip.
+- **Export in six**: lossless Keyhold JSON, a flat CSV, Bitwarden's exact column set,
+  Bitwarden's JSON, a KeePass `.kdbx`, and an encrypted `.keepx` parcel. Spreadsheet formula
+  injection is neutralised, and the cost of doing so is reported rather than hidden.
+- The JSON export **re-imports**, closing the round trip. So does the `.kdbx`.
+- **Formats nobody has opened in the app they target are labelled "Not verified yet"** in the
+  export dialog, with the specific gap named and the advice to keep your vault until the
+  import has worked. Three of the six carry it.
 
 ### Security posture
 
@@ -95,21 +106,38 @@ Nothing has been released yet. Everything below is on `main` and unversioned.
   the generator, settings and the whole offline help library each take over the main area while
   the sidebar stays put.
 
-### Groundwork, not yet reachable from the UI
+### Now reachable, having been built and wired to nothing
 
-- **Attachments** — storage, reference counting and the IPC channels are all in place; nothing
-  in the interface attaches, opens or previews a file yet.
-- **Import and export dialogs** — both are written, tested and bound to real channels, and
-  nothing mounts either.
-- **Three-way merge** — the engine is built and refuses rather than guessing; there is no file
-  watcher, no base snapshot and no resolver screen.
-- **TOTP, vault diagnostics, the `.keeptheme` file dialogs, the activity log, and the first-run
-  tour** — each built and tested with nothing calling it.
-- **The opt-in breach check** — off by default in the strongest sense: nothing constructs a
-  transport, so no code path in the running app makes a request.
+- This section used to list six subsystems that were finished, tested and callable from no
+  part of the running app — the failure this project actually has. They are wired now.
+- **One-time codes.** An `otp-secret` field shows six digits, an issuer, and a ring counting
+  down to the moment it changes; it refreshes itself when the window closes. The seed never
+  leaves the main process, and copying goes through the same auto-clearing clipboard as every
+  other secret — under its own rate-limit key, so copying codes cannot exhaust the budget that
+  would let you reveal the seed.
+- **Diagnose a vault.** Reads a vault file **without its password**, surveys and ranks the
+  files beside it, and produces a report saying what was checked, what was found, what to do
+  in order, and what nothing can undo. Available while locked, which is the situation it
+  exists for. The report contains no password, no record title, no folder name and no path
+  beyond a basename, so it is safe to attach to a bug report.
+- **The opt-in breach check.** Off by default and behind two separate switches — a machine
+  kill-switch and a per-vault opt-in — with a dialog explaining exactly what leaves the
+  machine before either can be turned on. It never runs on its own: a request happens when you
+  press a button and at no other time, and the screen reports how many were made. A run that
+  could not reach the service is never rendered as a clean result.
+- **Attachments, the import and export dialogs, three-way merge, the activity log, the
+  `.keeptheme` dialogs and the first-run tour** — all mounted.
+
+### Still not reachable
+
+- Nothing. Every subsystem in the codebase has a caller. What remains is on the roadmap as
+  unbuilt work rather than as unwired work.
 
 ### Notes
 
-- **Keyhold has not been audited**, and no release has been packaged. The first internal
-  audit pass is at `docs/14-Audits/`.
+- **Keyhold has not been audited**, and no release has been published. A Windows build has
+  been produced and not yet launched. The first internal audit pass is at `docs/14-Audits/`.
+- **An application icon**, drawn from geometry in `tools/make-icons.mjs` rather than kept as
+  an asset: one set of numbers produces the SVG, the Windows `.ico`, the macOS `.icns` and
+  every PNG, and a test regenerates them and compares bytes.
 - The roadmap and what remains: [`docs/12-Roadmap/00-Master-Checklist.md`](./docs/12-Roadmap/00-Master-Checklist.md).

@@ -11,27 +11,35 @@ By default: **nothing at all.** Keyhold makes no network requests. The renderer'
 Content-Security-Policy sets `connect-src 'none'`, so it cannot originate one even if a
 dependency tried.
 
-There is exactly one optional exception, and **it is not built yet.** What follows describes
-how it will behave when it ships; today no part of it is reachable, no setting turns it on,
-and the app makes no request of any kind. This section is written in advance because the
-design is fixed and publishing it before the code exists is the honest order to do it in.
+There is exactly one optional exception. It is **off by default**, it needs **two** separate
+switches turned on, and it never runs on its own.
 
-### The breach check (planned — opt-in, off by default)
+### The breach check — opt-in, off by default, and never automatic
 
-If — and only if — you turn on the Have I Been Pwned check in Settings, Keyhold will send
-the **first five characters of the SHA-1 hash** of a password to the Pwned Passwords API.
-This is the standard [k-anonymity](https://haveibeenpwned.com/API/v3#PwnedPasswords) model:
+If — and only if — you turn it on, Keyhold sends the **first five characters of the SHA-1
+hash** of a password to the Pwned Passwords API. This is the standard
+[k-anonymity](https://haveibeenpwned.com/API/v3#PwnedPasswords) model:
 
 - Your password never leaves the device.
 - The full hash never leaves the device.
-- The five-character prefix matches several hundred unrelated passwords, so the service
-  cannot tell which one you asked about.
+- The five-character prefix matches several hundred thousand unrelated hashes, so the
+  service cannot tell which password you asked about, or whether it was found.
 - The comparison happens locally, against the list of suffixes the API returns.
 
-You will be shown exactly this before it can be enabled, and a global network kill-switch in
-Settings will disable it outright. **Neither the consent screen nor the kill-switch exists
-today** — there is nothing yet for either to govern. Until they do, the guarantee is
-stronger than a setting: there is no code path in the running app that makes a request.
+What the service — and anything watching the connection — can see is that a request came
+from your network address. Never which password, and never the answer.
+
+**Two switches, not one.** A machine-wide "let Keyhold make network requests" switch is off
+by default and is stored on this computer; the breach check itself is a separate opt-in
+stored **inside the vault file**, so a copy of your vault on another machine is not checked
+there unless you turn it on there too. The machine switch dominates: while it is off, no
+connection can be opened at all — not disabled, but absent, because the code that would open
+one is never constructed. Turning either on shows you a dialog saying exactly what it means
+first.
+
+**It never runs by itself.** There is no check on unlock, no check on a timer, and no check
+because you opened a screen. A request happens when you press a button on the vault health
+screen and at no other time. That screen also tells you how many requests the check made.
 
 ## What is stored, and where
 
@@ -41,10 +49,9 @@ derived from your master password (Argon2id) and never leaves your control.
 Some metadata is recorded **inside** the encrypted vault to power the edit-history feature:
 the device name, the app version, the platform, and optionally the network name and OS
 user. This is encrypted along with everything else, and you choose how much of it is
-captured — `none`, `device`, `network`, or `full`. The control for it is built but is not
-yet routed into the app's Settings screen, so today the level stays at its default,
-`device`: the device name, the platform and the app version, and never the OS user, the
-network name or an IP address.
+captured — `none`, `device`, `network`, or `full`. The control is in Settings under History
+& audit. The default is `device`: the device name, the platform and the app version, and
+never the OS user, the network name or an IP address.
 
 Application preferences (theme, window size, recent vault paths) are stored unencrypted in
 the standard per-user application data directory for your OS. They contain no secrets.

@@ -603,7 +603,7 @@ are the shortcut table and the command palette. The lightbox is not. Full notes:
 - [x] **Tests** over the queue, the timing, the focus rules and the shortcut gate, and six fault injections, all caught
 - [x] `docs/06-UI-Design-System/02-App-Chrome.md` written
 
-## Phase 16 — In-app content pages ~ ONE AUDIT SWEEP OPEN
+## Phase 16 — In-app content pages ✅
 
 _The help viewer is one of the four tool views and ships its articles inside the app. The
 generated pages — changelog, about, the licence list — are not built._
@@ -647,8 +647,13 @@ Reports: `docs/14-Audits/`._
       that lost data silently, two independent `shell.openExternal` paths taking any URI scheme,
       `file:` URLs all counting as "us", `ELECTRON_RENDERER_URL` honoured when packaged, and a
       vault path validator that permitted any path
-- [~] Fix the remaining audit findings. The stale "not built yet" sections were swept in the
-  documentation catch-up pass; `PRIVACY.md` and the CHANGELOG still need a hand
+- [x] Fix the remaining audit findings. `PRIVACY.md` and the CHANGELOG were the last two and
+      are done. `PRIVACY.md` had gone stale in the **dangerous** direction as well as the safe
+      one: it said the breach check "is not built yet" and that "there is no code path in the
+      running app that makes a request", which stopped being true the moment the check was
+      wired. It now describes two switches, the consent dialog, and the fact that a request
+      only ever happens on a button press. The CHANGELOG's "not yet reachable from the UI"
+      section listed six subsystems that all have callers now
 - [x] Audit the nine subsystems that landed _after_ the sweep — `docs/14-Audits/02-Subsystem-Audit.md`,
       N1–N39, with `breach/` given a pass of its own and a plain verdict on wiring it up
 - [x] Work the findings. **Every finding in `docs/14-Audits/` is now closed** — no file in that
