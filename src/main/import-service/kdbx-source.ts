@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { kdbxAttachmentMarker } from '../import/keepass-xml.js';
 import { readKdbx } from '../kdbx/read.js';
 import { KDBX_SIGNATURE_1, KDBX_SIGNATURE_2 } from '../kdbx/types.js';
 import type { PickedImportFile } from './source-store.js';
@@ -53,23 +54,13 @@ export interface KdbxSourceInput {
   readonly secretPassphrase: string;
 }
 
-/**
- * A marker appended to the XML when the database had attachments.
- *
- * A comment rather than an element, so it cannot be mistaken for data by anything that parses
- * this: `xml-reader.ts` skips comments, so the count reaches `keepass-xml.ts` through the one
- * channel that carries it — the source's own text — without changing the schema either of
- * them agrees about.
- */
-export const KDBX_ATTACHMENT_MARKER = 'keyhold-kdbx-attachments';
-
 export async function readKdbxAsImportSource(input: KdbxSourceInput): Promise<PickedImportFile> {
   const database = await readKdbx(input.bytes, input.secretPassphrase);
 
-  const marker =
-    database.binaries.length === 0
-      ? ''
-      : `<!-- ${KDBX_ATTACHMENT_MARKER}:${String(database.binaries.length)} -->`;
+  // Built by the parser that reads it, not composed here from a string this file owns. The
+  // two used to keep separate copies of the same marker and agreed only by luck — see
+  // `kdbxAttachmentMarker`.
+  const marker = kdbxAttachmentMarker(database.binaries.length);
 
   return {
     // The `.xml` extension, not the `.kdbx` the user picked, because the extension is what

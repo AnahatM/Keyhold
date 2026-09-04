@@ -43,9 +43,13 @@ the second half is what makes an entry worth doing later rather than deleting.
       costs more than the branch is worth. The folder walk and the directory filter now have
       tests. The read-before-listing ordering is not observable from outside — recorded in
       `diagnose.test.ts` rather than claimed.
-- [ ] `src/main/import-service/kdbx-source.ts` — the attachment-marker append path has no
-      reachable test, because Keyhold's own writer never emits an attachment. Needs either a
-      hand-built fixture or a `binaries` input on `writeKdbx`.
+- [ ] `src/main/import-service/kdbx-source.ts` — the attachment-marker **append** path is
+      still reachable only from a real KeePassXC database, because Keyhold's own writer emits
+      no attachments to count. It is part of the manual interop check (`MANUAL-BACKLOG.md` →
+      M-KDBX-INTEROP) rather than something a fixture can reach. What is now guarded is the
+      agreement between the two sides: both derive from `KDBX_ATTACHMENT_MARKER` in the parser
+      — they used to keep separate hardcoded copies — and `keepass-xml.test.ts` round-trips
+      the composer through the reader.
 
 ## Owed documentation
 

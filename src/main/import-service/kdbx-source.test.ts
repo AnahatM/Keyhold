@@ -23,10 +23,16 @@ import { readVaultAsImportSource } from './vault-source.js';
  * 2. **The attachment marker dropped from the source text: caught nothing here**, and that is
  *    recorded rather than dressed up. Keyhold's own writer emits no attachments, so no
  *    database this suite can build has one to count — the append path is reachable only from a
- *    real KeePassXC database, and it is part of the manual interop check. What *is* guarded is
- *    the half that can be: `keepass-xml.test.ts` asserts that the marker produces the warning,
- *    and the case below asserts no marker is appended when there is nothing to report, so a
- *    database with no attachments cannot grow a spurious one.
+ *    real KeePassXC database, and it is part of the manual interop check.
+ *
+ *    What is guarded is now more than it was. The marker used to be composed here from a
+ *    string this file owned and matched in `keepass-xml.ts` against a *separate hardcoded
+ *    copy* — a second list, agreeing by luck. Both now derive from `KDBX_ATTACHMENT_MARKER`
+ *    in the parser, and `keepass-xml.test.ts` round-trips `kdbxAttachmentMarker` through the
+ *    reader. Renaming the constant can no longer break the pair; reintroducing the old shape
+ *    and renaming it fails immediately. The case below still asserts no marker is appended
+ *    when there is nothing to report, so a database with no attachments cannot grow a
+ *    spurious one.
  * 3. **The `.kdbx` extension left on the source's file name.** Detection then ranked the
  *    candidates by an extension no parser claims; it still resolved to `keepass-xml` by
  *    content, so this one caught nothing on its own — recorded rather than dressed up. The

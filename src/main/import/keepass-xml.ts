@@ -269,13 +269,39 @@ function countInlineBinaries(root: XmlElement): number {
 }
 
 /**
- * The count a `.kdbx` source declares, read out of the comment it appended.
+ * The marker a `.kdbx` source appends when the database carried attachments.
+ *
+ * **Declared here, in the parser, and imported by the writer** — `import-service/kdbx-source.ts`
+ * — rather than the other way round. It used to be the other way round, with this file
+ * matching a hardcoded copy of the same string in its own regular expression: a second list,
+ * in the shape hard rule 8 exists to prevent. The two agreed by luck. Change the constant and
+ * the reader silently stops finding it, attachments stop being reported, and nothing anywhere
+ * fails — the user is simply never told that files were left behind.
+ *
+ * The direction is this way because `import-service` already imports from `import/` and not
+ * the reverse: the parser is the lower layer, and the layer that hands it text is the one that
+ * has to speak its language.
  *
  * A comment rather than an element because `xml-reader.ts` skips comments — so it travels
- * through the parse without becoming part of the schema either side has to agree about. Read
- * from the raw text for the same reason: after parsing it is gone.
+ * through the parse without becoming part of the schema either side has to agree about.
+ */
+export const KDBX_ATTACHMENT_MARKER = 'keyhold-kdbx-attachments';
+
+/** The comment a source appends for `count` attachments. */
+export function kdbxAttachmentMarker(count: number): string {
+  return count === 0 ? '' : `<!-- ${KDBX_ATTACHMENT_MARKER}:${String(count)} -->`;
+}
+
+/**
+ * The count a `.kdbx` source declared, read out of that comment.
+ *
+ * Read from the raw text rather than the parsed tree, because after parsing it is gone.
  */
 function countDeclaredBinaries(content: string): number {
-  const found = /<!--\s*keyhold-kdbx-attachments:(\d+)\s*-->/.exec(content);
+  // `String.raw`, not a plain template literal. In an ordinary one `\s` is not a valid escape
+  // and JavaScript collapses it to a bare `s` — so the pattern becomes `<!--s*keyhold…`, which
+  // matches nothing, and attachments silently stop being reported. That is the exact trap
+  // `src/main/smoke.ts` records hitting, and it cost a test run here to hit it again.
+  const found = new RegExp(String.raw`<!--\s*${KDBX_ATTACHMENT_MARKER}:(\d+)\s*-->`).exec(content);
   return found === null ? 0 : Number.parseInt(found[1] ?? '0', 10);
 }

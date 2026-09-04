@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { VaultError } from '../crypto/errors.js';
 import { loadFixture } from './fixtures/load.js';
-import { keepassXmlParser } from './keepass-xml.js';
+import { KDBX_ATTACHMENT_MARKER, kdbxAttachmentMarker, keepassXmlParser } from './keepass-xml.js';
 
 /**
  * KeePass XML, and the things about this format that are easy to get quietly wrong.
@@ -155,13 +155,42 @@ describe('what it refuses to bring across', () => {
     // them and this parser would have no way to know. `import-service/kdbx-source.ts` counts
     // them and appends the count as an XML *comment* — the one thing `xml-reader.ts` skips,
     // so it cannot be mistaken for data by anything that parses this.
-    const declared = `${FIXTURE}<!-- keyhold-kdbx-attachments:3 -->`;
+    //
+    // Composed with `kdbxAttachmentMarker` rather than written out, which makes this a real
+    // round trip: the exact string the source appends, read by the parser that consumes it.
+    // The two used to keep separate hardcoded copies of the marker and agreed only by luck —
+    // change one and attachments silently stop being reported, with nothing failing anywhere.
+    const declared = `${FIXTURE}${kdbxAttachmentMarker(3)}`;
     const messages = keepassXmlParser
       .parse(declared)
       .warnings.map((warning) => warning.message)
       .join(' ');
 
     expect(messages).toContain('3 attached file(s) were not imported');
+  });
+
+  it('appends nothing when the database carried no attachments', () => {
+    // The other direction, and the one that would otherwise be invisible: a spurious marker
+    // would tell somebody files had been left behind when none had, which is a worse lie than
+    // silence because it sends them back to a database they no longer need.
+    expect(kdbxAttachmentMarker(0)).toBe('');
+
+    const messages = keepassXmlParser
+      .parse(`${FIXTURE}${kdbxAttachmentMarker(0)}`)
+      .warnings.map((warning) => warning.message)
+      .join(' ');
+
+    expect(messages).not.toContain('attached file(s) were not imported');
+  });
+
+  it('the marker survives the parser as a comment rather than becoming data', () => {
+    // The reason it is a comment at all. If it parsed as an element, the count would land in
+    // whichever record happened to follow it — a phantom field in somebody's vault.
+    const declared = `${FIXTURE}${kdbxAttachmentMarker(2)}`;
+    const records = keepassXmlParser.parse(declared).records;
+
+    expect(records.length).toBeGreaterThan(0);
+    expect(JSON.stringify(records)).not.toContain(KDBX_ATTACHMENT_MARKER);
   });
 
   it('reports a value the exporter withheld rather than importing a blank', () => {
