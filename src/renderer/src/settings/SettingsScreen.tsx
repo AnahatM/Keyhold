@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useMemo, useState } from 'react';
-import type { SettingsGateway } from '@shared/model/settings-plan.js';
+import {
+  DEFAULT_CONFIGURABLE_VAULT_SETTINGS,
+  type SettingsGateway,
+} from '@shared/model/settings-plan.js';
 import { Button } from '../components/Button.js';
 import { ErrorState, LoadingState } from '../components/Feedback.js';
 import { ConfirmDialog } from '../chrome/index.js';
@@ -195,6 +198,7 @@ export function SettingsScreen({
         <SecuritySessionSection
           controller={controller}
           machine={snapshot.machine}
+          vault={snapshot.vault ?? DEFAULT_CONFIGURABLE_VAULT_SETTINGS}
           quickUnlock={snapshot.quickUnlock}
           hasVault={snapshot.vault !== null}
         />

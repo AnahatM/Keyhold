@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { DEFAULT_BREACH_CHECK_SETTINGS, type BreachCheckSettings } from '../model/breach.js';
 import { HEALTH_RULE_IDS, type HealthRuleId } from '../model/health.js';
 import { AUDIT_PRIVACY_LEVELS, type AuditPrivacyLevel } from '../model/credential.js';
 import type { KdfCost, MachineSettings } from '../model/settings-plan.js';
@@ -180,6 +181,7 @@ export function requireVaultSettingsPatch(channel: string, value: unknown): Part
     passwordAgeWarningDays?: number;
     trashRetentionDays?: number | null;
     health?: VaultHealthSettings;
+    breachCheck?: BreachCheckSettings;
   } = {};
 
   if (value.historyEnabledByDefault !== undefined) {
@@ -226,8 +228,38 @@ export function requireVaultSettingsPatch(channel: string, value: unknown): Part
   if (value.health !== undefined) {
     patch.health = requireHealthPatch(channel, value.health);
   }
+  if (value.breachCheck !== undefined) {
+    patch.breachCheck = requireBreachCheckPatch(channel, value.breachCheck);
+  }
 
   return patch;
+}
+
+/**
+ * The one setting on this screen that can give the app a capability it does not have.
+ *
+ * Validated whole rather than merged field by field, and the pacing fields are **not** taken
+ * from the renderer at all. `requestIntervalMs` is how long the client waits between
+ * requests to a free, unauthenticated service run at somebody else's expense; a renderer
+ * that could set it to zero could turn this feature into a small denial-of-service attack
+ * launched from the user's own address, and the user would be the one it was attributed to.
+ *
+ * So `enabled` is the only field a patch may carry. The others come from the defaults, which
+ * is where a decision about how hard to hit somebody else's server belongs — and the fact
+ * that they are absent from the type means a future field cannot be added here by accident.
+ */
+function requireBreachCheckPatch(channel: string, value: unknown): BreachCheckSettings {
+  if (!isObject(value)) {
+    throw new IpcValidationError(channel, 'breachCheck must be an object');
+  }
+  if (value.requestIntervalMs !== undefined || value.requestTimeoutMs !== undefined) {
+    throw new IpcValidationError(channel, 'breachCheck request pacing is not settable');
+  }
+
+  return {
+    ...DEFAULT_BREACH_CHECK_SETTINGS,
+    enabled: requireBoolean(channel, value.enabled, 'breachCheck.enabled'),
+  };
 }
 
 /**

@@ -1,0 +1,109 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The breach panel's own stylesheet.
+ *
+ * Split out of `health.css` when that file crossed the 500-code-line ceiling
+ * `tools/file-length.test.ts` enforces. Allow-listing it would have been the easier answer
+ * and the wrong one: the breach check is a different concern from the offline rules — it is
+ * the only part of this screen that talks to the internet — and a file that grew past the
+ * limit by acquiring a second subject is exactly the case the ceiling exists to catch.
+ *
+ * It is also styled to look like every other panel rather than like an advertisement for a
+ * feature. A section that shouted would be pressuring somebody toward the one choice in
+ * Keyhold that gives up a small amount of privacy, on a screen whose whole job is telling
+ * them the truth about their vault.
+ */
+
+.kh-breach {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+  padding: var(--kh-space-4);
+  border: var(--kh-edge);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface);
+}
+
+.kh-breach__head {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-breach__explainer,
+.kh-breach__unavailable p,
+.kh-breach__pacing,
+.kh-breach__requests {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-breach__actions,
+.kh-breach__unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--kh-space-2);
+}
+
+.kh-breach__error {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-danger-text);
+}
+
+.kh-breach__result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding-top: var(--kh-space-3);
+  border-block-start: 1px solid var(--kh-color-border);
+}
+
+.kh-breach__headline {
+  margin: 0;
+  font-size: var(--kh-text-md);
+  font-weight: var(--kh-weight-medium);
+  color: var(--kh-color-text);
+}
+
+.kh-breach__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-5);
+  margin: 0;
+}
+
+.kh-breach__counts dt {
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-breach__counts dd {
+  margin: 0;
+  font-size: var(--kh-text-lg);
+  font-variant-numeric: tabular-nums;
+  color: var(--kh-color-text);
+}
+
+/*
+ * Colour on the two counts that mean something, and on neither of the others. "Not found" is
+ * deliberately not green: a clean result on the records that were reached says nothing about
+ * the ones that were not, and a green number invites reading the whole panel as a pass.
+ */
+.kh-breach__count--bad {
+  color: var(--kh-color-danger-text);
+}
+
+.kh-breach__count--unknown {
+  color: var(--kh-color-warning-text);
+}
+
+.kh-breach__incomplete {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-warning-text);
+}

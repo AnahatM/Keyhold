@@ -98,6 +98,10 @@ export function VaultScreen({
 
   const activeToolId = useToolView((state) => state.active);
   const closeTool = useToolView((state) => state.close);
+  const openTool = useToolView((state) => state.open);
+  const openSettings = useCallback(() => {
+    openTool('settings');
+  }, [openTool]);
   const activeTool = activeToolId === null ? null : (TOOL_VIEW_BY_ID.get(activeToolId) ?? null);
 
   const selected = credentials.find((credential) => credential.id === selectedId);
@@ -146,6 +150,7 @@ export function VaultScreen({
                 id={activeTool.id}
                 records={credentials}
                 onSelectCredential={openRecordFromTool}
+                onOpenSettings={openSettings}
               />
             </ToolView>
           )
@@ -345,17 +350,28 @@ function ToolPane({
   id,
   records,
   onSelectCredential,
+  onOpenSettings,
 }: {
   readonly id: ToolViewId;
   readonly records: readonly CredentialProjection[];
   readonly onSelectCredential: (credentialId: string) => void;
+  readonly onOpenSettings: () => void;
 }): React.JSX.Element {
   switch (id) {
     case 'generator':
       return <GeneratorScreen hideTitle />;
     case 'health':
       return (
-        <HealthDashboard records={records} onSelectCredential={onSelectCredential} hideTitle />
+        <HealthDashboard
+          records={records}
+          onSelectCredential={onSelectCredential}
+          hideTitle
+          // The breach section's only useful action when the check is off is "go and change a
+          // setting", so it is rendered where there is a settings screen to send somebody to.
+          // Switching tool views rather than opening a second surface: the setting lives on
+          // the settings screen, and a copy of the toggle here would be the second list.
+          onOpenSettings={onOpenSettings}
+        />
       );
     case 'activity':
       // `records` only so an id can be turned into a title, and only when the reader asks

@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import type { BreachCheckSettings } from '@shared/model/breach.js';
+import {
+  breachAvailability,
+  type BreachAvailability,
+  type BreachCheckSettings,
+} from '@shared/model/breach.js';
 import { createHttpsTransport } from './https-transport.js';
 import { PwnedPasswordsClient } from './client.js';
 import type { NetworkPolicy } from '../network-policy.js';
@@ -42,6 +46,7 @@ import type { NetworkPolicy } from '../network-policy.js';
 export class BreachService {
   readonly #policy: NetworkPolicy;
   readonly #settings: () => BreachCheckSettings;
+  readonly #vaultOpen: () => boolean;
   readonly #build: (settings: BreachCheckSettings) => PwnedPasswordsClient;
 
   #client: PwnedPasswordsClient | null = null;
@@ -52,11 +57,22 @@ export class BreachService {
     readonly policy: NetworkPolicy;
     /** The open vault's settings, read per question — never captured. */
     readonly settings: () => BreachCheckSettings;
+    /**
+     * Whether a vault is open, read per question.
+     *
+     * Only `availability()` needs it, and only to tell "locked" apart from "switched off" —
+     * `client()` treats both as no. It is here rather than inferred from `settings()`
+     * because that callback answers with the defaults when nothing is open, which is the
+     * right answer for building a client and the wrong one for explaining to a user why a
+     * button is disabled.
+     */
+    readonly vaultOpen?: (() => boolean) | undefined;
     /** Injected so tests can build a client with a fake transport and no real socket. */
     readonly build?: ((settings: BreachCheckSettings) => PwnedPasswordsClient) | undefined;
   }) {
     this.#policy = options.policy;
     this.#settings = options.settings;
+    this.#vaultOpen = options.vaultOpen ?? ((): boolean => true);
     this.#build =
       options.build ??
       ((settings) =>
@@ -69,6 +85,27 @@ export class BreachService {
     // Flipping the kill-switch off must take effect now, not at the next sweep.
     this.#policy.observe(() => {
       this.reset();
+    });
+  }
+
+  /**
+   * Whether a check can run, and which switch to change if not.
+   *
+   * **The answer lives here rather than in the IPC handler**, and that is not tidiness:
+   * `network-policy.test.ts` asserts that `NetworkPolicy` is the only module that branches
+   * on the stored `networkAllowed` preference, and it caught the first version of this
+   * feature reading the raw setting in `register.ts`. The guard was right. A second module
+   * deciding whether the network is allowed is the copy that eventually forgets a case, and
+   * the case it forgets is the one where it says yes.
+   *
+   * So this asks the policy, exactly as `client()` does, and the IPC layer branches on
+   * nothing at all.
+   */
+  availability(): BreachAvailability {
+    return breachAvailability({
+      networkPermitted: this.#policy.allowsNetwork(),
+      enabled: this.#settings().enabled,
+      vaultOpen: this.#vaultOpen(),
     });
   }
 

@@ -122,6 +122,9 @@ const networkPolicy = new NetworkPolicy({
 
 const breach = new BreachService({
   policy: networkPolicy,
+  // Only so `availability()` can tell "no vault is open" apart from "you have not turned this
+  // on". Two different sentences, and two different things for the user to do about them.
+  vaultOpen: () => session.vault.state === 'unlocked',
   settings: () => {
     try {
       return session.vault.settings().breachCheck;
@@ -269,6 +272,11 @@ if (!gotTheLock) {
       session,
       appVersion: APP_VERSION,
       originCapture,
+      // The only route from a channel to a socket, and it is one object with one method.
+      // Everything that decides whether a request may happen — the machine kill-switch, the
+      // vault's opt-in, the teardown on lock — is inside this service, so the IPC layer never
+      // has to ask and can never accidentally answer.
+      breach,
       userDataPath: app.getPath('userData'),
       getWindow: () => mainWindow,
     });

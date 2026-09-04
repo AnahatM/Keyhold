@@ -2,6 +2,7 @@
 import { DEFAULT_BREACH_CHECK_SETTINGS, type BreachCheckSettings } from '@shared/model/breach.js';
 import { describe, expect, it, vi } from 'vitest';
 import { NetworkPolicy } from '../network-policy.js';
+import { PwnedPasswordsClient } from './client.js';
 import { BreachService } from './service.js';
 
 /**
@@ -188,5 +189,97 @@ describe('the lock obligation', () => {
 
     expect(built[0]?.cleared).toBe(1);
     console_.mockRestore();
+  });
+});
+
+/**
+ * `availability()`, and the reason it lives here rather than in the IPC handler.
+ *
+ * The first version of this feature derived the answer in `register.ts` from the raw
+ * `networkAllowed` preference, and `network-policy.test.ts` failed it immediately — a second
+ * module branching on that preference is the copy that eventually says yes when it should say
+ * no. The guard was right, and the fix was to ask the policy from the one place that already
+ * holds it. These cases pin the ordering that decision produced.
+ *
+ * Fault injections performed: the `vaultOpen` branch moved below `networkPermitted` — "a
+ * locked vault is reported as locked, even with everything else off" failed, and a user with
+ * the kill-switch down would have been told to turn on a setting that would not have helped.
+ * `canRun` hard-coded to `true` — three cases failed. The policy call replaced with the raw
+ * setting — `network-policy.test.ts` failed, which is the guard above doing the work.
+ */
+describe('availability', () => {
+  function serviceWith(input: {
+    readonly networkAllowed: boolean;
+    readonly enabled: boolean;
+    readonly vaultOpen: boolean;
+  }): BreachService {
+    return new BreachService({
+      policy: new NetworkPolicy({ networkAllowed: () => input.networkAllowed }),
+      settings: () => ({ ...DEFAULT_BREACH_CHECK_SETTINGS, enabled: input.enabled }),
+      vaultOpen: () => input.vaultOpen,
+      build: () => new PwnedPasswordsClient(),
+    });
+  }
+
+  it('can run only when the vault is open, the network is permitted and the check is on', () => {
+    const availability = serviceWith({
+      networkAllowed: true,
+      enabled: true,
+      vaultOpen: true,
+    }).availability();
+
+    expect(availability.canRun).toBe(true);
+    expect(availability.reason).toBeNull();
+  });
+
+  it('reports a locked vault as locked, even when everything else is off too', () => {
+    // The ordering, and it is the case that matters most. With `networkOff` reported first, a
+    // user whose vault is simply locked would be sent to the settings screen to turn on a
+    // switch that would not have helped — and would then have the kill-switch down as well.
+    const availability = serviceWith({
+      networkAllowed: false,
+      enabled: false,
+      vaultOpen: false,
+    }).availability();
+
+    expect(availability.reason).toBe('locked');
+  });
+
+  it('reports the kill-switch before the opt-in, because it dominates', () => {
+    const availability = serviceWith({
+      networkAllowed: false,
+      enabled: false,
+      vaultOpen: true,
+    }).availability();
+
+    expect(availability.reason).toBe('networkOff');
+    expect(availability.canRun).toBe(false);
+  });
+
+  it('reports the opt-in last, which is the one the user is meant to meet', () => {
+    const availability = serviceWith({
+      networkAllowed: true,
+      enabled: false,
+      vaultOpen: true,
+    }).availability();
+
+    expect(availability.reason).toBe('notEnabled');
+  });
+
+  it('answers from the switches as they are now, not as they were at construction', () => {
+    // The whole reason this is a class. A cached "yes" outliving the user's decision to go
+    // offline is the single failure `NetworkPolicy` exists to prevent.
+    let allowed = true;
+    const service = new BreachService({
+      policy: new NetworkPolicy({ networkAllowed: () => allowed }),
+      settings: () => ({ ...DEFAULT_BREACH_CHECK_SETTINGS, enabled: true }),
+      vaultOpen: () => true,
+      build: () => new PwnedPasswordsClient(),
+    });
+
+    expect(service.availability().canRun).toBe(true);
+    allowed = false;
+    expect(service.availability().canRun).toBe(false);
+    expect(service.availability().reason).toBe('networkOff');
   });
 });

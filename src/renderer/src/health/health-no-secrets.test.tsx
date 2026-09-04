@@ -246,15 +246,39 @@ describe('accessibility guards', () => {
 });
 
 describe('honesty guards', () => {
-  it('says the breach check does not exist, with no button pretending otherwise', () => {
-    const { text, container } = renderDashboard();
+  it('keeps the breach check out of the score, and says so', () => {
+    /**
+     * This case used to assert the opposite: that the dashboard said Keyhold "makes no
+     * network requests" and that no button mentioned breaches. That was true and correct
+     * when written — and it stayed passing for months after the breach engine was finished,
+     * because the engine had no IPC channel and nothing could reach it. A claim about
+     * absence is the most dangerous kind of documentation there is: nothing fails when it
+     * stops being true.
+     *
+     * What survives the check becoming real is the property that actually protects the
+     * reader. The offline score must not silently absorb a check that did not run, and the
+     * screen must say so — a user reading "94/100" has to know that number knows nothing
+     * about breaches whether or not they ever pressed the button.
+     */
+    const { text } = renderDashboard();
+
     expect(text).toContain('breach');
-    expect(text).toContain('no network requests');
-    // No stub, no "coming soon" affordance that looks broken.
+    expect(text).toMatch(/score above never includes it|does not include it/i);
+    // Still no stub and no "coming soon": what exists is reachable, and what does not exist
+    // is not advertised.
     expect(text).not.toMatch(/coming soon/i);
+  });
+
+  it('offers no breach control at all when the dashboard has nowhere to send the user', () => {
+    // `onOpenSettings` absent means the section is not rendered — an embedding with no
+    // settings screen would otherwise show a panel whose only useful state is "go and change
+    // a setting somewhere you cannot get to". Asserted because the guard is an omission, and
+    // omissions are what get deleted by someone tidying a conditional.
+    const { container } = renderDashboard();
     for (const button of container.querySelectorAll('button')) {
-      expect(button.textContent).not.toMatch(/breach|pwned|hibp/i);
+      expect(button.textContent).not.toMatch(/check now|pwned|hibp/i);
     }
+    expect(container.querySelector('.kh-breach')).toBeNull();
   });
 
   it('states that turning a check off cannot lower the score', () => {

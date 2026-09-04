@@ -172,6 +172,86 @@ export interface BreachReport {
   readonly results: readonly BreachProjection[];
 }
 
+// ── Whether it can run at all ────────────────────────────────────────────────
+
+/**
+ * Why the breach check cannot run, or `null` when it can.
+ *
+ * A closed union, and ordered by how the answer is decided — the first thing that is false
+ * is the reason. That ordering is the reason this is a union rather than three booleans the
+ * UI would have to prioritise itself: with three booleans, two surfaces would eventually
+ * disagree about which of "locked" and "switched off" to mention first, and the user would
+ * be told to change a setting that would not have helped.
+ *
+ *   locked         No vault is open, so there are no passwords to check.
+ *   networkOff     The machine-scoped kill-switch is down. It dominates everything: while
+ *                  it is off, no part of this app may make a request, and turning the
+ *                  vault's own setting on would change nothing.
+ *   notEnabled     The vault's own opt-in has never been given. The default, and the one
+ *                  the user is *meant* to meet — it is what the consent step exists for.
+ */
+export const BREACH_UNAVAILABLE_REASONS = ['locked', 'networkOff', 'notEnabled'] as const;
+export type BreachUnavailableReason = (typeof BREACH_UNAVAILABLE_REASONS)[number];
+
+/**
+ * What the dashboard needs to know before it offers a button.
+ *
+ * Both switches are reported, not only the verdict, because the user has to be told *which*
+ * one to change — and because "the kill-switch is down" and "you have not opted in" call for
+ * different sentences and different links. `canRun` is derived here rather than in the
+ * renderer so the app has one answer to the question rather than one per screen.
+ */
+export interface BreachAvailability {
+  /**
+   * What `NetworkPolicy` answered — **not** the stored `networkAllowed` preference.
+   *
+   * The name is different on purpose, and `network-policy.test.ts` is why. That guard fails
+   * any module outside `NetworkPolicy` that branches on `networkAllowed`, and it failed this
+   * file, correctly: a field with that name being tested in a conditional is
+   * indistinguishable, to a reader or to a regex, from a second module deciding whether the
+   * network may be used. It is not one — the decision has already been made and this is the
+   * verdict travelling — and the way to say so is to stop calling it by the preference's
+   * name rather than to add an exemption. The guard's own header argues that exemption lists
+   * are how a check stops checking; this keeps it sharp enough to catch the real thing.
+   */
+  readonly networkPermitted: boolean;
+  /** The open vault's own opt-in. False when no vault is open. */
+  readonly enabled: boolean;
+  readonly vaultOpen: boolean;
+  readonly canRun: boolean;
+  readonly reason: BreachUnavailableReason | null;
+}
+
+/**
+ * The single derivation of "can this run", used by the main process and asserted in tests.
+ *
+ * In `shared/` rather than in main because the renderer's tests build availability objects
+ * too, and a second implementation of this rule is exactly how a dashboard comes to offer a
+ * button that does nothing. Rule 8.
+ */
+export function breachAvailability(input: {
+  /** `NetworkPolicy.allowsNetwork()`. See the note on `BreachAvailability` for the name. */
+  readonly networkPermitted: boolean;
+  readonly enabled: boolean;
+  readonly vaultOpen: boolean;
+}): BreachAvailability {
+  const reason: BreachUnavailableReason | null = !input.vaultOpen
+    ? 'locked'
+    : !input.networkPermitted
+      ? 'networkOff'
+      : !input.enabled
+        ? 'notEnabled'
+        : null;
+
+  return {
+    networkPermitted: input.networkPermitted,
+    enabled: input.enabled,
+    vaultOpen: input.vaultOpen,
+    canRun: reason === null,
+    reason,
+  };
+}
+
 // ── The setting ──────────────────────────────────────────────────────────────
 
 /**

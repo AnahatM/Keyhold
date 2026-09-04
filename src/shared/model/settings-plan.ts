@@ -191,6 +191,7 @@ export const SETTING_IDS = [
   'secretReveal.grantTtlMs',
   'quickUnlock',
   'networkAllowed',
+  'breachCheck.enabled',
   'historyEnabledByDefault',
   'historyMaxVersions',
   'auditPrivacyLevel',
@@ -220,6 +221,11 @@ export const SETTING_SCOPE: Readonly<Record<SettingId, SettingsScope>> = {
   // detail. A vault carried to a friend's laptop must not be able to turn that machine's
   // network on — see `src/main/network-policy.ts`.
   networkAllowed: 'machine',
+  // Vault-scoped, unlike the kill-switch above it, and the split is the point: the machine
+  // decides whether *anything* may reach the network, and each vault decides for itself
+  // whether its own passwords are checked. A vault copied to a machine with the switch down
+  // stays unchecked there, and a vault that never opted in stays unchecked everywhere.
+  'breachCheck.enabled': 'vault',
   historyEnabledByDefault: 'vault',
   historyMaxVersions: 'vault',
   auditPrivacyLevel: 'vault',

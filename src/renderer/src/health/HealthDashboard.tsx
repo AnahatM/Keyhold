@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Button } from '../components/Button.js';
 import { ErrorState, LoadingState } from '../components/Feedback.js';
+import { BreachSection } from './BreachSection.js';
 import { HealthReportView } from './HealthReportView.js';
+import {
+  useBreachCheck,
+  type BreachAvailabilityQuery,
+  type BreachRun,
+} from './use-breach-check.js';
 import type { HealthRecordRef } from './health-presentation.js';
 import { useHealthReport, type AnalyseHealth } from './use-health-report.js';
 import './health.css';
@@ -44,6 +50,17 @@ export interface HealthDashboardProps {
    * states never carried a title of their own, so they need no equivalent.
    */
   readonly hideTitle?: boolean;
+  /**
+   * Takes the user to the settings screen. Absent means the breach section is not rendered.
+   *
+   * Absent rather than a no-op default, and deliberately: an embedding with nowhere to send
+   * somebody should not show them a panel whose only useful state is "go and change a
+   * setting". The section appears where it can actually be acted on.
+   */
+  readonly onOpenSettings?: (() => void) | undefined;
+  /** Injectable so the section can be rendered without a preload bridge. */
+  readonly breachAvailability?: BreachAvailabilityQuery;
+  readonly breachRun?: BreachRun;
 }
 
 export function HealthDashboard({
@@ -51,9 +68,15 @@ export function HealthDashboard({
   onSelectCredential,
   analyse,
   hideTitle = false,
+  onOpenSettings,
+  breachAvailability,
+  breachRun,
 }: HealthDashboardProps): React.JSX.Element {
   const { report, error, pending, enabledRules, setRuleEnabled, resetRules, refresh } =
     useHealthReport(analyse);
+  // Called unconditionally, above the early returns, because hooks must be. It costs one
+  // question about two switches and makes no request — see `use-breach-check.ts`.
+  const breach = useBreachCheck(breachAvailability, breachRun);
 
   if (report === null) {
     if (error !== null) {
@@ -100,6 +123,9 @@ export function HealthDashboard({
         onRefresh={refresh}
         hideTitle={hideTitle}
       />
+      {onOpenSettings !== undefined && (
+        <BreachSection {...breach} onOpenSettings={onOpenSettings} />
+      )}
     </>
   );
 }

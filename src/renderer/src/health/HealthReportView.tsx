@@ -178,7 +178,7 @@ function AllClear({
       title="Nothing flagged"
       description={
         disabledCount === 0
-          ? 'All eight checks ran and none of them found anything. They cover password reuse, strength, age, expiry, insecure addresses, duplicates and findability — not whether an account has been breached elsewhere.'
+          ? 'All eight checks ran and none of them found anything. They cover password reuse, strength, age, expiry, insecure addresses, duplicates and findability — all offline. Whether a password has appeared in a breach is a separate, opt-in check below, and this result does not include it.'
           : `The ${enabledRuleCount} checks that are switched on found nothing. ${countLabel(disabledCount, 'check')} did not run, so this is not a clean bill of health for those.`
       }
     />
@@ -190,8 +190,14 @@ function AllClear({
  *
  * Written out rather than left implicit, because the failure mode of a health dashboard is
  * a user reading a high number as "I am safe". Each limit here is a real one, phrased as a
- * fact rather than as a roadmap promise — in particular the breach check is described as
- * absent, not as "coming soon", and there is no disabled button pretending otherwise.
+ * fact rather than as a roadmap promise.
+ *
+ * The breach entry used to say the check did not exist and would be opt-in "if it is ever
+ * added". The engine had in fact been finished for some time and was simply unreachable —
+ * this project's characteristic failure, and the reason a claim about absence is the most
+ * dangerous kind of documentation there is: nothing fails when it stops being true. It now
+ * points at the section below it, and says the thing that remains true either way, which is
+ * that the score never includes it.
  */
 function NotChecked(): React.JSX.Element {
   return (
@@ -201,9 +207,11 @@ function NotChecked(): React.JSX.Element {
       </h3>
       <ul className="kh-health-limits__list">
         <li>
-          <strong>Whether a password has appeared in a breach.</strong> Keyhold makes no network
-          requests, so there is nothing here that could ask. If a breach check is ever added it will
-          be opt-in, off by default, and behind the global network switch.
+          <strong>Whether a password has appeared in a breach — unless you ask.</strong> The checks
+          above are entirely offline and none of them knows anything about breaches. There is a
+          check that does, below this list, and it is off until you turn it on: it is the only thing
+          in Keyhold that uses the internet, it never runs on its own, and the score above never
+          includes it.
         </li>
         <li>
           <strong>Whether an account has two-factor authentication.</strong> There is no two-factor

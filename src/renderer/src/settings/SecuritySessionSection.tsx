@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useState } from 'react';
-import type { MachineSettings, QuickUnlockSummary } from '@shared/model/settings-plan.js';
+import type {
+  ConfigurableVaultSettings,
+  MachineSettings,
+  QuickUnlockSummary,
+} from '@shared/model/settings-plan.js';
 import { Button } from '../components/Button.js';
 import { ConfirmDialog } from '../chrome/index.js';
 import { SettingSelect, SettingSwitch, SettingsSection, ScopeBadge } from './SettingControls.js';
@@ -43,6 +47,8 @@ import type { SettingsController } from './use-settings.js';
 export interface SecuritySessionSectionProps {
   readonly controller: SettingsController;
   readonly machine: MachineSettings;
+  /** Needed for one row: the breach opt-in is vault-scoped, unlike everything else here. */
+  readonly vault: ConfigurableVaultSettings;
   readonly quickUnlock: QuickUnlockSummary;
   readonly hasVault: boolean;
 }
@@ -50,12 +56,14 @@ export interface SecuritySessionSectionProps {
 export function SecuritySessionSection({
   controller,
   machine,
+  vault,
   quickUnlock,
   hasVault,
 }: SecuritySessionSectionProps): React.JSX.Element {
   const weakened = machineWeakenings(machine);
   const [pendingWipe, setPendingWipe] = useState<number | null>(null);
   const [pendingNetwork, setPendingNetwork] = useState(false);
+  const [pendingBreachCheck, setPendingBreachCheck] = useState(false);
 
   const setAutoLock = (patch: Partial<MachineSettings['autoLock']>, announce: string): void => {
     controller.updateMachine({ autoLock: { ...machine.autoLock, ...patch } }, announce);
@@ -263,6 +271,43 @@ export function SecuritySessionSection({
             setPendingNetwork(true);
           }}
         />
+
+        {/*
+          The vault's own opt-in, under the machine's kill-switch and visibly dependent on it.
+          Deliberately **not** disabled while the kill-switch above is off, and not annotated
+          with a note about it either. Both would be this screen deciding what the switch
+          means, and `network-policy.test.ts` forbids that — it failed the first version of
+          this row, correctly. The renderer may show a switch's state and must never reason
+          from it, because a renderer that can answer "is the network allowed" is a renderer
+          that can be persuaded to answer yes.
+
+          Nothing is lost by obeying it. This setting records the user's intent for *this
+          vault*, which is a real choice whatever the machine is currently set to; the
+          kill-switch dominates at the moment a request would be made, in the main process;
+          and the health dashboard says which switch is off, using the policy's own verdict,
+          at the moment somebody is actually trying to use the feature. One explanation, from
+          the authority, where it is needed.
+        */}
+        <SettingSwitch
+          settingId="breachCheck.enabled"
+          checked={vault.breachCheck.enabled}
+          disabled={!hasVault}
+          tradeOffActive={vault.breachCheck.enabled}
+          onChange={(enabled) => {
+            // The same asymmetry as the switch above, for the same reason. Turning it off is
+            // the safe direction and applies at once; making somebody confirm that they want
+            // *less* exposure only teaches them to click through dialogs.
+            if (!enabled) {
+              controller.updateVault(
+                { breachCheck: { ...vault.breachCheck, enabled: false } },
+                'This vault’s passwords will not be checked against Have I Been Pwned.'
+              );
+              return;
+            }
+            setPendingBreachCheck(true);
+          }}
+        />
+
       </fieldset>
 
       <ConfirmDialog
@@ -280,6 +325,25 @@ export function SecuritySessionSection({
           controller.updateMachine(
             { networkAllowed: true },
             'Keyhold may now make network requests.'
+          );
+        }}
+      />
+
+      <ConfirmDialog
+        open={pendingBreachCheck}
+        title="Check this vault’s passwords against Have I Been Pwned?"
+        message="Your passwords are never sent. Each one is hashed here, and only the first five characters of that hash leave your machine — the service answers with every leaked hash starting the same way, hundreds of thousands of them, and Keyhold searches that list on your computer. It cannot tell which password you asked about, or whether it was found."
+        consequence="What it does reveal is that Keyhold is being used from your network address, each time you run a check. This setting is stored in the vault file, so it travels with a copy of it."
+        confirmLabel="Turn the check on"
+        busy={controller.busy}
+        onCancel={() => {
+          setPendingBreachCheck(false);
+        }}
+        onConfirm={() => {
+          setPendingBreachCheck(false);
+          controller.updateVault(
+            { breachCheck: { ...vault.breachCheck, enabled: true } },
+            'This vault’s passwords can now be checked against Have I Been Pwned.'
           );
         }}
       />

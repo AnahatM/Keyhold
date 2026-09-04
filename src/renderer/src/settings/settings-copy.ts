@@ -134,6 +134,12 @@ export const SETTING_COPY: Readonly<Record<SettingId, SettingCopy>> = {
     tradeOff:
       'Turning this on lets the breach check reach the internet, if you also turn that on. Nothing else in Keyhold will use it.',
   },
+  'breachCheck.enabled': {
+    label: 'Check this vault’s passwords against Have I Been Pwned',
+    help: 'Off. This is the only feature in Keyhold that uses the internet, and it needs the switch above turned on as well. It never sends a password: each one is hashed with SHA-1 locally, the **first five characters** of that hash are sent, and the service answers with every leaked hash sharing those five — hundreds of thousands of them — which Keyhold searches on your machine. The service therefore cannot tell which password you asked about, or whether it was found. This setting travels with the vault file, so a copy of it on another machine is not checked unless you turn this on there too.',
+    tradeOff:
+      'A request goes to haveibeenpwned.com each time you run a check. That reveals to them, and to anything watching the connection, that Keyhold is being used from your address — never which password, and never the answer.',
+  },
   historyEnabledByDefault: {
     label: 'Keep history for new records',
     help: 'Each record can override this on its own. History stores the values a change replaced, so a previous password is recoverable — and is protected exactly like the current one.',

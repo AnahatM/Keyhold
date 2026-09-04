@@ -515,10 +515,10 @@ the vault's own encrypted history. Full notes:
 - [x] **Tests:** the full conflict matrix · five whole-engine properties, including that no merge loses a record · tombstone correctness · idempotent re-merge
 - [x] Documentation written — at `docs/07-Sync-And-Merge/`, not the `docs/10-Sync-And-Transfer/` this line used to name; `07-` was free when it landed and `10-` was not
 
-## Phase 13 — Health dashboard ~ MOUNTED, MINUS HIBP
+## Phase 13 — Health dashboard ✅
 
-_The offline rules in `HEALTH_RULE_IDS`, the `kh:health:analyse` channel, the dashboard and the per-rule
-settings are all built, and the dashboard is a tool view. The opt-in HIBP check is not wired.
+_The offline rules in `HEALTH_RULE_IDS`, the `kh:health:analyse` channel, the dashboard, the
+per-rule settings and the opt-in breach check are all built and reachable.
 Full notes: `docs/05-Features/01-Health-Rules.md` and `07-Breach-Check.md`._
 
 - [x] Offline rules: weak · reused (with the cluster) · old · expiring/expired · insecure `http://` URL · incomplete · likely-duplicate · empty title
@@ -528,11 +528,17 @@ Full notes: `docs/05-Features/01-Health-Rules.md` and `07-Breach-Check.md`._
 - [x] **The report can never carry a password**: cluster ids are synthetic counters not hashes, and `insecureUrl` reports the host rather than the URL (which can carry credentials in its userinfo)
 - [x] **Tests (44)**, including every rule's boundary conditions and a no-secrets property test. Four fault injections
 - [x] Dashboard view (a tool view), the `kh:health:analyse` channel, and per-rule settings in `HealthRulesSection`
-- [~] **HIBP Pwned Passwords, opt-in and off by default.** The k-anonymity client, the isolated
-  HTTPS transport, the projection and the four-way no-network guard are built and tested, and
-  the **global network kill-switch now exists** (D23). Still absent: the `kh:breach:*` channel,
-  the consent screen, a UI control for `networkAllowed`, and the composition root that would
-  construct a transport — so no code path in the running app makes a request
+- [x] **HIBP Pwned Passwords, opt-in and off by default.** The engine had been finished and
+      unreachable — no IPC channel, so no code path in the running app could call it, while
+      the dashboard told users the check did not exist. Now: two channels (`kh:breach:*`),
+      an availability projection that names _which_ switch is off, the vault-scoped opt-in as
+      a real setting with the same asymmetric consent dialog the network kill-switch uses, and
+      a panel on the health dashboard. **Nothing runs on its own** — the request is made by
+      pressing a button and by nothing else, and there is a test that fails if a sweep ever
+      starts on mount. The offline score never includes it, and the screen says so. The
+      availability decision lives in `BreachService` because `network-policy.test.ts` failed
+      the first version for deciding in the IPC handler — a second module branching on the
+      kill-switch is the copy that eventually says yes
 - [x] `missingTotp` — the model decision this line was waiting for had already been made: an
       `otp-secret` custom field is the 2FA field, and `has:totp` has keyed off it since the
       search engine landed. **Off by default** (D28), because it fires on most records and

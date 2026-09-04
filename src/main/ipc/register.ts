@@ -11,6 +11,8 @@ import {
 import { SAVED_SEARCH_NAME_MAX, SAVED_SEARCH_QUERY_MAX } from '@shared/model/saved-search.js';
 import { SITE_RULE_HOST_MAX, SITE_RULE_NOTE_MAX } from '@shared/model/site-rules.js';
 import { readVaultFile } from '../vault/atomic-write.js';
+import type { BreachAvailability } from '@shared/model/breach.js';
+import type { BreachSweepClient } from '../breach/sweep.js';
 import { CHANNELS, EVENTS, type IpcResult, type SettingsView } from '@shared/ipc/api.js';
 import {
   requireCredentialEdit,
@@ -343,7 +345,39 @@ export interface IpcContext {
    * the channel degrades to "not detected" rather than failing.
    */
   readonly originCapture?: OriginCapture | undefined;
+  /**
+   * The only source of a network transport in the application.
+   *
+   * Optional, and its absence is the safe state rather than a degraded one: with no source
+   * there is no client, with no client there is no transport, and with no transport a
+   * password is never even hashed. A test embedding that omits it is not "missing a
+   * dependency" — it is an app that cannot reach the network, which is what this project is
+   * by default.
+   */
+  readonly breach?: BreachClientSource | undefined;
 }
+
+/** What the IPC layer needs from `BreachService`, which is one method. */
+export interface BreachClientSource {
+  client: () => BreachSweepClient | null;
+  availability: () => BreachAvailability;
+}
+
+/**
+ * The answer when no breach service was wired at all.
+ *
+ * Reported as `notEnabled` rather than as an error, and the wording matters: an embedding
+ * with no composition root is not broken, it is an app that cannot reach the network — which
+ * is what this project is by default. The screen tells the user the check is off, which is
+ * true.
+ */
+const UNAVAILABLE_WITHOUT_A_CLIENT: BreachAvailability = {
+  networkPermitted: false,
+  enabled: false,
+  vaultOpen: false,
+  canRun: false,
+  reason: 'notEnabled',
+};
 
 export function registerIpcHandlers(context: IpcContext): void {
   const { session } = context;
@@ -592,6 +626,33 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.healthAnalyse, (options) =>
     vault.analyseHealth(requireHealthOptions(CHANNELS.healthAnalyse, options))
   );
+
+  // ── breach ─────────────────────────────────────────────────────────────────
+  //
+  // The only channels in this file whose handler can cause a network request, and they can
+  // only do so through `context.breach`. Absent — in a test, or any embedding that did not
+  // wire one — both degrade to "off" rather than failing: a missing composition root must
+  // read as "the feature is not available", never as an error the user has to interpret, and
+  // certainly never as a reason to reach the network another way.
+
+  handle(
+    CHANNELS.breachAvailability,
+    () =>
+      // Asked, never decided. The first version of this handler read `networkAllowed` off the
+      // machine settings and derived the answer here — and `network-policy.test.ts` failed it
+      // on the spot, because a second module branching on that preference is the copy that
+      // eventually says yes when it should say no. The service holds the policy; it answers.
+      context.breach?.availability() ?? UNAVAILABLE_WITHOUT_A_CLIENT
+  );
+
+  handle(CHANNELS.breachRun, async () => {
+    // `client()` is where the two switches are consulted for real, and it returns `null`
+    // rather than throwing when either is off. Passing that `null` straight through is
+    // deliberate: the sweep answers with a `disabled` report, so a renderer that asked at
+    // the wrong moment gets a report it already knows how to render rather than an error.
+    const client = context.breach?.client() ?? null;
+    return await vault.sweepBreaches(client);
+  });
 
   // ── history ────────────────────────────────────────────────────────────────
 

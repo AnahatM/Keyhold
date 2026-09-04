@@ -59,6 +59,7 @@ import type {
 } from '@shared/model/import-plan.js';
 import type { CredentialProjection, SecretRef, VersionedField } from '@shared/model/credential.js';
 import type { GeneratedPassword, GeneratorOptions } from '@shared/model/generator.js';
+import type { BreachAvailability, BreachReport } from '@shared/model/breach.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '@shared/model/health.js';
 import type { FieldDiffProjection, HistoryPointRef } from '@shared/model/history.js';
 import type { PasswordStrength } from '@shared/model/strength.js';
@@ -312,6 +313,12 @@ const api: KeyholdApi = {
       thresholds?: Partial<HealthThresholds>;
     }) =>
       ipcRenderer.invoke(CHANNELS.healthAnalyse, options) as Promise<IpcResult<VaultHealthReport>>,
+  },
+
+  breach: {
+    availability: () =>
+      ipcRenderer.invoke(CHANNELS.breachAvailability) as Promise<IpcResult<BreachAvailability>>,
+    run: () => ipcRenderer.invoke(CHANNELS.breachRun) as Promise<IpcResult<BreachReport>>,
   },
 
   history: {

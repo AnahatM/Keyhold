@@ -13,6 +13,7 @@ import type {
   GeneratorOptions,
   GeneratorRange,
 } from '../model/generator.js';
+import type { BreachAvailability, BreachReport } from '../model/breach.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '../model/health.js';
 import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
 import type { PasswordStrength } from '../model/strength.js';
@@ -327,6 +328,34 @@ export interface HealthApi {
   }) => Promise<IpcResult<VaultHealthReport>>;
 }
 
+/**
+ * The one check that leaves the machine.
+ *
+ * Two channels and no third, deliberately. There is no "check this one password" channel:
+ * a single-record check is one request for one answer, while a sweep shares one range lookup
+ * between every password whose hash starts the same way — so the per-record version would
+ * make *more* requests to somebody else's free service to answer less. The sweep's report
+ * carries a per-record result, which is what a per-record UI renders.
+ *
+ * There is also no channel that turns the check **on**. That is `settings.updateVault`,
+ * because the opt-in is a vault setting like any other and a second way to set it would be a
+ * second place for the default to be wrong. What this API does is *report* whether it is on,
+ * and why not — see `BreachAvailability`.
+ */
+export interface BreachApi {
+  /** Whether a check can run, and which switch to change if not. Polled, never pushed. */
+  availability: () => Promise<IpcResult<BreachAvailability>>;
+  /**
+   * Sweeps the open vault.
+   *
+   * Slow by design — the client paces itself so it is not abusing a free service — so the
+   * caller must expect this to take seconds on a real vault and show that it is working.
+   * Returns a report containing no secret material: a hit count is reduced to a band before
+   * it crosses, and no hash, prefix or suffix exists on this side of the bridge at all.
+   */
+  run: () => Promise<IpcResult<BreachReport>>;
+}
+
 export interface HistoryApi {
   /** What one edit changed. Secret values cross only as lengths. */
   diff: (
@@ -639,6 +668,7 @@ export interface KeyholdApi {
   credentials: CredentialsApi;
   generator: GeneratorApi;
   health: HealthApi;
+  breach: BreachApi;
   history: HistoryApi;
   organisation: OrganisationApi;
   settings: SettingsApi;
@@ -694,6 +724,9 @@ export const CHANNELS = {
   generatorLimits: 'kh:generator:limits',
 
   healthAnalyse: 'kh:health:analyse',
+
+  breachAvailability: 'kh:breach:availability',
+  breachRun: 'kh:breach:run',
 
   historyDiff: 'kh:history:diff',
   historyCompare: 'kh:history:compare',

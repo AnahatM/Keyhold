@@ -120,6 +120,8 @@ import {
   type NewTagInput,
 } from '../organisation/tag-ops.js';
 import { chunkIdsOrphanedBy } from '../attachments/references.js';
+import type { BreachReport } from '@shared/model/breach.js';
+import { sweepVaultForBreaches, type BreachSweepClient } from '../breach/sweep.js';
 import { analyseVault } from '../health/rules.js';
 import { toDiffProjection } from '../history/diff-projection.js';
 import { toProjection, toProjections } from './projection.js';
@@ -1287,6 +1289,33 @@ export class VaultService {
     const open = this.#requireOpen();
     const analysis: HealthAnalysisOptions = { ...options, now: Date.now() };
     return analyseVault(open.document, analysis);
+  }
+
+  /**
+   * The one check that leaves the machine, and the only vault method that can.
+   *
+   * Beside `analyseHealth` because it answers the same kind of question and returns the same
+   * kind of thing — a whole-vault report with no secret material in it, `BreachProjection`
+   * having already reduced a hit count to a band. What it does *not* share is the offline
+   * guarantee, which is why it takes its client as an argument.
+   *
+   * **`client` is `null` in the normal case.** Off is the default, and off means no transport
+   * was ever built, so no password here is even hashed. This method has no import path to the
+   * network: it cannot construct a client, only use one somebody else decided to build. The
+   * caller that decides is `BreachService`, which reads the machine kill-switch and the
+   * vault's own opt-in on every question — see `src/main/breach/service.ts`.
+   */
+  async sweepBreaches(
+    client: BreachSweepClient | null,
+    options: { readonly signal?: AbortSignal | undefined } = {}
+  ): Promise<BreachReport> {
+    const open = this.#requireOpen();
+    return await sweepVaultForBreaches({
+      document: open.document,
+      client,
+      now: Date.now(),
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
   }
 
   /**
