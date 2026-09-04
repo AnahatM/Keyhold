@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { PasswordStrength } from '@shared/model/strength.js';
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { Input } from '../components/Input.js';
 import { StrengthReadout } from '../components/StrengthReadout.js';
 import { useSession } from './session-store.js';
@@ -113,7 +114,7 @@ export function CreateVaultScreen(): React.JSX.Element {
                 setReveal(!reveal);
               }}
             >
-              {reveal ? '🙈' : '👁'}
+              <Icon name={reveal ? 'hide' : 'reveal'} size="sm" />
             </Button>
           }
         />

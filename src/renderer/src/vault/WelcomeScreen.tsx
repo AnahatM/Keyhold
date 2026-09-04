@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { useSession } from './session-store.js';
 import './vault-screens.css';
 
@@ -23,9 +24,7 @@ export function WelcomeScreen(): React.JSX.Element {
     <div className="kh-screen">
       <div className="kh-screen__panel">
         <header className="kh-screen__header">
-          <span className="kh-screen__mark" aria-hidden="true">
-            🔐
-          </span>
+          <Icon name="shield" size="lg" className="kh-screen__mark" />
           <h1 className="kh-screen__title">Keyhold</h1>
           <p className="kh-screen__subtitle">
             Your passwords, in a file you own, encrypted with a key only you have.
@@ -69,7 +68,7 @@ export function WelcomeScreen(): React.JSX.Element {
                       void forgetVault(vault.path);
                     }}
                   >
-                    ✕
+                    <Icon name="close" size="sm" />
                   </Button>
                 </li>
               ))}

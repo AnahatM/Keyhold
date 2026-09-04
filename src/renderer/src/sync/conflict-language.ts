@@ -9,6 +9,7 @@ import {
 import type { DiffValue } from '@shared/model/history.js';
 import type { VaultSettings } from '@shared/model/vault-document.js';
 import type { ConflictSide, MergeConflict, MergeConflictKind } from '@shared/model/sync.js';
+import type { IconName } from '../components/Icon.js';
 import { TARGET_KIND_NOUNS, type MergeTargetKind, type TargetName } from './merge-targets.js';
 
 /**
@@ -176,20 +177,30 @@ export const CONFLICT_KIND_MEANINGS: Readonly<Record<MergeConflictKind, string>>
 };
 
 /**
- * A distinguishable glyph per kind — never colour alone (WCAG 1.4.1).
+ * A distinguishable shape per kind — never colour alone (WCAG 1.4.1).
  *
  * Six different shapes, not six coloured dots: they stay six different things in greyscale and
  * in the high-contrast theme. On a screen whose entire job is telling someone which of two
  * things they are about to keep, a signal only a full-colour eye can read would be exactly the
- * wrong economy.
+ * wrong economy. The distinctness is asserted beside this file rather than trusted.
+ *
+ * These are **names from the icon set**, not glyphs. Two of them used to be emoji — `🗀` for a
+ * folder and `⚙` for a setting — which meant this table decided how the row was drawn, in the
+ * OS emoji font, at a colour no theme could reach. A name hands that decision back to
+ * `components/Icon.tsx`, and it is why the type is `IconName`: a shape outside the set is now
+ * a compile error here rather than a box glyph on somebody's machine.
+ *
+ * Each names the **subject** — a record, a deletion, a history, a folder, a tag, a setting —
+ * because the sentence beside it in {@link CONFLICT_KIND_MEANINGS} already says what happened,
+ * and an icon repeating the sentence teaches the reader to stop looking at icons.
  */
-export const CONFLICT_KIND_SYMBOLS: Readonly<Record<MergeConflictKind, string>> = {
-  'record-field': '≠',
-  'record-delete-vs-edit': '⌫',
-  'record-history': '⏱',
-  folder: '🗀',
-  tag: '⌗',
-  setting: '⚙',
+export const CONFLICT_KIND_SYMBOLS: Readonly<Record<MergeConflictKind, IconName>> = {
+  'record-field': 'document',
+  'record-delete-vs-edit': 'trash',
+  'record-history': 'clock',
+  folder: 'folder',
+  tag: 'tag',
+  setting: 'settings',
 };
 
 /**

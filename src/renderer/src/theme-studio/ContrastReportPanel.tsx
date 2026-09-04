@@ -121,7 +121,7 @@ export function ContrastReportPanel({
                   <td>
                     <Badge
                       tone={finding.passes ? 'success' : 'danger'}
-                      symbol={finding.passes ? '✓' : '✕'}
+                      symbol={finding.passes ? 'check' : 'close'}
                     >
                       {finding.verdict}
                     </Badge>

@@ -3,6 +3,7 @@
 import { useId } from 'react';
 import { PLAINTEXT_AFTERMATH_REMINDER, type ExportOutcome } from '@shared/model/export-plan.js';
 import { ErrorState } from '../components/Feedback.js';
+import { Icon } from '../components/Icon.js';
 import { countLabel } from '../health/health-presentation.js';
 import { formatBytes } from './export-presentation.js';
 import { LossList } from './LossList.js';
@@ -66,8 +67,10 @@ export function ExportResultStep({ outcome }: ExportResultStepProps): React.JSX.
        * onto this step's heading.
        */}
       <p className="kh-export-result__headline" aria-live="polite">
-        <span className="kh-export-result__symbol" aria-hidden="true">
-          ✓
+        {/* The wrapper stays: `.kh-export-result__symbol` is where the success colour lives,
+            and `Icon` takes its colour from whatever it is inside. */}
+        <span className="kh-export-result__symbol">
+          <Icon name="check" />
         </span>
         {countLabel(report.recordCount)} written to <strong>{location.fileName}</strong>.
       </p>
@@ -101,8 +104,8 @@ export function ExportResultStep({ outcome }: ExportResultStepProps): React.JSX.
       {report.containsSecrets && (
         <section className="kh-export-danger" aria-labelledby={reminderId}>
           <h4 className="kh-export-danger__title" id={reminderId}>
-            <span className="kh-export-danger__symbol" aria-hidden="true">
-              ⚠
+            <span className="kh-export-danger__symbol">
+              <Icon name="warning" />
             </span>
             This file is readable, and it is still on your disk
           </h4>

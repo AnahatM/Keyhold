@@ -3,6 +3,7 @@ import { useId, type ReactNode } from 'react';
 import { SETTING_SCOPE, type SettingId, type SettingsScope } from '@shared/model/settings-plan.js';
 import { SCOPE_LABELS, SCOPE_NOTES, SETTING_COPY, type Choice } from './settings-copy.js';
 import './settings.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * The primitives every settings control is built from.
@@ -33,7 +34,7 @@ export function ScopeBadge({ scope }: { readonly scope: SettingsScope }): React.
   return (
     <span className={`kh-scope kh-scope--${scope}`} title={SCOPE_NOTES[scope]}>
       <span className="kh-scope__mark" aria-hidden="true">
-        {scope === 'vault' ? '🔒' : '🖥'}
+        <Icon name={scope === 'vault' ? 'lock' : 'device'} size="sm" />
       </span>
       {SCOPE_LABELS[scope]}
     </span>
@@ -60,7 +61,7 @@ export function TradeOffNote({ id, text, active }: TradeOffNoteProps): React.JSX
   return (
     <p id={id} className={`kh-tradeoff${active ? ' kh-tradeoff--active' : ''}`}>
       <span className="kh-tradeoff__symbol" aria-hidden="true">
-        {active ? '⚠' : 'ⓘ'}
+        <Icon name={active ? 'warning' : 'info'} size="sm" />
       </span>
       <span className="kh-tradeoff__label">{active ? 'In effect:' : 'Trade-off:'}</span> {text}
     </p>

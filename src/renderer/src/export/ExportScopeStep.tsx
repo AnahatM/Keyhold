@@ -6,6 +6,7 @@ import { Skeleton } from '../components/Feedback.js';
 import { recordSentence, trashSentence, unknownSentence } from './export-presentation.js';
 import type { ExportScopeMode } from './use-export-dialog.js';
 import './export.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * Step two: how much of the vault goes into the file.
@@ -139,7 +140,7 @@ export function ExportScopeStep({
             <p className="kh-export-counts__line">{trashSentence(scope, preview)}</p>
             {unknownSentence(preview) !== null && (
               <p className="kh-export-counts__line kh-export-counts__line--warning">
-                <span aria-hidden="true">⚠ </span>
+                <Icon name="warning" size="sm" />
                 {unknownSentence(preview)}
               </p>
             )}

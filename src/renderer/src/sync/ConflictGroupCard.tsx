@@ -88,16 +88,16 @@ export function ConflictGroupCard({
         </button>
         <span className="kh-merge-group__counts">
           {group.remaining > 0 ? (
-            <Badge tone="warning" symbol="?">
+            <Badge tone="warning" symbol="warning">
               {group.remaining} to answer
             </Badge>
           ) : (
-            <Badge tone="success" symbol="✓">
+            <Badge tone="success" symbol="check">
               Answered
             </Badge>
           )}
           {group.hidden > 0 && (
-            <Badge tone="neutral" symbol="◍">
+            <Badge tone="neutral" symbol="hide">
               {group.hidden} hidden
             </Badge>
           )}

@@ -46,7 +46,7 @@ export function LossList({ losses, emptyNote, headingId }: LossListProps): React
       {groups.map((group) => (
         <section key={group.kind} className="kh-export-losses__group">
           <h4 className="kh-export-losses__heading">
-            <Badge tone={group.tone} symbol={group.symbol}>
+            <Badge tone={group.tone} symbol={group.icon}>
               {group.label}
             </Badge>
           </h4>

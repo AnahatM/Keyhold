@@ -2,6 +2,7 @@
 import { Button } from '../components/Button.js';
 import { ENCRYPTION_CLAIM } from './onboarding-copy.js';
 import './onboarding.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * One screen, four facts, one button.
@@ -29,7 +30,7 @@ export function WelcomeStep({
       <ul className="kh-onb__facts">
         <li>
           <span className="kh-onb__fact-mark" aria-hidden="true">
-            📄
+            <Icon name="document" size="lg" />
           </span>
           <span>
             <strong>One file, and it is yours.</strong> Copy it to a USB stick, a backup drive or a
@@ -38,7 +39,7 @@ export function WelcomeStep({
         </li>
         <li>
           <span className="kh-onb__fact-mark" aria-hidden="true">
-            🔌
+            <Icon name="offline" size="lg" />
           </span>
           <span>
             <strong>No account, no server.</strong> {ENCRYPTION_CLAIM}
@@ -46,7 +47,7 @@ export function WelcomeStep({
         </li>
         <li>
           <span className="kh-onb__fact-mark" aria-hidden="true">
-            🆓
+            <Icon name="free" size="lg" />
           </span>
           <span>
             <strong>Free, and open source.</strong> No subscription, no paid tier, no upsell. There
@@ -55,7 +56,7 @@ export function WelcomeStep({
         </li>
         <li>
           <span className="kh-onb__fact-mark" aria-hidden="true">
-            ⚠
+            <Icon name="warning" size="lg" />
           </span>
           <span>
             <strong>One master password, and no reset.</strong> That is what keeps the file

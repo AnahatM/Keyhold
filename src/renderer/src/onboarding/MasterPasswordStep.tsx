@@ -15,6 +15,7 @@ import { StrengthReadout } from '../components/StrengthReadout.js';
 // most important checkbox in the app is how the two quietly stop matching.
 import '../vault/vault-screens.css';
 import './onboarding.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * The one step that matters.
@@ -178,7 +179,7 @@ export function MasterPasswordStep({
               setReveal(!reveal);
             }}
           >
-            {reveal ? '🙈' : '👁'}
+            {<Icon name={reveal ? 'hide' : 'reveal'} />}
           </Button>
         }
       />

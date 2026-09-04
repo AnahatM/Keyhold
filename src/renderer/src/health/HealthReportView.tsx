@@ -151,7 +151,7 @@ function AllClear({
   if (!measured) {
     return (
       <EmptyState
-        icon="🗂"
+        icon="folders"
         title="Nothing to check yet"
         description={
           trashedCount === 0
@@ -165,7 +165,7 @@ function AllClear({
   if (enabledRuleCount === 0) {
     return (
       <EmptyState
-        icon="⏻"
+        icon="power"
         title="Every check is switched off"
         description="Nothing is being looked for, so nothing is being found. Turn a check back on below."
       />
@@ -174,7 +174,7 @@ function AllClear({
 
   return (
     <EmptyState
-      icon="✓"
+      icon="check"
       title="Nothing flagged"
       description={
         disabledCount === 0

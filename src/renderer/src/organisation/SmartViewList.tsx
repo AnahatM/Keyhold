@@ -2,6 +2,7 @@
 import { useMemo } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { filterCredentials, parseQuery } from '@shared/search/index.js';
+import { Icon } from '../components/Icon.js';
 import { hasBeenUsed, SMART_VIEWS, type SmartViewId } from './smart-views.js';
 
 /**
@@ -56,9 +57,14 @@ export function SmartViewList({
               onSelect(view.id);
             }}
           >
-            <span className="kh-sidebar__symbol" aria-hidden="true">
-              {view.symbol}
-            </span>
+            {/*
+              No wrapper around the icon. The `kh-sidebar__symbol` slot existed to give
+              emoji of wildly different advance widths a fixed gutter so the labels lined
+              up; every icon in the set is drawn on the same 24 grid and rendered at the
+              same em size, so the column is already straight and the extra element only
+              hid an already-hidden `<svg>` a second time.
+            */}
+            <Icon name={view.icon} />
             <span className="kh-sidebar__item-label">{view.label}</span>
             {count !== undefined && (
               <span className="kh-sidebar__count">

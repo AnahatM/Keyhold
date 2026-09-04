@@ -2,6 +2,7 @@
 import type { CredentialProjection } from '@shared/model/credential.js';
 import type { FilterOptions } from '@shared/search/filter.js';
 import type { SortOptions } from '@shared/search/sort.js';
+import type { IconName } from '../components/Icon.js';
 
 /**
  * The saved views at the top of the sidebar — **as data, not as branches**.
@@ -40,12 +41,18 @@ export interface SmartView {
   readonly id: SmartViewId;
   readonly label: string;
   /**
-   * A glyph, shown beside the label.
+   * The icon shown beside the label.
    *
    * Decoration with a purpose: these rows differ by icon and by text, never by colour, so
    * the sidebar stays readable for a colour-blind user (WCAG 1.4.1).
+   *
+   * An `IconName` rather than a glyph, because a `string` here would be a presentation
+   * detail only one component knows how to interpret — and one that no compiler could check.
+   * Naming the icon makes a typo a build error, keeps the mark on `currentColor` so it
+   * follows the theme like everything else on the row, and leaves this table describing
+   * *which* icon rather than carrying a rendering of it.
    */
-  readonly symbol: string;
+  readonly icon: IconName;
   /** One sentence, used as the row's tooltip and as its empty-state description. */
   readonly description: string;
   readonly filter: FilterOptions;
@@ -79,7 +86,7 @@ export const RECENT_VIEW_LIMIT = 25;
 const ALL_ITEMS_VIEW: SmartView = {
   id: 'all',
   label: 'All items',
-  symbol: '🗝',
+  icon: 'vault',
   description: 'Every record in the vault, except what is in the trash.',
   filter: {},
   queryText: '',
@@ -94,7 +101,7 @@ export const SMART_VIEWS: readonly SmartView[] = [
   {
     id: 'favourites',
     label: 'Favourites',
-    symbol: '★',
+    icon: 'star',
     description: 'Records you starred.',
     filter: { favouritesOnly: true },
     queryText: '',
@@ -106,7 +113,7 @@ export const SMART_VIEWS: readonly SmartView[] = [
   {
     id: 'recent',
     label: 'Recently used',
-    symbol: '🕘',
+    icon: 'clock',
     description: `The last ${RECENT_VIEW_LIMIT} records you copied from or opened.`,
     filter: {},
     queryText: '',
@@ -118,7 +125,7 @@ export const SMART_VIEWS: readonly SmartView[] = [
   {
     id: 'untagged',
     label: 'Untagged',
-    symbol: '🏷',
+    icon: 'tag',
     description: 'Records with no tags — usually the ones that never got organised.',
     filter: {},
     queryText: 'is:untagged',
@@ -130,7 +137,7 @@ export const SMART_VIEWS: readonly SmartView[] = [
   {
     id: 'unfiled',
     label: 'Unfiled',
-    symbol: '📄',
+    icon: 'document',
     description: 'Records that are in no folder.',
     filter: { folderId: null },
     queryText: '',
@@ -142,7 +149,7 @@ export const SMART_VIEWS: readonly SmartView[] = [
   {
     id: 'trash',
     label: 'Trash',
-    symbol: '🗑',
+    icon: 'trash',
     description: 'Deleted records, restorable until they are purged.',
     filter: { trashedOnly: true },
     queryText: '',

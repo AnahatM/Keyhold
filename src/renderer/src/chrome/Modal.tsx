@@ -180,7 +180,7 @@ export function Modal({
               className="kh-modal__close"
               variant="ghost"
               size="sm"
-              icon="✕"
+              icon="close"
               iconOnlyLabel={`Close: ${title}`}
               onClick={requestClose}
             />

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { filterCredentials, parseQuery } from '@shared/search/index.js';
 import { bySavedSearchOrder, type SavedSearch } from '@shared/model/saved-search.js';
+import { Icon } from '../components/Icon.js';
 import { useSavedSearches } from './saved-search-store.js';
 
 /**
@@ -68,9 +69,9 @@ export function SavedSearchList({
               onSelect(search);
             }}
           >
-            <span className="kh-sidebar__symbol" aria-hidden="true">
-              🔎
-            </span>
+            {/* Same mark for every row, and deliberately: a saved search is a query, and
+                what distinguishes one row from another is its name, not its icon. */}
+            <Icon name="search" />
             <span className="kh-sidebar__item-label">{search.name}</span>
             <span className="kh-sidebar__count">
               {count}

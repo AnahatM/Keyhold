@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import type { Tag } from '@shared/model/vault-document.js';
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { countRecordsByTag } from './selection.js';
 import { tagColourLabel, tagSwatchColour } from './tag-colours.js';
 
@@ -161,8 +162,14 @@ export function TagFilterList({
                     aria-hidden="true"
                     style={{ background: tagSwatchColour(tag.colour) }}
                   />
-                  <span className="kh-tag-row__tick" aria-hidden="true">
-                    {selected ? '✓' : ''}
+                  {/*
+                    The wrapper stays even though the icon carries its own `aria-hidden`:
+                    unlike the sidebar rows, this slot is empty half the time, and its fixed
+                    1em width is what stops every unselected tag's name sliding left of every
+                    selected one.
+                  */}
+                  <span className="kh-tag-row__tick">
+                    {selected && <Icon name="check" size="sm" />}
                   </span>
                   <span className="kh-tag-row__name">{tag.name}</span>
                   <span className="kh-sidebar__count">

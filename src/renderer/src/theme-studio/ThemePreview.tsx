@@ -100,16 +100,16 @@ export function ThemePreview({ palette, scheme }: ThemePreviewProps): React.JSX.
             </div>
 
             <div className="kh-studio-preview__badges">
-              <Badge tone="success" symbol="✓">
+              <Badge tone="success" symbol="check">
                 Strong
               </Badge>
-              <Badge tone="warning" symbol="!">
+              <Badge tone="warning" symbol="warning">
                 Reused
               </Badge>
-              <Badge tone="danger" symbol="✕">
+              <Badge tone="danger" symbol="close">
                 Breached
               </Badge>
-              <Badge tone="info" symbol="i">
+              <Badge tone="info" symbol="info">
                 Expiring
               </Badge>
             </div>

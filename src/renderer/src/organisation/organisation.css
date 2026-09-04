@@ -172,9 +172,11 @@
 }
 
 .kh-tree__chevron {
+  display: inline-flex;
   flex: none;
+  /* Kept, unlike the `text-align` beside it: a leaf hides its chevron but must still occupy
+     the gutter, or every label at that depth shifts left by an icon. */
   width: 1em;
-  text-align: center;
   color: var(--kh-color-text-subtle);
   transition: transform var(--kh-duration-fast) var(--kh-ease);
 }

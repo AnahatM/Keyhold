@@ -7,6 +7,7 @@ import type {
 } from '@shared/model/activity.js';
 import type { SecretRef } from '@shared/model/credential.js';
 import type { StatusTone } from '../components/Feedback.js';
+import type { IconName } from '../components/Icon.js';
 import { MEANINGFUL_DISTRIBUTION_MIN, type Distribution } from './vault-statistics.js';
 
 /**
@@ -36,6 +37,15 @@ import { MEANINGFUL_DISTRIBUTION_MIN, type Distribution } from './vault-statisti
 /**
  * Exhaustive `Record`s rather than lookups with a fallback: a new kind with no label is a
  * compile error rather than an identifier appearing on screen.
+ *
+ * These were geometric marks — `○`, `△`, `◇` — which read as decoration rather than as
+ * meaning: nothing about a diamond says "revealed". The icons say it, and they say it in the
+ * same drawing the rest of the app uses for the same idea, so a reveal here and a reveal on a
+ * credential row are recognisably the same event.
+ *
+ * `lock` and `unlock` are deliberately the same object with the shackle moved, because the
+ * two rows they mark are the same event in two directions. `clipboard-clear` is `close`
+ * rather than a second clipboard: the interesting thing about it is the *undoing*.
  */
 const KIND_VERBS: Readonly<Record<ActivityKind, string>> = {
   unlock: 'Vault unlocked',
@@ -110,16 +120,16 @@ export const KIND_TONES: Readonly<Record<ActivityKind, StatusTone>> = {
  * A glyph for each kind, so a row is distinguishable without colour and without reading the
  * whole sentence. Shapes, not hues — they survive greyscale and the high-contrast theme.
  */
-export const KIND_SYMBOLS: Readonly<Record<ActivityKind, string>> = {
-  unlock: '○',
-  'unlock-failed': '△',
-  lock: '●',
-  reveal: '◇',
-  copy: '▤',
-  'clipboard-clear': '▢',
-  save: '▼',
-  import: '↓',
-  export: '↑',
+export const KIND_ICONS: Readonly<Record<ActivityKind, IconName>> = {
+  unlock: 'unlock',
+  'unlock-failed': 'warning',
+  lock: 'lock',
+  reveal: 'reveal',
+  copy: 'clipboard',
+  'clipboard-clear': 'close',
+  save: 'save',
+  import: 'import',
+  export: 'export',
 };
 
 // ── Naming ───────────────────────────────────────────────────────────────────

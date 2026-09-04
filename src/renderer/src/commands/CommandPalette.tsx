@@ -19,6 +19,7 @@ import { useRecentCommands } from './recent-commands.js';
 import { shortcutById } from './shortcut-registry.js';
 import type { ResolvedCommand } from './command-registry.js';
 import './commands.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * The command palette — Ctrl/Cmd+K.
@@ -305,7 +306,7 @@ function PaletteRow({ id, item, active, onActivate, onHover }: PaletteRowProps):
         shape that separates a command from a record at a glance, and nothing more.
       */}
       <span className="kh-palette__kind" aria-hidden="true">
-        {item.kind === 'command' ? '›' : '🔑'}
+        {item.kind === 'command' ? '\u203A' : <Icon name="key" size="sm" />}
       </span>
 
       <span className="kh-palette__text">

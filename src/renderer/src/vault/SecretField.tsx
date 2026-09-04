@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { SecretRef } from '@shared/model/credential.js';
 import { Button } from '../components/Button.js';
 import { useCredentials } from './credential-store.js';
+import { Icon } from '../components/Icon.js';
 
 /**
  * A field whose value the renderer does not have until it asks.
@@ -121,7 +122,7 @@ export function SecretField({
             void toggle();
           }}
         >
-          {value === null ? '👁' : '🙈'}
+          <Icon name={value === null ? 'reveal' : 'hide'} size="sm" />
         </Button>
         <Button
           variant="ghost"

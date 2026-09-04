@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { ONBOARDING_STEPS, stepIndex, type OnboardingStepId } from './onboarding-steps.js';
 import './onboarding.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * Where you are, and how much is left.
@@ -38,7 +39,7 @@ export function StepIndicator({
               aria-current={index === current ? 'step' : undefined}
             >
               <span className="kh-onb__step-mark" aria-hidden="true">
-                {index < current ? '✓' : index + 1}
+                {index < current ? <Icon name="check" size="sm" /> : index + 1}
               </span>
               <span className="kh-onb__step-label">{step.shortLabel}</span>
               <span className="kh-visually-hidden">

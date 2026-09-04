@@ -736,6 +736,23 @@ and technical at once, rather than a stock Electron window.
 
 ---
 
+## Phase 21 — The icon set
+
+_Asked for directly: "instead of emojis make custom svg icons for this app or use an icon
+library whatever is easier". A library would be a new dependency, so the set is hand-drawn._
+
+- [x] **One `Icon` component**, 36 paths on a 24×24 grid, `currentColor`, always `aria-hidden`
+- [x] **Every emoji gone from the renderer** — 30 distinct glyphs across 67 files
+- [x] **Glyphs stored as data became `IconName`s** — the smart views, the empty-state presets,
+      the toast tones, the merge notes, the conflict kinds, the health severities, the export
+      loss kinds and the strength bands all named an icon instead of carrying a rendering of
+      one. That is what made the type system able to find the stragglers
+- [x] **Guard:** `tools/no-emoji-icons.test.ts` — pictographs only, comments exempt, so prose
+      is never policed
+- [x] Verified visually at three screens
+
+---
+
 ## Cross-cutting rules — apply in every phase
 
 - [ ] **No hardcoded values.** Colours are tokens; tunables live in one config module; magic numbers get names.

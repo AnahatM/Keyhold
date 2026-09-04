@@ -18,6 +18,7 @@ import { createBridgeGateway } from './settings-gateway.js';
 import { SCOPE_NOTES } from './settings-copy.js';
 import { useSettings } from './use-settings.js';
 import './settings.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * Everything the user can configure, in one place.
@@ -178,7 +179,7 @@ export function SettingsScreen({
 
       {controller.saveError !== null && (
         <p className="kh-settings__error" role="alert">
-          <span aria-hidden="true">⚠</span> Not saved — {controller.saveError}
+          <Icon name="warning" size="sm" /> Not saved — {controller.saveError}
         </p>
       )}
 
@@ -201,7 +202,7 @@ export function SettingsScreen({
         {snapshot.vault === null ? (
           <p className="kh-callout kh-callout--vault">
             <span className="kh-callout__symbol" aria-hidden="true">
-              🔒
+              <Icon name="lock" size="lg" />
             </span>
             <span>
               History, health rules and vault settings live inside a vault file, so they appear once

@@ -67,7 +67,7 @@ describe('the band table', () => {
     // WCAG 1.4.1. A tone with no label is a red bar and nothing else to a colour-blind user.
     for (const band of STRENGTH_BANDS) {
       expect(band.label).not.toBe('');
-      expect(band.symbol).not.toBe('');
+      expect(band.icon).not.toBe('');
       expect(band.meaning).not.toBe('');
     }
   });

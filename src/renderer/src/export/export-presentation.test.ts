@@ -10,7 +10,7 @@ import {
   LOSS_KIND_LABELS,
   LOSS_KIND_MEANINGS,
   LOSS_KIND_ORDER,
-  LOSS_KIND_SYMBOLS,
+  LOSS_KIND_ICONS,
   LOSS_KIND_TONES,
   recordSentence,
   safetyBadge,
@@ -49,7 +49,7 @@ describe('every loss kind has a presentation', () => {
   it.each(EXPORT_LOSS_KINDS)('%s has a label, a meaning, a symbol and a tone', (kind) => {
     expect(LOSS_KIND_LABELS[kind].length).toBeGreaterThan(0);
     expect(LOSS_KIND_MEANINGS[kind].length).toBeGreaterThan(0);
-    expect(LOSS_KIND_SYMBOLS[kind].length).toBeGreaterThan(0);
+    expect(LOSS_KIND_ICONS[kind].length).toBeGreaterThan(0);
     expect(LOSS_KIND_TONES[kind].length).toBeGreaterThan(0);
   });
 
@@ -67,14 +67,14 @@ describe('every loss kind has a presentation', () => {
     expect(groups).toHaveLength(EXPORT_LOSS_KINDS.length);
     for (const group of groups) {
       expect(group.label).not.toBe('');
-      expect(group.symbol).not.toBe('');
+      expect(group.icon).not.toBe('');
       expect(group.meaning).not.toBe('');
       expect(group.losses.length).toBeGreaterThan(0);
     }
   });
 
   it('gives each kind a distinct symbol, so the shapes are readable in greyscale', () => {
-    const symbols = EXPORT_LOSS_KINDS.map((kind) => LOSS_KIND_SYMBOLS[kind]);
+    const symbols = EXPORT_LOSS_KINDS.map((kind) => LOSS_KIND_ICONS[kind]);
     expect(new Set(symbols).size).toBe(symbols.length);
   });
 });

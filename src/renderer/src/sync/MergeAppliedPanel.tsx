@@ -30,7 +30,7 @@ export function MergeAppliedPanel({
   return (
     <div className="kh-merge-done">
       <EmptyState
-        icon="✓"
+        icon="check"
         title="The merge has been applied"
         description={`${countOf(result.recordsMerged, 'record')} in your vault, ${countOf(result.conflictsResolved, 'disagreement')} settled${result.attachmentsImported > 0 ? `, ${countOf(result.attachmentsImported, 'attachment')} copied across` : ''}.`}
         action={

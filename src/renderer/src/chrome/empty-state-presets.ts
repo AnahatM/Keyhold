@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import type { IconName } from '../components/Icon.js';
+
 /**
  * The app's empty states, as data.
  *
@@ -27,8 +29,17 @@ export type EmptyStateKind =
   'no-credentials' | 'no-search-results' | 'empty-trash' | 'no-health-issues';
 
 export interface EmptyStatePreset {
-  /** Decorative — the heading carries the meaning, so this is `aria-hidden` when rendered. */
-  readonly icon: string;
+  /**
+   * Which icon to draw. A name, not a glyph, and that distinction is the point.
+   *
+   * When this was a `string` the registry was holding a character that exactly one
+   * component knew how to interpret, and only by dropping it into a `<div>` and hoping the
+   * operating system had a font for it. A `IconName` is a reference into the app's own set:
+   * the compiler rejects a name that does not exist, the renderer picks up the theme's
+   * colour, and nothing here decides how large it is drawn or whether it is announced —
+   * which are rendering questions, and belong to `Feedback.tsx`.
+   */
+  readonly icon: IconName;
   readonly title: string;
   readonly description: string;
   /**
@@ -43,28 +54,28 @@ export interface EmptyStatePreset {
 
 export const EMPTY_STATE_PRESETS: Readonly<Record<EmptyStateKind, EmptyStatePreset>> = {
   'no-credentials': {
-    icon: '🔑',
+    icon: 'key',
     title: 'No credentials yet',
     description:
       'Add your first one, or import from a browser or another password manager. Everything you save is encrypted into your vault file before it touches the disk.',
     tone: 'neutral',
   },
   'no-search-results': {
-    icon: '🔍',
+    icon: 'search',
     title: 'Nothing matched',
     description:
       'Try a shorter search, or clear the filters. Search covers titles, usernames, URLs, tags and notes — but never the passwords themselves.',
     tone: 'neutral',
   },
   'empty-trash': {
-    icon: '🗑',
+    icon: 'trash',
     title: 'Trash is empty',
     description:
       'Deleted credentials rest here so a mistake is recoverable. Nothing has been deleted recently.',
     tone: 'neutral',
   },
   'no-health-issues': {
-    icon: '✓',
+    icon: 'check',
     title: 'No problems found',
     description:
       'Nothing weak, reused, expiring or breached. Keyhold re-checks whenever you change a credential.',

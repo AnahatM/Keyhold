@@ -16,6 +16,7 @@ import {
   vaultWeakenings,
 } from './settings-copy.js';
 import type { SettingsController } from './use-settings.js';
+import { Icon } from '../components/Icon.js';
 
 /**
  * History retention and the audit privacy level.
@@ -89,7 +90,7 @@ export function HistoryAuditSection({
 
       <p className="kh-callout kh-callout--vault">
         <span className="kh-callout__symbol" aria-hidden="true">
-          🔒
+          <Icon name="lock" size="lg" />
         </span>
         <span>
           <strong>These choices travel with the file.</strong> They are written inside the encrypted
@@ -145,7 +146,7 @@ export function HistoryAuditSection({
           className={`kh-tradeoff${weakened.has('auditPrivacyLevel') ? ' kh-tradeoff--active' : ''}`}
         >
           <span className="kh-tradeoff__symbol" aria-hidden="true">
-            {weakened.has('auditPrivacyLevel') ? '⚠' : 'ⓘ'}
+            <Icon name={weakened.has('auditPrivacyLevel') ? 'warning' : 'info'} size="sm" />
           </span>
           <span className="kh-tradeoff__label">
             {weakened.has('auditPrivacyLevel') ? 'In effect:' : 'Trade-off:'}
@@ -251,7 +252,7 @@ function AuditLevelOption({
         )}
         {cost !== '' && (
           <p className="kh-audit-level__cost">
-            <span aria-hidden="true">⚠</span> {cost}
+            <Icon name="warning" size="sm" /> {cost}
           </p>
         )}
       </div>

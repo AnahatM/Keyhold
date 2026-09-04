@@ -13,7 +13,7 @@ import {
   RULE_DESCRIPTIONS,
   RULE_LABELS,
   SEVERITY_LABELS,
-  SEVERITY_SYMBOLS,
+  SEVERITY_ICONS,
   SEVERITY_TONES,
   clusterCaption,
   clusterHeading,
@@ -110,13 +110,13 @@ describe('severity', () => {
     // WCAG 1.4.1. This is the screen where a colour-only signal would matter most.
     for (const severity of ['critical', 'warning', 'info'] as const) {
       expect(SEVERITY_LABELS[severity].length).toBeGreaterThan(0);
-      expect(SEVERITY_SYMBOLS[severity].length).toBeGreaterThan(0);
+      expect(SEVERITY_ICONS[severity].length).toBeGreaterThan(0);
       expect(SEVERITY_TONES[severity].length).toBeGreaterThan(0);
     }
   });
 
   it('gives the three severities three distinguishable symbols', () => {
-    const symbols = new Set(Object.values(SEVERITY_SYMBOLS));
+    const symbols = new Set(Object.values(SEVERITY_ICONS));
     expect(symbols.size).toBe(3);
   });
 

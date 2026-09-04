@@ -11,6 +11,7 @@ import {
   type VaultHealthReport,
 } from '@shared/model/health.js';
 import type { StatusTone } from '../components/Feedback.js';
+import type { IconName } from '../components/Icon.js';
 
 /**
  * Turning a health report into something a person can act on.
@@ -105,10 +106,19 @@ export const SEVERITY_LABELS: Readonly<Record<HealthSeverity, string>> = {
  * are still three different things in greyscale, at low vision, and in the high-contrast
  * theme.
  */
-export const SEVERITY_SYMBOLS: Readonly<Record<HealthSeverity, string>> = {
-  critical: '▲',
-  warning: '●',
-  info: '■',
+/**
+ * Three shapes that differ without colour.
+ *
+ * This is the load-bearing case for icons on a severity scale: `SEVERITY_TONES` below carries
+ * the same information in hue, and hue alone is not allowed to be the signal (WCAG 1.4.1).
+ * The shapes were `▲ ● ■`, which differed but meant nothing on their own; a triangle that
+ * shouts, a circle that informs and a bar that merely notes are the same three steps drawn so
+ * that the drawing says which is which.
+ */
+export const SEVERITY_ICONS: Readonly<Record<HealthSeverity, IconName>> = {
+  critical: 'warning',
+  warning: 'info',
+  info: 'minus',
 };
 
 export const SEVERITY_TONES: Readonly<Record<HealthSeverity, StatusTone>> = {

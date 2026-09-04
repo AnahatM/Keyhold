@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { ImportCommitResult, ImportUndoResult } from '@shared/model/import-plan.js';
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { WarningList } from './WarningList.js';
 import './import.css';
 
@@ -43,7 +44,7 @@ export function ImportResultPanel({
           </>
         ) : (
           <>
-            <span aria-hidden="true">✓ </span>
+            <Icon name="check" />{' '}
             <strong className="kh-import-headline__number">{result.importedCount}</strong>{' '}
             {result.importedCount === 1 ? 'record' : 'records'} imported.
           </>
@@ -95,15 +96,14 @@ export function ImportResultPanel({
         </div>
       ) : (
         <p className="kh-import-note kh-import-note--warning">
-          <span aria-hidden="true">⚠ </span>
-          This import cannot be undone automatically. The records are in your vault and can be
-          removed by hand from the list.
+          <Icon name="warning" /> This import cannot be undone automatically. The records are in
+          your vault and can be removed by hand from the list.
         </p>
       )}
 
       <p className="kh-import-note kh-import-note--warning">
-        <span aria-hidden="true">⚠ </span>
-        The file you imported is still a plaintext copy of every password in it. Delete it.
+        <Icon name="warning" /> The file you imported is still a plaintext copy of every password in
+        it. Delete it.
       </p>
     </div>
   );

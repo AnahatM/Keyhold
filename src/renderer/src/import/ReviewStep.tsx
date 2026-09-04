@@ -5,6 +5,7 @@ import { DuplicateGroupList } from './DuplicateGroupList.js';
 import { RecordPreviewTable } from './RecordPreviewTable.js';
 import { WarningList } from './WarningList.js';
 import './import.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * Step four: the dry run.
@@ -74,7 +75,7 @@ export function ReviewStep({
 
       {summary.replacesAPassword && (
         <p className="kh-import-note kh-import-note--danger" role="alert">
-          <span aria-hidden="true">⚠ </span>
+          <Icon name="warning" size="sm" />
           At least one merge would replace a password already in your vault. Check those groups
           before importing — an export can be older than the vault it is being merged into.
         </p>

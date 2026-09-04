@@ -25,6 +25,7 @@ import {
 } from './mapping-validation.js';
 import { RecordPreviewTable } from './RecordPreviewTable.js';
 import './import.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * Step three: say what the columns mean.
@@ -69,7 +70,7 @@ export function MapColumnsStep({
               // interruption, so it is not given a live region.
               role={issue.severity === 'error' ? 'alert' : undefined}
             >
-              <span aria-hidden="true">{issue.severity === 'error' ? '⚠' : 'ℹ'}</span>
+              <Icon name={issue.severity === 'error' ? 'warning' : 'info'} size="sm" />
               <span>{issue.message}</span>
             </li>
           ))}

@@ -3,6 +3,7 @@ import { Button } from '../components/Button.js';
 import { ENCRYPTION_CLAIM } from './onboarding-copy.js';
 import '../vault/vault-screens.css';
 import './onboarding.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * Where the vault lives, and the one sentence about backing it up.
@@ -55,7 +56,7 @@ export function VaultFileStep({
       <ul className="kh-onb__facts">
         <li>
           <span className="kh-onb__fact-mark" aria-hidden="true">
-            🔐
+            <Icon name="shield" size="lg" />
           </span>
           <span>
             <strong>It is encrypted, not hidden.</strong> {ENCRYPTION_CLAIM}
@@ -63,7 +64,7 @@ export function VaultFileStep({
         </li>
         <li>
           <span className="kh-onb__fact-mark" aria-hidden="true">
-            🧳
+            <Icon name="parcel" size="lg" />
           </span>
           <span>
             <strong>It travels.</strong> Put it in a cloud folder, on a USB stick or on another
@@ -72,7 +73,7 @@ export function VaultFileStep({
         </li>
         <li>
           <span className="kh-onb__fact-mark" aria-hidden="true">
-            💾
+            <Icon name="save" size="lg" />
           </span>
           <span>
             <strong>Keep a copy somewhere else.</strong> A drive that fails takes this file with it,

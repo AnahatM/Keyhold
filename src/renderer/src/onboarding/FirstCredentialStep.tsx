@@ -5,6 +5,7 @@ import { Input } from '../components/Input.js';
 import type { FirstCredentialDraft } from './onboarding-state.js';
 import '../vault/vault-screens.css';
 import './onboarding.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * The optional one.
@@ -168,7 +169,7 @@ export function FirstCredentialStep({
                   setReveal(!reveal);
                 }}
               >
-                {reveal ? '🙈' : '👁'}
+                {<Icon name={reveal ? 'hide' : 'reveal'} />}
               </Button>
             }
           />

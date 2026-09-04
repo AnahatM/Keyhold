@@ -42,12 +42,12 @@ export function CredentialDetail({
           </h2>
           <div className="kh-detail__badges">
             {credential.favorite && (
-              <Badge tone="warning" symbol="★">
+              <Badge tone="warning" symbol="star">
                 Favourite
               </Badge>
             )}
             {trashed && (
-              <Badge tone="danger" symbol="🗑">
+              <Badge tone="danger" symbol="trash">
                 In Trash
               </Badge>
             )}
@@ -405,7 +405,7 @@ export function NoSelection(): React.JSX.Element {
 
   return (
     <EmptyState
-      icon="🗝"
+      icon="vault"
       title="Nothing selected"
       description="Pick a credential from the list, or add a new one."
       action={

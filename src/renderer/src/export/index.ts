@@ -42,7 +42,7 @@ export {
   LOSS_KIND_LABELS,
   LOSS_KIND_MEANINGS,
   LOSS_KIND_ORDER,
-  LOSS_KIND_SYMBOLS,
+  LOSS_KIND_ICONS,
   LOSS_KIND_TONES,
   recordSentence,
   safetyBadge,

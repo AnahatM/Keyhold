@@ -4,7 +4,7 @@ import type { HealthCluster, HealthIssue } from '@shared/model/health.js';
 import { Badge } from '../components/Feedback.js';
 import {
   SEVERITY_LABELS,
-  SEVERITY_SYMBOLS,
+  SEVERITY_ICONS,
   SEVERITY_TONES,
   clusterCaption,
   clusterHeading,
@@ -60,7 +60,7 @@ export function HealthRuleSection({
         </h4>
         {/* Word + symbol + colour. Never the colour on its own — WCAG 1.4.1, and this is the
             screen where it matters most. */}
-        <Badge tone={SEVERITY_TONES[group.severity]} symbol={SEVERITY_SYMBOLS[group.severity]}>
+        <Badge tone={SEVERITY_TONES[group.severity]} symbol={SEVERITY_ICONS[group.severity]}>
           {SEVERITY_LABELS[group.severity]}
         </Badge>
         <span className="kh-health-rule__count">{countLabel(group.flaggedCount)}</span>

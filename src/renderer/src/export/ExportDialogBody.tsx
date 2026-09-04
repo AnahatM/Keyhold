@@ -14,6 +14,7 @@ import { PlaintextConfirm } from './PlaintextConfirm.js';
 import { StepIndicator } from './StepIndicator.js';
 import { useExportDialog, type ExportDialogController } from './use-export-dialog.js';
 import './export.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * The export dialog itself, mounted only while it is open.
@@ -104,7 +105,7 @@ export function ExportDialogBody({
 
       {error !== null && (
         <p className="kh-export-note kh-export-note--danger" role="alert">
-          <span aria-hidden="true">⚠ </span>
+          <Icon name="warning" size="sm" />
           {error}
         </p>
       )}

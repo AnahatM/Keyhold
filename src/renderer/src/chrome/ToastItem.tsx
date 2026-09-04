@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import { Button } from '../components/Button.js';
+import { Icon, type IconName } from '../components/Icon.js';
 import type { Toast, ToastTone } from './toast-types.js';
 
 /**
@@ -15,13 +16,19 @@ import type { Toast, ToastTone } from './toast-types.js';
  * A visible shape per tone, so the meaning does not live in the colour alone (WCAG 1.4.1).
  *
  * A colour-blind user, a user on a monochrome display, and a user who has replaced the
- * palette with their own custom theme all get the same signal from these glyphs.
+ * palette with their own custom theme all get the same signal from these shapes.
+ *
+ * `info` and `warning` were previously a bare letter `i` and an exclamation mark — typed
+ * characters standing in for the ⓘ and ⚠ nobody could rely on the font to have. At 1.25em
+ * inside a tinted circle they read as text that had been left in by accident, and a lower-case
+ * `i` in particular is a vertical bar at small sizes. The set replaces them with the shapes
+ * they were always imitating.
  */
-const TONE_SYMBOL: Readonly<Record<ToastTone, string>> = {
-  success: '✓',
-  info: 'i',
-  warning: '!',
-  error: '✕',
+const TONE_ICON: Readonly<Record<ToastTone, IconName>> = {
+  success: 'check',
+  info: 'info',
+  warning: 'warning',
+  error: 'close',
 };
 
 /**
@@ -55,8 +62,10 @@ export function ToastItem({ toast, onDismiss }: ToastItemProps): React.JSX.Eleme
 
   return (
     <li className={`kh-toast kh-toast--${toast.tone}`}>
-      <span className="kh-toast__symbol" aria-hidden="true">
-        {TONE_SYMBOL[toast.tone]}
+      {/* The wrapper survives because it is the tinted circle the tone colours; the icon is
+          only what sits inside it. */}
+      <span className="kh-toast__symbol">
+        <Icon name={TONE_ICON[toast.tone]} size="sm" />
       </span>
 
       <div className="kh-toast__body">
@@ -86,7 +95,7 @@ export function ToastItem({ toast, onDismiss }: ToastItemProps): React.JSX.Eleme
         className="kh-toast__dismiss"
         variant="ghost"
         size="sm"
-        icon="✕"
+        icon={<Icon name="close" />}
         // The title is in the label because there can be three of these on screen at once,
         // and "Dismiss, button" three times over tells a screen-reader user nothing about
         // which one they are on.

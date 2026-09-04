@@ -76,15 +76,17 @@ describe('naming the property', () => {
 });
 
 describe('what kind of thing conflicted', () => {
-  it('every conflict kind has a subject, a meaning and a distinct symbol', () => {
-    const symbols = new Set<string>();
+  it('every conflict kind has a subject, a meaning and a distinct icon', () => {
+    const icons = new Set<string>();
     for (const kind of MERGE_CONFLICT_KINDS) {
       expect(CONFLICT_KIND_MEANINGS[kind].length, kind).toBeGreaterThan(20);
       expect(targetKindOf(conflict({ kind })), kind).toBeTruthy();
-      symbols.add(CONFLICT_KIND_SYMBOLS[kind]);
+      icons.add(CONFLICT_KIND_SYMBOLS[kind]);
     }
-    // Distinct shapes, so the signal survives greyscale and a colour-blind reader.
-    expect(symbols.size).toBe(MERGE_CONFLICT_KINDS.length);
+    // Distinct shapes, so the signal survives greyscale and a colour-blind reader. The names
+    // are typed `IconName`, so this is the half the type cannot check: six valid names that
+    // happen to be the same name would compile and would draw six identical rows.
+    expect(icons.size).toBe(MERGE_CONFLICT_KINDS.length);
   });
 
   it('routes each kind to the right subject', () => {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useMemo } from 'react';
 import { ruleForUrl, type SiteRule } from '@shared/model/site-rules.js';
+import { Icon } from '../components/Icon.js';
 import { InlineGenerator } from '../generator/index.js';
 import { useSiteRules } from '../organisation/site-rule-store.js';
 
@@ -57,7 +58,7 @@ export function PasswordGeneratorField({
 
       {rule !== null && (
         <p className="kh-editor__rule">
-          <span aria-hidden="true">🔧</span> Using your saved rule for{' '}
+          <Icon name="wrench" size="sm" /> Using your saved rule for{' '}
           <code className="kh-path">{rule.host}</code>
           {rule.note === undefined ? '.' : ` — ${rule.note}.`}
         </p>

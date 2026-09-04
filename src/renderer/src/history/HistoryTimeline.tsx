@@ -53,7 +53,7 @@ export function HistoryTimeline({
   if (!credential.historyEnabled && versions.length === 0) {
     return (
       <EmptyState
-        icon="🕰"
+        icon="clock"
         title="History is off for this credential"
         description="Turn on “Keep past versions” when editing to record what changes, when, and from which device."
       />
@@ -63,7 +63,7 @@ export function HistoryTimeline({
   if (versions.length === 0) {
     return (
       <EmptyState
-        icon="🕰"
+        icon="clock"
         title="No changes yet"
         description="Edits to this credential will appear here, newest first."
       />

@@ -6,7 +6,7 @@ import { Button } from '../components/Button.js';
 import { EmptyState, ErrorState } from '../components/Feedback.js';
 import { relativeTime } from '../history/origin-labels.js';
 import {
-  KIND_SYMBOLS,
+  KIND_ICONS,
   KIND_TONES,
   LOCK_REASON_LABELS,
   describeEntry,
@@ -15,6 +15,7 @@ import {
 } from './activity-presentation.js';
 import { useActivity } from './activity-store.js';
 import './activity.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * What this session has done.
@@ -131,8 +132,7 @@ export function ActivityView({ records, hideTitle = false }: ActivityViewProps):
             rendered screen rather than at the test, which asserted the entry was shown and was
             perfectly happy with it being shown twice.
           */}
-          <span aria-hidden="true">{KIND_SYMBOLS.lock}</span> The log was cleared when the vault
-          last locked
+          <Icon name={KIND_ICONS.lock} size="sm" /> The log was cleared when the vault last locked
           {lastLock.lockReason === undefined
             ? '.'
             : ` — ${LOCK_REASON_LABELS[lastLock.lockReason]}.`}
@@ -174,9 +174,7 @@ function ActivityRow({
 }): React.JSX.Element {
   return (
     <li className={`kh-activity-row kh-activity-row--${KIND_TONES[entry.kind]}`}>
-      <span className="kh-activity-row__symbol" aria-hidden="true">
-        {KIND_SYMBOLS[entry.kind]}
-      </span>
+      <Icon name={KIND_ICONS[entry.kind]} className="kh-activity-row__symbol" />
       <span className="kh-activity-row__text">{describeEntry(entry, naming)}</span>
       {/*
         `title` carries the exact timestamp, because "2 hours ago" is the right default and

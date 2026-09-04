@@ -25,6 +25,7 @@ import {
   vaultWeakenings,
 } from './settings-copy.js';
 import type { SettingsController } from './use-settings.js';
+import { Icon } from '../components/Icon.js';
 
 /**
  * The vault file itself: where it is, how long the trash keeps things, and how expensive it
@@ -130,7 +131,7 @@ export function VaultSection({
           id={`${base}-kdf-tradeoff`}
         >
           <span className="kh-tradeoff__symbol" aria-hidden="true">
-            {weakened.has('kdfCost') ? '⚠' : 'ⓘ'}
+            <Icon name={weakened.has('kdfCost') ? 'warning' : 'info'} size="sm" />
           </span>
           <span className="kh-tradeoff__label">
             {weakened.has('kdfCost') ? 'In effect:' : 'Trade-off:'}

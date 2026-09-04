@@ -115,7 +115,7 @@ export function MergeResolver({
 
       {nothingToSettle ? (
         <EmptyState
-          icon="✓"
+          icon="check"
           title="Nothing to settle"
           description="The two files agree everywhere they both have something to say. Apply the merge to bring the rest across."
         />

@@ -12,7 +12,7 @@ import {
   RULE_DESCRIPTIONS,
   RULE_LABELS,
   SEVERITY_LABELS,
-  SEVERITY_SYMBOLS,
+  SEVERITY_ICONS,
   SEVERITY_TONES,
 } from '../health/health-presentation.js';
 import { SettingSelect, SettingsSection, ScopeBadge } from './SettingControls.js';
@@ -24,6 +24,7 @@ import {
   vaultWeakenings,
 } from './settings-copy.js';
 import type { SettingsController } from './use-settings.js';
+import { Icon } from '../components/Icon.js';
 
 /**
  * Which health checks run, and where their thresholds sit.
@@ -97,7 +98,7 @@ export function HealthRulesSection({
           className={`kh-tradeoff${anyDisabled ? ' kh-tradeoff--active' : ''}`}
         >
           <span className="kh-tradeoff__symbol" aria-hidden="true">
-            {anyDisabled ? '⚠' : 'ⓘ'}
+            <Icon name={anyDisabled ? 'warning' : 'info'} size="sm" />
           </span>
           <span className="kh-tradeoff__label">{anyDisabled ? 'In effect:' : 'Trade-off:'}</span>{' '}
           {SETTING_COPY['health.rules'].tradeOff}
@@ -127,7 +128,7 @@ export function HealthRulesSection({
                   <label htmlFor={id} className="kh-rule__label">
                     {RULE_LABELS[rule]}
                   </label>
-                  <Badge tone={SEVERITY_TONES[severity]} symbol={SEVERITY_SYMBOLS[severity]}>
+                  <Badge tone={SEVERITY_TONES[severity]} symbol={SEVERITY_ICONS[severity]}>
                     {SEVERITY_LABELS[severity]}
                   </Badge>
                   {/* The weight, so switching off a check is a decision with a visible size

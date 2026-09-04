@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef } from 'react';
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { initialFocusTarget, restoreFocus } from './focus.js';
 import './lightbox.css';
 
@@ -191,7 +192,7 @@ export function Lightbox({ src, label, onClose }: LightboxProps): React.JSX.Elem
         className="kh-lightbox__close"
         variant="secondary"
         size="sm"
-        icon="✕"
+        icon={<Icon name="close" />}
         iconOnlyLabel={`Close: ${label}`}
         onClick={requestClose}
       />

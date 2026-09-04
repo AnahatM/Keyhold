@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { DEFAULT_HEALTH_THRESHOLDS } from '@shared/model/health.js';
 import type { StatusTone } from '../components/Feedback.js';
+import type { IconName } from '../components/Icon.js';
 
 /**
  * Turning a number of bits into a word, without overstating what the number means.
@@ -30,7 +31,7 @@ export interface StrengthBand {
   /** The word. Status is never carried by colour alone — WCAG 1.4.1. */
   readonly label: string;
   /** A glyph shown beside the word, for the same reason. */
-  readonly symbol: string;
+  readonly icon: IconName;
   readonly tone: StatusTone;
   /** Plain English: roughly what a space this size is worth. */
   readonly meaning: string;
@@ -64,7 +65,7 @@ export const STRENGTH_BANDS: readonly StrengthBand[] = [
   {
     id: 'very-weak',
     label: 'Very weak',
-    symbol: '✕',
+    icon: 'warning',
     tone: 'danger',
     meaning: `Under 2^${VERY_WEAK_CEILING_BITS} possibilities. Hardware built for guessing walks a space this size, so treat it as a code rather than a password.`,
     floorBits: 0,
@@ -72,7 +73,7 @@ export const STRENGTH_BANDS: readonly StrengthBand[] = [
   {
     id: 'weak',
     label: 'Weak',
-    symbol: '!',
+    icon: 'warning',
     tone: 'danger',
     meaning: `Keyhold's health check flags anything below ${WEAK_CEILING_BITS} bits as weak. Reasonable for a door code; not for an account that matters.`,
     floorBits: VERY_WEAK_CEILING_BITS,
@@ -80,7 +81,7 @@ export const STRENGTH_BANDS: readonly StrengthBand[] = [
   {
     id: 'fair',
     label: 'Fair',
-    symbol: '!',
+    icon: 'warning',
     tone: 'warning',
     meaning:
       'Past the point where offline guessing is cheap, but not by a wide margin. Add length if nothing is going to make you type this.',
@@ -89,7 +90,7 @@ export const STRENGTH_BANDS: readonly StrengthBand[] = [
   {
     id: 'strong',
     label: 'Strong',
-    symbol: '✓',
+    icon: 'check',
     tone: 'success',
     meaning:
       'Beyond what an offline attacker can enumerate with hardware anyone can buy. Comfortable for any account.',
@@ -98,7 +99,7 @@ export const STRENGTH_BANDS: readonly StrengthBand[] = [
   {
     id: 'excellent',
     label: 'Excellent',
-    symbol: '✓',
+    icon: 'check',
     tone: 'success',
     meaning:
       'Far beyond any feasible offline search. Extra bits past here buy nothing you could measure.',
@@ -124,7 +125,7 @@ export function bandForEntropyBits(bits: number): StrengthBand {
   return {
     id: 'very-weak',
     label: 'Very weak',
-    symbol: '✕',
+    icon: 'warning',
     tone: 'danger',
     meaning: 'This configuration could not be measured.',
     floorBits: 0,

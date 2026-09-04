@@ -5,6 +5,7 @@ import {
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
+import { Icon, type IconName } from '../components/Icon.js';
 import type { TreeRow } from './folder-tree-model.js';
 
 /**
@@ -71,9 +72,19 @@ export interface FolderTreeItemProps {
   readonly registerRow: (folderId: string, element: HTMLDivElement | null) => void;
 }
 
-const ATTACHMENT_MARK: Readonly<Record<string, string>> = {
-  'missing-parent': '⚠',
-  cycle: '⚠',
+/**
+ * Which icon marks a broken row, keyed by how it is broken.
+ *
+ * Both kinds get the same warning mark on purpose — the row's `title` and the problem list
+ * above the tree are where the two are told apart, and inventing a second silhouette would
+ * ask a reader to learn a distinction the sentence already makes. It stays a table rather
+ * than becoming a ternary so a third attachment kind is one line here, and so the absence of
+ * an entry is what "this row is fine" means, in one place, for both the mark and
+ * `data-broken`.
+ */
+const ATTACHMENT_ICON: Readonly<Record<string, IconName>> = {
+  'missing-parent': 'warning',
+  cycle: 'warning',
 };
 
 const ATTACHMENT_NOTE: Readonly<Record<string, string>> = {
@@ -120,7 +131,7 @@ export function FolderTreeItem({
     field.select();
   }, [renaming]);
 
-  const mark = ATTACHMENT_MARK[row.node.attachment];
+  const mark = ATTACHMENT_ICON[row.node.attachment];
   const note = ATTACHMENT_NOTE[row.node.attachment];
   const hiddenBelow = totalCount - ownCount;
 
@@ -193,7 +204,10 @@ export function FolderTreeItem({
           if (row.hasChildren) onToggle(row.id);
         }}
       >
-        ▸
+        {/* The wrapper keeps the rotation and the transition, because the state and the
+            animation belong to the control rather than to the drawing. The icon is one
+            chevron pointing right; `[data-open]` turns it. */}
+        <Icon name="chevron" size="sm" />
       </span>
 
       {renaming ? (
@@ -211,11 +225,7 @@ export function FolderTreeItem({
       ) : (
         <>
           <span className="kh-tree__label">{row.node.folder.name}</span>
-          {mark !== undefined && (
-            <span className="kh-tree__flag" aria-hidden="true">
-              {mark}
-            </span>
-          )}
+          {mark !== undefined && <Icon name={mark} className="kh-tree__flag" size="sm" />}
           <span className="kh-tree__count">
             {ownCount}
             <span className="kh-visually-hidden">

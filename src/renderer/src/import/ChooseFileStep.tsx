@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { ImportSource } from '@shared/model/import-plan.js';
 import { Button } from '../components/Button.js';
 import { EmptyState } from '../components/Feedback.js';
+import { Icon } from '../components/Icon.js';
 import { Input } from '../components/Input.js';
 import './import.css';
 
@@ -43,7 +44,7 @@ export function ChooseFileStep({
     return (
       <div className="kh-import-step">
         <EmptyState
-          icon="📥"
+          icon="import"
           title="Bring a vault in from somewhere else"
           description="Keyhold reads exports from Bitwarden, LastPass, 1Password, Chrome, Firefox, Safari, Dashlane, NordPass and KeePass — and any other CSV, once you have told it what the columns mean."
           action={
@@ -53,9 +54,8 @@ export function ChooseFileStep({
           }
         />
         <p className="kh-import-note kh-import-note--warning">
-          <span aria-hidden="true">⚠ </span>
-          Exports are plaintext. Once the import is finished, delete the file — it is a readable
-          copy of every password in it.
+          <Icon name="warning" /> Exports are plaintext. Once the import is finished, delete the
+          file — it is a readable copy of every password in it.
         </p>
 
         <OpenVaultDisclosure busy={busy} onOpenVault={onOpenVault} />
@@ -87,8 +87,7 @@ export function ChooseFileStep({
       </Button>
 
       <p className="kh-import-note kh-import-note--warning">
-        <span aria-hidden="true">⚠ </span>
-        Exports are plaintext. Delete this file once the import is finished.
+        <Icon name="warning" /> Exports are plaintext. Delete this file once the import is finished.
       </p>
     </div>
   );

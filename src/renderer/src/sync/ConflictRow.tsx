@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { ConflictChoice, MergeConflict } from '@shared/model/sync.js';
 import { Badge } from '../components/Feedback.js';
+import { Icon } from '../components/Icon.js';
 import {
   CONFLICT_KIND_MEANINGS,
   CONFLICT_KIND_SYMBOLS,
@@ -77,27 +78,33 @@ export function ConflictRow({
       <legend className="kh-visually-hidden">{question}</legend>
 
       <div className="kh-conflict__head">
-        <span className="kh-conflict__symbol" aria-hidden="true">
-          {CONFLICT_KIND_SYMBOLS[conflict.kind]}
-        </span>
+        {/*
+          The wrapping `<span aria-hidden>` is gone rather than kept around the icon: `Icon` is
+          unconditionally hidden from assistive tech, and `.kh-conflict__symbol` carries nothing
+          but the muted colour, which `className` passes straight through.
+        */}
+        <Icon name={CONFLICT_KIND_SYMBOLS[conflict.kind]} className="kh-conflict__symbol" />
         <span className="kh-conflict__property">{property}</span>
         {hidden && (
-          <Badge tone="warning" symbol="◍">
+          <Badge tone="warning" symbol="hide">
             Value hidden
           </Badge>
         )}
         {status === 'auto' && (
-          <Badge tone="info" symbol="⚙">
+          <Badge tone="info" symbol="settings">
             Settled for you
           </Badge>
         )}
-        {status === 'combined' && (
-          <Badge tone="neutral" symbol="⧉">
-            Both kept
-          </Badge>
-        )}
+        {/*
+          `'combined'` gets no icon, and that is the deliberate half of the rule in `Badge`'s
+          own doc comment. The set has no shape meaning "both sides contributed", and reaching
+          for the nearest one — a tick, a pair of squares — would say something subtly untrue
+          about a row that is a statement rather than an answered question. "Both kept" beside a
+          neutral tone already carries it.
+        */}
+        {status === 'combined' && <Badge tone="neutral">Both kept</Badge>}
         {status === 'needs-choice' && (
-          <Badge tone="warning" symbol="?">
+          <Badge tone="warning" symbol="warning">
             Needs you
           </Badge>
         )}

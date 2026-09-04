@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { MERGE_NOTE_KINDS, type MergeNote, type MergeNoteKind } from '@shared/model/sync.js';
+import type { IconName } from '../components/Icon.js';
 
 /**
  * Everything the merge decided on its own, said out loud.
@@ -27,8 +28,23 @@ interface NoteCopy {
   /** One sentence on what it means for the user's data. */
   readonly description: string;
   readonly severity: MergeNoteSeverity;
-  /** Never colour alone — a shape that survives greyscale. */
-  readonly symbol: string;
+  /**
+   * Never colour alone — a shape that survives greyscale (WCAG 1.4.1).
+   *
+   * A **name from the icon set**, not a glyph. This table used to hold the characters
+   * themselves — `⊕`, `↥`, `✕` — which made it a presentation string only `MergeNotePanel`
+   * knew how to interpret, drawn by whichever font the OS reached for and unreachable by the
+   * theme. Naming an icon instead means the panel renders `<Icon name={group.icon} />` and a
+   * shape outside the set is a compile error here rather than a box glyph on somebody's
+   * machine.
+   *
+   * Each names the **subject** of the note — a record, a folder, a tag, a saved search, a site
+   * rule, an attachment, a history — rather than the outcome, because {@link NoteCopy.label}
+   * and the severity already carry the outcome and an icon restating it is an icon nobody
+   * reads. `'record-purged'` is the one exception, and deliberately: it is the only note in
+   * the list that says something is *gone*, so it keeps a shape of its own.
+   */
+  readonly icon: IconName;
   /** How to read `MergeNote.count` for this kind, when it has one. */
   readonly countNoun: string | null;
 }
@@ -46,7 +62,7 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     description:
       'These records point at attachments whose contents are in the other vault. Keyhold copies them across as part of applying the merge.',
     severity: 'attention',
-    symbol: '⇩',
+    icon: 'import',
     countNoun: null,
   },
   'record-kept-unmatched': {
@@ -54,14 +70,14 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     description:
       'Present in only one of the two files. Keyhold kept them, because without shared history it cannot tell a deletion from a record that was never there.',
     severity: 'attention',
-    symbol: '⊕',
+    icon: 'document',
     countNoun: null,
   },
   'record-purged': {
     label: 'Records dropped',
     description: 'Gone from both files since they last agreed — both devices had deleted them.',
     severity: 'attention',
-    symbol: '✕',
+    icon: 'close',
     countNoun: null,
   },
   'tombstone-preserved': {
@@ -69,7 +85,7 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     description:
       'One file had deleted these and the other still held them. The deletion was kept, because a tombstone is a decision and an old copy is not.',
     severity: 'attention',
-    symbol: '⌫',
+    icon: 'trash',
     countNoun: null,
   },
   'history-truncated': {
@@ -77,7 +93,7 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     description:
       'Combining two timelines went past the record’s retention limit, so the oldest versions were dropped. Raise the limit on the record to keep more.',
     severity: 'attention',
-    symbol: '⇥',
+    icon: 'clock',
     countNoun: 'version',
   },
   'folder-cycle-broken': {
@@ -85,35 +101,35 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     description:
       'The merged folder tree pointed at itself. One link was cut so the tree makes sense again — check these folders sit where you expect.',
     severity: 'attention',
-    symbol: '⟲',
+    icon: 'folders',
     countNoun: null,
   },
   'record-unfiled': {
     label: 'Records moved to the top level',
     description: 'Their folder exists in neither file, so they were moved out rather than lost.',
     severity: 'attention',
-    symbol: '↥',
+    icon: 'document',
     countNoun: null,
   },
   'folder-reparented': {
     label: 'Folders moved to the top level',
     description: 'Their parent folder did not survive the merge, so they were moved out.',
     severity: 'attention',
-    symbol: '↥',
+    icon: 'folder',
     countNoun: null,
   },
   'record-added': {
     label: 'Records brought in',
     description: 'These exist only in the other file, and are now in yours too.',
     severity: 'notice',
-    symbol: '+',
+    icon: 'document',
     countNoun: null,
   },
   'record-restored': {
     label: 'Records taken out of the trash',
     description: 'The other file had restored these, so they are live again here.',
     severity: 'notice',
-    symbol: '↺',
+    icon: 'document',
     countNoun: null,
   },
   'history-renumbered': {
@@ -121,21 +137,21 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     description:
       'Two timelines were interleaved, so versions were renumbered to stay in order. Nothing was lost.',
     severity: 'notice',
-    symbol: '#',
+    icon: 'clock',
     countNoun: 'version',
   },
   'folder-added': {
     label: 'Folders brought in',
     description: 'These exist only in the other file, and are now in yours too.',
     severity: 'notice',
-    symbol: '+',
+    icon: 'folder',
     countNoun: null,
   },
   'folder-kept-unmatched': {
     label: 'Folders kept rather than deleted',
     description: 'Present in only one of the two files, and kept for the same reason records are.',
     severity: 'notice',
-    symbol: '⊕',
+    icon: 'folder',
     countNoun: null,
   },
   'folder-resurrected': {
@@ -143,14 +159,14 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     description:
       'One file had deleted these, but a surviving record still lives in them, so they were kept.',
     severity: 'notice',
-    symbol: '⊕',
+    icon: 'folder',
     countNoun: null,
   },
   'saved-search-added': {
     label: 'Saved searches brought in',
     description: 'These exist only in the other file, and are now in yours too.',
     severity: 'notice',
-    symbol: '+',
+    icon: 'search',
     countNoun: null,
   },
   'saved-search-kept-unmatched': {
@@ -158,7 +174,7 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     description:
       'Present in the shared ancestor and in only one of the two files. Absence alone never deletes, so they were kept.',
     severity: 'notice',
-    symbol: '=',
+    icon: 'search',
     countNoun: null,
   },
   'site-rule-added': {
@@ -166,7 +182,7 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     description:
       'Rules for what a particular site’s password box accepts. These were remembered in the other file only, and are now in yours too.',
     severity: 'notice',
-    symbol: '+',
+    icon: 'wrench',
     countNoun: null,
   },
   'site-rule-kept-unmatched': {
@@ -174,21 +190,21 @@ const NOTE_COPY: Readonly<Record<MergeNoteKind, NoteCopy>> = {
     description:
       'Present in the shared ancestor and in only one of the two files. Absence alone never deletes, so they were kept — a rule is usually something you found out the hard way.',
     severity: 'notice',
-    symbol: '=',
+    icon: 'wrench',
     countNoun: null,
   },
   'tag-added': {
     label: 'Tags brought in',
     description: 'These exist only in the other file, and are now in yours too.',
     severity: 'notice',
-    symbol: '+',
+    icon: 'tag',
     countNoun: null,
   },
   'tag-kept-unmatched': {
     label: 'Tags kept rather than deleted',
     description: 'Present in only one of the two files, and kept for the same reason records are.',
     severity: 'notice',
-    symbol: '⊕',
+    icon: 'tag',
     countNoun: null,
   },
 };
@@ -209,7 +225,8 @@ export interface MergeNoteGroup {
   readonly label: string;
   readonly description: string;
   readonly severity: MergeNoteSeverity;
-  readonly symbol: string;
+  /** A name from the icon set — see {@link NoteCopy.icon} for why it is a name, not a glyph. */
+  readonly icon: IconName;
   /** How many notes of this kind. */
   readonly count: number;
   /** The sum of `MergeNote.count` across the group, when the kind counts something. */
@@ -243,7 +260,7 @@ export function groupNotes(notes: readonly MergeNote[]): readonly MergeNoteGroup
       label: copy.label,
       description: copy.description,
       severity: copy.severity,
-      symbol: copy.symbol,
+      icon: copy.icon,
       count: kindNotes.length,
       total:
         copy.countNoun === null || counted.length === 0

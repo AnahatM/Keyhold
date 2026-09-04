@@ -269,13 +269,13 @@ export function AppearancePanel(): React.JSX.Element {
           <Button variant="secondary">Secondary</Button>
           <Button variant="ghost">Ghost</Button>
           <Button variant="danger">Delete</Button>
-          <Badge tone="success" symbol="✓">
+          <Badge tone="success" symbol="check">
             Strong
           </Badge>
-          <Badge tone="warning" symbol="!">
+          <Badge tone="warning" symbol="warning">
             Reused
           </Badge>
-          <Badge tone="danger" symbol="✕">
+          <Badge tone="danger" symbol="close">
             Breached
           </Badge>
           <code className="kh-secret kh-sample__secret">Il1O0 ·-· gT8B</code>

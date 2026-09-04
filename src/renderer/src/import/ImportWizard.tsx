@@ -9,6 +9,7 @@ import {
 } from '@shared/model/import-plan.js';
 import { Modal } from '../chrome/index.js';
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { ChooseFileStep } from './ChooseFileStep.js';
 import { ChooseFormatStep } from './ChooseFormatStep.js';
 import { recordsToAdd } from './duplicate-decisions.js';
@@ -323,8 +324,7 @@ export function ImportWizard({
 
         {state.error !== null && (
           <p className="kh-import-error" role="alert">
-            <span aria-hidden="true">⚠ </span>
-            {state.error}
+            <Icon name="warning" /> {state.error}
           </p>
         )}
 

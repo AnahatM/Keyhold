@@ -46,7 +46,7 @@ export function WarningList({
                  */}
                 <Badge
                   tone={group.severity === 'loss' ? 'warning' : 'info'}
-                  symbol={group.severity === 'loss' ? '⚠' : 'ℹ'}
+                  symbol={group.severity === 'loss' ? 'warning' : 'info'}
                 >
                   {group.severity === 'loss' ? 'Lost' : 'Note'}
                 </Badge>

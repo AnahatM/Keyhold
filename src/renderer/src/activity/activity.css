@@ -88,9 +88,9 @@
  * that is already complete.
  */
 .kh-activity-row__symbol {
-  flex: none;
-  width: 1.25rem;
-  text-align: center;
+  /* No width or text-align any more: an `Icon` is a square box sized in `em`, so it centres
+     itself and follows the row's font size. Those two properties existed to stop glyphs of
+     different widths from ragging the column, which is a problem a drawn set does not have. */
   color: var(--kh-color-text-subtle);
 }
 

@@ -6,6 +6,7 @@ import {
   type ImportDuplicateGroup,
 } from '@shared/model/import-plan.js';
 import { Badge } from '../components/Feedback.js';
+import { Icon } from '../components/Icon.js';
 import {
   decisionFor,
   DUPLICATE_ACTION_COPY,
@@ -51,9 +52,8 @@ export function DuplicateGroupList({
       <section className="kh-import-section">
         <h4 className="kh-import-section__heading">Duplicates</h4>
         <p className="kh-import-section__lead">
-          <span aria-hidden="true">✓ </span>
-          Nothing in this file matches anything already in your vault, and nothing in it is
-          repeated. Everything here is new.
+          <Icon name="check" /> Nothing in this file matches anything already in your vault, and
+          nothing in it is repeated. Everything here is new.
         </p>
       </section>
     );
@@ -130,9 +130,21 @@ function DuplicateGroupCard({
         <h5 className="kh-import-group__title" id={`${groupId}-title`}>
           {first?.title ?? group.matchedOn.title}
         </h5>
-        <Badge tone={withinFile ? 'info' : 'warning'} symbol={withinFile ? '⧉' : '⚠'}>
-          {withinFile ? `${group.incoming.length} copies in this file` : 'Already in your vault'}
-        </Badge>
+        {/*
+          Two badges rather than one with a conditional icon, because only one of the two
+          cases has something to warn about. "Already in your vault" is the one that can
+          overwrite a password the user is relying on, so it keeps the warning shape; rows
+          repeated inside the file the user themselves chose are a fact about that file, and
+          the count already states it. The previous ⧉ there was a shape with no meaning
+          attached — see the note on `Badge`'s `symbol` for why one was not invented for it.
+        */}
+        {withinFile ? (
+          <Badge tone="info">{group.incoming.length} copies in this file</Badge>
+        ) : (
+          <Badge tone="warning" symbol="warning">
+            Already in your vault
+          </Badge>
+        )}
       </header>
 
       <dl className="kh-import-group__match">
@@ -196,7 +208,7 @@ function DuplicateGroupCard({
           <p className="kh-import-merge__lead">
             {mergeReplacesPassword(group) ? (
               <>
-                <span aria-hidden="true">⚠ </span>
+                <Icon name="warning" />{' '}
                 <strong>This would replace the password you are using now.</strong> If the file is
                 older than your vault, that is a working password swapped for a stale one.
               </>

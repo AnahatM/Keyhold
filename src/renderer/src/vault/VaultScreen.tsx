@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { AboutView, ChangelogView, ContentViewer, type AboutLicence } from '../content/index.js';
 import { ActivityView } from '../activity/ActivityView.js';
 
@@ -152,9 +153,9 @@ export function VaultScreen({
         sidebar={
           <div className="kh-sidebar">
             <header className="kh-sidebar__header">
-              <span className="kh-sidebar__mark" aria-hidden="true">
-                🔓
-              </span>
+              {/* Open, not shut. The sidebar only exists while the vault is unlocked, so a
+                  closed padlock here would be describing the opposite of what is true. */}
+              <Icon name="unlock" className="kh-sidebar__mark" />
               <div>
                 <div className="kh-sidebar__name">{vault?.displayName ?? 'Vault'}</div>
                 <div className="kh-sidebar__version">
@@ -171,7 +172,9 @@ export function VaultScreen({
                   setSidebarCollapsed(true);
                 }}
               >
-                ‹
+                {/* Rotated rather than drawn a second time: a left chevron and a right one
+                    are the same shape, and two paths to keep in step is one too many. */}
+                <Icon name="chevron" size="sm" className="kh-icon--flip" />
               </Button>
             </header>
 
@@ -480,7 +483,7 @@ function ClipboardIndicator(): React.JSX.Element | null {
 
   return (
     <p className="kh-clipboard" aria-live="polite">
-      <span aria-hidden="true">📋</span> Clipboard clears in {Math.ceil(remaining / 1000)}s
+      <Icon name="clipboard" size="sm" /> Clipboard clears in {Math.ceil(remaining / 1000)}s
     </p>
   );
 }
@@ -578,7 +581,7 @@ function UndoBar(): React.JSX.Element | null {
         Undo
       </Button>
       <Button variant="ghost" size="sm" iconOnlyLabel="Dismiss" onClick={clearUndo}>
-        ✕
+        <Icon name="close" size="sm" />
       </Button>
     </div>
   );

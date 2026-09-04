@@ -6,6 +6,7 @@ import { Input } from '../components/Input.js';
 import { ConfirmDialog, Modal } from '../chrome/index.js';
 import { SettingsSection } from './SettingControls.js';
 import type { SettingsController } from './use-settings.js';
+import { Icon } from '../components/Icon.js';
 
 /**
  * The three operations that cannot be undone by clicking the same control again.
@@ -236,7 +237,7 @@ function ChangePasswordDialog({
       }
     >
       <p className="kh-consequence-note">
-        <span aria-hidden="true">⚠</span> There is no recovery. If you forget the new password, the
+        <Icon name="warning" size="sm" /> There is no recovery. If you forget the new password, the
         vault cannot be opened by anyone, including us.
       </p>
 

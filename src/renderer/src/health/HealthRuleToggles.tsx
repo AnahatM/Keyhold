@@ -11,7 +11,7 @@ import {
   RULE_LABELS,
   RULES_BY_IMPACT,
   SEVERITY_LABELS,
-  SEVERITY_SYMBOLS,
+  SEVERITY_ICONS,
 } from './health-presentation.js';
 import type { RuleToggles } from './use-health-report.js';
 
@@ -93,7 +93,7 @@ export function HealthRuleToggles({
               <label htmlFor={inputId} className="kh-health-check__label">
                 <span className="kh-health-check__name">{RULE_LABELS[rule]}</span>
                 <span className="kh-health-check__meta">
-                  <span aria-hidden="true">{SEVERITY_SYMBOLS[severity]}</span>{' '}
+                  <span aria-hidden="true">{SEVERITY_ICONS[severity]}</span>{' '}
                   {SEVERITY_LABELS[severity]} · −{HEALTH_RULE_WEIGHTS[rule]} points ·{' '}
                   {enabledRules[rule] ? `${counts[rule]} flagged` : 'not running'}
                 </span>

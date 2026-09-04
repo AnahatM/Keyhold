@@ -2,6 +2,7 @@
 import type { ImportRecordPreview } from '@shared/model/import-plan.js';
 import { SecretMask } from './SecretMask.js';
 import './import.css';
+import { Icon } from '../components/Icon.js';
 
 /**
  * The first few records, as they will be imported.
@@ -54,7 +55,7 @@ export function RecordPreviewTable({
                 {record.title}
                 {record.favorite && (
                   <span className="kh-import-table__flag">
-                    <span aria-hidden="true">★</span>
+                    <Icon name="star" size="sm" />
                     <span className="kh-visually-hidden">Favourite</span>
                   </span>
                 )}

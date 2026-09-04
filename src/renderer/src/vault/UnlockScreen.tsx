@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useEffect, useState } from 'react';
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { Input } from '../components/Input.js';
 import { KdfProgressBar } from './KdfProgressBar.js';
 import { useSession } from './session-store.js';
@@ -81,9 +82,7 @@ export function UnlockScreen(): React.JSX.Element {
         }}
       >
         <header className="kh-screen__header">
-          <span className="kh-screen__mark" aria-hidden="true">
-            🔒
-          </span>
+          <Icon name="lock" size="lg" className="kh-screen__mark" />
           <h1 className="kh-screen__title">
             {pending === null ? 'Unlock your vault' : `Unlock ${nameOf(path)}`}
           </h1>
@@ -137,7 +136,7 @@ export function UnlockScreen(): React.JSX.Element {
                 setReveal(!reveal);
               }}
             >
-              {reveal ? '🙈' : '👁'}
+              <Icon name={reveal ? 'hide' : 'reveal'} size="sm" />
             </Button>
           }
         />

@@ -50,7 +50,7 @@ export function WhatNextStep({
 
       <ul className="kh-onb__cards">
         <NextCard
-          icon="📥"
+          icon="import"
           title="Bring in your existing passwords"
           body="Keyhold imports from over eighteen managers, including 1Password, Bitwarden, LastPass, KeePass and your browser. Every import runs as a dry run first, so you see exactly what will be added before anything is written."
           action={onImport}
@@ -58,7 +58,7 @@ export function WhatNextStep({
           fallback="You will find this under File → Import whenever you are ready."
         />
         <NextCard
-          icon="⚡"
+          icon="bolt"
           title="Unlock without typing your password every time"
           body={
             quickUnlockName === undefined

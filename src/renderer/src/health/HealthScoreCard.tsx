@@ -7,6 +7,7 @@ import {
   scoreBand,
   type ScoreExplanation,
 } from './health-score.js';
+import { Icon } from '../components/Icon.js';
 
 /**
  * The score, with its working shown.
@@ -65,7 +66,13 @@ export function HealthScoreCard({
               <strong className="kh-health-score__outof">Not scored</strong>
             )}
           </p>
-          <Badge tone={band.tone} symbol={band.id === 'clear' ? '✓' : '•'}>
+          {/*
+            A tick when there is genuinely nothing to fix, and **no icon at all** otherwise.
+            The bullet it used to carry was a picture of nothing — a mark that said only "this
+            badge has a mark". A badge is perfectly legible as a coloured label, and forcing a
+            glyph into a slot with no meaning is how an icon set starts looking arbitrary.
+          */}
+          <Badge tone={band.tone} {...(band.id === 'clear' ? { symbol: 'check' as const } : {})}>
             {band.label}
           </Badge>
           <p className="kh-health-score__summary">{band.summary}</p>
@@ -201,8 +208,8 @@ function ScoreWorking({
       */}
       {explanation.reproducible ? (
         <p className="kh-health-working__check">
-          <span aria-hidden="true">✓</span> Recalculated here from the report and it matches the
-          score above.
+          <Icon name="check" size="sm" /> Recalculated here from the report and it matches the score
+          above.
         </p>
       ) : (
         <p className="kh-health-working__check kh-health-working__check--mismatch" role="alert">

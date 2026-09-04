@@ -1,0 +1,62 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The icon set's sizing and weight.
+ *
+ * Everything here is relative to the text it sits beside. Sizes are in `em` so an icon
+ * follows the font-size setting rather than staying put while its label moves — which is
+ * exactly how an icon set stops lining up on the one screen somebody changed the type scale.
+ */
+
+.kh-icon {
+  /*
+   * Owned by the style, not hard-coded, so a lighter look thins the icons with everything
+   * else rather than leaving them bolder than the borders around them. `--kh-style-*` is the
+   * material layer; see docs/06-UI-Design-System/05-Styles-And-The-Token-Split.md.
+   */
+  --kh-icon-stroke: calc(1.7 * var(--kh-style-border-width));
+
+  display: inline-block;
+  flex: none;
+  /*
+   * `-0.125em` puts an icon's optical centre on the text's, which is lower than its
+   * geometric centre because letters have descenders and a 24-grid icon does not.
+   */
+  vertical-align: -0.125em;
+}
+
+.kh-icon--sm {
+  width: 0.95em;
+  height: 0.95em;
+}
+
+.kh-icon--md {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.kh-icon--lg {
+  width: 1.6em;
+  height: 1.6em;
+}
+
+/*
+ * A style with no borders — neumorphic sets `border-width` to 0 — must not also erase every
+ * icon. The stroke follows the style's weight where there is one, and falls back to a real
+ * line where there is not.
+ */
+@supports (stroke-width: 1px) {
+  .kh-icon {
+    stroke-width: max(1.25px, var(--kh-icon-stroke));
+  }
+}
+
+/*
+ * A chevron pointing the other way.
+ *
+ * One drawing, turned, rather than a second path to keep in step with the first. Anything
+ * that needs a chevron in a third direction rotates it too — the set has one, deliberately.
+ */
+.kh-icon--flip {
+  transform: rotate(180deg);
+}

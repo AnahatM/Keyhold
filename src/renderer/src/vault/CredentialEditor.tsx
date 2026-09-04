@@ -8,6 +8,7 @@ import {
   type CustomFieldType,
 } from '@shared/model/credential.js';
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { Input } from '../components/Input.js';
 import { useCredentials } from './credential-store.js';
 import { PasswordGeneratorField } from './PasswordGeneratorField.js';
@@ -320,7 +321,7 @@ export function CredentialEditor({
                 touch();
               }}
             >
-              ✕
+              <Icon name="close" size="sm" />
             </Button>
           </div>
         ))}
@@ -375,7 +376,7 @@ export function CredentialEditor({
                   touch();
                 }}
               >
-                ✕
+                <Icon name="close" size="sm" />
               </Button>
             </div>
           </div>
@@ -437,7 +438,7 @@ export function CredentialEditor({
                   touch();
                 }}
               >
-                ✕
+                <Icon name="close" size="sm" />
               </Button>
             </div>
             <Input

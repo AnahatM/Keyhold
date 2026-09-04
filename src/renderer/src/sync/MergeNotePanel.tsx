@@ -37,7 +37,7 @@ export function MergeNotePanel({ report }: MergeNotePanelProps): React.JSX.Eleme
         {groups.map((group) => (
           <li key={group.kind} className={`kh-merge-note kh-merge-note--${group.severity}`}>
             <span className="kh-merge-note__symbol" aria-hidden="true">
-              {group.symbol}
+              {group.icon}
             </span>
             <div className="kh-merge-note__text">
               <span className="kh-merge-note__label">

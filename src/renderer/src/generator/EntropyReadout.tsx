@@ -50,12 +50,15 @@ export function EntropyReadout({ bits, stale, caveat }: EntropyReadoutProps): Re
   return (
     <div className={`kh-gen-entropy${stale ? ' kh-gen-entropy--settling' : ''}`}>
       <div className="kh-gen-entropy__row">
+        {/*
+          No icon while it is measuring. The ellipsis that used to sit here was a picture of
+          nothing, and "Measuring" already says the only thing there is to say — a badge is
+          perfectly legible as a coloured label.
+        */}
         {band === null ? (
-          <Badge tone="neutral" symbol="…">
-            Measuring
-          </Badge>
+          <Badge tone="neutral">Measuring</Badge>
         ) : (
-          <Badge tone={band.tone} symbol={band.symbol}>
+          <Badge tone={band.tone} symbol={band.icon}>
             {band.label}
           </Badge>
         )}

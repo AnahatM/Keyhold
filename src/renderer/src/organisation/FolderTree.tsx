@@ -20,6 +20,7 @@ import {
   type DragKind,
 } from './drag-payload.js';
 import { isHandledTreeKey, treeKeyAction } from './tree-keyboard.js';
+import { Icon } from '../components/Icon.js';
 
 /**
  * The folder tree: an ARIA tree, a keyboard-first action bar, and drag-to-file.
@@ -221,7 +222,7 @@ export function FolderTree(props: FolderTreeProps): React.JSX.Element {
         // what the folder was supposed to be.
         <div className="kh-tree__problems" role="status">
           <p className="kh-tree__problems-title">
-            <span aria-hidden="true">⚠ </span>
+            <Icon name="warning" size="sm" />
             {tree.problems.length} folder{tree.problems.length === 1 ? '' : 's'} could not be placed
           </p>
           <ul>

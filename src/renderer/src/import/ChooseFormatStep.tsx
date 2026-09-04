@@ -2,6 +2,7 @@
 import { useId } from 'react';
 import type { ImportFormatDescriptor } from '@shared/model/import.js';
 import type { ImportSource } from '@shared/model/import-plan.js';
+import { Icon } from '../components/Icon.js';
 import './import.css';
 
 /**
@@ -47,9 +48,8 @@ export function ChooseFormatStep({
 
         {candidates.length === 0 && (
           <p className="kh-import-note kh-import-note--warning">
-            <span aria-hidden="true">⚠ </span>
-            Nothing recognised this file. Pick a format below — “Any CSV file” lets you map the
-            columns yourself, and works for exports Keyhold has never seen.
+            <Icon name="warning" /> Nothing recognised this file. Pick a format below — “Any CSV
+            file” lets you map the columns yourself, and works for exports Keyhold has never seen.
           </p>
         )}
 
@@ -70,7 +70,7 @@ export function ChooseFormatStep({
                 {format.name}
                 {format.id === source.detectedFormatId && (
                   <span className="kh-import-choice__tag">
-                    <span aria-hidden="true">✓ </span>Best match
+                    <Icon name="check" /> Best match
                   </span>
                 )}
               </span>

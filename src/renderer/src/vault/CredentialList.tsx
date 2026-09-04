@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CredentialProjection } from '@shared/model/credential.js';
 import { Badge, EmptyState } from '../components/Feedback.js';
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { Input } from '../components/Input.js';
 import { SaveSearchButton } from '../organisation/SaveSearchButton.js';
 import { QueryHelp } from './QueryHelp.js';
@@ -155,7 +156,7 @@ export function CredentialList(): React.JSX.Element {
 
       {visible.length === 0 ? (
         <EmptyState
-          icon={showTrash ? '🗑' : query.trim() === '' ? '🗝' : '🔍'}
+          icon={showTrash ? 'trash' : query.trim() === '' ? 'vault' : 'search'}
           title={
             showTrash
               ? 'Trash is empty'
@@ -260,8 +261,12 @@ function VirtualRows({
                   </span>
                 </span>
                 {credential.favorite && (
-                  <span className="kh-row__flag" aria-label="Favourite">
-                    ★
+                  // `role="img"` because the star is now an `aria-hidden` `<svg>` rather
+                  // than text: without a role, the wrapper has no content left for the
+                  // `aria-label` to name, and the one signal that this row is a favourite
+                  // would go silent for a screen reader.
+                  <span className="kh-row__flag" role="img" aria-label="Favourite">
+                    <Icon name="star" size="sm" />
                   </span>
                 )}
               </button>

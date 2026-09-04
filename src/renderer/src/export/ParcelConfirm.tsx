@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { ExportLoss } from '@shared/model/export.js';
 import type { PasswordStrength } from '@shared/model/strength.js';
 import { Button } from '../components/Button.js';
+import { Icon } from '../components/Icon.js';
 import { Input } from '../components/Input.js';
 import { LossList } from './LossList.js';
 import { PassphraseStrength } from './PassphraseStrength.js';
@@ -82,9 +83,12 @@ export function ParcelConfirm({
             onClick={() => {
               setReveal(!reveal);
             }}
-          >
-            {reveal ? '🙈' : '👁'}
-          </Button>
+            // The icon slot rather than the children slot: `Button` renders children inside
+            // `.kh-button__label`, which is text styling for a word, and the eye was only ever
+            // sitting there because an emoji is a character. `iconOnlyLabel` above already
+            // carries the accessible name, so nothing is lost by moving it.
+            icon={<Icon name={reveal ? 'hide' : 'reveal'} />}
+          />
         }
       />
 
@@ -104,10 +108,9 @@ export function ParcelConfirm({
 
       {weak && (
         <p className="kh-export-note kh-export-note--warning" role="status">
-          <span aria-hidden="true">⚠ </span>
-          This passphrase is not strong enough to be the only thing protecting a copy of your
-          records. Keyhold asks for at least twelve characters and something that is not a
-          predictable pattern.
+          <Icon name="warning" /> This passphrase is not strong enough to be the only thing
+          protecting a copy of your records. Keyhold asks for at least twelve characters and
+          something that is not a predictable pattern.
         </p>
       )}
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useId } from 'react';
 import type { ConflictSide } from '@shared/model/sync.js';
+import { Icon } from '../components/Icon.js';
 import { describeSide } from './conflict-language.js';
 
 /**
@@ -72,9 +73,14 @@ export function ConflictSideCard({
       />
       <label className="kh-side__label" htmlFor={inputId}>
         <span className="kh-side__heading">
-          <span className="kh-side__tick" aria-hidden="true">
-            {checked ? '✓' : ''}
-          </span>
+          {/*
+            The wrapper survives where other `aria-hidden` glyph spans did not, because here it
+            is a layout box rather than an accessibility one: `.kh-side__tick` holds a fixed 1em
+            whether or not this side is the chosen one, so ticking a card does not shove its own
+            heading sideways. Its `aria-hidden` is gone — `Icon` already hides itself, and an
+            empty span announces nothing.
+          */}
+          <span className="kh-side__tick">{checked && <Icon name="check" size="sm" />}</span>
           {heading}
           {checked && <span className="kh-visually-hidden"> — keeping this</span>}
         </span>

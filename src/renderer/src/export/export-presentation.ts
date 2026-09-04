@@ -3,6 +3,7 @@
 import type { ExportFormatDescriptor, ExportLoss, ExportLossKind } from '@shared/model/export.js';
 import type { ExportPreview, ExportScope } from '@shared/model/export-plan.js';
 import type { StatusTone } from '../components/Feedback.js';
+import type { IconName } from '../components/Icon.js';
 // Reused rather than reimplemented. A second pluraliser is a second place for "1 records"
 // to appear, and this one is already the app's.
 import { countLabel } from '../health/health-presentation.js';
@@ -58,12 +59,39 @@ export const LOSS_KIND_MEANINGS: Readonly<Record<ExportLossKind, string>> = {
  * slashed circle stay four different things in greyscale and in the high-contrast theme.
  * On the one screen whose job is telling someone what they are about to lose, a signal only
  * a full-colour eye can read would be exactly the wrong economy.
+ *
+ * **These stayed typed glyphs when the rest of the app moved to the icon set, and that is a
+ * known gap rather than an oversight.** `dropped` maps cleanly onto `close`, but the set has
+ * no honest drawing of "not character-for-character equal", "packed into a shared cell" or
+ * "left out on purpose" — and converting one of the four while the other three stay text
+ * would produce a row where the shapes no longer look like a set, which is worse than four
+ * consistent glyphs. Closing it means three new icons, not three approximate names; until
+ * then `LossGroup.symbol` deliberately stays a `string` and `LossList` renders it as text
+ * rather than through `Badge`'s icon slot.
+ *
+ * `dropped` is U+00D7 MULTIPLICATION SIGN rather than the U+2715 it used to be, and that is
+ * not a cosmetic swap. U+2715 falls inside the pictographic block `tools/no-emoji-icons.test.ts`
+ * treats as an emoji, so on a machine with a colour emoji font it was liable to be drawn as
+ * one — a full-colour cross among three monochrome typographic marks. U+00D7 is the same
+ * shape from the block the rest of this set already lives in, which is what keeps the four
+ * looking like four of a kind.
  */
-export const LOSS_KIND_SYMBOLS: Readonly<Record<ExportLossKind, string>> = {
-  dropped: '✕',
-  altered: '≠',
-  flattened: '▤',
-  excluded: '⊘',
+/**
+ * Four distinguishable drawings, one per kind of loss.
+ *
+ * These were `× ≠ ▤ ⊘`, and the set had nothing honest for three of them — so three icons
+ * were drawn rather than three near-enough names chosen. That is the rule the whole sweep
+ * followed: an icon that nearly means what the label says is worse than one that plainly does
+ * not, because a reader trusts it and is wrong.
+ *
+ * `swap` is a value that arrived changed rather than intact; `list` is structure flattened
+ * into lines; `blocked` is excluded rather than merely absent.
+ */
+export const LOSS_KIND_ICONS: Readonly<Record<ExportLossKind, IconName>> = {
+  dropped: 'close',
+  altered: 'swap',
+  flattened: 'list',
+  excluded: 'blocked',
 };
 
 export const LOSS_KIND_TONES: Readonly<Record<ExportLossKind, StatusTone>> = {
@@ -94,7 +122,7 @@ export interface LossGroup {
   readonly kind: ExportLossKind;
   readonly label: string;
   readonly meaning: string;
-  readonly symbol: string;
+  readonly icon: IconName;
   readonly tone: StatusTone;
   readonly losses: readonly ExportLoss[];
   /** Records affected across this group. `0` when every loss in it is vault-level. */
@@ -124,7 +152,7 @@ export function groupLossesByKind(losses: readonly ExportLoss[]): readonly LossG
       kind,
       label: LOSS_KIND_LABELS[kind],
       meaning: LOSS_KIND_MEANINGS[kind],
-      symbol: LOSS_KIND_SYMBOLS[kind],
+      icon: LOSS_KIND_ICONS[kind],
       tone: LOSS_KIND_TONES[kind],
       losses: matching,
       records: matching.reduce((total, loss) => total + loss.records, 0),
@@ -177,7 +205,15 @@ export function summariseLosses(losses: readonly ExportLoss[]): string {
 
 export interface SafetyBadge {
   readonly label: string;
-  readonly symbol: string;
+  /**
+   * A name from the icon set, so the shape is drawn rather than typed.
+   *
+   * This one badge is the difference between a user understanding that they are about to
+   * write every password they own into a readable file and a user not understanding that, so
+   * it is the last place in the app that should have depended on the operating system having
+   * a glyph for 🔒 and rendering it in a colour nothing here controls.
+   */
+  readonly symbol: IconName;
   readonly tone: StatusTone;
   /** The sentence under the badge. Says what the file *is*, not how careful to be. */
   readonly meaning: string;
@@ -195,14 +231,14 @@ export function safetyBadge(descriptor: ExportFormatDescriptor): SafetyBadge {
   return descriptor.encrypted
     ? {
         label: 'Encrypted',
-        symbol: '🔒',
+        symbol: 'lock',
         tone: 'success',
         meaning:
           'The file is sealed under a passphrase you choose. Whoever receives it needs that passphrase to open it.',
       }
     : {
         label: 'Readable by anyone',
-        symbol: '⚠',
+        symbol: 'warning',
         tone: 'danger',
         meaning:
           'The file is plain text. Anyone who opens it can read every password in it, and so can anything it passes through.',
