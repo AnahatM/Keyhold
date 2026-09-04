@@ -93,10 +93,17 @@ function report(overrides: Partial<BreachReport> = {}): BreachReport {
 
 let mounted: MountedTree | null = null;
 let runCount = 0;
+let availabilityCount = 0;
 
 function mount(input: {
   readonly availability?: BreachAvailability;
+  /** Answered from the second question onward, so a re-query is observable. */
+  readonly availabilityAfterRun?: BreachAvailability;
   readonly report?: BreachReport;
+  /** When set, the run answers with a failure result instead of a report. */
+  readonly runFailure?: string;
+  /** When set, the bridge call *rejects* — a different path from a failure result. */
+  readonly runRejects?: boolean;
 }): MountedTree {
   const tree = mountReact(
     <HealthDashboard
@@ -104,11 +111,25 @@ function mount(input: {
       onSelectCredential={noop}
       analyse={() => Promise.resolve({ ok: true, value: HEALTH })}
       onOpenSettings={noop}
-      breachAvailability={() =>
-        Promise.resolve({ ok: true, value: input.availability ?? availability() })
-      }
+      breachAvailability={() => {
+        availabilityCount += 1;
+        const answer =
+          availabilityCount > 1 && input.availabilityAfterRun !== undefined
+            ? input.availabilityAfterRun
+            : (input.availability ?? availability());
+        return Promise.resolve({ ok: true, value: answer });
+      }}
       breachRun={() => {
         runCount += 1;
+        if (input.runRejects === true) return Promise.reject(new Error('the bridge went away'));
+        if (input.runFailure !== undefined) {
+          return Promise.resolve({
+            ok: false as const,
+            code: 'UNKNOWN' as const,
+            message: input.runFailure,
+            recoverable: true,
+          });
+        }
         return Promise.resolve({ ok: true, value: input.report ?? report() });
       }}
     />
@@ -121,6 +142,7 @@ afterEach(() => {
   mounted?.unmount();
   mounted = null;
   runCount = 0;
+  availabilityCount = 0;
   document.body.innerHTML = '';
 });
 
@@ -201,6 +223,60 @@ describe('what it says about a result', () => {
     await settle();
 
     expect(tree.container.textContent).toContain('2 passwords have appeared in known breaches');
+  });
+
+  it('shows the failure when a run fails, and does not show a report', async () => {
+    // The error branch had no test. It matters more than an ordinary error path: the panel's
+    // whole job is to never let a run that did not happen read like a clean one, and a
+    // rejected bridge call is the most complete way for a run not to happen.
+    const tree = mount({ runFailure: 'The service could not be reached.' });
+    await settle();
+    click(checkNowButton(tree)!);
+    await settle();
+
+    expect(tree.container.textContent).toContain('The service could not be reached.');
+    // No counts, no headline — nothing that could be read as an answer.
+    expect(tree.container.querySelector('.kh-breach__result')).toBeNull();
+  });
+
+  it('stops spinning when the bridge call rejects, so the button works again', async () => {
+    // A **rejection**, not a failure result, and the distinction is the whole point: a failure
+    // result flows through the ordinary path and clears `running` on the way past. Only a
+    // throw skips it — which is why `running` is cleared in a `finally`. Without that, one
+    // rejected call leaves the button disabled for the rest of the session with no way back
+    // except reopening the screen.
+    //
+    // The first version of this case used a failure result and could not distinguish anything;
+    // fault injection said so by not running at all, which is its own kind of finding.
+    const tree = mount({ runRejects: true });
+    await settle();
+    click(checkNowButton(tree)!);
+    await settle();
+
+    expect(checkNowButton(tree)?.disabled).toBe(false);
+    // And it says something. Writing this case found that a rejection escaped unhandled and
+    // the panel showed nothing at all — the button stopped spinning, no message appeared, and
+    // the user had no way to tell whether a check had run.
+    expect(tree.container.textContent).toContain('could not be started');
+  });
+
+  it('re-asks whether it may still run, after a run finishes', async () => {
+    // The two switches can move underneath a long sweep — the kill-switch is one click away on
+    // another screen. Re-asking is what stops the panel offering a button that would now be
+    // refused. Asserted through the *rendered* state rather than the call count, because a
+    // re-query whose answer is ignored is the same bug from the user's side.
+    const tree = mount({
+      availabilityAfterRun: availability({ enabled: false, canRun: false, reason: 'notEnabled' }),
+    });
+    await settle();
+    expect(checkNowButton(tree)).toBeDefined();
+
+    click(checkNowButton(tree)!);
+    await settle();
+
+    expect(availabilityCount).toBeGreaterThan(1);
+    expect(checkNowButton(tree)).toBeUndefined();
+    expect(tree.container.textContent).toContain('has not been opted in');
   });
 
   it('reports how many requests it made', async () => {

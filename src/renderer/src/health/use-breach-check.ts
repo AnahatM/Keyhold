@@ -95,9 +95,21 @@ export function useBreachCheck(
         const result = await runQuery();
         if (result.ok) setReport(result.value);
         else setError(result.message);
+      } catch {
+        // A **rejection**, not a failure result. The bridge answers with `{ ok: false }` for
+        // everything it can describe, so reaching here means the call itself did not complete
+        // — the channel is gone, the main process is shutting down, the preload never
+        // attached. Without this the promise rejected unhandled and the panel said nothing at
+        // all: the button stopped spinning, no error appeared, and the user was left to guess
+        // whether a check had run. Found by a test that rejected the call deliberately.
+        //
+        // The message names no cause, deliberately: nothing is known about one here, and
+        // inventing "the service could not be reached" would be a claim about the network
+        // that this code has no basis for.
+        setError('The check could not be started. Try again, or reopen the vault.');
       } finally {
-        // In a `finally`, so a rejected bridge call cannot leave the button spinning for the
-        // rest of the session with no way back except reopening the screen.
+        // In a `finally`, so neither branch above can leave the button spinning for the rest
+        // of the session with no way back except reopening the screen.
         setRunning(false);
       }
       // The switches may have moved underneath a long sweep — the kill-switch is one click

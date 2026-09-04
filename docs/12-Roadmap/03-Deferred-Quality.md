@@ -58,11 +58,6 @@ the second half is what makes an entry worth doing later rather than deleting.
 - [ ] `src/main/import-service/kdbx-source.ts` — the attachment-marker append path has no
       reachable test, because Keyhold's own writer never emits an attachment. Needs either a
       hand-built fixture or a `binaries` input on `writeKdbx`.
-- [ ] `src/renderer/src/health/use-breach-check.ts` — no test for the error branch or for the
-      availability re-query after a run.
-- [ ] `src/renderer/src/settings/SecuritySessionSection.tsx` — the breach opt-in row has no
-      test. The confirm dialog is the consent step, and nothing asserts it appears before the
-      setting flips.
 
 ## Owed documentation
 
