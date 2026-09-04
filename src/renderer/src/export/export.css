@@ -154,6 +154,7 @@
 .kh-export-format__description,
 .kh-export-format__meaning,
 .kh-export-format__fidelity,
+.kh-export-format__beta,
 .kh-export-format__losses {
   font-size: var(--kh-text-sm);
   color: var(--kh-color-text-muted);
@@ -162,6 +163,18 @@
 
 .kh-export-format__losses {
   color: var(--kh-color-warning-text);
+}
+
+/*
+ * The "not verified yet" caveat, in the info tone rather than the warning one.
+ *
+ * The losses line above already owns `warning-text`, and it is about this specific export;
+ * this line is about the format itself. Two different colours for two different kinds of
+ * caution beats one colour saying "be careful" twice — and the info tone keeps it clearly
+ * subordinate to the plaintext badge, which is the more urgent thing on the row.
+ */
+.kh-export-format__beta {
+  color: var(--kh-color-info-text);
 }
 
 /* ── Scope ─────────────────────────────────────────────────────────────────── */

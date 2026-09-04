@@ -245,6 +245,32 @@ export function safetyBadge(descriptor: ExportFormatDescriptor): SafetyBadge {
       };
 }
 
+/**
+ * The "not verified yet" chip, or `null` for a format that has been.
+ *
+ * ## Why this is on screen rather than in a release note
+ *
+ * The moment somebody exports is the moment they are most likely to delete something. A
+ * format that Keyhold can write and has never watched another application read is a real
+ * risk at exactly that moment, and it is a risk only this dialog can mention in time.
+ *
+ * **The chip is deliberately not a warning tone.** The plaintext badge beside it already
+ * uses `danger`, and two red chips on one row make both mean less — the plaintext one is
+ * about a file anybody can read, which is the more urgent of the two. `wrench` rather than
+ * `warning` for the same reason: it says "still being worked on", which is what this is,
+ * without competing with the badge that says "this is dangerous".
+ *
+ * The reason is rendered in full rather than summarised. "Beta" alone tells somebody
+ * nothing they can act on; "nobody has opened one of these in KeePassXC yet, so keep your
+ * vault until you have" tells them exactly what to do.
+ */
+export function betaNotice(
+  descriptor: ExportFormatDescriptor
+): { readonly label: string; readonly symbol: IconName; readonly reason: string } | null {
+  if (descriptor.betaReason === null) return null;
+  return { label: 'Not verified yet', symbol: 'wrench', reason: descriptor.betaReason };
+}
+
 /** "Lossless" is a claim worth stating positively when it is true, and not implying when not. */
 export function fidelityLabel(descriptor: ExportFormatDescriptor): string {
   return descriptor.lossless

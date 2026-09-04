@@ -673,7 +673,14 @@ M2). Full notes: `docs/13-Packaging/00-Building-And-Releasing.md`._
       it would build, launch, show the unlock screen and never derive a key — and nothing in
       build, test or test:smoke would notice
 - [ ] Produce a real build on each platform and confirm a vault unlocks in it (MANUAL-BACKLOG)
-- [ ] App icons (MANUAL-BACKLOG M-ICON)
+- [x] App icons — **drawn as code**, not as an asset. `tools/make-icons.mjs` defines the mark
+      as geometry constants and derives everything from them: the SVG documents use, the 1024
+      PNG electron-builder wants, the `.ico` with the seven sizes Windows asks for, the
+      `.icns` with all ten OSTypes macOS reads, and the Linux PNG set. PNG, ICO and ICNS are
+      written by hand rather than by a library. `npm run icons` regenerates and
+      `tools/icons.test.ts` compares bytes, so an icon edited by hand fails the build. A
+      keyhole rather than a padlock, because at 16 pixels every padlock looks like every other
+      padlock — checked by eye at 16, 32 and 256
 - [x] `docs/13-Packaging/` written
 
 ## Phase 20 — UI styles, separate from colour themes

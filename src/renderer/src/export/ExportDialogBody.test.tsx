@@ -134,6 +134,22 @@ describe('the export dialog', () => {
     ]);
   });
 
+  it('shows the caveat on a format nobody has verified, and only on that one', async () => {
+    // The chip is a promise made at the moment somebody is most likely to delete something,
+    // so it has to be *rendered*, not merely present in the descriptor. The fixture has one
+    // unverified format for exactly this reason: with all four verified, the chip could be
+    // deleted from the component and nothing would fail.
+    const tree = await open(fakeExportGateway());
+
+    const caveats = [...tree.container.querySelectorAll('.kh-export-format__beta')];
+    expect(caveats).toHaveLength(1);
+    expect(caveats[0]?.textContent).toContain('No manager other than Keyhold');
+
+    // The full sentence, not a "Beta" chip on its own. A label somebody has to hover or
+    // search for is a caveat written for the record rather than for the reader.
+    expect(tree.container.textContent).toContain('Not verified yet');
+  });
+
   it('will not continue until a format is chosen', async () => {
     const gateway = fakeExportGateway();
     const tree = await open(gateway);

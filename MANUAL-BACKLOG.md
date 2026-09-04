@@ -103,11 +103,32 @@ _(nothing yet)_
 
 ---
 
-## M-ICON · An application icon
+## ~~M-ICON~~ — An application icon — **withdrawn; it is drawn, and it is code**
 
-`build/icon.png` (512×512 or larger, with an `.ico` and `.icns` derived from it) does not
-exist. `electron-builder.yml` and the README's header both want one. Until then the README
-uses an emoji and the packaged app gets Electron's default icon.
+This asked for a hand-drawn `icon.png` with an `.ico` and `.icns` derived from it, on the
+assumption that artwork is a manual step. It is not, for a mark this simple.
+
+`tools/make-icons.mjs` draws it: a keyhole on a rounded plate in the default theme's accent,
+defined as **one set of geometry constants** and rendered by arithmetic — a circle test, a
+trapezoid test and a rounded-rectangle test, supersampled 4×4 for anti-aliasing. Everything
+downstream is derived from those numbers: `build/icon.svg` for documents, `build/icon.png` at
+1024, `build/icon.ico` with the seven sizes Windows asks for, `build/icon.icns` with the ten
+OSTypes macOS reads including every retina variant, and `build/icons/*.png` for Linux. PNG,
+ICO and ICNS are all written by hand — PNG is a zlib stream and four CRC-tagged chunks, and
+the other two are containers that hold PNGs — so nothing was installed.
+
+`npm run icons` regenerates. `tools/icons.test.ts` regenerates and **compares bytes**, so an
+icon edited by hand and committed without its source fails the build; it also parses both
+containers back, because a wrong ICO offset produces a file every tool accepts and Windows
+declines to draw, and nothing else in this repo would ever open one.
+
+**A keyhole rather than a padlock**, and the reason is the 16-pixel rendering: every password
+manager is a padlock, and at that size they are indistinguishable from each other and from a
+browser's own address-bar icon. It was checked by eye at 16, 32 and 256.
+
+**If you want a different mark**, the numbers are at the top of `tools/make-icons.mjs` under
+"The geometry" — change them, run `npm run icons`, and every file follows. That is the one
+thing left here and it is a preference, not a blocker.
 
 ## M-PKG · Confirm a packaged build actually unlocks a vault
 

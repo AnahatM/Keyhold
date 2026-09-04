@@ -46,6 +46,7 @@ export const SAMPLE_FORMATS: readonly ExportFormatDescriptor[] = [
     description: 'Sealed under a passphrase of its own.',
     encrypted: true,
     lossless: true,
+    betaReason: null,
   },
   {
     id: 'keyhold-json',
@@ -54,6 +55,7 @@ export const SAMPLE_FORMATS: readonly ExportFormatDescriptor[] = [
     description: 'Everything, in readable text.',
     encrypted: false,
     lossless: true,
+    betaReason: null,
   },
   {
     id: 'keyhold-csv',
@@ -62,6 +64,7 @@ export const SAMPLE_FORMATS: readonly ExportFormatDescriptor[] = [
     description: 'A flat table of the vault.',
     encrypted: false,
     lossless: false,
+    betaReason: null,
   },
   {
     id: 'compatible-csv',
@@ -70,6 +73,10 @@ export const SAMPLE_FORMATS: readonly ExportFormatDescriptor[] = [
     description: 'Bitwarden’s column set.',
     encrypted: false,
     lossless: false,
+    // One unverified format in the fixture, so the dialog's beta chip is actually rendered
+    // by a test rather than only by production. A fixture where every format is verified
+    // would let the chip be deleted with nothing failing.
+    betaReason: 'No manager other than Keyhold has read one of these files yet.',
   },
 ];
 

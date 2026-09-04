@@ -60,6 +60,21 @@ export interface ExportFormatDescriptor {
   readonly encrypted: boolean;
   /** True only for a format that can be read back into an identical vault. */
   readonly lossless: boolean;
+  /**
+   * Why this format has not been checked against the application it targets, or `null`.
+   *
+   * **A separate claim from `lossless`, and the distinction is the point.** Lossless says what
+   * a format *can* carry; this says whether anyone has watched the other application open one.
+   * Keyhold's own formats are verified continuously — its importer reads them in the test
+   * suite — but a format that targets Bitwarden or KeePass is verified only by Keyhold's own
+   * reader, which is Keyhold agreeing with itself. Two implementations built from the same
+   * reading of a spec agree perfectly and can both be wrong.
+   *
+   * So the string is a **caveat shown to the user**, not a flag for the engine, and it names
+   * the specific gap rather than saying "beta" and leaving them to guess. Somebody about to
+   * leave Keyhold is entitled to know which of the doors out has actually been walked through.
+   */
+  readonly betaReason: string | null;
 }
 
 // ── Losses ───────────────────────────────────────────────────────────────────

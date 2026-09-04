@@ -29,6 +29,8 @@ export const EXPORT_FORMATS: readonly ExportFormatDescriptor[] = [
       'The chosen records, sealed under a passphrase of their own. Safe to send or store.',
     encrypted: true,
     lossless: true,
+    // Read back by Keyhold itself, which is the only application it is for.
+    betaReason: null,
   },
   {
     id: 'kdbx',
@@ -38,6 +40,8 @@ export const EXPORT_FORMATS: readonly ExportFormatDescriptor[] = [
       'KeePass’s own encrypted format, under a passphrase of its own. Opens in KeePassXC and every mobile client.',
     encrypted: true,
     lossless: false,
+    betaReason:
+      'Nobody has opened a Keyhold-written database in KeePassXC yet. The cryptography is checked against published test vectors and a vault survives a full export and re-import here, but that only proves Keyhold agrees with itself. Keep your vault until you have opened the file in KeePass and seen your records in it.',
   },
   {
     id: 'keyhold-json',
@@ -46,6 +50,8 @@ export const EXPORT_FORMATS: readonly ExportFormatDescriptor[] = [
     description: 'Everything, in readable text: every field, every version, every origin.',
     encrypted: false,
     lossless: true,
+    // Keyhold's own format, read back by Keyhold's own importer in the test suite.
+    betaReason: null,
   },
   {
     id: 'keyhold-csv',
@@ -54,6 +60,8 @@ export const EXPORT_FORMATS: readonly ExportFormatDescriptor[] = [
     description: 'A flat table of the vault, for reading and auditing. Drops history.',
     encrypted: false,
     lossless: false,
+    // Keyhold's own columns, read back by Keyhold's own importer.
+    betaReason: null,
   },
   {
     id: 'bitwarden-json',
@@ -62,6 +70,8 @@ export const EXPORT_FORMATS: readonly ExportFormatDescriptor[] = [
     description: 'Bitwarden’s own export. Keeps field types, folders and multiple addresses.',
     encrypted: false,
     lossless: false,
+    betaReason:
+      'Nobody has imported a Keyhold-written file into Bitwarden yet. The shape is checked against Keyhold’s own reader, which is not the same as Bitwarden’s. Keep your vault until the import has worked.',
   },
   {
     id: 'compatible-csv',
@@ -70,6 +80,8 @@ export const EXPORT_FORMATS: readonly ExportFormatDescriptor[] = [
     description: 'Bitwarden’s column set — the one most other managers will import.',
     encrypted: false,
     lossless: false,
+    betaReason:
+      'These are Bitwarden’s columns, and most managers accept them — but no manager other than Keyhold has been asked to read one of these files. Keep your vault until the import has worked.',
   },
 ];
 

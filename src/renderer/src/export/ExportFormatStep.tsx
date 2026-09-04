@@ -3,7 +3,7 @@
 import type { ExportFormatDescriptor, ExportFormatId } from '@shared/model/export.js';
 import type { ExportPreview } from '@shared/model/export-plan.js';
 import { Badge, EmptyState } from '../components/Feedback.js';
-import { fidelityLabel, safetyBadge, summariseLosses } from './export-presentation.js';
+import { betaNotice, fidelityLabel, safetyBadge, summariseLosses } from './export-presentation.js';
 import './export.css';
 
 /**
@@ -50,6 +50,7 @@ export function ExportFormatStep({
 
       {formats.map((format) => {
         const badge = safetyBadge(format);
+        const beta = betaNotice(format);
         const selected = format.id === selectedId;
         const showsLosses = selected && preview !== null && preview.format === format.id;
 
@@ -76,11 +77,21 @@ export function ExportFormatStep({
                 <Badge tone={badge.tone} symbol={badge.symbol}>
                   {badge.label}
                 </Badge>
+                {beta !== null && (
+                  <Badge tone="info" symbol={beta.symbol}>
+                    {beta.label}
+                  </Badge>
+                )}
               </span>
 
               <span className="kh-export-format__description">{format.description}</span>
               <span className="kh-export-format__meaning">{badge.meaning}</span>
               <span className="kh-export-format__fidelity">{fidelityLabel(format)}</span>
+
+              {/* Under the format's own description, not tucked into the badge's tooltip. A
+                  caveat somebody has to hover to find is a caveat written for the record
+                  rather than for the reader. */}
+              {beta !== null && <span className="kh-export-format__beta">{beta.reason}</span>}
 
               {/* Only for the selected format: the preview is fetched for one format at a
                   time, and inventing a per-format summary from the descriptor would be this

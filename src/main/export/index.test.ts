@@ -118,3 +118,74 @@ describe('default file names', () => {
     expect(exportFileName('', json)).toBe('vault-export.json');
   });
 });
+
+/**
+ * The "not verified yet" claim, guarded so it cannot rot in the dangerous direction.
+ *
+ * `betaReason` is a promise made to somebody who is about to leave, at the moment they are
+ * most likely to delete something. The failure that matters is not a stale caveat on a format
+ * that has since been checked — that is merely embarrassing. It is a format that targets
+ * **another application** and quietly carries no caveat at all, because then the dialog says
+ * nothing and the user assumes it has been tried.
+ *
+ * So the list below is stated explicitly and asserted both ways. Adding an export format that
+ * writes somebody else's format fails this test until it is either verified for real or
+ * declared unverified in so many words.
+ *
+ * Fault injections performed: `betaReason` set to `null` on `kdbx` — "every format targeting
+ * another application carries a caveat" failed. `betaReason` set to a string on
+ * `keyhold-json` — "Keyhold's own formats carry none" failed. And the reason on `kdbx`
+ * shortened to "Beta" — "a caveat says what to do about it" failed, which is the one that
+ * keeps this from decaying into a label nobody can act on.
+ */
+describe('formats that have not been verified against the application they target', () => {
+  /** Formats whose reader is somebody else's code. Keyhold's own are verified continuously. */
+  const TARGETS_ANOTHER_APP: readonly ExportFormatId[] = [
+    'kdbx',
+    'bitwarden-json',
+    'compatible-csv',
+  ];
+
+  it('every format targeting another application carries a caveat', () => {
+    for (const id of TARGETS_ANOTHER_APP) {
+      const format = findExportFormat(id);
+      expect(format, `${id} is not in the registry`).not.toBeNull();
+      expect(
+        format?.betaReason,
+        `${id} writes a file for another application and claims to be verified`
+      ).not.toBeNull();
+    }
+  });
+
+  it('Keyhold’s own formats carry none, because its own importer reads them here', () => {
+    for (const format of EXPORT_FORMATS) {
+      if (TARGETS_ANOTHER_APP.includes(format.id)) continue;
+      expect(format.betaReason, `${format.id} is Keyhold's own and should not be caveated`).toBe(
+        null
+      );
+    }
+  });
+
+  it('a caveat says what to do about it, rather than only that there is a problem', () => {
+    // "Beta" on its own is a label, not information. Every reason here has to be long enough
+    // to name the gap and tell the reader what to keep until it is closed.
+    for (const format of EXPORT_FORMATS) {
+      if (format.betaReason === null) continue;
+      expect(
+        format.betaReason.length,
+        `${format.id}'s caveat is too short to act on`
+      ).toBeGreaterThan(80);
+      expect(format.betaReason, `${format.id}'s caveat does not say what to keep`).toMatch(
+        /Keep your vault/
+      );
+    }
+  });
+
+  it('names no format that is not in the registry', () => {
+    // The other direction: a format renamed or removed would leave this list quietly
+    // asserting nothing, which is how an allow-list outlives its reason.
+    for (const id of TARGETS_ANOTHER_APP) {
+      expect(EXPORT_FORMATS.map((format) => format.id)).toContain(id);
+    }
+  });
+});
