@@ -12,6 +12,9 @@ import { SAVED_SEARCH_NAME_MAX, SAVED_SEARCH_QUERY_MAX } from '@shared/model/sav
 import { SITE_RULE_HOST_MAX, SITE_RULE_NOTE_MAX } from '@shared/model/site-rules.js';
 import { readVaultFile } from '../vault/atomic-write.js';
 import type { BreachAvailability } from '@shared/model/breach.js';
+import type { RecoveryReport } from '@shared/model/recovery.js';
+import { diagnoseVault } from '../recovery/diagnose.js';
+import { renderRecoveryReport } from '../recovery/report.js';
 import type { BreachSweepClient } from '../breach/sweep.js';
 import { CHANNELS, EVENTS, type IpcResult, type SettingsView } from '@shared/ipc/api.js';
 import {
@@ -626,6 +629,94 @@ export function registerIpcHandlers(context: IpcContext): void {
   handle(CHANNELS.healthAnalyse, (options) =>
     vault.analyseHealth(requireHealthOptions(CHANNELS.healthAnalyse, options))
   );
+
+  // ── recovery ───────────────────────────────────────────────────────────────
+  //
+  // Diagnostics for a vault that will not open. Neither channel takes a path: one uses the
+  // open vault's, the other opens a dialog here. A path travelling renderer -> main would be
+  // attacker-controlled if the renderer were ever compromised, which is the same rule the
+  // import, export and attachment dialogs follow.
+
+  /**
+   * The last report this process produced, held so `saveReport` needs no argument.
+   *
+   * The alternative was accepting the report back from the renderer and writing that, which
+   * would mean validating a large nested structure at the boundary and then writing
+   * renderer-supplied text to a file the user believes Keyhold wrote. Keeping it here is
+   * smaller, needs no validator, and makes the saved file necessarily the one that was shown.
+   * Dropped on lock along with everything else vault-derived.
+   */
+  let lastRecoveryReport: RecoveryReport | null = null;
+  session.onLock(() => {
+    lastRecoveryReport = null;
+  });
+
+  handle(CHANNELS.recoveryDiagnose, async () =>
+    rememberReport(
+      await diagnoseVault({
+        vaultPath: vault.summary().path,
+        generatedAt: Date.now(),
+        // Present only when a vault is open, which is exactly when the document checks can
+        // run. The decrypted document reaches a builder whose output carries no user content.
+        document: vault.documentUnsafeForDiagnostics(),
+      })
+    )
+  );
+
+  handle(CHANNELS.recoveryDiagnoseFile, async () => {
+    const window = context.getWindow();
+    const options: OpenDialogOptions = {
+      title: 'Diagnose a vault file',
+      filters: [
+        { name: 'Keyhold vault or backup', extensions: ['keep', 'keepx', 'tmp', 'bak'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    };
+    const chosen =
+      window === null
+        ? await dialog.showOpenDialog(options)
+        : await dialog.showOpenDialog(window, options);
+
+    const path = chosen.canceled ? undefined : chosen.filePaths[0];
+    if (path === undefined) return null;
+
+    // No document, deliberately: the file the user picked is almost certainly not the one
+    // that is open, and diagnosing one file's container against another's contents would
+    // produce a report that is wrong in a way nobody could see.
+    return rememberReport(await diagnoseVault({ vaultPath: path, generatedAt: Date.now() }));
+  });
+
+  handle(CHANNELS.recoverySaveReport, async () => {
+    const report = lastRecoveryReport;
+    if (report === null) {
+      throw new IpcValidationError(CHANNELS.recoverySaveReport, 'nothing has been diagnosed yet');
+    }
+    const window = context.getWindow();
+    const options: SaveDialogOptions = {
+      title: 'Save the diagnostics report',
+      defaultPath: `keyhold-diagnostics-${new Date().toISOString().slice(0, 10)}.txt`,
+      filters: [{ name: 'Text', extensions: ['txt'] }],
+      properties: ['showOverwriteConfirmation'],
+    };
+    const chosen =
+      window === null
+        ? await dialog.showSaveDialog(options)
+        : await dialog.showSaveDialog(window, options);
+
+    if (chosen.canceled || chosen.filePath.length === 0) return null;
+
+    // Rendered here from the report the screen is showing, rather than taking text from the
+    // renderer. The file and the screen therefore cannot disagree, and no rendered blob ever
+    // sits in the renderer where something might log it.
+    await writeFile(chosen.filePath, renderRecoveryReport(report), 'utf8');
+    return basename(chosen.filePath);
+  });
+
+  function rememberReport(report: RecoveryReport): RecoveryReport {
+    lastRecoveryReport = report;
+    return report;
+  }
 
   // ── totp ───────────────────────────────────────────────────────────────────
 

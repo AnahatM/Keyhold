@@ -648,6 +648,22 @@ export class VaultService {
     }
   }
 
+  /**
+   * The open document, for the diagnostics report and nothing else.
+   *
+   * Named `Unsafe` in the same spirit as `attachmentChunksUnsafe`: this is the decrypted
+   * vault, every secret in it, and it must never be handed to anything that could serialise
+   * it toward the renderer. Its one caller is `recovery/diagnose.ts`, whose output is a
+   * report that carries no user content at all — not a password, not a record title, not a
+   * folder name — and whose own test proves it by planting markers and sweeping the result.
+   *
+   * `null` rather than a throw when nothing is open: diagnosing a vault you cannot unlock is
+   * the main reason this feature exists, and the document checks are simply skipped.
+   */
+  documentUnsafeForDiagnostics(): VaultDocument | null {
+    return this.state === 'unlocked' ? this.#requireOpen().document : null;
+  }
+
   revealSecret(ref: SecretRef): string | null {
     this.#requireOpen();
     const record = this.#findRecord(ref.credentialId);

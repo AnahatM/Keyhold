@@ -218,8 +218,14 @@ exist yet. Each needs a channel group added to `src/shared/ipc/api.ts`, a handle
   clipboard with its auto-clear, keyed apart from the seed so the two are rate-limited
   separately. Rendered by `TotpField` in the credential detail, with a smoke check that
   selects a record and finds six digits.
-- `kh:recovery:*` — the engine in `src/main/recovery/` is finished and reachable from nothing.
-  Next.
+- ~~`kh:recovery:*`~~ — **done**. Three channels: diagnose the open vault, diagnose a file
+  chosen in a main-process dialog, and save the rendered report. Neither diagnose channel
+  takes a path. `saveReport` takes no argument either — main holds the last report and renders
+  it, so no large structure needs validating at the boundary and the file is necessarily the
+  one that was shown. Reachable as the "Diagnose a vault" tool view, available while locked,
+  which is the situation it exists for.
+
+**Every channel group is now built.**
 
 Each agent's report names the exact payloads.
 

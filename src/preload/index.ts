@@ -60,6 +60,7 @@ import type {
 import type { CredentialProjection, SecretRef, VersionedField } from '@shared/model/credential.js';
 import type { GeneratedPassword, GeneratorOptions } from '@shared/model/generator.js';
 import type { BreachAvailability, BreachReport } from '@shared/model/breach.js';
+import type { RecoveryReport } from '@shared/model/recovery.js';
 import type { TotpCodeView } from '@shared/model/totp.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '@shared/model/health.js';
 import type { FieldDiffProjection, HistoryPointRef } from '@shared/model/history.js';
@@ -321,6 +322,17 @@ const api: KeyholdApi = {
       ipcRenderer.invoke(CHANNELS.totpCode, credentialId, fieldId) as Promise<
         IpcResult<TotpCodeView | null>
       >,
+  },
+
+  recovery: {
+    diagnose: () =>
+      ipcRenderer.invoke(CHANNELS.recoveryDiagnose) as Promise<IpcResult<RecoveryReport>>,
+    diagnoseFile: () =>
+      ipcRenderer.invoke(CHANNELS.recoveryDiagnoseFile) as Promise<
+        IpcResult<RecoveryReport | null>
+      >,
+    saveReport: () =>
+      ipcRenderer.invoke(CHANNELS.recoverySaveReport) as Promise<IpcResult<string | null>>,
   },
 
   breach: {

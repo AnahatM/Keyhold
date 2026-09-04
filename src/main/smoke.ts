@@ -1417,6 +1417,39 @@ export function runSmokeCheck(window: BrowserWindow): void {
         );
         emit(`SMOKE-NOTE totp-said ${String(totpCode)}`);
         emit(`SMOKE-CHECK totp-code-is-rendered ${String(totpCode === 'six-digits')}`);
+
+        // ── The diagnostics report, end to end ──────────────────────────────
+        //
+        // src/main/recovery/ was finished, tested and reachable from nothing: every piece is
+        // a pure function over bytes, a listing or a document, and nothing read a folder and
+        // called them. This runs the real channel against the real smoke vault and asks the
+        // screen for a rendered report -- the only check that would notice it going back.
+        const diagnosed = await waitFor(
+          window,
+          `(async () => {
+             const row = [...document.querySelectorAll('.kh-tools-nav .kh-sidebar__item')]
+               .find((element) => element.textContent?.includes('Diagnose a vault'));
+             if (!row) return 'no-tool-row';
+             row.click();
+             await new Promise((done) => setTimeout(done, 300));
+
+             const button = [...document.querySelectorAll('.kh-diagnostics button')]
+               .find((element) => element.textContent?.includes('Diagnose this vault'));
+             if (!button) return 'no-button';
+             button.click();
+             await new Promise((done) => setTimeout(done, 1500));
+
+             const text = document.querySelector('.kh-diagnostics')?.textContent || '';
+             if (text.includes('Nothing diagnosed yet')) return 'no-report';
+             return text.includes('What was checked') ? 'reported' : 'unexpected';
+           })()`
+        );
+        emit(`SMOKE-NOTE diagnostics-said ${String(diagnosed)}`);
+        emit(`SMOKE-CHECK diagnostics-report-is-rendered ${String(diagnosed === 'reported')}`);
+        // A distinct name: the tool-view loop below captures the same screen in its empty
+        // state, and shared names meant the later shot silently replaced this one — a
+        // screenshot claiming to be a rendered report and showing 'Nothing diagnosed yet'.
+        await captureNamedShot(window, 'Keyhold-Screenshot-18-diagnostics-report');
         // A shot of the code on screen, because "six digits are in the DOM" and "this looks
         // like a usable authenticator field" are different claims and only one of them can be
         // asserted from here.
@@ -1479,6 +1512,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
           ['Settings', 'Keyhold-Screenshot-08'],
           ['Help', 'Keyhold-Screenshot-09'],
           ['Session activity', 'Keyhold-Screenshot-13'],
+          ['Diagnose a vault', 'Keyhold-Screenshot-17-diagnostics'],
           ['What’s new', 'Keyhold-Screenshot-14'],
           ['About', 'Keyhold-Screenshot-15'],
         ] as const) {

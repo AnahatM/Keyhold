@@ -38,6 +38,13 @@ the second half is what makes an entry worth doing later rather than deleting.
 
 ## Owed tests
 
+- [ ] `src/main/recovery/diagnose.ts` — no test. The folder walk, the size cap, and the
+      skip-a-bad-neighbour paths are covered only by the smoke run against one real vault.
+- [ ] `src/renderer/src/recovery/DiagnosticsView.tsx` — no test. The dismissed-dialog case
+      (which must not clear a report already on screen) is the one worth having.
+- [ ] `kh:recovery:save-report` — nothing tests that it refuses when nothing was diagnosed,
+      or that the report is dropped on lock.
+
 - [ ] `src/main/vault/vault-service.ts` `totpCode` — no direct test. Covered only by the smoke
       run and by the generator's own RFC vectors, so a wrong `expiresAt` or a missed
       `otp-secret` type check would ship.
@@ -63,6 +70,10 @@ the second half is what makes an entry worth doing later rather than deleting.
       own address.
 
 ## Owed documentation
+
+- [ ] `docs/08-Diagnostics/00-Recovery-And-Diagnostics.md` — predates the feature being
+      reachable. Needs the three channels, the tool view, and the "held in main rather than
+      accepted back from the renderer" decision.
 
 - [ ] `docs/05-Features/` — no page for one-time codes at all. The engine, the channel, the
       field and the separate rate-limit key are undocumented.

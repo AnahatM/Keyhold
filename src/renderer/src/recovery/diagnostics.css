@@ -1,0 +1,135 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The diagnostics screen.
+ *
+ * Read when something has gone wrong, so it is dense and plain rather than spacious: the
+ * reader wants the findings, the order to do things in, and the checklist, without scrolling
+ * past decoration to reach them.
+ */
+
+.kh-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-4);
+}
+
+.kh-diagnostics__title {
+  margin: 0;
+  font-size: var(--kh-text-xl);
+}
+
+.kh-diagnostics__intro {
+  margin: 0;
+  max-inline-size: 68ch;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-diagnostics__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kh-space-2);
+}
+
+.kh-diagnostics__error {
+  margin: 0;
+  color: var(--kh-color-danger-text);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-diagnostics__saved {
+  margin: 0;
+  color: var(--kh-color-success-text);
+  font-size: var(--kh-text-sm);
+}
+
+.kh-diagnostics__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-2);
+  padding: var(--kh-space-4);
+  border: var(--kh-edge);
+  border-radius: var(--kh-radius-md);
+  background: var(--kh-color-surface);
+}
+
+.kh-diagnostics__heading {
+  margin: 0;
+  font-size: var(--kh-text-md);
+}
+
+.kh-diagnostics__subject {
+  font-weight: var(--kh-weight-normal);
+  color: var(--kh-color-text-muted);
+}
+
+.kh-diagnostics__findings,
+.kh-diagnostics__checked,
+.kh-diagnostics__unrecoverable {
+  margin: 0;
+  padding-inline-start: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+}
+
+.kh-diagnostics__checked,
+.kh-diagnostics__unrecoverable {
+  gap: var(--kh-space-1);
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  /* The engine indents nested checklist lines with spaces; keep them. */
+  white-space: pre-wrap;
+}
+
+.kh-diagnostics__unrecoverable {
+  color: var(--kh-color-danger-text);
+}
+
+.kh-diagnostics__finding-head {
+  display: flex;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-diagnostics__finding-title {
+  font-weight: var(--kh-weight-medium);
+}
+
+.kh-diagnostics__meaning,
+.kh-diagnostics__detail,
+.kh-diagnostics__subjects,
+.kh-diagnostics__changes,
+.kh-diagnostics__cannot,
+.kh-diagnostics__clean {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+  color: var(--kh-color-text-muted);
+  line-height: var(--kh-leading-normal);
+}
+
+.kh-diagnostics__subjects {
+  font-family: var(--kh-font-mono);
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-subtle);
+}
+
+.kh-diagnostics__cannot {
+  color: var(--kh-color-danger-text);
+}
+
+.kh-diagnostics__plan {
+  margin: 0;
+  padding-inline-start: var(--kh-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--kh-space-3);
+}
+
+.kh-diagnostics__step {
+  margin: 0;
+  font-weight: var(--kh-weight-medium);
+}

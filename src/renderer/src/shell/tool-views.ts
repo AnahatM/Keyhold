@@ -50,6 +50,7 @@ export const TOOL_VIEW_IDS = [
   'generator',
   'health',
   'activity',
+  'diagnostics',
   'settings',
   'help',
   'changelog',
@@ -109,6 +110,13 @@ export const TOOL_VIEWS: readonly ToolViewDefinition[] = [
     title: 'Session activity',
     summary: 'What this session did — unlocks, reveals, copies and saves. Cleared on lock.',
     menuCommandId: 'tools.activity',
+    fills: false,
+  },
+  {
+    id: 'diagnostics',
+    title: 'Diagnose a vault',
+    summary: 'Reads a vault file without its password and reports what is wrong with it.',
+    menuCommandId: 'tools.diagnostics',
     fills: false,
   },
   {

@@ -43,6 +43,7 @@ export const MENU_COMMAND_IDS = [
   'tools.generator',
   'tools.health',
   'tools.activity',
+  'tools.diagnostics',
   'app.settings',
   'help.docs',
   'help.shortcuts',

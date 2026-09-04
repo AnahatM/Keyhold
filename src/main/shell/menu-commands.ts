@@ -202,6 +202,19 @@ export const MENU_COMMANDS: readonly MenuCommand[] = [
     exposesCredentialData: false,
   },
   {
+    id: 'tools.diagnostics',
+    label: 'Diagnose a Vault…',
+    // Deliberately available while locked: diagnosing a vault that will not open is the
+    // situation this exists for, and a menu item greyed out exactly when it is needed would
+    // be the feature failing at its only job. The screen offers "Diagnose a file…" in that
+    // state; "Diagnose this vault" needs one open and says so.
+    needsUnlockedVault: false,
+    // The report carries no user content at all — not a secret, not a record title, not a
+    // folder name, not a path beyond a basename. `report.test.ts` proves it by planting
+    // markers in every one of those and sweeping the serialised result.
+    exposesCredentialData: false,
+  },
+  {
     id: 'tools.activity',
     label: 'Session Activity…',
     needsUnlockedVault: true,

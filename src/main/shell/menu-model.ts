@@ -295,6 +295,7 @@ function vaultSection(state: ShellState): MenuSection {
       command(state, 'tools.generator'),
       command(state, 'tools.health'),
       command(state, 'tools.activity'),
+      command(state, 'tools.diagnostics'),
       ...(isMac(state) ? ([separator, command(state, 'app.settings')] as const) : ([] as const)),
     ],
   };

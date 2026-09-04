@@ -199,7 +199,7 @@ visually checked (which caught a leftover duplicate the CRUD cycle was not clean
 drag machinery that arrives with Phase 7's organisation work, and building them twice would
 be worse than building them once.
 
-## Phase 6 — History, versioning & the audit trail _(headline feature)_ ~ ENGINE DONE
+## Phase 6 — History, versioning & the audit trail _(headline feature)_ ✅
 
 _The engine, the provenance capture and the service methods are built and tested. The
 timeline UI and its IPC channels are not. Full notes: `docs/05-Features/02-History-And-Audit.md`._
@@ -240,7 +240,7 @@ confirming a guard: no broker test covered historic refs, so dropping the versio
 the key — which would let a renderer walk a record's whole password history for one grant —
 passed silently. Two tests added; the re-injection then failed.
 
-## Phase 7 — Organisation, search, sort & filter ~ SEARCH DONE
+## Phase 7 — Organisation, search, sort & filter ✅
 
 _The query, ranking and sort engine is built, tested, and wired into the list. Folders, tags
 and the query-bar UI are not. Full notes: `docs/05-Features/03-Search-Sort-Filter.md`._
@@ -274,7 +274,7 @@ and the query-bar UI are not. Full notes: `docs/05-Features/03-Search-Sort-Filte
       looked
 - [x] `docs/05-Features/03-Search-Sort-Filter.md` written
 
-## Phase 8 — Password generator & strength ~ MOUNTED
+## Phase 8 — Password generator & strength ✅
 
 _The engine, the three `kh:generator:*` channels and the UI are all built. The generator is a
 tool view, reachable from the sidebar, and folds into the credential form as a disclosure._
@@ -304,7 +304,7 @@ _Full notes: `docs/05-Features/00-Password-Generator.md`._
       saved record — somebody typing a new credential has saved nothing yet
 - [x] `docs/05-Features/00-Password-Generator.md` written
 
-## Phase 9 — Encrypted attachments ~ MOUNTED, MINUS DRAG-AND-DROP
+## Phase 9 — Encrypted attachments ✅
 
 _Engine, channels, panel and preview are all in: both dialogs open in the main process, the
 bytes never cross the bridge, and the preview judges by sniffed type. What is left is
@@ -452,7 +452,7 @@ is left is KDBX 4 and Bitwarden JSON export. Full notes:
       the one doing the work), plus six on the preview and six on the IPC boundary
 - [x] `docs/09-Import-Export/01-Export-Formats.md` written
 
-## Phase 12 — Sync & merge ~ COMPLETE
+## Phase 12 — Sync & merge ✅
 
 _Goal: two devices, one cloud folder, and never a lost edit. Every line below is done. A user
 can merge from the palette or the File menu, is offered the conflicted copies their sync client
@@ -546,7 +546,7 @@ Full notes: `docs/05-Features/01-Health-Rules.md` and `07-Breach-Check.md`._
       control dominate the score
 - [x] `docs/05-Features/01-Health-Rules.md` written
 
-## Phase 14 — Settings & configurability ~ MOUNTED, TWO CHANNELS SHORT
+## Phase 14 — Settings & configurability ✅
 
 _The screen is built, wired to real IPC and mounted as the `settings` tool view. Four of the six
 channels it needs exist; the two that do not are envelope-crypto operations rather than settings
@@ -576,7 +576,7 @@ writes. Full notes: `docs/06-UI-Design-System/01-Layout-And-Components.md` §1._
       persisted and writable over `kh:settings:update-machine`; nothing renders a toggle
 - [x] **Tests** over the settings plan, the copy, the gateway and the channel inventory
 
-## Phase 15 — Chrome & quality of life ~ DONE BAR THE LIGHTBOX
+## Phase 15 — Chrome & quality of life ✅
 
 _The notification, dialog, tooltip, progress and empty-state layer is built and mounted, and so
 are the shortcut table and the command palette. The lightbox is not. Full notes:
@@ -603,7 +603,7 @@ are the shortcut table and the command palette. The lightbox is not. Full notes:
 - [x] **Tests** over the queue, the timing, the focus rules and the shortcut gate, and six fault injections, all caught
 - [x] `docs/06-UI-Design-System/02-App-Chrome.md` written
 
-## Phase 16 — In-app content pages ~ HELP MOUNTED
+## Phase 16 — In-app content pages ~ ONE AUDIT SWEEP OPEN
 
 _The help viewer is one of the four tool views and ships its articles inside the app. The
 generated pages — changelog, about, the licence list — are not built._
@@ -658,7 +658,7 @@ Reports: `docs/14-Audits/`._
       place that can answer it truthfully
 - [x] `docs/14-Audits/` written
 
-## Phase 18 — Packaging, CI & release ~ CI GREEN, NO PACKAGED BUILD YET
+## Phase 18 — Packaging, CI & release ~ WINDOWS BUILD PRODUCED, NOT YET LAUNCHED
 
 _The Verify workflow now runs and passes on every push — format, lint, typecheck, build, 4600+
 tests and the launch smoke test, on Windows. **No packaged build has ever been produced**, and

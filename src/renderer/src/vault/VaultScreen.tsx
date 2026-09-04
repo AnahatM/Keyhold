@@ -13,6 +13,7 @@ declare const APP_VERSION: string;
 declare const THIRD_PARTY_LICENCES: readonly AboutLicence[];
 import { GeneratorScreen } from '../generator/index.js';
 import { HealthDashboard } from '../health/HealthDashboard.js';
+import { DiagnosticsView } from '../recovery/index.js';
 import { ExportDialog } from '../export/ExportDialog.js';
 import { exportGatewayFrom } from '../export/export-gateway.js';
 import { ImportWizard } from '../import/ImportWizard.js';
@@ -373,6 +374,8 @@ function ToolPane({
           onOpenSettings={onOpenSettings}
         />
       );
+    case 'diagnostics':
+      return <DiagnosticsView hideTitle />;
     case 'activity':
       // `records` only so an id can be turned into a title, and only when the reader asks
       // for names. The log itself never carries one.

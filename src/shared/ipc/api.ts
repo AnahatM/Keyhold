@@ -14,6 +14,7 @@ import type {
   GeneratorRange,
 } from '../model/generator.js';
 import type { BreachAvailability, BreachReport } from '../model/breach.js';
+import type { RecoveryReport } from '../model/recovery.js';
 import type { TotpCodeView } from '../model/totp.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '../model/health.js';
 import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
@@ -356,6 +357,35 @@ export interface TotpApi {
   code: (credentialId: string, fieldId: string) => Promise<IpcResult<TotpCodeView | null>>;
 }
 
+/**
+ * Diagnostics for a vault that will not open.
+ *
+ * Reads the container **without a password**, so it answers on a file nobody can unlock —
+ * which is the whole situation it exists for. The report carries no user content: no secret,
+ * no record title, no folder name, and no path beyond a basename, which is what makes it
+ * safe to attach to a bug report.
+ *
+ * Neither diagnose channel takes a path. `diagnose` uses the open vault's; `diagnoseFile`
+ * opens a dialog in the main process and the user picks. A path travelling renderer → main
+ * would be attacker-controlled if the renderer were ever compromised.
+ */
+export interface RecoveryApi {
+  /** Diagnoses the currently open vault. Fails when none is open. */
+  diagnose: () => Promise<IpcResult<RecoveryReport>>;
+  /** Opens a file dialog and diagnoses whatever is chosen. `null` when cancelled. */
+  diagnoseFile: () => Promise<IpcResult<RecoveryReport | null>>;
+  /**
+   * Writes the most recent report to a file the user picks. Returns its basename, or `null`
+   * when the dialog was dismissed.
+   *
+   * Takes **no argument**: the main process keeps the last report it produced and renders
+   * that. Accepting one back from the renderer would mean validating a large nested structure
+   * at the boundary and then writing renderer-supplied text into a file the user believes
+   * Keyhold wrote.
+   */
+  saveReport: () => Promise<IpcResult<string | null>>;
+}
+
 export interface BreachApi {
   /** Whether a check can run, and which switch to change if not. Polled, never pushed. */
   availability: () => Promise<IpcResult<BreachAvailability>>;
@@ -684,6 +714,7 @@ export interface KeyholdApi {
   health: HealthApi;
   breach: BreachApi;
   totp: TotpApi;
+  recovery: RecoveryApi;
   history: HistoryApi;
   organisation: OrganisationApi;
   settings: SettingsApi;
@@ -741,6 +772,10 @@ export const CHANNELS = {
   healthAnalyse: 'kh:health:analyse',
 
   totpCode: 'kh:totp:code',
+
+  recoveryDiagnose: 'kh:recovery:diagnose',
+  recoveryDiagnoseFile: 'kh:recovery:diagnose-file',
+  recoverySaveReport: 'kh:recovery:save-report',
 
   breachAvailability: 'kh:breach:availability',
   breachRun: 'kh:breach:run',
