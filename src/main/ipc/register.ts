@@ -14,6 +14,8 @@ import { readVaultFile } from '../vault/atomic-write.js';
 import type { BreachAvailability } from '@shared/model/breach.js';
 import type { RecoveryReport } from '@shared/model/recovery.js';
 import { diagnoseVault } from '../recovery/diagnose.js';
+import type { MirrorStatusView } from '@shared/model/settings-plan.js';
+import { mirrorDestinationProblem } from '../vault/mirror-backup.js';
 import { applyContentProtection } from '../window.js';
 import { renderRecoveryReport } from '../recovery/report.js';
 import type { BreachSweepClient } from '../breach/sweep.js';
@@ -359,6 +361,13 @@ export interface IpcContext {
    * by default.
    */
   readonly breach?: BreachClientSource | undefined;
+  /**
+   * What happened to the most recent off-machine copy, if anything has.
+   *
+   * A function rather than a value: the copy happens after a save, long after registration,
+   * and a captured value would report the state at startup for the life of the session.
+   */
+  readonly mirrorStatus?: (() => MirrorStatusView | null) | undefined;
 }
 
 /** What the IPC layer needs from `BreachService`, which is one method. */
@@ -1448,6 +1457,31 @@ export function registerIpcHandlers(context: IpcContext): void {
     applyContentProtection(context.getWindow(), session.machineSettings().blockScreenCapture);
     return settingsView();
   });
+
+  handle(CHANNELS.settingsChooseMirror, async () => {
+    const window = context.getWindow();
+    const options: OpenDialogOptions = {
+      title: 'Choose a folder for the off-machine copy',
+      // `createDirectory` so somebody can make one on the spot; `dontAddToRecent` because a
+      // backup destination in the OS jump list tells anyone at the machine where the copy is.
+      properties: ['openDirectory', 'createDirectory', 'dontAddToRecent'],
+    };
+    const chosen =
+      window === null
+        ? await dialog.showOpenDialog(options)
+        : await dialog.showOpenDialog(window, options);
+
+    const directory = chosen.canceled ? undefined : chosen.filePaths[0];
+    if (directory === undefined) return null;
+
+    const problem = await mirrorDestinationProblem(directory);
+    if (problem !== null) throw new IpcValidationError(CHANNELS.settingsChooseMirror, problem);
+
+    session.updateMachineSettings({ mirrorDirectory: directory });
+    return settingsView();
+  });
+
+  handle(CHANNELS.settingsMirrorStatus, () => context.mirrorStatus?.() ?? null);
 
   handle(CHANNELS.settingsUpdateVault, (patch) => {
     vault.updateSettings(requireVaultSettingsPatch(CHANNELS.settingsUpdateVault, patch));

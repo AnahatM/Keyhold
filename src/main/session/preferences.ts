@@ -57,6 +57,9 @@ export interface Preferences {
    */
   readonly networkAllowed: boolean;
   readonly blockScreenCapture: boolean;
+  /** Where a copy of the vault is mirrored after each save. `null` disables it. */
+  readonly mirrorDirectory: string | null;
+  readonly mirrorKeep: number;
   /** Quick-unlock enrolments, keyed by vault id. */
   readonly quickUnlock: Readonly<Record<string, QuickUnlockRecord>>;
   /**
@@ -79,6 +82,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   wipeAfterFailedAttempts: null,
   networkAllowed: false,
   blockScreenCapture: true,
+  mirrorDirectory: null,
+  mirrorKeep: 3,
   quickUnlock: {},
   kdfMsPerCostUnit: null,
 };
@@ -165,6 +170,17 @@ export function coercePreferences(value: unknown): Preferences {
     // build must read as **on**: the failure that costs something here is a password ending
     // up in a screen recording, not a screenshot somebody has to take twice.
     blockScreenCapture: raw.blockScreenCapture !== false,
+    // A stored path is used only to write a copy of an already-encrypted file, and it is not
+    // renderer-supplied — it comes from a folder dialog opened in main. Anything that is not
+    // a non-empty string reads as "off".
+    mirrorDirectory:
+      typeof raw.mirrorDirectory === 'string' && raw.mirrorDirectory !== ''
+        ? raw.mirrorDirectory
+        : null,
+    mirrorKeep:
+      typeof raw.mirrorKeep === 'number' && Number.isInteger(raw.mirrorKeep) && raw.mirrorKeep > 0
+        ? Math.min(raw.mirrorKeep, 50)
+        : 3,
     quickUnlock,
     // A finite positive number or nothing. A stored `0`, a negative, a `NaN` round-tripped
     // through JSON as `null`, or a string all fall back to "not measured yet" — which costs

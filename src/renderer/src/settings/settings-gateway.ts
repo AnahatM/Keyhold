@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { KdfCost, MachineSettings, SettingsGateway } from '@shared/model/settings-plan.js';
-import type { ConfigurableVaultSettings, SettingsSnapshot } from '@shared/model/settings-plan.js';
+import type {
+  ConfigurableVaultSettings,
+  MirrorStatusView,
+  SettingsSnapshot,
+} from '@shared/model/settings-plan.js';
 
 /**
  * The settings screen's connection to the main process.
@@ -78,6 +82,16 @@ export function createBridgeGateway(): SettingsGateway {
       const result = await window.keyhold.history.networkName();
       // A failure here is not an error the user should see: "we could not read the network
       // name" and "you are not on a named network" lead to the same answer on screen.
+      return result.ok ? result.value : null;
+    },
+
+    chooseMirrorDirectory: async (): Promise<SettingsSnapshot | null> =>
+      unwrap(await window.keyhold.settings.chooseMirrorDirectory()),
+
+    mirrorStatus: async (): Promise<MirrorStatusView | null> => {
+      const result = await window.keyhold.settings.mirrorStatus();
+      // Same reasoning as `networkName`: "we could not ask" and "nothing has been copied
+      // yet" lead to the same thing on screen, which is nothing.
       return result.ok ? result.value : null;
     },
 

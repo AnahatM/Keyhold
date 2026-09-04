@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_CONFIGURABLE_VAULT_SETTINGS,
+  type MirrorStatusView,
   type SettingsGateway,
 } from '@shared/model/settings-plan.js';
 import { Button } from '../components/Button.js';
@@ -82,6 +83,22 @@ export function SettingsScreen({
   // object each render would re-read the settings forever.
   const resolved = useMemo(() => gateway ?? createBridgeGateway(), [gateway]);
   const controller = useSettings(resolved);
+
+  // Polled on mount and after each save-triggering change rather than pushed. A copy happens
+  // after a save, and the screen is not open for most of them — a push channel would exist to
+  // deliver events nobody is listening for.
+  const [mirror, setMirror] = useState<MirrorStatusView | null>(null);
+  useEffect(() => {
+    let live = true;
+    const ask = async (): Promise<void> => {
+      const status = await resolved.mirrorStatus();
+      if (live) setMirror(status);
+    };
+    void ask();
+    return () => {
+      live = false;
+    };
+  }, [resolved, controller.snapshot]);
   const [resetting, setResetting] = useState<'machine' | 'vault' | null>(null);
 
   const { snapshot, loading, loadError } = controller;
@@ -221,6 +238,8 @@ export function SettingsScreen({
             <VaultSection
               controller={controller}
               vault={snapshot.vault}
+              machine={snapshot.machine}
+              mirror={mirror}
               vaultPath={snapshot.vaultPath}
               kdf={snapshot.kdf}
               quickUnlockEnrolled={snapshot.quickUnlock.enrolled}

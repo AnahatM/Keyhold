@@ -60,6 +60,7 @@ import type {
 import type { CredentialProjection, SecretRef, VersionedField } from '@shared/model/credential.js';
 import type { GeneratedPassword, GeneratorOptions } from '@shared/model/generator.js';
 import type { BreachAvailability, BreachReport } from '@shared/model/breach.js';
+import type { MirrorStatusView } from '@shared/model/settings-plan.js';
 import type { RecoveryReport } from '@shared/model/recovery.js';
 import type { TotpCodeView } from '@shared/model/totp.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '@shared/model/health.js';
@@ -415,6 +416,12 @@ const api: KeyholdApi = {
       ipcRenderer.invoke(CHANNELS.settingsUpdateMachine, patch) as Promise<IpcResult<SettingsView>>,
     updateVault: (patch: Record<string, unknown>) =>
       ipcRenderer.invoke(CHANNELS.settingsUpdateVault, patch) as Promise<IpcResult<SettingsView>>,
+    chooseMirrorDirectory: () =>
+      ipcRenderer.invoke(CHANNELS.settingsChooseMirror) as Promise<IpcResult<SettingsView | null>>,
+    mirrorStatus: () =>
+      ipcRenderer.invoke(CHANNELS.settingsMirrorStatus) as Promise<
+        IpcResult<MirrorStatusView | null>
+      >,
     clearAllHistory: () =>
       ipcRenderer.invoke(CHANNELS.settingsClearAllHistory) as Promise<IpcResult<number>>,
     // Both secrets are passed straight through and neither is kept here. The preload is a

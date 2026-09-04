@@ -247,7 +247,9 @@ function fixtureValues(fixture: string, shape: FixtureShape): string[] {
         ? xmlTextValues(fixture)
         : csvCellValues(fixture);
   const headers = new Set(
-    shape === 'csv' ? parseCsvTable(fixture).table.columns.map((column) => column.toLowerCase()) : []
+    shape === 'csv'
+      ? parseCsvTable(fixture).table.columns.map((column) => column.toLowerCase())
+      : []
   );
   return [...new Set(values)].filter(
     (value) => value.trim().length >= 8 && !headers.has(value.trim().toLowerCase())

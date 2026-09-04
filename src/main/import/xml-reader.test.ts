@@ -1,14 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { VaultError } from '../crypto/errors.js';
-import {
-  MAX_XML_DEPTH,
-  MAX_XML_TEXT,
-  child,
-  childText,
-  children,
-  parseXml,
-} from './xml-reader.js';
+import { MAX_XML_DEPTH, MAX_XML_TEXT, child, childText, children, parseXml } from './xml-reader.js';
 
 /**
  * The XML reader, and mostly what it refuses.

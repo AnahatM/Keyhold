@@ -1,0 +1,44 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/*
+ * The off-machine copy's destination row.
+ *
+ * Its own file because `settings.css` crossed the 500-code-line ceiling
+ * `tools/file-length.test.ts` enforces when this was added. Allow-listing would have been
+ * easier and wrong: a backup destination is a different concern from the settings form's
+ * layout, and a file that grows past the limit by acquiring a second subject is exactly the
+ * case the ceiling exists to catch.
+ */
+.kh-mirror {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kh-space-2);
+}
+
+.kh-mirror__path {
+  flex: 1 1 18rem;
+  min-inline-size: 0;
+  padding: var(--kh-space-2);
+  font-family: var(--kh-font-mono);
+  font-size: var(--kh-text-xs);
+  color: var(--kh-color-text-muted);
+  background: var(--kh-color-surface-sunken);
+  border-radius: var(--kh-radius-sm);
+  /* A destination can be a long UNC path. Wrapping beats a row that pushes the buttons off. */
+  overflow-wrap: anywhere;
+}
+
+.kh-mirror__ok,
+.kh-mirror__failed {
+  margin: 0;
+  font-size: var(--kh-text-sm);
+}
+
+.kh-mirror__ok {
+  color: var(--kh-color-success-text);
+}
+
+.kh-mirror__failed {
+  color: var(--kh-color-danger-text);
+}

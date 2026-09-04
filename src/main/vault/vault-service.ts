@@ -211,6 +211,15 @@ export class VaultService {
   #broker = new SecretBroker();
   readonly #deviceId: string;
   #writeGuard: (() => () => void) | null = null;
+  /**
+   * Called after every successful save, with the path just written.
+   *
+   * A hook rather than a direct call to `mirrorVault`, for the same reason `#writeGuard` is
+   * one: the destination is a machine preference, which lives in the session, and the vault
+   * service must not learn about preferences to do a file copy. The composition root wires
+   * the two together.
+   */
+  #afterSave: ((vaultPath: string) => void) | null = null;
   readonly #origin: OriginSource;
 
   constructor(deviceId: string = uuid(), origin: OriginSource = NO_ORIGIN) {
@@ -232,6 +241,11 @@ export class VaultService {
    */
   setWriteGuard(guard: (() => () => void) | null): void {
     this.#writeGuard = guard;
+  }
+
+  /** See `#afterSave`. Wired by the composition root to the mirror-backup copy. */
+  setAfterSave(hook: ((vaultPath: string) => void) | null): void {
+    this.#afterSave = hook;
   }
 
   get state(): VaultState {
@@ -521,6 +535,11 @@ export class VaultService {
     } finally {
       release?.();
     }
+
+    // After the vault that *is* present is safely on disk, and deliberately not awaited. The
+    // mirror destination is removable, remote, or both, and a save must never wait on a drive
+    // somebody unplugged.
+    this.#afterSave?.(opened.path);
 
     // ── Writing back, without discarding whatever happened during the await ──
     //

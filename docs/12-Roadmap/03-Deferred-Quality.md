@@ -38,6 +38,13 @@ the second half is what makes an entry worth doing later rather than deleting.
 
 ## Owed tests
 
+- [ ] `src/main/vault/mirror-backup.ts` — no test. The temp-then-rename, the prune order, the
+      same-folder refusal and the path-free error messages are all unasserted. **The
+      path-free messages are the one worth doing first**: a destination path names a server
+      and often a person, and this string reaches a screen.
+- [ ] `blockScreenCapture` — nothing asserts `applyContentProtection` is actually called on
+      window creation or on a settings change.
+
 - [ ] `CredentialEditor` type picker — no test. Appending a template's fields without losing
       what was already typed is the behaviour worth pinning.
 - [ ] `iconFor` in `CredentialList` — no test that a chosen icon still beats a type icon.

@@ -167,6 +167,8 @@ export class SessionController {
       secretReveal: DEFAULT_SECRET_REVEAL_LIMITS,
       networkAllowed: preferences.networkAllowed,
       blockScreenCapture: preferences.blockScreenCapture,
+      mirrorDirectory: preferences.mirrorDirectory,
+      mirrorKeep: preferences.mirrorKeep,
     };
   }
 

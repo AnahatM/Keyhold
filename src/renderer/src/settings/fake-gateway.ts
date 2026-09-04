@@ -132,6 +132,18 @@ export function createFakeGateway(options: FakeGatewayOptions = {}): FakeSetting
 
     networkName: () => guard('networkName', () => networkName),
 
+    // The fixture has no dialog, so it sets a fixed folder — enough for the screen to render
+    // its "set" state, which is the half a component test can see.
+    chooseMirrorDirectory: () =>
+      guard('chooseMirrorDirectory', () => {
+        // No dialog in a fixture, so a fixed folder — enough for the screen to render its
+        // "set" state, which is the half a component test can see.
+        machine = { ...machine, mirrorDirectory: '/fixture/backups' };
+        return snapshot();
+      }),
+
+    mirrorStatus: () => guard('mirrorStatus', () => null),
+
     changeMasterPassword: (currentSecret: string, nextSecret: string) =>
       guard('changeMasterPassword', () => {
         passwordChanges.push({

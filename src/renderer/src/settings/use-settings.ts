@@ -45,6 +45,8 @@ export interface SettingsController {
   readonly announcement: Announcement;
   readonly updateMachine: (patch: Partial<MachineSettings>, announce: string) => void;
   readonly updateVault: (patch: Partial<ConfigurableVaultSettings>, announce: string) => void;
+  /** Opens the folder dialog in main and applies whatever the user picked. */
+  readonly chooseMirrorDirectory: () => Promise<void>;
   readonly resetMachine: () => void;
   readonly resetVault: () => void;
   /**
@@ -163,6 +165,15 @@ export function useSettings(gateway: SettingsGateway): SettingsController {
     [perform, snapshot]
   );
 
+  const chooseMirrorDirectory = useCallback(async (): Promise<void> => {
+    await perform('Off-machine copy destination set.', async (target) => {
+      const next = await target.chooseMirrorDirectory();
+      // `null` is a dismissed dialog, not a failure. Returning the current snapshot leaves
+      // the screen exactly as it was rather than blanking it.
+      return next ?? (await target.read());
+    });
+  }, [perform]);
+
   const resetMachine = useCallback((): void => {
     void perform('Settings for this computer restored to their defaults.', (target) =>
       target.updateMachine(DEFAULT_MACHINE_SETTINGS)
@@ -189,6 +200,7 @@ export function useSettings(gateway: SettingsGateway): SettingsController {
     announcement,
     updateMachine,
     updateVault,
+    chooseMirrorDirectory,
     resetMachine,
     resetVault,
     perform,

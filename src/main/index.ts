@@ -20,6 +20,7 @@ import { applySessionHardening, applyWebContentsHardening } from './security.js'
 import { isSmokeRun, runSmokeCheck } from './smoke.js';
 import { installOpenFileHandler, NativeShell, type MenuCommandId } from './shell/index.js';
 import { SessionController } from './session/session-controller.js';
+import { mirrorVault, type MirrorResult } from './vault/mirror-backup.js';
 import { VaultService } from './vault/vault-service.js';
 import { applyContentProtection, createMainWindow, focusMainWindow } from './window.js';
 
@@ -100,6 +101,35 @@ session.onOpen((vaultPath) => {
   // session layer would have left those unbracketed and looking correct.
   vault.setWriteGuard(() => watcher.beginLocalWrite());
 });
+
+/**
+ * The off-machine copy, refreshed after every save.
+ *
+ * Wired here rather than inside `VaultService` because the destination is a **machine**
+ * preference and the vault service must not learn about preferences to do a file copy.
+ *
+ * Deliberately fire-and-forget. The destination is removable, remote or both — unplugged,
+ * full, or needing a password nobody typed today — and none of that may delay or fail a save
+ * to the vault that is present. The outcome is recorded so the settings screen can say what
+ * happened; nothing here throws.
+ */
+let lastMirror: MirrorResult | null = null;
+
+vault.setAfterSave((vaultPath) => {
+  const preferences = session.machineSettings();
+  void mirrorVault({
+    vaultPath,
+    settings: { directory: preferences.mirrorDirectory, keep: preferences.mirrorKeep },
+    at: Date.now(),
+  }).then((result) => {
+    if (result.status !== 'disabled') lastMirror = result;
+  });
+});
+
+/** What the settings screen reports about the last copy. Read through the IPC layer. */
+export function lastMirrorResult(): MirrorResult | null {
+  return lastMirror;
+}
 
 session.onLock(() => {
   stopVaultWatch();
@@ -277,6 +307,16 @@ if (!gotTheLock) {
       // vault's opt-in, the teardown on lock — is inside this service, so the IPC layer never
       // has to ask and can never accidentally answer.
       breach,
+      mirrorStatus: () => {
+        const result = lastMirror;
+        if (result === null || result.status === 'disabled') return null;
+        return {
+          status: result.status,
+          fileName: result.fileName,
+          problem: result.problem,
+          at: result.at,
+        };
+      },
       userDataPath: app.getPath('userData'),
       getWindow: () => mainWindow,
     });

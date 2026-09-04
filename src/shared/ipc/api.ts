@@ -17,6 +17,7 @@ import type { BreachAvailability, BreachReport } from '../model/breach.js';
 import type { RecoveryReport } from '../model/recovery.js';
 import type { TotpCodeView } from '../model/totp.js';
 import type { CredentialType } from '../model/credential.js';
+import type { MirrorStatusView } from '../model/settings-plan.js';
 import type { HealthRuleId, HealthThresholds, VaultHealthReport } from '../model/health.js';
 import type { FieldDiffProjection, HistoryPointRef } from '../model/history.js';
 import type { PasswordStrength } from '../model/strength.js';
@@ -585,6 +586,16 @@ export interface SettingsApi {
   read: () => Promise<IpcResult<SettingsView>>;
   updateMachine: (patch: Record<string, unknown>) => Promise<IpcResult<SettingsView>>;
   updateVault: (patch: Record<string, unknown>) => Promise<IpcResult<SettingsView>>;
+  /**
+   * Opens a folder dialog and sets the off-machine backup destination.
+   *
+   * Takes no path, like every other dialog in the app: a path travelling renderer → main
+   * would be attacker-controlled if the renderer were ever compromised. Returns the updated
+   * settings, or `null` when the dialog was dismissed.
+   */
+  chooseMirrorDirectory: () => Promise<IpcResult<SettingsView | null>>;
+  /** What happened to the most recent off-machine copy. Polled, never pushed. */
+  mirrorStatus: () => Promise<IpcResult<MirrorStatusView | null>>;
   /** Returns how many versions were removed, so the UI can say what it cost. */
   clearAllHistory: () => Promise<IpcResult<number>>;
   /**
@@ -811,6 +822,8 @@ export const CHANNELS = {
   settingsRead: 'kh:settings:read',
   settingsUpdateMachine: 'kh:settings:update-machine',
   settingsUpdateVault: 'kh:settings:update-vault',
+  settingsChooseMirror: 'kh:settings:choose-mirror',
+  settingsMirrorStatus: 'kh:settings:mirror-status',
   settingsClearAllHistory: 'kh:settings:clear-all-history',
   settingsChangeMasterPassword: 'kh:settings:change-master-password',
   settingsRekey: 'kh:settings:rekey',

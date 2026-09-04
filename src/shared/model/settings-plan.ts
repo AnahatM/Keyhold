@@ -138,6 +138,21 @@ export interface MachineSettings {
    * all, because neither X11 nor Wayland has an equivalent. The setting says so.
    */
   readonly blockScreenCapture: boolean;
+  /**
+   * A folder a copy of the vault is written to after every save. `null` is off.
+   *
+   * The rolling `.keepbak` files beside the vault protect against a bad write; they do
+   * nothing about the drive failing or the folder being deleted. This is the other half.
+   *
+   * Machine-scoped, and it must be: the path names a drive or a share that exists on **this**
+   * computer, and a vault carried elsewhere must not bring a destination with it.
+   *
+   * Chosen through a folder dialog opened in the main process. No path travels renderer →
+   * main, the same rule every other dialog in the app follows.
+   */
+  readonly mirrorDirectory: string | null;
+  /** How many dated copies to keep in that folder. */
+  readonly mirrorKeep: number;
 }
 
 export const DEFAULT_MACHINE_SETTINGS: MachineSettings = {
@@ -148,6 +163,8 @@ export const DEFAULT_MACHINE_SETTINGS: MachineSettings = {
   networkAllowed: false,
   // On, unlike the other two. See the field's own note for why the default runs the other way.
   blockScreenCapture: true,
+  mirrorDirectory: null,
+  mirrorKeep: 3,
 };
 
 // ── Vault-scoped ─────────────────────────────────────────────────────────────
@@ -415,6 +432,8 @@ export function kdfPresetFor(cost: KdfCost): KdfPresetId | null {
 export function clampMachineSettings(settings: MachineSettings): MachineSettings {
   return {
     blockScreenCapture: settings.blockScreenCapture,
+    mirrorDirectory: settings.mirrorDirectory,
+    mirrorKeep: Math.min(Math.max(1, Math.trunc(settings.mirrorKeep)), 50),
     autoLock: {
       ...settings.autoLock,
       idleMinutes: clampOptional(settings.autoLock.idleMinutes, SETTING_BOUNDS.idleMinutes),
@@ -476,6 +495,20 @@ export function clampVaultSettings(settings: ConfigurableVaultSettings): Configu
   };
 }
 
+/**
+ * What happened to the most recent off-machine copy.
+ *
+ * Carries **no path**. Node's errors name the full destination, and a network share's path
+ * names a server and often a person — not something to put on a screen a screenshot will
+ * catch. The folder the user chose is shown separately, from the setting they set.
+ */
+export interface MirrorStatusView {
+  readonly status: 'written' | 'failed';
+  readonly fileName: string | null;
+  readonly problem: string | null;
+  readonly at: number;
+}
+
 // ── What the screen may ask the main process to do ───────────────────────────
 
 export interface QuickUnlockSummary {
@@ -522,6 +555,15 @@ export interface SettingsGateway {
   updateVault: (patch: Partial<ConfigurableVaultSettings>) => Promise<SettingsSnapshot>;
   /** The network name that would be recorded right now. `null` is a normal answer. */
   networkName: () => Promise<string | null>;
+  /**
+   * Opens a folder dialog in the main process and sets the off-machine copy's destination.
+   *
+   * `null` when the dialog was dismissed. No path is passed in, and none comes back: the
+   * updated snapshot carries the chosen folder like any other setting.
+   */
+  chooseMirrorDirectory: () => Promise<SettingsSnapshot | null>;
+  /** What happened to the most recent copy. `null` when none has run this session. */
+  mirrorStatus: () => Promise<MirrorStatusView | null>;
   changeMasterPassword: (currentSecret: string, nextSecret: string) => Promise<void>;
   /** Re-derives the KEK at a new cost. Needs the master password; invalidates quick unlock. */
   rekey: (currentSecret: string, cost: KdfCost) => Promise<SettingsSnapshot>;

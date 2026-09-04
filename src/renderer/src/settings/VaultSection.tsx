@@ -11,6 +11,8 @@ import {
   type ConfigurableVaultSettings,
   type KdfCost,
   type KdfPresetId,
+  type MachineSettings,
+  type MirrorStatusView,
 } from '@shared/model/settings-plan.js';
 import { Button } from '../components/Button.js';
 import { Input } from '../components/Input.js';
@@ -25,6 +27,7 @@ import {
   vaultWeakenings,
 } from './settings-copy.js';
 import type { SettingsController } from './use-settings.js';
+import './mirror.css';
 import { Icon } from '../components/Icon.js';
 
 /**
@@ -56,6 +59,9 @@ import { Icon } from '../components/Icon.js';
 export interface VaultSectionProps {
   readonly controller: SettingsController;
   readonly vault: ConfigurableVaultSettings;
+  /** One control here is machine-scoped: where the off-machine copy goes. */
+  readonly machine: MachineSettings;
+  readonly mirror: MirrorStatusView | null;
   readonly vaultPath: string | null;
   readonly kdf: KdfCost | null;
   readonly quickUnlockEnrolled: boolean;
@@ -64,6 +70,8 @@ export interface VaultSectionProps {
 export function VaultSection({
   controller,
   vault,
+  machine,
+  mirror,
   vaultPath,
   kdf,
   quickUnlockEnrolled,
@@ -97,6 +105,71 @@ export function VaultSection({
           still-encrypted vault, and it can only be opened with your master password.
         </p>
       </div>
+
+      <fieldset className="kh-fieldset">
+        <legend className="kh-fieldset__legend">
+          Copy to another folder
+          <ScopeBadge scope="machine" />
+        </legend>
+
+        {/*
+          Machine-scoped, and the badge says so, because the path names a drive or a share on
+          *this* computer. A vault carried elsewhere must not bring a destination with it.
+
+          There is no warning here and no confirmation, deliberately: a `.keep` is a sealed
+          container, so copying one to a USB stick reveals nothing that leaving it on the disk
+          did not. None of the plaintext exports could be scheduled this way, which is the
+          difference worth understanding rather than a caveat worth printing.
+        */}
+        <p className="kh-setting__help">
+          After every save, Keyhold writes a dated copy of this vault to a folder you choose — an
+          external drive, a network share, a synced folder. The rolling backups beside the vault
+          protect against a bad write; this protects against losing the whole folder. The copy is
+          still encrypted and still needs your master password.
+        </p>
+
+        <div className="kh-mirror">
+          <span className="kh-mirror__path">{machine.mirrorDirectory ?? 'Not set'}</span>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon="folder"
+            disabled={controller.busy}
+            onClick={() => {
+              void controller.chooseMirrorDirectory();
+            }}
+          >
+            {machine.mirrorDirectory === null ? 'Choose a folder…' : 'Change folder'}
+          </Button>
+          {machine.mirrorDirectory !== null && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="close"
+              disabled={controller.busy}
+              onClick={() => {
+                controller.updateMachine(
+                  { mirrorDirectory: null },
+                  'Keyhold will no longer copy this vault anywhere else.'
+                );
+              }}
+            >
+              Turn off
+            </Button>
+          )}
+        </div>
+
+        {mirror !== null && (
+          <p
+            className={mirror.status === 'failed' ? 'kh-mirror__failed' : 'kh-mirror__ok'}
+            role="status"
+          >
+            {mirror.status === 'failed'
+              ? `The last copy did not work. ${mirror.problem ?? ''}`
+              : `Last copy: ${mirror.fileName ?? ''}`}
+          </p>
+        )}
+      </fieldset>
 
       <fieldset className="kh-fieldset">
         <legend className="kh-fieldset__legend">Trash</legend>
