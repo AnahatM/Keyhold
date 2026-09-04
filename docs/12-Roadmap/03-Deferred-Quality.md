@@ -43,9 +43,6 @@ the second half is what makes an entry worth doing later rather than deleting.
       costs more than the branch is worth. The folder walk and the directory filter now have
       tests. The read-before-listing ordering is not observable from outside — recorded in
       `diagnose.test.ts` rather than claimed.
-- [ ] `src/renderer/src/recovery/DiagnosticsView.tsx` — no test. The dismissed-dialog case
-      (which must not clear a report already on screen) is the one worth having.
-
 - [ ] `src/main/import-service/kdbx-source.ts` — the attachment-marker append path has no
       reachable test, because Keyhold's own writer never emits an attachment. Needs either a
       hand-built fixture or a `binaries` input on `writeKdbx`.
