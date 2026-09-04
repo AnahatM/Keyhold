@@ -843,6 +843,15 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // The query help. Both halves had existed in the parser and neither was ever shown:
         // the diagnostics, so a typo looked like an empty vault rather than a misread query,
         // and the prefix list, which `QUERY_FIELDS` says in its own comment it exists for.
+        // The window, not just the input. `element.focus()` in a window the OS has not
+        // focused updates `document.activeElement` and **does not fire a focus event** —
+        // Chromium only delivers those to a focused document. So the box was the active
+        // element, React's `searchFocused` was still false, and `QueryHelp` rendered nothing.
+        // The check read as a broken feature for as long as it took to print `activeElement`
+        // beside the result; the app was fine and the harness was lying. Every check that
+        // depends on a focus *event* rather than on active-element state needs this line.
+        window.focus();
+
         const queryHelp = await waitFor(
           window,
           `(async () => {
@@ -871,8 +880,16 @@ export function runSmokeCheck(window: BrowserWindow): void {
              const help = document.querySelector('.kh-query-help');
              const said = (help?.textContent ?? '').toLowerCase().includes('quote');
 
-             if (!offered) return 'no-suggestions';
-             if (!said) return 'no-diagnostic';
+             // The failure carries its own evidence. A run nobody watches is the only record
+             // there will ever be, and "no-suggestions" alone cost a build round-trip to
+             // turn into "the document was not focused" — which the next three words say.
+             const why =
+               ' active=' + (document.activeElement?.className || '') +
+               ' isBox=' + (document.activeElement === box) +
+               ' focusedDoc=' + document.hasFocus();
+
+             if (!offered) return 'no-suggestions' + why;
+             if (!said) return 'no-diagnostic' + why;
              return 'both';
            })()`
         );
