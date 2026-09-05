@@ -113,6 +113,21 @@ async function waitFor(
 }
 
 /**
+ * The accelerator modifier, as a JavaScript object fragment for a synthesised `KeyboardEvent`.
+ *
+ * **Ctrl on Windows and Linux, Cmd on macOS**, because that is what the application listens
+ * for: `key-combo.ts` reads `mac ? event.metaKey : event.ctrlKey` and explicitly treats the
+ * other one as a *foreign* modifier, so a Ctrl+K synthesised on macOS is correctly ignored.
+ *
+ * Every keydown this file dispatches went out with a hardcoded `ctrlKey: true`, which meant
+ * five checks — the palette opening at all, and the four that need it open — failed on the
+ * first macOS run this project ever did. The app was right and the harness was Windows-only,
+ * which is the more embarrassing half: a smoke test that cannot press the key is not evidence
+ * about the key.
+ */
+const ACCELERATOR = process.platform === 'darwin' ? 'metaKey: true' : 'ctrlKey: true';
+
+/**
  * Says what is actually on screen, as one grepable line.
  *
  * Emitted unconditionally at the points other checks depend on, rather than only on failure. A
@@ -923,7 +938,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
           window,
           `(async () => {
              const fire = (key) => document.dispatchEvent(
-               new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true })
+               new KeyboardEvent('keydown', { key, ${ACCELERATOR}, bubbles: true })
              );
 
              const sidebarBefore = document.querySelector('.kh-shell__sidebar') !== null;
@@ -1174,8 +1189,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
           `(() => {
             const key = new KeyboardEvent('keydown', {
               key: 'k',
-              ctrlKey: true,
-              metaKey: false,
+              ${ACCELERATOR},
               bubbles: true,
             });
             document.dispatchEvent(key);
@@ -1291,7 +1305,7 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // are two different claims — and the second is the one a user experiences.
         await window.webContents.executeJavaScript(
           `document.dispatchEvent(
-             new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))`,
+             new KeyboardEvent('keydown', { key: 'k', ${ACCELERATOR}, bubbles: true }))`,
           true
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 300));
