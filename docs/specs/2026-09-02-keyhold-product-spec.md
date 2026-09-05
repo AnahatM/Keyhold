@@ -1,9 +1,8 @@
 # Keyhold — Product & Architecture Spec
 
 - **Date:** 2026-09-02
-- **Status:** Approved (Mode A output)
-- **Author:** Anahat Mudgal, with Claude
-- **Session:** https://claude.ai/code/session_01LkknY42itpGfhdCuAva45D
+- **Status:** Approved — the design this project was built from
+- **Author:** Anahat Mudgal
 
 > **This is the spec archive copy.** It records what was decided and why, on the date above.
 > It is history, not current reference. When the code changes, update `docs/`, **never this file.**
