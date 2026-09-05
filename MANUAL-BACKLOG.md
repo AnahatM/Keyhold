@@ -141,6 +141,34 @@ repository is private.
 
 ---
 
+## 🟡 M-TIDY · The last two files to delete, once you are finished
+
+**This file is one of them.** The repository has been stripped of the scaffolding that
+described how the work was organised rather than what the software does — `HANDOFF.md` and
+`docs/12-Roadmap/03-Autonomous-Goal.md` are deleted, `docs/superpowers/specs/` is now
+`docs/specs/`, and no commit message in the history carries a co-authorship or session
+trailer any more (rewritten and force-pushed 2026-09-05; the pre-rewrite history is on the
+local branch `backup/pre-trailer-rewrite`, which was deliberately **not** pushed).
+
+Two files are deliberately still here because they still have work in them:
+
+1. **`MANUAL-BACKLOG.md`** — this file. Delete it when every 🔴 and 🟡 entry above is
+   done. Anything left that is a real limitation rather than a task belongs in
+   `docs/12-Roadmap/01-Feature-Backlog.md` first; a gap does not stop being real because the
+   file recording it was tidied away.
+2. **`docs/12-Roadmap/03-Deferred-Quality.md`** — marked at the top with the same rule, plus
+   its row in `docs/12-Roadmap/_INDEX.md`.
+
+Both are internal process bookkeeping. Neither is referenced from the README, `CONTRIBUTING.md`
+or any published doc, so deleting them breaks no link — but run `npx vitest run
+tools/doc-paths.test.ts` afterwards, which is the guard that would tell you if it did.
+
+**`CLAUDE.md` stays.** It reads as contributor documentation — the stack, the commands, the
+hard rules, the "watch out for" list — and is more useful to a newcomer than anything else in
+the repository.
+
+---
+
 ## Done
 
 _(nothing yet)_
