@@ -9,9 +9,14 @@ The in-app Changelog view (Phase 16) renders this file directly — there is del
 no second, hand-maintained copy. Which is also why this file must stay true: a stale
 line here is not a stale line in a repo, it is a stale line in the app.
 
-## [Unreleased]
+## [0.1.0] - 2026-09-05
 
-Nothing has been released yet. Everything below is on `main` and unversioned.
+The first published build. Windows only — macOS and Linux build from source, which is a
+deliberate position rather than an oversight; see the README's download section for why.
+
+**It has not been audited, and it has never been trusted with anybody's real vault.** Every
+claim below is built and tested; none of it has been reviewed by anyone but its author. Keep
+another copy of anything you put in it.
 
 ### The vault
 
@@ -135,8 +140,14 @@ Nothing has been released yet. Everything below is on `main` and unversioned.
 
 ### Notes
 
-- **Keyhold has not been audited**, and no release has been published. A Windows build has
-  been produced and not yet launched. The first internal audit pass is at `docs/14-Audits/`.
+- **Keyhold has not been audited.** The first internal audit pass is at `docs/14-Audits/`,
+  and it is the author auditing his own work, which is worth exactly what that is worth.
+- **The packaged build has been verified to run**, including Argon2 in its worker inside the
+  asar — the one thing the packaging arrangement could not prove about itself. How that was
+  checked is in `docs/13-Packaging/00-Building-And-Releasing.md`.
+- **KDBX interoperability is unverified.** Keyhold writes KDBX 4 and reads it back, but no
+  KeePass application has opened a Keyhold-written database. The export screen says so on the
+  format itself rather than leaving it to be discovered.
 - **An application icon**, drawn from geometry in `tools/make-icons.mjs` rather than kept as
   an asset: one set of numbers produces the SVG, the Windows `.ico`, the macOS `.icns` and
   every PNG, and a test regenerates them and compares bytes.
