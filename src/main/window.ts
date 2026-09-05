@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { join } from 'node:path';
-import { app, BrowserWindow, nativeTheme } from 'electron';
+import { BrowserWindow, nativeTheme } from 'electron';
 import {
   DEFAULT_DARK_THEME_ID,
   DEFAULT_LIGHT_THEME_ID,
   FALLBACK_THEME,
   findTheme,
 } from '@shared/theme/themes.js';
-import { HARDENED_WEB_PREFERENCES, hardenWindow } from './security.js';
+import { devRendererUrl, HARDENED_WEB_PREFERENCES, hardenWindow } from './security.js';
 import { readWindowState, trackWindowState, windowOptionsFromState } from './window-state.js';
 
 /** Below this the three-pane layout collapses to a single pane; smaller is unusable. */
@@ -113,12 +113,13 @@ export function createMainWindow(): BrowserWindow {
   // meaning `window.open('ms-msdt:…')` reached `shell.openExternal` unfiltered. Two copies
   // of one policy, with the weaker copy in force: exactly what hard rule 8 is about.
 
-  // The dev server is honoured ONLY in development. In a packaged build this would let
-  // anyone who can set an environment variable choose what the main window loads — with the
-  // preload bridge attached, so scripts from that origin could call `vault.unlock` and
-  // `credentials.revealSecret`. Same `!app.isPackaged` idiom as `devTools` in security.ts.
-  const devServerUrl = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL;
-  if (devServerUrl !== undefined && devServerUrl !== '') {
+  // The dev server is honoured ONLY in development, and the gate lives in security.ts so
+  // that this decision and the CSP relaxation that depends on it cannot drift apart. In a
+  // packaged build honouring it would let anyone who can set an environment variable choose
+  // what the main window loads — with the preload bridge attached, so scripts from that
+  // origin could call `vault.unlock` and `credentials.revealSecret`.
+  const devServerUrl = devRendererUrl();
+  if (devServerUrl !== undefined) {
     void window.loadURL(devServerUrl);
   } else {
     void window.loadFile(join(import.meta.dirname, '../renderer/index.html'));

@@ -91,14 +91,38 @@ blocked, including directives added to the platform in future.
 line: it is what makes an injected `<script>` inert.
 
 **`connect-src 'none'`** — the renderer cannot originate a network request at all, even if
-something in the dependency tree tries. It is **unconditional**: no setting relaxes it, and
-the global kill-switch in §5 deliberately does not touch it. The one opt-in network feature
-(the HIBP check) runs in the main process, where both switches apply.
+something in the dependency tree tries. **No setting relaxes it**, and the global
+kill-switch in §5 deliberately does not touch it. The one opt-in network feature (the HIBP
+check) runs in the main process, where both switches apply.
 
 **`style-src` allows `'unsafe-inline'`**, and this is a deliberate, bounded exception:
 Vite injects a `<style>` tag, and inline _styles_ cannot execute script. It is a
 materially different risk to `script-src 'unsafe-inline'`, not a relaxation of the same
 one.
+
+### 3.1 The development relaxation
+
+The policy above is what every build a user can run serves. `npm run dev` serves a second
+one, and it is reachable **only** when `app.isPackaged` is false _and_ electron-vite has
+handed the process an `ELECTRON_RENDERER_URL` — the same single gate, `devRendererUrl()` in
+`src/main/security.ts`, that decides whether the window loads from the dev server at all.
+Two directives differ, and nothing else does:
+
+| Directive     | Development                              | Why                                                                                                                                                             |
+| ------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `script-src`  | `'self' 'unsafe-inline'`                 | `@vitejs/plugin-react` injects its React Refresh preamble as an inline `<script type="module">`. Blocked, every component module throws and React never mounts. |
+| `connect-src` | the dev server's `http` and `ws` origins | The HMR websocket. Derived from the URL electron-vite supplied, not a hardcoded port, because Vite moves on when 5173 is taken.                                 |
+
+`'unsafe-eval'` is not granted in either policy.
+
+**This was a real defect, and the shape of it is worth keeping.** Before the relaxation
+existed, `npm run dev` opened a **blank window** — on every machine, for anyone who cloned
+the repository. Nothing in the repository could see it: the whole test suite runs in Node,
+and `npm run test:smoke` launches the _built_ app from `file:`, where there is no dev server
+and therefore no preamble to block. The app was fully verifiable and fully screenshottable
+while being impossible to develop in. The guards for both halves — that development permits
+what Vite needs, and that a packaged build ignores `ELECTRON_RENDERER_URL` entirely and
+serves the policy above unchanged — are in `src/main/security.test.ts`.
 
 ---
 

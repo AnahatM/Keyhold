@@ -73,3 +73,16 @@ that, and quietly overstates how much is outstanding.
       site that _exists_ inside a component nothing renders; that is how `BreachSection` was
       stranded despite `useBreachCheck` calling the bridge. Only the smoke run reaches it, and
       only where somebody wrote the check. **This is the highest-value item left on this page.**
+- [ ] **No gate runs `npm run dev`.** Every automated check in this repository exercises either
+      Node (the suite) or the _built_ app loaded from `file:` (`npm run test:smoke`). The dev
+      server is a third configuration — a different origin, a different scheme, a CSP of its own
+      and an inline React Refresh preamble that exists nowhere else — and nothing looks at it.
+      That is not a theoretical gap: `npm run dev` opened a **blank window on every machine**
+      while all 5,892 tests, the lint, the typecheck, the build and the smoke run stayed green,
+      because `script-src 'self'` blocked that preamble and React never mounted. The shape of
+      the defect is guarded now (`src/main/security.test.ts`, and
+      `docs/02-Security/01-Process-Hardening.md` §3.1); **the configuration still is not**. The
+      honest fix is a smoke variant that starts electron-vite, attaches over CDP and asserts the
+      root element has children — the same assertion that proved this fix, run by CI rather than
+      by hand. It is a new harness rather than a missing fixture, which is why it is recorded
+      here instead of being built inside a release-hardening pass.

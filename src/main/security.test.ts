@@ -111,6 +111,124 @@ describe('content security policy', () => {
 });
 
 /**
+ * The development relaxation.
+ *
+ * This section exists because `npm run dev` opened a **blank window** and nothing in the
+ * repository could see it. `@vitejs/plugin-react` injects its React Refresh preamble as an
+ * inline `<script type="module">`; `script-src 'self'` blocked it, every component module
+ * threw `can't detect preamble`, and React never mounted. Every gate stayed green throughout,
+ * because the suite runs in Node and `npm run test:smoke` launches the *built* app from
+ * `file:` — where there is no dev server, and so no preamble to block.
+ *
+ * So these tests are written from both sides, and the second side is the one that matters:
+ *
+ *  1. The dev policy must permit exactly what the Vite dev server needs. That is the guard
+ *     against the blank window coming back on the next tightening.
+ *  2. The dev policy must be **unreachable** without a dev server URL, and the shipped
+ *     policy must be unchanged by anything here. That is the guard against the far worse
+ *     failure — a convenience relaxation quietly shipping to users.
+ *
+ * Fault injection performed: dropping `'unsafe-inline'` from the dev `script-src` fails (1);
+ * returning the dev policy when `devServerUrl` is undefined fails (2); hardcoding
+ * `localhost:5173` in `connect-src` fails the moved-port test.
+ */
+describe('the policy served while the vite dev server is the renderer origin', () => {
+  const DEV_URL = 'http://localhost:5173';
+
+  const directive = (csp: string, name: string): string => {
+    const found = csp.split(';').find((part) => part.trim().startsWith(`${name} `));
+    return found?.trim() ?? '';
+  };
+
+  it('permits the inline React Refresh preamble, or the window renders nothing at all', async () => {
+    const { contentSecurityPolicyFor } = await loadSecurity();
+    expect(directive(contentSecurityPolicyFor(DEV_URL), 'script-src')).toBe(
+      "script-src 'self' 'unsafe-inline'"
+    );
+  });
+
+  it('permits the HMR websocket back to the dev server, and nothing else', async () => {
+    const { contentSecurityPolicyFor } = await loadSecurity();
+    expect(directive(contentSecurityPolicyFor(DEV_URL), 'connect-src')).toBe(
+      'connect-src http://localhost:5173 ws://localhost:5173'
+    );
+  });
+
+  it('follows the dev server to whatever port vite actually took', async () => {
+    // Vite moves on when 5173 is busy. A hardcoded port here would reinstate the blocked
+    // socket on the one machine that had something else listening — silently.
+    const { contentSecurityPolicyFor } = await loadSecurity();
+    expect(directive(contentSecurityPolicyFor('http://localhost:5199'), 'connect-src')).toBe(
+      'connect-src http://localhost:5199 ws://localhost:5199'
+    );
+  });
+
+  it("still refuses 'unsafe-eval' — the relaxation is inline scripts, not evaluated ones", async () => {
+    const { contentSecurityPolicyFor } = await loadSecurity();
+    expect(contentSecurityPolicyFor(DEV_URL)).not.toContain('unsafe-eval');
+  });
+
+  it('leaves every other directive exactly as shipped', async () => {
+    const { contentSecurityPolicyFor, CONTENT_SECURITY_POLICY } = await loadSecurity();
+    const dev = contentSecurityPolicyFor(DEV_URL);
+    for (const name of ['default-src', 'object-src', 'frame-src', 'form-action', 'base-uri']) {
+      expect(directive(dev, name)).toBe(directive(CONTENT_SECURITY_POLICY, name));
+    }
+  });
+
+  it('is not reachable without a dev server URL', async () => {
+    const { contentSecurityPolicyFor, CONTENT_SECURITY_POLICY } = await loadSecurity();
+    expect(contentSecurityPolicyFor(undefined)).toBe(CONTENT_SECURITY_POLICY);
+    expect(contentSecurityPolicyFor('')).toBe(CONTENT_SECURITY_POLICY);
+  });
+
+  it('does not weaken itself for a URL it cannot parse', async () => {
+    const { contentSecurityPolicyFor, CONTENT_SECURITY_POLICY } = await loadSecurity();
+    expect(contentSecurityPolicyFor('not a url')).toBe(CONTENT_SECURITY_POLICY);
+  });
+});
+
+/**
+ * The gate on the dev server URL itself, which is audit finding S3.
+ *
+ * A packaged build must ignore `ELECTRON_RENDERER_URL` completely. Honouring it would let
+ * anyone who can set an environment variable choose both what the main window loads and how
+ * far the CSP relaxes for it — with the preload bridge attached. One function answers that
+ * question for `window.ts` and for `applySessionHardening`, so the two cannot drift.
+ */
+describe('honouring the dev server URL', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    delete process.env.ELECTRON_RENDERER_URL;
+  });
+
+  it('is honoured in development', async () => {
+    process.env.ELECTRON_RENDERER_URL = 'http://localhost:5173';
+    const { devRendererUrl } = await loadSecurity();
+    expect(devRendererUrl()).toBe('http://localhost:5173');
+  });
+
+  it('is undefined when unset, so the window loads from disk', async () => {
+    const { devRendererUrl } = await loadSecurity();
+    expect(devRendererUrl()).toBeUndefined();
+  });
+
+  it('is ignored entirely in a packaged build', async () => {
+    vi.doMock('electron', () => ({
+      app: { isPackaged: true },
+      session: { defaultSession: {} },
+      shell: { openExternal: openExternalMock },
+    }));
+    process.env.ELECTRON_RENDERER_URL = 'http://evil.example';
+    const { devRendererUrl, contentSecurityPolicyFor, CONTENT_SECURITY_POLICY } =
+      await loadSecurity();
+    expect(devRendererUrl()).toBeUndefined();
+    // And therefore the shipped policy is what a packaged build serves, whatever is set.
+    expect(contentSecurityPolicyFor(devRendererUrl())).toBe(CONTENT_SECURITY_POLICY);
+  });
+});
+
+/**
  * Navigation and external-link hardening.
  *
  * These exist because an audit found the two paths had **drifted apart**: the window-open

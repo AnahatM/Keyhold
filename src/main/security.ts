@@ -28,23 +28,98 @@ const ALLOWED_REMOTE_HOSTS: readonly string[] = [];
  * (of which there is one opt-in feature) happens in the main process where it can be
  * gated by a setting.
  */
-const CSP = [
-  "default-src 'none'",
-  "script-src 'self'",
+type Directive = readonly [name: string, value: string];
+
+/**
+ * The directives, as pairs rather than as pre-joined strings, so that the development
+ * relaxation below is an **edit of this list** rather than a second copy of it. Hard rule 8:
+ * two copies of one policy is how the weaker copy ends up in force without anyone noticing.
+ */
+const SHIPPED_DIRECTIVES: readonly Directive[] = [
+  ['default-src', "'none'"],
+  ['script-src', "'self'"],
   // Vite injects a <style> tag for HMR and for CSS-in-JS-free stylesheets; unsafe-inline
   // for styles cannot execute script, so this is a materially different risk to script-src.
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  "media-src 'self' blob:",
-  "connect-src 'none'",
-  "object-src 'none'",
-  "frame-src 'none'",
-  "worker-src 'self' blob:",
-  "form-action 'none'",
-  "base-uri 'none'",
-  "frame-ancestors 'none'",
-].join('; ');
+  ['style-src', "'self' 'unsafe-inline'"],
+  ['img-src', "'self' data: blob:"],
+  ['font-src', "'self' data:"],
+  ['media-src', "'self' blob:"],
+  ['connect-src', "'none'"],
+  ['object-src', "'none'"],
+  ['frame-src', "'none'"],
+  ['worker-src', "'self' blob:"],
+  ['form-action', "'none'"],
+  ['base-uri', "'none'"],
+  ['frame-ancestors', "'none'"],
+];
+
+const serialise = (directives: readonly Directive[]): string =>
+  directives.map(([name, value]) => `${name} ${value}`).join('; ');
+
+const CSP = serialise(SHIPPED_DIRECTIVES);
+
+/**
+ * The policy that applies while the Vite dev server is serving the renderer.
+ *
+ * **This exists because `npm run dev` opened a blank window.** `@vitejs/plugin-react` injects
+ * its React Refresh preamble into `index.html` as an *inline* `<script type="module">`.
+ * `script-src 'self'` blocks it, every component module then throws
+ * `@vitejs/plugin-react can't detect preamble`, React never mounts, and the window shows
+ * nothing at all. Nothing in the build, the lint or the test suite could see it: the whole
+ * suite runs in Node, and `npm run test:smoke` launches the *built* app from `file:`, where
+ * there is no dev server and therefore no preamble. So the app was verifiable and
+ * screenshottable while being impossible to develop in — for anyone, on any machine.
+ *
+ * Two relaxations, both narrow, both required, and neither reachable in a packaged build:
+ *
+ *  - **`'unsafe-inline'` in `script-src`**, for that preamble. It is the one directive this
+ *    file otherwise calls load-bearing, which is exactly why it is scoped to a session that
+ *    is already loading its renderer over http from a local dev server chosen by
+ *    electron-vite. A build with `app.isPackaged` true never reaches this function.
+ *  - **The dev server's own origin in `connect-src`**, for the HMR websocket. Derived from
+ *    the URL electron-vite actually handed us rather than a hardcoded `localhost:5173`,
+ *    because Vite moves to the next free port when 5173 is taken and a hardcoded port would
+ *    silently reinstate the blocked socket.
+ *
+ * `'unsafe-eval'` is *not* granted. Vite serves real ES modules in dev and does not need it;
+ * if a future tool does, that is a decision-log entry, not a quiet third entry here.
+ */
+export function contentSecurityPolicyFor(devServerUrl: string | undefined): string {
+  if (devServerUrl === undefined || devServerUrl === '') return CSP;
+
+  let url: URL;
+  try {
+    url = new URL(devServerUrl);
+  } catch {
+    // An unparseable dev URL is not a reason to serve a weaker policy.
+    return CSP;
+  }
+
+  const socketScheme = url.protocol === 'https:' ? 'wss' : 'ws';
+  return serialise(
+    SHIPPED_DIRECTIVES.map(([name, value]): Directive => {
+      if (name === 'script-src') return [name, `${value} 'unsafe-inline'`];
+      if (name === 'connect-src') return [name, `${url.origin} ${socketScheme}://${url.host}`];
+      return [name, value];
+    })
+  );
+}
+
+/**
+ * The dev server URL, or `undefined` when there is not one to honour.
+ *
+ * The gate is `app.isPackaged`, and it lives here rather than being written out at each call
+ * site: in a packaged build this environment variable would let anyone who can set it choose
+ * both what the main window loads *and* how far the CSP relaxes for it — with the preload
+ * bridge attached, so scripts from that origin could call `vault.unlock` and
+ * `credentials.revealSecret`. That was audit finding S3; one copy of the check is how it
+ * stays fixed in both places.
+ */
+export function devRendererUrl(): string | undefined {
+  if (app.isPackaged) return undefined;
+  const url = process.env.ELECTRON_RENDERER_URL;
+  return url === undefined || url === '' ? undefined : url;
+}
 
 /** Window options every Keyhold BrowserWindow must be created with. */
 export const HARDENED_WEB_PREFERENCES = {
@@ -184,11 +259,16 @@ const ALLOWED_PERMISSIONS: ReadonlySet<string> = new Set(['clipboard-sanitized-w
 export function applySessionHardening(): void {
   const ses = session.defaultSession;
 
+  // Resolved once, at startup, rather than per request: the dev server URL cannot change
+  // while the process runs, and a per-request read would make the policy in force depend on
+  // an environment variable at the moment a header happened to be written.
+  const policy = contentSecurityPolicyFor(devRendererUrl());
+
   ses.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [CSP],
+        'Content-Security-Policy': [policy],
         'X-Content-Type-Options': ['nosniff'],
       },
     });
