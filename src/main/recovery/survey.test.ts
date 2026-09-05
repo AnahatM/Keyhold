@@ -23,14 +23,14 @@ import { buildContainer, truncatedTo } from './test-support.js';
  * Found the first time this suite ran on a macOS runner, which had never happened before.
  */
 const DIRECTORY = '/home/someone/Documents';
-const VAULT = `${DIRECTORY}\\vault.keep`;
+const VAULT = `${DIRECTORY}/vault.keep`;
 
 const DAY = 86_400_000;
 const BASE = 1_700_000_000_000;
 
 function entry(name: string, overrides: Partial<DirectoryEntry> = {}): DirectoryEntry {
   return {
-    path: `${DIRECTORY}\\${name}`,
+    path: `${DIRECTORY}/${name}`,
     sizeBytes: 4096,
     modifiedAt: BASE,
     ...overrides,
@@ -265,6 +265,7 @@ describe('what a survey may never contain', () => {
     for (const file of result.files) {
       expect(Object.keys(file)).not.toContain('path');
       expect(file.name).not.toContain('\\');
+      expect(file.name).not.toContain('/');
       expect(file.name).not.toContain('/');
     }
   });

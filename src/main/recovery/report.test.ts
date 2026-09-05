@@ -258,7 +258,7 @@ const DIRECTORY_MARKER = marker('directory paths');
  * Found the first time this suite ran on a macOS runner, which had never happened before.
  */
 const VAULT_DIRECTORY = `/home/${DIRECTORY_MARKER}-person/${DIRECTORY_MARKER}-Documents`;
-const VAULT_PATH = `${VAULT_DIRECTORY}\\vault.keep`;
+const VAULT_PATH = `${VAULT_DIRECTORY}/vault.keep`;
 
 /** Every analysis run over a thoroughly broken vault, so the report has plenty to leak. */
 function poisonedReport(): ReturnType<typeof buildRecoveryReport> {
