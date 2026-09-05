@@ -92,6 +92,12 @@ async function waitFor(
   expression: string,
   { timeoutMs = 8_000, everyMs = 100 }: { timeoutMs?: number; everyMs?: number } = {}
 ): Promise<unknown> {
+  // **The expression must return `null` while it is not ready.** Anything else — including a
+  // status string meant as a diagnostic — is taken as the answer and ends the poll on the
+  // first attempt, turning this into a single evaluation with extra steps. That is not
+  // hypothetical: the one-time-code check returned `'no-code'` to say "not yet", got it back
+  // immediately, and failed a release build for an app that renders the code correctly. Log
+  // the reason on the window and return `null`.
   const deadline = Date.now() + timeoutMs;
 
   for (;;) {
@@ -1480,21 +1486,34 @@ export function runSmokeCheck(window: BrowserWindow): void {
         // The engine was finished, correct and rendered by nothing, and every test passed the
         // whole time — so the only check that would have noticed is one that selects a record
         // with an `otp-secret` field and looks for six digits in the detail pane.
-        const totpCode = await waitFor(
+        //
+        // The expression returns `null` until the digits arrive, and stashes *why* it is not
+        // ready on the window instead of returning it. That split matters: `waitFor` stops at
+        // the first value that is not `undefined`, `false` or `null`, so an expression that
+        // returned `'no-code'` as a diagnostic never got a second attempt — it polled once,
+        // took the status string as an answer, and reported a failure. Which is exactly what
+        // it did on a CI runner where the first render had not populated the code yet, on an
+        // app that shows it correctly. A status string is a fine thing to log and a terrible
+        // thing to return from a poll.
+        await waitFor(
           window,
           `(async () => {
              const row = [...document.querySelectorAll('.kh-row')]
                .find((element) => element.textContent?.includes('Smoke TOTP'));
-             if (!row) return 'row-missing';
+             if (!row) { window.__khTotpWhy = 'row-missing'; return null; }
              row.click();
-             await new Promise((done) => setTimeout(done, 500));
+             await new Promise((done) => setTimeout(done, 250));
 
              const shown = document.querySelector('.kh-totp__code');
-             if (!shown) return 'field-not-rendered';
+             if (!shown) { window.__khTotpWhy = 'field-not-rendered'; return null; }
              const digits = (shown.textContent || '').replace(/[^0-9]/g, '');
-             return digits.length === 6 ? 'six-digits' : 'no-code';
+             window.__khTotpWhy = digits.length === 6 ? 'six-digits' : 'no-code';
+             return digits.length === 6 ? 'six-digits' : null;
            })()`
         );
+        const totpCode: unknown = await window.webContents
+          .executeJavaScript('window.__khTotpWhy ?? "never-ran"', true)
+          .catch(() => 'unreadable');
         emit(`SMOKE-NOTE totp-said ${String(totpCode)}`);
         emit(`SMOKE-CHECK totp-code-is-rendered ${String(totpCode === 'six-digits')}`);
 

@@ -11,7 +11,18 @@ import { buildContainer, truncatedTo } from './test-support.js';
  * getting that order right, because the order is the entire product of this module.
  */
 
-const DIRECTORY = 'C:\\Users\\someone\\Documents';
+/**
+ * Forward slashes, and a POSIX-shaped path, deliberately.
+ *
+ * `basename` follows the platform it runs on. A `C:\Users\...` fixture parses only on
+ * Windows, so on a macOS runner `basename` returned the *whole path* — and the assertion
+ * below, which is that a directory never reaches the report, failed on code that is correct
+ * on every platform it actually runs on. Windows' own `basename` accepts `/` as a separator
+ * too, so this shape works on both and the guard stops being Windows-only.
+ *
+ * Found the first time this suite ran on a macOS runner, which had never happened before.
+ */
+const DIRECTORY = '/home/someone/Documents';
 const VAULT = `${DIRECTORY}\\vault.keep`;
 
 const DAY = 86_400_000;

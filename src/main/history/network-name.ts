@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { execFile } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
-import { join } from 'node:path';
+import { win32 } from 'node:path';
 
 /**
  * Finds a human-meaningful name for the network the machine is currently on.
@@ -57,11 +57,19 @@ const PROBE_MAX_OUTPUT_BYTES = 512 * 1024;
  * `%SystemRoot%` rather than a hardcoded `C:\Windows` because Windows genuinely does get
  * installed elsewhere; the literal is only the fallback for an environment that has lost it.
  * Exported for the guard test that asserts this is never a bare name again.
+ *
+ * **`win32.join`, not `join`.** This builds a *Windows* path and must build the same one
+ * whatever host it runs on. Plain `join` follows the platform it happens to execute on, so on
+ * a macOS runner it produced `D:\Windows/System32/netsh.exe` — mixed separators, a shape no
+ * Windows path ever has. It never mattered in production, because this branch only runs on
+ * Windows. It mattered the first time this suite ran on a macOS runner, where the guard below
+ * failed on code that is fine in the only environment it is used in. A function that builds a
+ * path for a named platform should name that platform.
  */
 export function netshPath(): string {
   const systemRoot = process.env.SystemRoot;
   const root = systemRoot !== undefined && systemRoot !== '' ? systemRoot : 'C:\\Windows';
-  return join(root, 'System32', 'netsh.exe');
+  return win32.join(root, 'System32', 'netsh.exe');
 }
 
 /** The absolute path to `system_profiler`, for the same reason as `netshPath`. */

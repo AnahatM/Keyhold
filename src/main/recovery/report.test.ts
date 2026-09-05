@@ -246,7 +246,18 @@ function poisonedDocument(): VaultDocument {
  */
 const DIRECTORY_MARKER = marker('directory paths');
 
-const VAULT_DIRECTORY = `C:\\Users\\${DIRECTORY_MARKER}-person\\${DIRECTORY_MARKER}-Documents`;
+/**
+ * Forward slashes, and a POSIX-shaped path, deliberately.
+ *
+ * `basename` follows the platform it runs on. A Windows-shaped fixture parses only on
+ * Windows, so on a macOS runner `basename` returned the *whole path* — and the assertion
+ * below, which is that no directory ever reaches the report, failed on code that is correct
+ * on every platform it actually runs on. Windows' own `basename` accepts `/` as a separator
+ * too, so this shape works on both and the guard stops being Windows-only.
+ *
+ * Found the first time this suite ran on a macOS runner, which had never happened before.
+ */
+const VAULT_DIRECTORY = `/home/${DIRECTORY_MARKER}-person/${DIRECTORY_MARKER}-Documents`;
 const VAULT_PATH = `${VAULT_DIRECTORY}\\vault.keep`;
 
 /** Every analysis run over a thoroughly broken vault, so the report has plenty to leak. */
