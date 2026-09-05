@@ -121,12 +121,12 @@ for something that is fundamentally a local file with a text editor on top.
 
 ## Where to go next
 
-| You want                                               | Read                                                                                                                 |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| Why every name means what it means                     | [`01-Naming-And-Glossary.md`](./01-Naming-And-Glossary.md)                                                           |
-| Why anyone would pick this over KeePassXC or Bitwarden | [`02-Competitive-Analysis.md`](./02-Competitive-Analysis.md)                                                         |
-| What Keyhold protects against, and what it does not    | [`03-Threat-Model.md`](./03-Threat-Model.md)                                                                         |
-| The full frozen design record from planning            | [`../superpowers/specs/2026-09-02-keyhold-product-spec.md`](../superpowers/specs/2026-09-02-keyhold-product-spec.md) |
-| What is being built, in order                          | [`../12-Roadmap/00-Master-Checklist.md`](../12-Roadmap/00-Master-Checklist.md)                                       |
-| Ideas deferred to later                                | [`../12-Roadmap/01-Feature-Backlog.md`](../12-Roadmap/01-Feature-Backlog.md)                                         |
-| Why a decision was made                                | [`../12-Roadmap/02-Decision-Log.md`](../12-Roadmap/02-Decision-Log.md)                                               |
+| You want                                               | Read                                                                                         |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Why every name means what it means                     | [`01-Naming-And-Glossary.md`](./01-Naming-And-Glossary.md)                                   |
+| Why anyone would pick this over KeePassXC or Bitwarden | [`02-Competitive-Analysis.md`](./02-Competitive-Analysis.md)                                 |
+| What Keyhold protects against, and what it does not    | [`03-Threat-Model.md`](./03-Threat-Model.md)                                                 |
+| The full frozen design record from planning            | [`../specs/2026-09-02-keyhold-product-spec.md`](../specs/2026-09-02-keyhold-product-spec.md) |
+| What is being built, in order                          | [`../12-Roadmap/00-Master-Checklist.md`](../12-Roadmap/00-Master-Checklist.md)               |
+| Ideas deferred to later                                | [`../12-Roadmap/01-Feature-Backlog.md`](../12-Roadmap/01-Feature-Backlog.md)                 |
+| Why a decision was made                                | [`../12-Roadmap/02-Decision-Log.md`](../12-Roadmap/02-Decision-Log.md)                       |

@@ -5,7 +5,7 @@
 > one — do not delete history.
 >
 > Format: ADR-style. The frozen narrative version of the founding decisions lives in
-> [`docs/superpowers/specs/2026-09-02-keyhold-product-spec.md`](../superpowers/specs/2026-09-02-keyhold-product-spec.md).
+> [`docs/specs/2026-09-02-keyhold-product-spec.md`](../specs/2026-09-02-keyhold-product-spec.md).
 
 ---
 

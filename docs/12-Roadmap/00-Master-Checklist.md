@@ -4,7 +4,7 @@
 > into chat. Tick items as they land, in order, and add anything new to the right phase rather than
 > to the void.
 >
-> - Design record (frozen): [`docs/superpowers/specs/2026-09-02-keyhold-product-spec.md`](../superpowers/specs/2026-09-02-keyhold-product-spec.md)
+> - Design record (frozen): [`docs/specs/2026-09-02-keyhold-product-spec.md`](../specs/2026-09-02-keyhold-product-spec.md)
 > - Deferred / future ideas: [`01-Feature-Backlog.md`](./01-Feature-Backlog.md)
 > - Why things are the way they are: [`02-Decision-Log.md`](./02-Decision-Log.md)
 > - Things only Anahat can do: [`../../MANUAL-BACKLOG.md`](../../MANUAL-BACKLOG.md)

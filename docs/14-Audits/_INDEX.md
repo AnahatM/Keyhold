@@ -48,7 +48,7 @@ written here.
   finding means someone opened the file and saw the fix, not that a commit message claimed it.
   An optimistic status column is worse than none: it is the one thing that would make these
   pages actively misleading rather than merely dated.
-- `docs/superpowers/specs/` is **out of scope for all three audits, permanently.** It is
+- `docs/specs/` is **out of scope for all three audits, permanently.** It is
   history: a spec that has drifted from the code is the record of an earlier decision, not a
   bug.
 - **`PRIVACY.md` needs a hand.** It is a published promise about behaviour and has gone stale in

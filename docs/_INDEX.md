@@ -1,6 +1,6 @@
 # Keyhold — Documentation
 
-> **Before starting a session, read [`../HANDOFF.md`](../HANDOFF.md)** — what is left before
+> **What is still outstanding lives in [`../MANUAL-BACKLOG.md`](../MANUAL-BACKLOG.md)** — what is left before
 > the open-source release, in priority order.
 
 > **Keyhold** is a free, open-source, fully offline credential manager for Windows and macOS.
@@ -33,7 +33,7 @@ status blockquote saying exactly what is missing.
 | [`12-Roadmap/`](./12-Roadmap/_INDEX.md)                   | Master checklist · feature backlog · decision log                                                                                  | **Written** |
 | [`13-Packaging/`](./13-Packaging/_INDEX.md)               | Building, the unsigned-binary reality, the release checklist and CI                                                                | **Written** |
 | [`14-Audits/`](./14-Audits/_INDEX.md)                     | The security audit and the docs-vs-code audit, with anchored findings                                                              | **Written** |
-| [`superpowers/specs/`](./superpowers/specs/)              | Point-in-time design specs. **History, not current reference**                                                                     | **Written** |
+| [`specs/`](./specs/)                                      | Point-in-time design specs. **History, not current reference**                                                                     | **Written** |
 
 ### Numbering, and the three slots that got claimed by something else
 
@@ -67,7 +67,7 @@ are recorded here so nobody re-opens them, and so a stale pointer is recognisabl
 [Master checklist](./12-Roadmap/00-Master-Checklist.md) → [Decision log](./12-Roadmap/02-Decision-Log.md) → the relevant `docs/` folder
 
 **"I want to know why something is the way it is."**
-[Decision log](./12-Roadmap/02-Decision-Log.md) first. If it is not there, the [founding spec](./superpowers/specs/2026-09-02-keyhold-product-spec.md).
+[Decision log](./12-Roadmap/02-Decision-Log.md) first. If it is not there, the [founding spec](./specs/2026-09-02-keyhold-product-spec.md).
 
 ---
 
@@ -76,7 +76,7 @@ are recorded here so nobody re-opens them, and so a stale pointer is recognisabl
 1. **The code is the source of truth.** If a doc disagrees with the code, the code wins — then fix
    the doc.
 2. **Change a system, update its doc in the same pass.** A stale doc is worse than no doc.
-3. **`docs/` is current reference. `docs/superpowers/specs/` is history.** Never "fix" a spec to
+3. **`docs/` is current reference. `docs/specs/` is history.** Never "fix" a spec to
    match today's code — a drifted spec is the record of an earlier decision, not a bug. Update the
    numbered tree instead.
 4. **No second list.** If a system wants its own copy of "the formats" or "the views", fold it into

@@ -1,7 +1,7 @@
 # Documentation audit — 2026-09-02
 
 > Every page under `docs/`, plus the root markdown files, checked against the code it
-> claims to describe. `docs/superpowers/specs/` is excluded by rule: it is frozen history
+> claims to describe. `docs/specs/` is excluded by rule: it is frozen history
 > and a drifted spec there is a record, not a defect.
 > Point-in-time snapshot, not current reference.
 >
@@ -642,13 +642,13 @@ in all three places, and `tools/alias-parity.test.ts` does assert it).
 
 ## What this audit did not cover, and why
 
-- **`docs/superpowers/specs/`** — excluded by rule. It is history; a drifted spec there is a
+- **`docs/specs/`** — excluded by rule. It is history; a drifted spec there is a
   record of an earlier decision, not a defect.
 - **`docs/00-Overview/02-Competitive-Analysis.md`** was read for internal consistency only.
   Its claims are about KeePassXC, Bitwarden, Proton Pass and others; verifying them needs
   network access and current knowledge of those products, and this audit had neither. The
   same applies to the comparison-table freshness item in `MANUAL-BACKLOG.md:98`.
-- **`docs/12-Roadmap/01-Feature-Backlog.md` and `03-Autonomous-Goal.md`** were skimmed for
+- **`docs/12-Roadmap/01-Feature-Backlog.md`** was skimmed for
   path and count claims, not audited line by line. They describe intent rather than
   implementation, so there is little for them to be wrong about.
 - **`CODE_OF_CONDUCT.md`** was not audited — it makes no claims about the code.

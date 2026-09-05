@@ -12,4 +12,4 @@ disappears, the format does not take anyone's data with it.
 
 **Related:** [`../02-Security/`](../02-Security/_INDEX.md) covers the cryptographic design
 and why each primitive was chosen. The frozen founding rationale is in
-[`../superpowers/specs/2026-09-02-keyhold-product-spec.md`](../superpowers/specs/2026-09-02-keyhold-product-spec.md) §5.4.
+[`../specs/2026-09-02-keyhold-product-spec.md`](../specs/2026-09-02-keyhold-product-spec.md) §5.4.

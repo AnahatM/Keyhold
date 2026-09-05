@@ -12,9 +12,6 @@ host, nothing to pay for.
 
 Read [`docs/00-Overview/00-What-Is-Keyhold.md`](./docs/00-Overview/00-What-Is-Keyhold.md) first.
 
-**Start with [`HANDOFF.md`](./HANDOFF.md)** — what is left before the open-source release, in
-priority order, including the deferred tests and docs and the landing-page task.
-
 **The canonical TODO is [`docs/12-Roadmap/00-Master-Checklist.md`](./docs/12-Roadmap/00-Master-Checklist.md).**
 Work the phases in order. Tick items as they land. Nothing lives only in chat.
 
@@ -135,19 +132,18 @@ test could never fail. No coverage target is chased.
 
 ## Docs map
 
-| Need                                                  | Go to                                                                                                                      |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Entry point                                           | [`docs/_INDEX.md`](./docs/_INDEX.md)                                                                                       |
-| **What to build next**                                | [`docs/12-Roadmap/00-Master-Checklist.md`](./docs/12-Roadmap/00-Master-Checklist.md)                                       |
-| Deferred ideas                                        | [`docs/12-Roadmap/01-Feature-Backlog.md`](./docs/12-Roadmap/01-Feature-Backlog.md)                                         |
-| Why something is this way                             | [`docs/12-Roadmap/02-Decision-Log.md`](./docs/12-Roadmap/02-Decision-Log.md)                                               |
-| Naming, KEEP, extensions, glossary                    | [`docs/00-Overview/01-Naming-And-Glossary.md`](./docs/00-Overview/01-Naming-And-Glossary.md)                               |
-| Positioning & USPs                                    | [`docs/00-Overview/02-Competitive-Analysis.md`](./docs/00-Overview/02-Competitive-Analysis.md)                             |
-| Security posture                                      | [`docs/00-Overview/03-Threat-Model.md`](./docs/00-Overview/03-Threat-Model.md)                                             |
-| Frozen founding design (**history — never "fix" it**) | [`docs/superpowers/specs/2026-09-02-keyhold-product-spec.md`](./docs/superpowers/specs/2026-09-02-keyhold-product-spec.md) |
-| Things only Anahat can do                             | [`MANUAL-BACKLOG.md`](./MANUAL-BACKLOG.md)                                                                                 |
-| **What is left before release**                       | [`HANDOFF.md`](./HANDOFF.md)                                                                                               |
-| Tests and docs deliberately skipped                   | [`docs/12-Roadmap/03-Deferred-Quality.md`](./docs/12-Roadmap/03-Deferred-Quality.md)                                       |
+| Need                                                  | Go to                                                                                              |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Entry point                                           | [`docs/_INDEX.md`](./docs/_INDEX.md)                                                               |
+| **What to build next**                                | [`docs/12-Roadmap/00-Master-Checklist.md`](./docs/12-Roadmap/00-Master-Checklist.md)               |
+| Deferred ideas                                        | [`docs/12-Roadmap/01-Feature-Backlog.md`](./docs/12-Roadmap/01-Feature-Backlog.md)                 |
+| Why something is this way                             | [`docs/12-Roadmap/02-Decision-Log.md`](./docs/12-Roadmap/02-Decision-Log.md)                       |
+| Naming, KEEP, extensions, glossary                    | [`docs/00-Overview/01-Naming-And-Glossary.md`](./docs/00-Overview/01-Naming-And-Glossary.md)       |
+| Positioning & USPs                                    | [`docs/00-Overview/02-Competitive-Analysis.md`](./docs/00-Overview/02-Competitive-Analysis.md)     |
+| Security posture                                      | [`docs/00-Overview/03-Threat-Model.md`](./docs/00-Overview/03-Threat-Model.md)                     |
+| Frozen founding design (**history — never "fix" it**) | [`docs/specs/2026-09-02-keyhold-product-spec.md`](./docs/specs/2026-09-02-keyhold-product-spec.md) |
+| Things only Anahat can do                             | [`MANUAL-BACKLOG.md`](./MANUAL-BACKLOG.md)                                                         |
+| Tests and docs deliberately skipped                   | [`docs/12-Roadmap/03-Deferred-Quality.md`](./docs/12-Roadmap/03-Deferred-Quality.md)               |
 
 ---
 
@@ -165,7 +161,7 @@ test could never fail. No coverage target is chased.
   fully async, with a silent fallback to the interface name.
 - **The safe projection is a security boundary, not a performance optimisation.** Adding a secret
   field to it is a vulnerability, and the property test exists to catch exactly that.
-- **`docs/superpowers/specs/` is history.** A spec that has drifted from the code is a record of an
+- **`docs/specs/` is history.** A spec that has drifted from the code is a record of an
   earlier decision, not a bug to fix.
 - **Built and unreachable is the failure mode this project actually has.** Five subsystems have now
   been finished, thoroughly tested, and mounted nowhere: the settings screen, the session activity

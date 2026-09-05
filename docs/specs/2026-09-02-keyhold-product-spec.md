@@ -16,42 +16,42 @@
 **Keyhold** is a free, open-source, fully offline credential manager for Windows and macOS,
 built with Electron. Everything lives on the user's device inside a single encrypted file.
 There is no account, no server, no telemetry, no subscription, and nothing to host or pay for —
-for the user *or* the maintainer.
+for the user _or_ the maintainer.
 
-**One-line pitch:** *Your passwords, in a file you own, encrypted with a key only you have.*
+**One-line pitch:** _Your passwords, in a file you own, encrypted with a key only you have._
 
 ### Goals
 
-| # | Goal | How it is measured |
-|---|---|---|
-| G1 | Never lose a credential | Atomic writes, rolling backups, tombstones, pre-merge snapshots, trash with restore, undo on every destructive action |
-| G2 | Never leak a credential | Renderer never holds the master key; strict CSP; zero network by default; clipboard hygiene |
-| G3 | Never lock the user in | KDBX 4 export opens in KeePassXC; 18+ import formats; full-fidelity JSON export; the `.keep` format is publicly documented |
-| G4 | Be genuinely pleasant to use | The thing KeePassXC is most criticised for. Modern three-pane UI, full theme engine, command palette, keyboard-first |
-| G5 | Answer "what changed, when, and from where?" | Per-credential, per-field version history with a device + network audit trail — the headline differentiator |
-| G6 | Cost nothing, forever | No server, no hosting, no paid tier, no certificate spend required to function |
-| G7 | Let the user decide their own trade-offs | Every security behaviour, every metadata capture, every automation is individually configurable |
+| #   | Goal                                         | How it is measured                                                                                                         |
+| --- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| G1  | Never lose a credential                      | Atomic writes, rolling backups, tombstones, pre-merge snapshots, trash with restore, undo on every destructive action      |
+| G2  | Never leak a credential                      | Renderer never holds the master key; strict CSP; zero network by default; clipboard hygiene                                |
+| G3  | Never lock the user in                       | KDBX 4 export opens in KeePassXC; 18+ import formats; full-fidelity JSON export; the `.keep` format is publicly documented |
+| G4  | Be genuinely pleasant to use                 | The thing KeePassXC is most criticised for. Modern three-pane UI, full theme engine, command palette, keyboard-first       |
+| G5  | Answer "what changed, when, and from where?" | Per-credential, per-field version history with a device + network audit trail — the headline differentiator                |
+| G6  | Cost nothing, forever                        | No server, no hosting, no paid tier, no certificate spend required to function                                             |
+| G7  | Let the user decide their own trade-offs     | Every security behaviour, every metadata capture, every automation is individually configurable                            |
 
 ### Non-goals (v1)
 
-| Not doing | Why |
-|---|---|
-| Hosted sync / accounts | The entire point is no server. Sync happens through files the user controls. |
-| Browser extension / autofill | Large separate surface with its own threat model. Backlog, not dropped. |
-| Mobile apps | Out of scope. The `.keep` format is documented so others could build one. |
-| Team / shared vaults | Single-user tool. Sharing happens via `.keepx` transfer bundles. |
-| Telemetry or crash reporting | Zero network by default. Non-negotiable. |
-| Paid tiers of any kind | GPL-3.0, free forever. |
+| Not doing                    | Why                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------- |
+| Hosted sync / accounts       | The entire point is no server. Sync happens through files the user controls. |
+| Browser extension / autofill | Large separate surface with its own threat model. Backlog, not dropped.      |
+| Mobile apps                  | Out of scope. The `.keep` format is documented so others could build one.    |
+| Team / shared vaults         | Single-user tool. Sharing happens via `.keepx` transfer bundles.             |
+| Telemetry or crash reporting | Zero network by default. Non-negotiable.                                     |
+| Paid tiers of any kind       | GPL-3.0, free forever.                                                       |
 
 ### Principles
 
 1. **Offline by default; network never without an explicit toggle.** The only network feature in
    scope is the opt-in HIBP breach check — off by default, k-anonymity only.
 2. **The user owns the file.** No proprietary lock-in. Export to KDBX and open it in KeePassXC.
-3. **Everything is configurable.** Security-level presets *plus* individual overrides.
+3. **Everything is configurable.** Security-level presets _plus_ individual overrides.
 4. **The renderer never holds the master key.** See §5.2.
 5. **Never lose data.** See G1.
-6. **Honest security claims.** A published threat model stating what Keyhold does *not* protect
+6. **Honest security claims.** A published threat model stating what Keyhold does _not_ protect
    against. A password manager that overstates its guarantees is worse than one that is candid.
 
 ---
@@ -60,18 +60,18 @@ for the user *or* the maintainer.
 
 ### The app: **Keyhold**
 
-A *keyhold* is a coined compound reading two ways at once: the thing that *holds your keys*, and a
-*hold* in the fortification sense — a defensible place you put valuables. It is short, one
+A _keyhold_ is a coined compound reading two ways at once: the thing that _holds your keys_, and a
+_hold_ in the fortification sense — a defensible place you put valuables. It is short, one
 memorable word, unclaimed in the password-manager space, and gives an obvious wordmark (a keyhole
 or a lock glyph). Chosen over **Coffer** (strong but old-world), **Cipherfold** (technical, longer
 to type), and keeping the literal folder name **Credentials-App** (descriptive, but weak as an
 open-source project people star and share).
 
-### The file format: **KEEP** — *Keyhold Encrypted Entry Package*
+### The file format: **KEEP** — _Keyhold Encrypted Entry Package_
 
-Extension: **`.keep`**. A *keep* is the fortified inner stronghold at the centre of a castle —
-precisely what a *keyhold* holds. It is simultaneously the plain English verb: *this is where you
-keep things*. Chosen over `.hold` (on-brand but abstract as a noun), `.ward` (distinctive, more
+Extension: **`.keep`**. A _keep_ is the fortified inner stronghold at the centre of a castle —
+precisely what a _keyhold_ holds. It is simultaneously the plain English verb: _this is where you
+keep things_. Chosen over `.hold` (on-brand but abstract as a noun), `.ward` (distinctive, more
 fantasy-flavoured), and `.trove` (warm, but abandons the castle metaphor).
 
 Rejected during brainstorming, recorded so we do not re-tread the ground: `.bastion`, `.redoubt`,
@@ -80,33 +80,33 @@ Rejected during brainstorming, recorded so we do not re-tread the ground: `.bast
 
 ### The full extension family
 
-| Extension | Name | Contents | Encrypted? |
-|---|---|---|---|
-| `.keep` | **KEEP** — Keyhold Encrypted Entry Package | The vault itself: all records, history and attachments | Yes — Argon2id + AES-256-GCM |
-| `.keepx` | **KEEPX** — Keyhold Encrypted Exchange Package | A transfer bundle: a *subset* of records under its own separate passphrase, for moving to another device or handing to another person | Yes — independent passphrase |
-| `.keeptheme` | Keyhold Theme | An exported custom theme — a small JSON token map | No — contains no secrets |
-| `.keepbak` | Keyhold Backup | A rolling automatic backup of a `.keep` | Yes — identical format to `.keep` |
-| `.keep.tmp` | *(transient)* | The atomic-write staging file, renamed over the target on `fsync` | Yes |
+| Extension    | Name                                           | Contents                                                                                                                              | Encrypted?                        |
+| ------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `.keep`      | **KEEP** — Keyhold Encrypted Entry Package     | The vault itself: all records, history and attachments                                                                                | Yes — Argon2id + AES-256-GCM      |
+| `.keepx`     | **KEEPX** — Keyhold Encrypted Exchange Package | A transfer bundle: a _subset_ of records under its own separate passphrase, for moving to another device or handing to another person | Yes — independent passphrase      |
+| `.keeptheme` | Keyhold Theme                                  | An exported custom theme — a small JSON token map                                                                                     | No — contains no secrets          |
+| `.keepbak`   | Keyhold Backup                                 | A rolling automatic backup of a `.keep`                                                                                               | Yes — identical format to `.keep` |
+| `.keep.tmp`  | _(transient)_                                  | The atomic-write staging file, renamed over the target on `fsync`                                                                     | Yes                               |
 
 The `x` in `.keepx` reads as **exchange** — the file you hand over. The distinction from `.keep`
-matters: a `.keep` is *your vault*; a `.keepx` is *a parcel*, with its own passphrase, so sharing
+matters: a `.keep` is _your vault_; a `.keepx` is _a parcel_, with its own passphrase, so sharing
 one never means sharing your master password.
 
 ### Glossary of internal terms
 
-| Term | Meaning |
-|---|---|
-| **Vault** | One `.keep` file and everything in it. A user may have several. |
-| **Record** / **Credential** | One stored entry. |
-| **KEK** — Key Encryption Key | 32 bytes derived from the master password by Argon2id. Never stored. |
-| **DEK** — Data Encryption Key | 32 random bytes that actually encrypt the vault body. Stored only in wrapped (encrypted) form, wrapped by the KEK. |
-| **Wrapping** | Encrypting one key with another. Lets us add unlock methods without re-encrypting the vault. |
-| **Safe projection** | The subset of record data the renderer is allowed to hold: titles, usernames, emails, URLs, tags, folders, dates, metadata, history summaries, health flags. Never secrets. |
-| **Origin** | The device/network/app metadata attached to each history version — the audit trail. |
-| **Tombstone** | A soft-deleted record retained as a deletion marker so sync cannot resurrect it. |
-| **Generation** | A monotonic counter in the vault header, incremented on every save. Used to detect external changes. |
-| **Base snapshot** | The last-synced state, stored so a three-way merge is possible. |
-| **Smart view** | A saved, rule-based filter (e.g. "weak AND untagged"). |
+| Term                          | Meaning                                                                                                                                                                     |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Vault**                     | One `.keep` file and everything in it. A user may have several.                                                                                                             |
+| **Record** / **Credential**   | One stored entry.                                                                                                                                                           |
+| **KEK** — Key Encryption Key  | 32 bytes derived from the master password by Argon2id. Never stored.                                                                                                        |
+| **DEK** — Data Encryption Key | 32 random bytes that actually encrypt the vault body. Stored only in wrapped (encrypted) form, wrapped by the KEK.                                                          |
+| **Wrapping**                  | Encrypting one key with another. Lets us add unlock methods without re-encrypting the vault.                                                                                |
+| **Safe projection**           | The subset of record data the renderer is allowed to hold: titles, usernames, emails, URLs, tags, folders, dates, metadata, history summaries, health flags. Never secrets. |
+| **Origin**                    | The device/network/app metadata attached to each history version — the audit trail.                                                                                         |
+| **Tombstone**                 | A soft-deleted record retained as a deletion marker so sync cannot resurrect it.                                                                                            |
+| **Generation**                | A monotonic counter in the vault header, incremented on every save. Used to detect external changes.                                                                        |
+| **Base snapshot**             | The last-synced state, stored so a three-way merge is possible.                                                                                                             |
+| **Smart view**                | A saved, rule-based filter (e.g. "weak AND untagged").                                                                                                                      |
 
 ---
 
@@ -115,28 +115,28 @@ one never means sharing your master password.
 Every question asked and answered, with the alternatives that were rejected. The living version of
 this table is `docs/12-Roadmap/02-Decision-Log.md`.
 
-| # | Decision | Chosen | Rejected, and why |
-|---|---|---|---|
-| D1 | Native vault format | Custom `.keep` + a full interop layer | **KDBX-as-native** — cannot carry per-field version history, device/network audit trail, or structured custom metadata without cramming them into string fields that read as noise elsewhere. **SQLCipher** — native binary dependency complicates cross-platform packaging, and the vault stops being "one thing you copy". |
-| D2 | Device transfer model | All three tiers: portable file **+** `.keepx` bundle **+** watched-folder merge sync | **Manual copy only** — last-writer-wins loses edits. **LAN pairing** — deferred to backlog; adds a network surface to an otherwise offline app. |
-| D3 | Big features in v1 | Password health dashboard (incl. opt-in HIBP) **+** encrypted attachments | TOTP generator and extra item types were *not* selected for v1 but are explicitly **recorded in the backlog, not dropped**, at the user's instruction. |
-| D4 | Unlock / lockdown in v1 | Biometric quick-unlock **+** auto-lock and clipboard hygiene | Key-file second factor and emergency recovery kit were *not* selected for v1 but are explicitly **recorded in the backlog, not dropped**, at the user's instruction. |
-| D5 | App name | **Keyhold** | Coffer, Cipherfold, Credentials-App |
-| D6 | Licence | **GPL-3.0-or-later** | MIT and Apache-2.0 (permissive — a closed fork of a password manager cannot be audited, which undermines the trust argument). AGPL-3.0 (the network clause buys nothing for an app that never runs as a service, and deters contributors). |
-| D7 | Window layout | Three-pane, both side panes collapsible | Two-pane (filtering one click deeper). Card grid (fewer items per screen, scales poorly past a few hundred entries). |
-| D8 | Theming | Full theme engine: tokens, ~8 themes, accent picker, density, font scale, custom theme editor, `.keeptheme` import/export | Named themes without an editor; light/dark only. |
-| D9 | Format name | **KEEP**, extension `.keep` | `.hold`, `.ward`, `.trove`, plus the fourteen rejected names in §2. |
-| D10 | Configurability | Everything user-configurable via security presets **plus** per-setting overrides | Fixed opinionated defaults with no escape hatch. |
-| D11 | Hosting & cost | Nothing to host, nothing to pay — for the user *or* the maintainer | Any hosted component. |
-| D12 | Repository | `AnahatM/Keyhold`, **private for now**, public at v1 | Public from day one. |
-| D13 | Renderer secret access | Renderer holds the **safe projection** only; secrets fetched per-reveal over IPC with a TTL | Full decrypted vault in renderer memory (what most Electron password managers do — see §5.2). |
-| D14 | Argon2 implementation | `hash-wasm` (pure WASM) | `@node-rs/argon2` / `argon2` native bindings — adds a per-platform native binary to the build matrix for no user-visible gain. |
-| D15 | Attachment storage | Separate encrypted chunks appended inside the same `.keep` file | Base64 inside the record payload (33% bloat, slows every unlock). Sidecar folder (breaks the single-portable-file promise). |
-| D16 | Code signing | Unsigned in v1; checksums published; SmartScreen/Gatekeeper steps documented | Paying for an EV certificate and an Apple Developer account — violates D11. In backlog if funding ever appears. |
+| #   | Decision                | Chosen                                                                                                                    | Rejected, and why                                                                                                                                                                                                                                                                                                            |
+| --- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Native vault format     | Custom `.keep` + a full interop layer                                                                                     | **KDBX-as-native** — cannot carry per-field version history, device/network audit trail, or structured custom metadata without cramming them into string fields that read as noise elsewhere. **SQLCipher** — native binary dependency complicates cross-platform packaging, and the vault stops being "one thing you copy". |
+| D2  | Device transfer model   | All three tiers: portable file **+** `.keepx` bundle **+** watched-folder merge sync                                      | **Manual copy only** — last-writer-wins loses edits. **LAN pairing** — deferred to backlog; adds a network surface to an otherwise offline app.                                                                                                                                                                              |
+| D3  | Big features in v1      | Password health dashboard (incl. opt-in HIBP) **+** encrypted attachments                                                 | TOTP generator and extra item types were _not_ selected for v1 but are explicitly **recorded in the backlog, not dropped**, at the user's instruction.                                                                                                                                                                       |
+| D4  | Unlock / lockdown in v1 | Biometric quick-unlock **+** auto-lock and clipboard hygiene                                                              | Key-file second factor and emergency recovery kit were _not_ selected for v1 but are explicitly **recorded in the backlog, not dropped**, at the user's instruction.                                                                                                                                                         |
+| D5  | App name                | **Keyhold**                                                                                                               | Coffer, Cipherfold, Credentials-App                                                                                                                                                                                                                                                                                          |
+| D6  | Licence                 | **GPL-3.0-or-later**                                                                                                      | MIT and Apache-2.0 (permissive — a closed fork of a password manager cannot be audited, which undermines the trust argument). AGPL-3.0 (the network clause buys nothing for an app that never runs as a service, and deters contributors).                                                                                   |
+| D7  | Window layout           | Three-pane, both side panes collapsible                                                                                   | Two-pane (filtering one click deeper). Card grid (fewer items per screen, scales poorly past a few hundred entries).                                                                                                                                                                                                         |
+| D8  | Theming                 | Full theme engine: tokens, ~8 themes, accent picker, density, font scale, custom theme editor, `.keeptheme` import/export | Named themes without an editor; light/dark only.                                                                                                                                                                                                                                                                             |
+| D9  | Format name             | **KEEP**, extension `.keep`                                                                                               | `.hold`, `.ward`, `.trove`, plus the fourteen rejected names in §2.                                                                                                                                                                                                                                                          |
+| D10 | Configurability         | Everything user-configurable via security presets **plus** per-setting overrides                                          | Fixed opinionated defaults with no escape hatch.                                                                                                                                                                                                                                                                             |
+| D11 | Hosting & cost          | Nothing to host, nothing to pay — for the user _or_ the maintainer                                                        | Any hosted component.                                                                                                                                                                                                                                                                                                        |
+| D12 | Repository              | `AnahatM/Keyhold`, **private for now**, public at v1                                                                      | Public from day one.                                                                                                                                                                                                                                                                                                         |
+| D13 | Renderer secret access  | Renderer holds the **safe projection** only; secrets fetched per-reveal over IPC with a TTL                               | Full decrypted vault in renderer memory (what most Electron password managers do — see §5.2).                                                                                                                                                                                                                                |
+| D14 | Argon2 implementation   | `hash-wasm` (pure WASM)                                                                                                   | `@node-rs/argon2` / `argon2` native bindings — adds a per-platform native binary to the build matrix for no user-visible gain.                                                                                                                                                                                               |
+| D15 | Attachment storage      | Separate encrypted chunks appended inside the same `.keep` file                                                           | Base64 inside the record payload (33% bloat, slows every unlock). Sidecar folder (breaks the single-portable-file promise).                                                                                                                                                                                                  |
+| D16 | Code signing            | Unsigned in v1; checksums published; SmartScreen/Gatekeeper steps documented                                              | Paying for an EV certificate and an Apple Developer account — violates D11. In backlog if funding ever appears.                                                                                                                                                                                                              |
 
 ---
 
-## 4. Feasibility: encryption *and* portability
+## 4. Feasibility: encryption _and_ portability
 
 The user asked whether data can be copied and transferred between devices via files while still
 being encrypted. **Yes — and it is the standard design, not a compromise.**
@@ -163,19 +163,19 @@ backup, never a silent overwrite.
 
 ### 5.1 Stack
 
-| Layer | Choice | Note |
-|---|---|---|
-| Shell | Electron (latest stable at scaffold time, pinned) | Windows + macOS, x64 + arm64 |
-| Build | electron-vite | Fast HMR, clean main/preload/renderer split |
-| UI | React 19 + TypeScript (strict) | |
-| Styling | Hand-written CSS over custom-property tokens | No Tailwind, no CSS-in-JS (per global CLAUDE.md) |
-| State | Zustand | Small; easy to keep secrets out of |
-| Tests | Vitest | Core systems only — §10 |
-| Packaging | electron-builder | NSIS + portable (Windows), DMG + zip (macOS) |
-| Argon2id | `hash-wasm` (pure WASM) | Deliberately no native binary — D14 |
-| AES-256-GCM | Node `crypto`, main process | Native, zero dependency |
-| KDBX interop | `kdbxweb` + our WASM Argon2 | Read and write KDBX 3 and 4 |
-| Strength estimation | `@zxcvbn-ts/core`, lazily loaded in main | Never shipped to the renderer |
+| Layer               | Choice                                            | Note                                             |
+| ------------------- | ------------------------------------------------- | ------------------------------------------------ |
+| Shell               | Electron (latest stable at scaffold time, pinned) | Windows + macOS, x64 + arm64                     |
+| Build               | electron-vite                                     | Fast HMR, clean main/preload/renderer split      |
+| UI                  | React 19 + TypeScript (strict)                    |                                                  |
+| Styling             | Hand-written CSS over custom-property tokens      | No Tailwind, no CSS-in-JS (per global CLAUDE.md) |
+| State               | Zustand                                           | Small; easy to keep secrets out of               |
+| Tests               | Vitest                                            | Core systems only — §10                          |
+| Packaging           | electron-builder                                  | NSIS + portable (Windows), DMG + zip (macOS)     |
+| Argon2id            | `hash-wasm` (pure WASM)                           | Deliberately no native binary — D14              |
+| AES-256-GCM         | Node `crypto`, main process                       | Native, zero dependency                          |
+| KDBX interop        | `kdbxweb` + our WASM Argon2                       | Read and write KDBX 3 and 4                      |
+| Strength estimation | `@zxcvbn-ts/core`, lazily loaded in main          | Never shipped to the renderer                    |
 
 ### 5.2 Process model — the security spine
 
@@ -203,7 +203,7 @@ backup, never a silent overwrite.
 
 **Why this matters.** Most Electron password managers decrypt the entire vault into renderer
 memory, where any XSS, any compromised dependency, and any devtools access reaches every secret at
-once. Keyhold's renderer *does not have them to leak*. Search, sort and filter all operate on the
+once. Keyhold's renderer _does not have them to leak_. Search, sort and filter all operate on the
 safe projection; deep search inside notes and custom-field values is delegated to main over IPC.
 
 **Hardening checklist:** `contextIsolation: true` · `sandbox: true` · `nodeIntegration: false` ·
@@ -225,18 +225,18 @@ master password ──Argon2id(salt, m, t, p)──►  KEK (32 B)
 **Envelope encryption is deliberate.** It means:
 
 - Changing the master password rewraps 32 bytes instead of re-encrypting the whole vault.
-- Biometric quick-unlock stores an *independently wrapped* copy of the DEK in the OS keychain
+- Biometric quick-unlock stores an _independently wrapped_ copy of the DEK in the OS keychain
   (Electron `safeStorage` → DPAPI on Windows, Keychain on macOS), revocable on its own without
   touching the password path.
 - Future key-file and hardware-key factors slot in as additional wrappings of the same DEK.
 
-| Parameter | Default | Notes |
-|---|---|---|
-| KDF | Argon2id | m = 64 MiB, t = 3, p = 4 — calibrated on first run against the machine, written into the header, adjustable in Settings |
-| Cipher | AES-256-GCM | 96-bit random nonce per encryption, never reused |
-| Header | Plaintext, passed as **AAD** | So header tampering breaks the authentication tag |
-| RNG | `crypto.randomBytes` | CSPRNG only. Never `Math.random`, anywhere, for anything |
-| Compression | gzip **before** encrypt | Never after — compressing ciphertext is pointless and compressing after leaks nothing but wastes work |
+| Parameter   | Default                      | Notes                                                                                                                   |
+| ----------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| KDF         | Argon2id                     | m = 64 MiB, t = 3, p = 4 — calibrated on first run against the machine, written into the header, adjustable in Settings |
+| Cipher      | AES-256-GCM                  | 96-bit random nonce per encryption, never reused                                                                        |
+| Header      | Plaintext, passed as **AAD** | So header tampering breaks the authentication tag                                                                       |
+| RNG         | `crypto.randomBytes`         | CSPRNG only. Never `Math.random`, anywhere, for anything                                                                |
+| Compression | gzip **before** encrypt      | Never after — compressing ciphertext is pointless and compressing after leaks nothing but wastes work                   |
 
 ### 5.4 The KEEP container format
 
@@ -335,12 +335,12 @@ Version {
 **Audit-trail privacy levels** (Settings → Privacy). This metadata travels inside the vault, so the
 user controls exactly how much is captured:
 
-| Level | Captures |
-|---|---|
-| `none` | Timestamps only |
-| `device` *(default)* | + device name, app version, platform |
-| `network` | + OS user, WiFi SSID / active interface name |
-| `full` | + local IP, OS release string |
+| Level                | Captures                                     |
+| -------------------- | -------------------------------------------- |
+| `none`               | Timestamps only                              |
+| `device` _(default)_ | + device name, app version, platform         |
+| `network`            | + OS user, WiFi SSID / active interface name |
+| `full`               | + local IP, OS release string                |
 
 SSID capture is best-effort: `netsh wlan show interfaces` on Windows,
 `system_profiler SPAirPortDataType` on macOS, silently falling back to the active interface name
@@ -351,24 +351,28 @@ from `os.networkInterfaces()`. It runs asynchronously and must never block or sl
 ## 6. Feature set — v1 scope
 
 ### 6.1 Vault lifecycle
+
 Create vault (choose location + master password with a live strength meter and an explicit
 "there is no recovery" acknowledgement) · Open existing · Recent vaults list · Multiple vaults,
 switchable · Change master password · Re-key (rotate the DEK) · Change KDF parameters · Integrity
 check · Manual and scheduled backups with configurable retention · Restore from backup.
 
 ### 6.2 Locking & unlocking
+
 Lock now (`Ctrl/Cmd+L`) · Auto-lock on idle (configurable) · on system sleep/lock · on minimise
 (optional) · on app close · Master-password unlock · Biometric quick-unlock (Windows Hello /
 Touch ID) via a keychain-wrapped DEK · Failed-attempt throttling with exponential backoff ·
 Optional wipe-after-N-failures (off by default, loud confirmation) · Full memory zeroing on lock.
 
 ### 6.3 Clipboard hygiene
+
 Auto-clear after N seconds (default 30) with a visible countdown · Excluded from Windows clipboard
 history and cloud clipboard · Excluded from the macOS pasteboard's persistent store via
 `org.nspasteboard.ConcealedType` · Cleared on lock · Cleared on exit · A "reveal and type manually"
 fallback for users who prefer the clipboard never touch a secret at all.
 
 ### 6.4 CRUD
+
 Full create / read / update / delete over every field in §5.5 · Unlimited user-defined custom
 fields with a type picker and drag-to-reorder · Per-field reveal / copy / hide · Multi-URL ·
 Security questions as repeatable first-class pairs (not free text buried in notes) · Notes with a
@@ -377,12 +381,14 @@ favourite, delete) · Soft delete to Trash with restore and configurable auto-pu
 destructive action.
 
 ### 6.5 History & audit — the headline feature
+
 Per-credential **"keep past versions" checkbox**, plus a global default · Configurable retention
 cap · Timeline view per credential · Field-level diff between any two versions · Restore a whole
 version, or a single field from one · Reveal an old password under the same clipboard rules ·
 Origin metadata on every version per §5.5 · Export a single credential's history.
 
 ### 6.6 Organisation & finding things
+
 Nested folders (tree, drag-and-drop) · Flat multi-tags with colours · Favourites · Trash · Saved
 smart views · Fuzzy search over the safe projection · Deep search delegated to main for notes and
 custom values · Search operators (`tag:`, `folder:`, `url:`, `has:totp`, `is:weak`,
@@ -390,6 +396,7 @@ custom values · Search operators (`tag:`, `folder:`, `url:`, `has:totp`, `is:we
 folder · Filter chips · Virtualised list (10 000+ entries) · Command palette (`Ctrl/Cmd+K`).
 
 ### 6.7 Password generator
+
 Random mode (length, character classes, exclude-ambiguous, require-one-of-each, custom exclude
 set) · Passphrase mode (bundled EFF large wordlist, word count, separator, capitalisation, number
 injection) · Pronounceable mode · PIN mode · Live entropy and crack-time estimate · Session
@@ -397,12 +404,14 @@ generation history · Per-site rule memory for sites that ban symbols · Generat
 inside a credential, which auto-versions the old password.
 
 ### 6.8 Attachments
+
 Attach any file to a credential · Stored as a separate encrypted chunk in the same `.keep` ·
 SHA-256 integrity check on read · In-app preview for images, PDFs and text · Export to disk with a
 warning · Warn above 5 MB, configurable hard cap defaulting to 25 MB per file · Attachment totals
 in vault stats.
 
 ### 6.9 Health dashboard
+
 Always-offline rules: weak · reused (showing the cluster) · old (configurable age) · expiring or
 expired · insecure `http://` URL · missing-2FA flag · incomplete record · likely-duplicate record.
 An overall health score tracked over time. One-click jump to fix.
@@ -412,6 +421,7 @@ SHA-1 hash leave the device; never the password, never the full hash. Off by def
 plain-English explainer of exactly what is sent, with results cached and rate-limited.
 
 ### 6.10 Import
+
 Native `.keep` / `.keepx` · KeePass KDBX 3 and 4 · KeePass XML · Bitwarden JSON (encrypted and
 plain) and CSV · 1Password 1PUX and CSV · LastPass CSV · Chrome / Edge / Brave CSV · Firefox CSV ·
 Safari and Apple Passwords CSV · Dashlane CSV and JSON · Proton Pass JSON and CSV · Enpass JSON ·
@@ -422,6 +432,7 @@ tags → pick a dedupe strategy (skip / overwrite / keep both / merge fields) �
 commit, with one-click undo of the entire import.
 
 ### 6.11 Export
+
 `.keep` (encrypted, native) · `.keepx` transfer bundle (own passphrase, selective, optional
 advisory expiry) · **KDBX 4** (encrypted, opens in KeePassXC — the anti-lock-in guarantee) ·
 Bitwarden JSON · full-fidelity JSON including history · encrypted JSON · CSV.
@@ -430,6 +441,7 @@ Any unencrypted export requires a type-to-confirm dialog, is written with restri
 permissions, and offers a shred reminder.
 
 ### 6.12 Sync & transfer
+
 **Tier 1 — portable file.** Copy the `.keep` anywhere. A file watcher detects external changes
 while unlocked and compares generation counter and content hash before offering to reload.
 
@@ -442,6 +454,7 @@ so a delete never resurrects. Genuine conflicts open a field-level resolver: min
 Every merge takes a pre-merge backup first and writes a merge report. Never silent, never lossy.
 
 ### 6.13 Themes & appearance
+
 Zero hardcoded colours — every colour is a token. Roughly 8 complete themes (Dawn, Midnight,
 Slate, Nord, Solarized Light, Solarized Dark, Rose, High-Contrast) · Independent accent picker ·
 Density (compact / comfortable / spacious) · Font-size scale · Font family choice including a
@@ -450,6 +463,7 @@ import · Follow-OS toggle · `prefers-reduced-motion` respected · **Every them
 WCAG AA by an automated test** — the guard ships with the system.
 
 ### 6.14 App chrome & quality of life
+
 Command palette · Toast system with Undo · Focus-trapped accessible modals · Tooltips ·
 Determinate progress for long operations (Argon2, import, merge) · Attachment lightbox ·
 Deliberate empty, loading and error states on every view · Full keyboard operation with a
@@ -459,10 +473,11 @@ association so double-clicking a vault opens it · Optional launch-at-login · O
 against GitHub Releases, off by default.
 
 ### 6.15 In-app content
+
 Settings (Vault · Security · Privacy · Appearance · Behaviour · Import/Export · Sync · Advanced ·
 About) · Offline Help & FAQ · Changelog rendered from `CHANGELOG.md` · About with credits and an
 auto-generated third-party licence list · **Security & Threat Model** page in plain English,
-including what Keyhold does *not* protect against.
+including what Keyhold does _not_ protect against.
 
 ---
 

@@ -11,5 +11,5 @@ the alternatives, and what it does and does not defend against.
 | [`03-Threat-Model.md`](./03-Threat-Model.md)                 | What Keyhold protects against, what it explicitly does not, the trust boundaries, and why every cryptographic choice is deliberately boring                         |
 
 **Related:** the frozen founding design record is
-[`../superpowers/specs/2026-09-02-keyhold-product-spec.md`](../superpowers/specs/2026-09-02-keyhold-product-spec.md).
+[`../specs/2026-09-02-keyhold-product-spec.md`](../specs/2026-09-02-keyhold-product-spec.md).
 The build plan is [`../12-Roadmap/00-Master-Checklist.md`](../12-Roadmap/00-Master-Checklist.md).

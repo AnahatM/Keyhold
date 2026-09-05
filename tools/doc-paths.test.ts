@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest';
  * proposed was the wrong one. Every entry below carries the reason it is exempt, and an entry
  * that stops being true fails the vacuity check underneath.
  *
- * `docs/superpowers/` is excluded entirely: it is frozen history, and a spec that named a file
+ * `docs/specs/` is excluded entirely: it is frozen history, and a spec that named a file
  * later renamed is a record of what was true when it was written, not a defect.
  *
  * Fault injection performed: changing `docs/07-Sync-And-Merge/01-The-Merge-Flow.md`'s reference
@@ -88,7 +88,7 @@ function markdownFilesUnder(directory: string): string[] {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       // Frozen history: a spec naming a file that was later renamed is a record, not a defect.
       if (entry.isDirectory()) {
-        if (entry.name !== 'superpowers') walk(join(current, entry.name));
+        if (entry.name !== 'specs') walk(join(current, entry.name));
       } else if (entry.name.endsWith('.md')) {
         found.push(join(current, entry.name));
       }

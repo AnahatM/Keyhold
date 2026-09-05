@@ -22,18 +22,18 @@ merge itself, field by field.
 The order was deliberate: the engine is where correctness lives, so it went first and has
 been finished and tested for some time. By the time this spec was written the pieces were:
 
-| Piece | State |
-| --- | --- |
-| Three-way merge engine, per record, per field, pure | Built |
-| Absence is not deletion; tombstones; duplicate ids refused | Built |
-| Conflict report that carries lengths, never values | Built |
-| Generation counter **and content hash** in the header | Built |
-| Base-snapshot store — the ancestor a three-way merge reads | Built |
-| File watcher on the open vault | Built |
-| Mandatory pre-merge backup, enforced by construction | Built |
-| **`kh:sync:*` channels** | This spec |
-| **The conflict resolver screen** | This spec |
-| **A merge report the user can keep** | This spec |
+| Piece                                                      | State     |
+| ---------------------------------------------------------- | --------- |
+| Three-way merge engine, per record, per field, pure        | Built     |
+| Absence is not deletion; tombstones; duplicate ids refused | Built     |
+| Conflict report that carries lengths, never values         | Built     |
+| Generation counter **and content hash** in the header      | Built     |
+| Base-snapshot store — the ancestor a three-way merge reads | Built     |
+| File watcher on the open vault                             | Built     |
+| Mandatory pre-merge backup, enforced by construction       | Built     |
+| **`kh:sync:*` channels**                                   | This spec |
+| **The conflict resolver screen**                           | This spec |
+| **A merge report the user can keep**                       | This spec |
 
 Everything above the line is reachable from nothing. `mergeDocuments` is called only by its
 own tests. That is the gap this closes.
@@ -59,9 +59,9 @@ than requested: the backup mints a receipt every later step requires, and
 This is the design decision the whole screen turns on, and it is decision D13 applied to a
 new surface rather than a new rule.
 
-A conflict is *which side wins*, not *what the value is*. So a `ConflictSide` carries a kind
+A conflict is _which side wins_, not _what the value is_. So a `ConflictSide` carries a kind
 and, for a secret, a **length** — the same discriminated union the history diff already uses,
-built by running values through the *existing* projector rather than a second one written for
+built by running values through the _existing_ projector rather than a second one written for
 sync. A property test plants a marker in every secret in both documents and asserts the
 serialised report does not contain it.
 
@@ -70,7 +70,7 @@ in main. Nothing about that flow needs the value in the renderer, which is why i
 there.
 
 **Re-running rather than patching** matters for a second reason: a merge is a pure function
-of its inputs, so re-running it with a choice added produces a document that is *consistent*
+of its inputs, so re-running it with a choice added produces a document that is _consistent_
 — whereas patching one field of a previously-merged document produces a state the engine
 never sanctioned and cannot reason about.
 
@@ -134,7 +134,7 @@ Written down so a later reader can check rather than re-derive:
   gone.
 - If the resolver patches the merged document instead of re-running the merge, §4's second
   argument no longer holds and the result is a document the engine never produced.
-- If the base snapshot is stored before the merged vault is safely written, the *next* merge
+- If the base snapshot is stored before the merged vault is safely written, the _next_ merge
   treats real edits as changes away from a state that never existed.
 - If a merge can run without a `PreMergeBackup`, hard rule 6 is broken by the one operation
   most able to break it.

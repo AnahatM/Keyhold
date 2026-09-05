@@ -8,6 +8,23 @@
 
 ---
 
+## 🗑️ Marked for deletion before the repository goes public
+
+**This file is internal process bookkeeping and is not meant to ship.** It is kept for now
+because its queue is not empty. Delete it — and its row in
+[`_INDEX.md`](./_INDEX.md) — when either of these becomes true:
+
+1. **Every entry below is closed**, or
+2. **The manual work in [`../../MANUAL-BACKLOG.md`](../../MANUAL-BACKLOG.md) is finished and
+   the app is at a ready state**, at which point what is left here is a handful of known,
+   deliberate gaps that belong in
+   [`01-Feature-Backlog.md`](./01-Feature-Backlog.md) rather than in a ledger of debt.
+
+Anything still open at that point should be **moved, not dropped** — a gap that is real does
+not stop being real because the file recording it was tidied away.
+
+---
+
 ## The rule that put things here
 
 **Ship the feature. Write down what it is missing. Move on.**
