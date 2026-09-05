@@ -7,6 +7,7 @@ import {
   homepage,
   license,
   productName,
+  website,
 } from '../../../../package.json';
 import type { ContentBlock, ContentFactRow } from './content-types.js';
 
@@ -72,6 +73,8 @@ export const PROJECT = {
   authorName: author.name,
   authorUrl: author.url,
   sourceUrl: homepage,
+  /** The project's own page. A separate field from `homepage`, which names the repository. */
+  websiteUrl: website,
   issuesUrl: bugs.url,
   securityUrl: `${homepage}/security/advisories/new`,
 } as const;
@@ -209,6 +212,10 @@ function buildRows(appVersion: string | undefined): readonly ContentFactRow[] {
 }
 
 const LINK_ROWS: readonly ContentFactRow[] = [
+  {
+    term: 'Website',
+    description: `${PROJECT.websiteUrl} — what Keyhold is, what it costs you, and where it loses to the alternatives.`,
+  },
   {
     term: 'Source code',
     description: `${PROJECT.sourceUrl} — every line of it, under the licence above.`,

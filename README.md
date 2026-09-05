@@ -19,6 +19,8 @@
 [![Portfolio](https://img.shields.io/badge/Portfolio-anahatmudgal.com-796eb3?style=flat-square&logo=googlechrome&logoColor=white)](https://anahatmudgal.com)
 [![GitHub](https://img.shields.io/badge/GitHub-AnahatM-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/anahatm)
 
+[![Website](https://img.shields.io/badge/Website-keyhold.anahatmudgal.com-4ade80?style=for-the-badge&logo=googlechrome&logoColor=white)](https://keyhold.anahatmudgal.com)
+
 </p>
 
 > [!WARNING]
@@ -64,6 +66,9 @@ It is free, GPL-3.0, and there is nothing to pay for and nothing to host.
 ---
 
 ## Download
+
+**[keyhold.anahatmudgal.com](https://keyhold.anahatmudgal.com)** has the same information with
+screenshots, if you would rather read it there.
 
 **Releases here carry the Windows build only.** macOS and Linux build from source, and that is
 a deliberate position rather than an oversight: there is no Mac on this project, and shipping an

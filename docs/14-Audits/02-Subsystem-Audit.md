@@ -1078,6 +1078,14 @@ unknown-token key the way the colour path does; cap the number of `unknown-token
 
 ### N30 — LOW · The settings screen ships no guard for its own secret handling, and its test double is dead code
 
+**STATUS: the dead double is deleted.** Both this file and the organisation one below were
+removed on 2026-09-05, after `tools/renderer-is-reachable.test.ts` found them again — this
+time from the other direction, as modules nothing imports. The decision not to write
+gateway-level tests around them rather than delete them is recorded in that guard: the
+settings screen's real seam is a `SettingsController` stub (`breach-opt-in.test.tsx`), the
+gateway itself is covered by `settings-gateway.test.ts`, and `CLAUDE.md` says not to test thin
+IPC wrappers. The paths below are what the audit found, and are kept as written.
+
 `src/renderer/src/settings/fake-gateway.ts` (whole file)
 
 **Measured:** nothing imports it — verified repo-wide for `createFakeGateway`,

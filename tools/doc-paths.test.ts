@@ -36,7 +36,14 @@ const ROOT = resolve(import.meta.dirname, '..');
 /** Prefixes that make a backticked string a claim about this repository. */
 const REPO_ROOTS = ['src/', 'docs/', 'tools/', 'tests/', 'build/', 'resources/'];
 
-/** Root-level files worth checking by name, since they carry no directory prefix. */
+/**
+ * Root-level files worth checking by name, since they carry no directory prefix.
+ *
+ * `MANUAL-BACKLOG.md` stays on this list after being deleted, and that is the point: around
+ * forty documents still cite it, those citations must still register as claims, and
+ * `DELIBERATELY_ABSENT` above is what answers them. Dropping the name here would make the
+ * citations invisible instead of explained.
+ */
 const ROOT_FILES = new Set([
   'CLAUDE.md',
   'MANUAL-BACKLOG.md',
@@ -58,14 +65,19 @@ const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
   'docs/10-Sync-And-Transfer/':
     'The number the sync docs were originally planned under. The roadmap names it to explain ' +
     'why they are at 07- instead.',
-  'docs/12-Roadmap/03-Autonomous-Goal.md':
-    'Deleted before the repository went public: it held the goal string for an unattended ' +
-    'run and its instructions, which is process rather than design. MANUAL-BACKLOG.md names ' +
-    'it in the entry recording what the tidy-up removed.',
-  'docs/superpowers/specs/':
-    'Renamed to docs/specs/ before the repository went public — the specs themselves are ' +
-    'kept, only the tooling-flavoured folder name went. MANUAL-BACKLOG.md names the old ' +
-    'path so a reader who remembers it is not left looking.',
+  'src/renderer/src/settings/fake-gateway.ts':
+    'Deleted. The subsystem audit found it as dead code (N30) and names the path because that ' +
+    'is what it found; an audit is a record of a moment, not a live index.',
+  'src/renderer/src/organisation/fake-gateway.ts':
+    'Deleted alongside it, and named by the same finding for the same reason.',
+  'MANUAL-BACKLOG.md':
+    'Deleted when its last item was done, before the repository went public. It was a task ' +
+    'list for one person, not documentation, and around forty documents cite it — audits and ' +
+    'checklists recording what was outstanding at the time they were written, which is ' +
+    'history rather than a broken link. What was worth keeping moved into the docs tree: the ' +
+    'packaging doc carries the platform split and how a packaged build is verified, ' +
+    '09-Import-Export/03-KDBX.md carries the KeePassXC interop check, and ' +
+    '11-Development/01-Testing-Policy.md carries the numbers-in-prose rule.',
   'docs/13-Appendix/':
     'Reserved for the audit findings and never created, because 13-Packaging had taken the ' +
     'number. docs/_INDEX.md and 13-Packaging/_INDEX.md both name it to say so and to tell the ' +
@@ -152,7 +164,6 @@ function citationsIn(file: string): Citation[] {
 const CITATIONS: readonly Citation[] = [
   ...markdownFilesUnder(resolve(ROOT, 'docs')),
   resolve(ROOT, 'CLAUDE.md'),
-  resolve(ROOT, 'MANUAL-BACKLOG.md'),
 ].flatMap((file) => citationsIn(file));
 
 const exists = (path: string): boolean => existsSync(resolve(ROOT, path.replace(/\/$/, '')));

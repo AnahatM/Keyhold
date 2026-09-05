@@ -48,7 +48,7 @@ import { describe, expect, it } from 'vitest';
  * - Roots = entry only, `.ts` and `.tsx`: **13 stranded**, 11 of them test fixtures.
  * - Roots = entry + tests, `.ts` and `.tsx`: **4 stranded, all four genuine.** This is the
  *   form in force. It found 573 lines that nothing in the repository imports — two unused
- *   barrels, since deleted, and two gateway doubles still under `ALLOWED` below.
+ *   barrels and two gateway doubles — and all four have since been deleted.
  *
  * ## What this does not catch, stated so it is not assumed
  *
@@ -63,11 +63,12 @@ import { describe, expect, it } from 'vitest';
  *     naming `settings/TraySection.tsx`.
  *  2. Added a new `src/renderer/src/components/Orphan.tsx` importing nothing — failed,
  *     naming it.
- *  3. Deleted the `ALLOWED` entry for `import/index.ts` — failed, naming it again, so an
- *     exemption cannot be removed without the module it covered coming back into view.
+ *  3. With `ALLOWED` still populated, deleting one of its entries failed, naming the module
+ *     again — so an exemption could not be removed without the module it covered coming back
+ *     into view.
  *  4. Added an `ALLOWED` entry for `App.tsx`, which is reachable — failed on "exempts nothing
  *     that is actually reachable". That is the anti-rot half, and it is the one that stops
- *     this list becoming a place bad news goes to die.
+ *     this list becoming a place bad news goes to die. It still fires against an empty list.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -75,26 +76,21 @@ const ROOT = resolve(HERE, '..');
 const RENDERER = join(ROOT, 'src/renderer/src');
 
 /**
- * Modules that are unreachable and are staying that way for now, with the reason.
+ * Modules that are unreachable and are staying that way, with the reason.
  *
- * Same convention as `bridge-is-used.test.ts` and `file-length.test.ts`: an entry is either a
- * reachability the scan genuinely cannot see, or it is **debt** — and debt names the backlog
- * item it is waiting for. An allow-list that only ever held justifications would be a place
- * for bad news to go and die, which is the failure this guard exists to prevent.
+ * **Empty, and worth keeping empty.** Same convention as `bridge-is-used.test.ts` and
+ * `file-length.test.ts`: an entry is either a reachability the scan genuinely cannot see, or
+ * it is debt naming the item that will close it. An allow-list that only ever held
+ * justifications would be a place for bad news to go and die, which is the failure this
+ * guard exists to prevent.
  *
- * Both below are debt, and both were found by this guard on its first run — as were the two
- * unused barrels it also found, which were deleted rather than exempted.
+ * All four modules this guard found on its first run were dealt with rather than exempted
+ * permanently: two unused barrels deleted, and two gateway doubles deleted once it was clear
+ * the abstraction was not wanted — the settings screen's real seam is a `SettingsController`
+ * stub (`breach-opt-in.test.tsx`), the gateway itself is covered by
+ * `settings-gateway.test.ts`, and `CLAUDE.md` says not to test thin IPC wrappers.
  */
-const ALLOWED: readonly { readonly path: string; readonly why: string }[] = [
-  {
-    path: 'src/renderer/src/settings/fake-gateway.ts',
-    why: '**debt.** A complete in-memory `SettingsGateway` double, 174 lines, imported by nothing — not even a test. Not simply untested: the screen *does* have a component test (`breach-opt-in.test.tsx`), written against a `SettingsController` stub, which is a smaller and better seam than a gateway double. So the question is whether anything still wants this abstraction. Backlog E23',
-  },
-  {
-    path: 'src/renderer/src/organisation/fake-gateway.ts',
-    why: '**debt.** The same shape for folders and tags, 253 lines, and the same question. Backlog E23',
-  },
-];
+const ALLOWED: readonly { readonly path: string; readonly why: string }[] = [];
 
 /** Where the walk starts: the application entry, plus everything the test runner executes. */
 function roots(): readonly string[] {
