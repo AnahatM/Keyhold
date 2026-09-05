@@ -316,13 +316,13 @@ that came out of the file.
 
 ## 9. Not built yet
 
-- **A way in.** `ImportWizard` is mounted by nothing.
-  `src/renderer/src/import/index.ts` documents the three lines that mount it. The native menu
-  carries a `vault.import` command and `src/renderer/src/shell/menu-bridge.ts` routes menu
-  commands into the renderer's stores — but it handles the four tool views, the palette and
-  the shortcut sheet, and `vault.import` reaches its `default` branch and is logged as
-  unhandled. Import is not a tool view: it is a modal over the vault screen, not a region of
-  the shell, so the tool-view table does not reach it. Export is in exactly the same position.
+> This section listed "a way in — `ImportWizard` is mounted by nothing" until 2026-09-05,
+> which had stopped being true: `VaultScreen.tsx` mounts the wizard, `menu-bridge.ts` routes
+> `vault.import` into the transfer store, and the smoke run opens it from the command palette.
+> The barrel it pointed at for the three lines that mount it has been deleted, because the
+> wizard is imported by direct path and an unused second route can only drift from the real
+> one.
+
 - **The activity-log entry.** An import is the largest single write the app performs and it
   does not appear in the vault activity log. `ACTIVITY_KINDS` in `@shared/model/activity.ts`
   already declares an `import` kind and nothing in `src/main/import-service/` writes one;

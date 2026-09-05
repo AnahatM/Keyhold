@@ -47,7 +47,8 @@ import { describe, expect, it } from 'vitest';
  * - Roots = entry only, `.tsx` only: **0 stranded.** Sound, but blind to dead `.ts`.
  * - Roots = entry only, `.ts` and `.tsx`: **13 stranded**, 11 of them test fixtures.
  * - Roots = entry + tests, `.ts` and `.tsx`: **4 stranded, all four genuine.** This is the
- *   form in force. It found 573 lines of code that nothing in the repository imports.
+ *   form in force. It found 573 lines that nothing in the repository imports — two unused
+ *   barrels, since deleted, and two gateway doubles still under `ALLOWED` below.
  *
  * ## What this does not catch, stated so it is not assumed
  *
@@ -81,24 +82,17 @@ const RENDERER = join(ROOT, 'src/renderer/src');
  * item it is waiting for. An allow-list that only ever held justifications would be a place
  * for bad news to go and die, which is the failure this guard exists to prevent.
  *
- * All four below are debt, and all four were found by this guard on its first run.
+ * Both below are debt, and both were found by this guard on its first run — as were the two
+ * unused barrels it also found, which were deleted rather than exempted.
  */
 const ALLOWED: readonly { readonly path: string; readonly why: string }[] = [
   {
     path: 'src/renderer/src/settings/fake-gateway.ts',
-    why: '**debt.** A complete in-memory `SettingsGateway` double, 174 lines, imported by nothing — not even a test. The settings screen has no component test to drive it. Backlog E23',
+    why: '**debt.** A complete in-memory `SettingsGateway` double, 174 lines, imported by nothing — not even a test. Not simply untested: the screen *does* have a component test (`breach-opt-in.test.tsx`), written against a `SettingsController` stub, which is a smaller and better seam than a gateway double. So the question is whether anything still wants this abstraction. Backlog E23',
   },
   {
     path: 'src/renderer/src/organisation/fake-gateway.ts',
-    why: '**debt.** The same shape for folders and tags, 253 lines, and the same absence. Backlog E23',
-  },
-  {
-    path: 'src/renderer/src/import/index.ts',
-    why: '**debt.** A barrel whose own doc says "one import site for whoever mounts this" and gives the three lines to do it — and the wizard is mounted by direct path instead, so the barrel is an unused second route whose instructions can drift from the real one. Hard rule 8. Backlog E24',
-  },
-  {
-    path: 'src/renderer/src/export/index.ts',
-    why: '**debt.** Same barrel, same absence, same rule. Backlog E24',
+    why: '**debt.** The same shape for folders and tags, 253 lines, and the same question. Backlog E23',
   },
 ];
 
