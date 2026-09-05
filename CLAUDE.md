@@ -196,7 +196,8 @@ test could never fail. No coverage target is chased.
 Git, on `main`. Remote: `AnahatM/Keyhold` — created and pushed, **private for now**.
 
 - Commit per completed slice, once lint, typecheck and tests are green. Anything touching
-  `src/main/` or `src/preload/` also needs `npm run build && npm run test:smoke` first.
+  `src/main/` or `src/preload/` also needs `npm run build && npm run test:smoke` first, and
+  anything touching the CSP, the window or the preload also needs `npm run test:dev-smoke`.
 - **Stage by explicit path. Never `git add -A` or `git add .`.**
 - **Push every commit** to `origin main` as it is made. This is a standing instruction and
   overrides the global `CLAUDE.md`'s "never push unless asked" — the remote is the working

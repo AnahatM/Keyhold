@@ -22,12 +22,13 @@ D14.
 | `npm start`                                                       | Preview the production build                                                                                                                                                   |
 | `npm run ensure:electron`                                         | Fetches the Electron binary `npm run dev` needs. Runs automatically as `postinstall`; run it by hand if the install was offline. See _The Electron binary_ below               |
 | `npm run verify`                                                  | **lint + typecheck + build + test.** The gate. Must be green before any commit                                                                                                 |
-| `npm run verify:full`                                             | **`format:check` + `verify` + `test:smoke`.** Everything CI runs, in one command                                                                                               |
+| `npm run verify:full`                                             | **`format:check` + `verify` + `test:smoke` + `test:dev-smoke`.** Everything CI runs, in one command                                                                            |
 | `npm run lint` / `lint:fix`                                       | ESLint                                                                                                                                                                         |
 | `npm run format` / `format:check`                                 | Prettier                                                                                                                                                                       |
 | `npm run typecheck`                                               | `tsc --noEmit` against both tsconfigs                                                                                                                                          |
 | `npm test` / `test:watch` / `test:ui`                             | Vitest                                                                                                                                                                         |
 | `npm run test:smoke`                                              | Launches the real built app and verifies the preload bridge. **Run after `npm run build`**                                                                                     |
+| `npm run test:dev-smoke`                                          | Starts the **dev server**, attaches over CDP, and asserts the renderer actually mounted. Needs no build                                                                        |
 | `npm run package` / `package:win` / `package:mac` / `package:dir` | electron-builder, configured in `electron-builder.yml`. `package:dir` skips the installer and leaves an unpacked build, which is what you want when debugging packaging itself |
 
 ## The Electron binary
@@ -146,7 +147,8 @@ npm run build && npm run test:smoke
 npm run verify:full
 ```
 
-`format:check` → `verify` (lint → typecheck → build → tests) → `test:smoke`, in that order.
+`format:check` → `verify` (lint → typecheck → build → tests) → `test:smoke` → `test:dev-smoke`,
+in that order.
 
 **It contains everything CI enforces, and that is the point.** Formatting used to sit outside
 it, as its own workflow step, and the consequence was a local gate that could be green while CI

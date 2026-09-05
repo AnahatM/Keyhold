@@ -120,9 +120,15 @@ existed, `npm run dev` opened a **blank window** — on every machine, for anyon
 the repository. Nothing in the repository could see it: the whole test suite runs in Node,
 and `npm run test:smoke` launches the _built_ app from `file:`, where there is no dev server
 and therefore no preamble to block. The app was fully verifiable and fully screenshottable
-while being impossible to develop in. The guards for both halves — that development permits
-what Vite needs, and that a packaged build ignores `ELECTRON_RENDERER_URL` entirely and
-serves the policy above unchanged — are in `src/main/security.test.ts`.
+while being impossible to develop in.
+
+It is gated three ways now. `src/main/security.test.ts` asserts both halves of the policy —
+that development permits what Vite needs, and that a packaged build ignores
+`ELECTRON_RENDERER_URL` entirely and serves the policy above unchanged. And
+`npm run test:dev-smoke` (`tools/dev-smoke.mjs`, inside `verify:full`) starts the dev server
+for real, attaches over CDP, and fails if the renderer did not mount or if any CSP violation
+was logged — which is the half a unit test cannot reach, because the defect was never in the
+policy string but in what the browser did with it.
 
 ---
 

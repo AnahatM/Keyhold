@@ -56,7 +56,8 @@
     "verify": "npm run lint && npm run build && npm test",
     "icons": "node tools/make-icons.mjs",
     "test:smoke": "node tools/smoke.mjs",
-    "verify:full": "npm run format:check && npm run verify && npm run test:smoke"
+    "test:dev-smoke": "node tools/dev-smoke.mjs",
+    "verify:full": "npm run format:check && npm run verify && npm run test:smoke && npm run test:dev-smoke"
   },
   "dependencies": {
     "@zxcvbn-ts/core": "^4.2.0",
