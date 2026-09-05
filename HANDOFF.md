@@ -36,19 +36,25 @@ release goal's queue is that ledger.
 
 ## 1. Blocking the release
 
-Three things, in order. Only the first two are gated on Anahat.
+Three things, in order. The first is now **done**; only the second is still gated on Anahat.
 
-### 1.1 Launch the packaged build 🔴
+### 1.1 Launch the packaged build 🟢 — done, and it works
 
-**`MANUAL-BACKLOG.md` → M-PKG.** The Windows build has been produced —
-`npm run package:dir` writes `release/win-unpacked/` — and the specific risk it was written
-around has been checked as far as it can be without launching: the Argon2 worker is marked
-`unpacked` in the asar header and present on disk, and `tools/asar-unpack.test.ts` guards both
-halves of that arrangement from here on.
+**`MANUAL-BACKLOG.md` → M-PKG**, which now carries the evidence table. On 2026-09-05 the
+Windows build was rebuilt on a second machine and driven through the real preload bridge from
+inside the asar: `vault.create` returned `ok: true` **after 3,152 ms of Argon2**, lock and
+unlock both succeeded (unlock 1,138 ms), and a wrong password was refused with an error naming
+no path and no password. Three seconds of Argon2 _is_ the `asarUnpack` redirect working — had
+it failed, the worker would never have loaded and no key would have been derived at all.
 
-**What is left is one person launching it**: create a vault, and watch the unlock progress bar
-move. If it hangs at 0%, the asar path redirect failed and that is a packaging fix. Nothing
-else in this list matters until this is done once.
+`tools/smoke.mjs` cannot be pointed at a packaged build, deliberately: `isSmokeRun()` is gated
+on `!app.isPackaged`. The route that works is launching the exe with `--remote-debugging-port`
+and calling the bridge over CDP, and it needs no change to the app. That is how any future
+check of a packaged build should be done.
+
+**What is left is not a blocker**: somebody looking at the unlock progress bar to confirm it is
+determinate and moving rather than parked at 0% for three seconds, and the NSIS installer path,
+which `--dir` does not exercise.
 
 ### 1.2 Open a Keyhold-written `.kdbx` in real KeePassXC 🟡
 

@@ -5,7 +5,7 @@ the conversation.
 
 **Legend:** 🔴 blocks further building · 🟡 needed before release · 🟢 whenever convenient
 
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 
 ---
 
@@ -181,7 +181,7 @@ browser's own address-bar icon. It was checked by eye at 16, 32 and 256.
 "The geometry" — change them, run `npm run icons`, and every file follows. That is the one
 thing left here and it is a preference, not a blocker.
 
-## 🟡 M-PKG · Launch the packaged build and unlock a vault
+## 🟢 M-PKG · The packaged build runs; the installer and one look are left
 
 **Unblocks:** the first release. **Smaller than it was** — the build itself has now been
 produced, and the specific risk this entry was written to contain has been checked as far as
@@ -201,20 +201,40 @@ it can be without launching.
    `asarUnpack`, and that the filename `kdf-runner.ts` builds at runtime is the one the config
    covers. Both halves, because a config-only check would miss a rename in the code.
 
-**What is left, and it is only yours because it means running a binary.**
+**The risk this entry existed for is now closed, with evidence.** 2026-09-05, on the second
+machine, `npm run package:dir` was rebuilt from a clean clone and
+`release\win-unpacked\Keyhold.exe` was launched and driven through the real preload bridge:
 
-1. Launch `release\win-unpacked\Keyhold.exe`.
-2. Create a vault, set a master password, and **watch the unlock progress bar move**. That is
-   Argon2 running in the worker inside the packaged app, and it is the one thing none of the
-   above proves. If it hangs at 0% or the app reports it cannot derive a key, the redirect
-   failed and I want to know immediately.
-3. Add a credential, lock, unlock again with the same password.
-4. Then the installer path: `npm run package:win`, install it, and unlock a vault from the
-   installed copy. SmartScreen will warn — the build is unsigned by decision D16 (M4).
-5. macOS needs a Mac (M2).
+| Step                                     | Result                                                      |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| Window and renderer from inside the asar | Loaded — `…/app.asar/out/renderer/index.html`, root mounted |
+| Preload bridge                           | All 20 groups present on `window.keyhold`                   |
+| `vault.create` → Argon2 in the worker    | **`ok: true` after 3,152 ms**                               |
+| `session.status`                         | `unlocked`                                                  |
+| `vault.lock`                             | `ok: true`, status `locked`                                 |
+| `vault.unlock` with the real password    | **`ok: true` after 1,138 ms**, status `unlocked`            |
+| `vault.unlock` with a wrong password     | Refused, and the logged error names no path and no password |
 
-Tell me what you saw. A failure here is a packaging fix, not a code fix, and the shape of what
-you describe will say which.
+Three seconds of Argon2 is the redirect working: had it failed, the worker would not have
+loaded and no key would have been derived at all. The `asarUnpack` arrangement is therefore
+confirmed end to end, not only from the header.
+
+**How, and why it is worth writing down.** `KEYHOLD_SMOKE` is deliberately gated on
+`!app.isPackaged` (`src/main/smoke.ts` — the environment variable is the request, the gate is
+the permission), so `tools/smoke.mjs` **cannot** be pointed at a packaged build, correctly.
+The packaged app was driven instead by launching it with `--remote-debugging-port` and calling
+the bridge over CDP. That is the route for any future check of a packaged build, and it needs
+no change to the app.
+
+**What is genuinely left, and it is yours because it is a human judgement or an installer.**
+
+1. **Watch the unlock progress bar with your own eyes.** The engine underneath it is now
+   proven; what is not proven is that the bar is _determinate and moving_ rather than sitting
+   at 0% for three seconds and jumping. That is a look, not a test.
+2. **The installer path:** `npm run package:win`, install it, and unlock a vault from the
+   installed copy. SmartScreen will warn — the build is unsigned by decision D16 (M4). Nothing
+   above touches NSIS; only `--dir` was exercised.
+3. **macOS needs a Mac** (M2).
 
 ---
 
