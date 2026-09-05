@@ -275,9 +275,31 @@ await cdp.ready;
 await cdp.send('Log.enable', {});
 await cdp.send('Runtime.enable', {});
 
-// A short settle: React mounts a frame or two after the document is interactive, and the
-// HMR socket reports its connection shortly after that.
-await wait(2500);
+/**
+ * Waits for a condition to become true, rather than sleeping a fixed time and hoping.
+ *
+ * **This replaced a `wait(2500)` that failed CI twice.** Locally the renderer mounts in well
+ * under a second; on a GitHub Windows runner doing a cold Vite dependency optimisation under
+ * software rendering it had not finished at 2.5 s, so the gate reported "the root element is
+ * empty — this is the blank window" for an app that was about to render perfectly. A guard
+ * that cries wolf gets switched off, which would have cost more than the guard was worth.
+ *
+ * The deadline still fails a genuinely blank window; it just refuses to call a slow machine a
+ * broken one. The elapsed time is reported either way, so a runner drifting towards the limit
+ * is visible before it starts failing.
+ */
+async function until(read, deadlineMs) {
+  const started = Date.now();
+  for (;;) {
+    const value = await read();
+    if (value !== null) return { value, waitedMs: Date.now() - started };
+    if (Date.now() - started > deadlineMs) return { value: null, waitedMs: Date.now() - started };
+    await wait(250);
+  }
+}
+
+/** Generous, for the same reason the hard timeout is: a cold runner is not a broken one. */
+const SETTLE_MS = 60_000;
 
 // ── The assertions ───────────────────────────────────────────────────────────
 
@@ -300,24 +322,31 @@ check(
     : `the window loaded ${target.url} — ELECTRON_RENDERER_URL was not honoured, so this run would have tested the packaged path`
 );
 
-const rootChildren = await evaluate("document.getElementById('root')?.childElementCount ?? -1");
-note('root-child-count', String(rootChildren));
+const mounted = await until(async () => {
+  const count = await evaluate("document.getElementById('root')?.childElementCount ?? -1");
+  return typeof count === 'number' && count > 0 ? count : null;
+}, SETTLE_MS);
+note('root-child-count', String(mounted.value ?? 0));
+note('waited-for-mount-ms', String(mounted.waitedMs));
 check(
   'react-mounted-into-the-root-element',
-  typeof rootChildren === 'number' && rootChildren > 0,
-  rootChildren === 0 ? 'the root element is empty — this is the blank window' : undefined
+  mounted.value !== null,
+  mounted.value === null
+    ? `the root element was still empty after ${String(mounted.waitedMs)}ms — this is the blank window`
+    : undefined
 );
 
 const bridgeGroups = await evaluate('Object.keys(window.keyhold ?? {}).length');
 note('bridge-group-count', String(bridgeGroups));
 check('preload-bridge-is-attached-over-http', typeof bridgeGroups === 'number' && bridgeGroups > 0);
 
-const logText = cdp.events
-  .filter((event) => event.method === 'Log.entryAdded')
-  .map((event) => String(event.params?.entry?.text ?? ''))
-  .join('\n');
+const allLogText = () =>
+  cdp.events
+    .filter((event) => event.method === 'Log.entryAdded')
+    .map((event) => String(event.params?.entry?.text ?? ''))
+    .join('\n');
 
-const cspViolation = logText
+const cspViolation = allLogText()
   .split('\n')
   .find((line) => /content security policy/i.test(line) && /violat|blocked/i.test(line));
 check(
@@ -326,12 +355,17 @@ check(
   cspViolation === undefined ? undefined : cspViolation.slice(0, 160)
 );
 
-const consoleText = cdp.events
-  .filter((event) => event.method === 'Runtime.consoleAPICalled')
-  .flatMap((event) => (event.params?.args ?? []).map((arg) => String(arg.value ?? '')))
-  .join('\n');
-const hmrConnected = /\[vite\] connected/.test(`${consoleText}\n${logText}`);
-check('vite-hmr-socket-connected', hmrConnected);
+// Polled for the same reason as the mount: the socket reports its connection whenever it
+// gets there, which on a cold runner is after the first frame rather than before it.
+const hmr = await until(() => {
+  const consoleText = cdp.events
+    .filter((event) => event.method === 'Runtime.consoleAPICalled')
+    .flatMap((event) => (event.params?.args ?? []).map((arg) => String(arg.value ?? '')))
+    .join('\n');
+  const seen = /\[vite\] connected/.test(`${consoleText}\n${allLogText()}`);
+  return seen ? true : null;
+}, 15_000);
+check('vite-hmr-socket-connected', hmr.value === true);
 
 // ── Verdict ──────────────────────────────────────────────────────────────────
 
