@@ -20,6 +20,7 @@ D14.
 | `npm run dev`                                                     | electron-vite dev server with hot reload for the renderer and restart-on-change for main/preload                                                                               |
 | `npm run build`                                                   | Typecheck, then build main, preload and renderer into `out/`                                                                                                                   |
 | `npm start`                                                       | Preview the production build                                                                                                                                                   |
+| `npm run ensure:electron`                                         | Fetches the Electron binary `npm run dev` needs. Runs automatically as `postinstall`; run it by hand if the install was offline. See _The Electron binary_ below               |
 | `npm run verify`                                                  | **lint + typecheck + build + test.** The gate. Must be green before any commit                                                                                                 |
 | `npm run verify:full`                                             | **`format:check` + `verify` + `test:smoke`.** Everything CI runs, in one command                                                                                               |
 | `npm run lint` / `lint:fix`                                       | ESLint                                                                                                                                                                         |
@@ -28,6 +29,32 @@ D14.
 | `npm test` / `test:watch` / `test:ui`                             | Vitest                                                                                                                                                                         |
 | `npm run test:smoke`                                              | Launches the real built app and verifies the preload bridge. **Run after `npm run build`**                                                                                     |
 | `npm run package` / `package:win` / `package:mac` / `package:dir` | electron-builder, configured in `electron-builder.yml`. `package:dir` skips the installer and leaves an unpacked build, which is what you want when debugging packaging itself |
+
+## The Electron binary
+
+`npm install` on its own does not leave you with a runnable Electron. As of v44 the
+published `electron` package has no `scripts` field at all — the `postinstall` hook that
+used to download `dist/electron.exe` is gone — so npm unpacks the JavaScript half of the
+package and nothing fetches the binary. Nothing warns. The failure lands later, on the
+first `npm run dev`, as a bare `Error: Electron uninstall` thrown from inside
+electron-vite, which names neither what is missing nor how to get it.
+
+This is not a broken machine and not a bad clone: a fresh `git clone` plus `npm install`
+reproduces it every time, on every platform. `npm run package` is unaffected, because
+electron-builder downloads its own copy into a separate cache — so the app can package
+perfectly while the dev server cannot start at all, which is exactly the sort of split
+that sends you looking in the wrong place.
+
+`tools/ensure-electron.mjs` fetches it, wired as this project's own `postinstall`. That is
+what makes `git clone && npm install && npm run dev` sufficient on a machine that has never
+seen the project. It is safe to re-run — it exits early when `dist/version` already matches
+— picks the right build for the host platform and arch, and reuses the shared
+`~/.cache/electron` download, so a second machine is usually a cache hit rather than a
+download. Run `npm run ensure:electron` by hand if the install happened offline.
+
+This does not weaken hard rule 5, zero network by default, which governs what the shipped
+application does at runtime. This is an install-time fetch on a developer's machine, the
+same way `npm install` itself just fetched every other dependency.
 
 ## Project layout
 

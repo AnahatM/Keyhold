@@ -33,6 +33,8 @@
     "node": ">=22"
   },
   "scripts": {
+    "postinstall": "node tools/ensure-electron.mjs",
+    "ensure:electron": "node tools/ensure-electron.mjs",
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
     "build": "npm run typecheck && electron-vite build",
