@@ -10,8 +10,10 @@ import { parseOtpSecretField } from './secret-field.js';
  * one happy-path check that the path the IPC handler takes actually produces a code — the
  * engine was finished and unreachable for two phases, and nothing would have noticed.
  *
- * Deeper coverage of the vault method, the channel and the field component is deferred and
- * listed in `docs/12-Roadmap/03-Deferred-Quality.md`.
+ * Deeper coverage of the three layers beneath it has since landed and lives beside each:
+ * `src/main/vault/totp-code.test.ts` for the vault method, and
+ * `src/renderer/src/vault/totp-field.test.tsx` for the field's self-refresh, its expiring
+ * state and copying through the broker.
  */
 
 const FIELD = 'otpauth://totp/Example:alice@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example';

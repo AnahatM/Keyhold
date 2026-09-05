@@ -143,7 +143,6 @@ test could never fail. No coverage target is chased.
 | Security posture                                      | [`docs/00-Overview/03-Threat-Model.md`](./docs/00-Overview/03-Threat-Model.md)                     |
 | Frozen founding design (**history — never "fix" it**) | [`docs/specs/2026-09-02-keyhold-product-spec.md`](./docs/specs/2026-09-02-keyhold-product-spec.md) |
 | Things only Anahat can do                             | [`MANUAL-BACKLOG.md`](./MANUAL-BACKLOG.md)                                                         |
-| Tests and docs deliberately skipped                   | [`docs/12-Roadmap/03-Deferred-Quality.md`](./docs/12-Roadmap/03-Deferred-Quality.md)               |
 
 ---
 

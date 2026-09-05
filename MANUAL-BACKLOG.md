@@ -150,17 +150,20 @@ described how the work was organised rather than what the software does — `HAN
 trailer any more (rewritten and force-pushed 2026-09-05; the pre-rewrite history is on the
 local branch `backup/pre-trailer-rewrite`, which was deliberately **not** pushed).
 
-Two files are deliberately still here because they still have work in them:
+**The deferred-quality ledger is gone**, on the first of the two conditions written into it:
+every entry in it was closed. Its owed documentation had been empty for a while; its two owed
+guards and its two owed tests were finished on 2026-09-05. Each closed entry's reasoning was
+written into the file it was about rather than kept in the ledger, so nothing was lost with it
+— and the two documents that still pointed at it for coverage that had since landed were
+corrected rather than left to mislead.
 
-1. **`MANUAL-BACKLOG.md`** — this file. Delete it when every 🔴 and 🟡 entry above is
-   done. Anything left that is a real limitation rather than a task belongs in
-   `docs/12-Roadmap/01-Feature-Backlog.md` first; a gap does not stop being real because the
-   file recording it was tidied away.
-2. **`docs/12-Roadmap/03-Deferred-Quality.md`** — marked at the top with the same rule, plus
-   its row in `docs/12-Roadmap/_INDEX.md`.
+**One file is deliberately still here: this one.** Delete it when every 🔴 and 🟡 entry above
+is done. Anything left that is a real limitation rather than a task belongs in
+`docs/12-Roadmap/01-Feature-Backlog.md` first; a gap does not stop being real because the file
+recording it was tidied away.
 
-Both are internal process bookkeeping. Neither is referenced from the README, `CONTRIBUTING.md`
-or any published doc, so deleting them breaks no link — but run `npx vitest run
+It is internal process bookkeeping and is not referenced from the README, `CONTRIBUTING.md` or
+any published doc, so deleting it breaks no link — but run `npx vitest run
 tools/doc-paths.test.ts` afterwards, which is the guard that would tell you if it did.
 
 **`CLAUDE.md` stays.** It reads as contributor documentation — the stack, the commands, the

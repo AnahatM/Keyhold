@@ -439,8 +439,10 @@ beside the score, never folded into it.
   network code, landed after the security sweep, and says it needs its own pass before it
   ships. Outstanding.
 - **Cancellation from the UI.** `BreachRunOptions.signal` is honoured end to end and there is
-  still nothing to press. `sweep.ts`'s abort path is asserted only as "the signal is passed
-  through" — see [`../12-Roadmap/03-Deferred-Quality.md`](../12-Roadmap/03-Deferred-Quality.md).
+  still nothing to press. The abort path itself is no longer thinly covered: `sweep.test.ts`
+  drives a real cancellation through the real client and asserts the reason is `cancelled`
+  rather than `offline`, that no request was made, and that `safeCount` stayed zero. What is
+  missing is the control, not the coverage.
 
 ---
 
