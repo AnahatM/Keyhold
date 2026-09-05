@@ -58,6 +58,14 @@ const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
   'docs/10-Sync-And-Transfer/':
     'The number the sync docs were originally planned under. The roadmap names it to explain ' +
     'why they are at 07- instead.',
+  'docs/12-Roadmap/03-Autonomous-Goal.md':
+    'Deleted before the repository went public: it held the goal string for an unattended ' +
+    'run and its instructions, which is process rather than design. MANUAL-BACKLOG.md names ' +
+    'it in the entry recording what the tidy-up removed.',
+  'docs/superpowers/specs/':
+    'Renamed to docs/specs/ before the repository went public — the specs themselves are ' +
+    'kept, only the tooling-flavoured folder name went. MANUAL-BACKLOG.md names the old ' +
+    'path so a reader who remembers it is not left looking.',
   'docs/13-Appendix/':
     'Reserved for the audit findings and never created, because 13-Packaging had taken the ' +
     'number. docs/_INDEX.md and 13-Packaging/_INDEX.md both name it to say so and to tell the ' +
