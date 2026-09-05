@@ -12,6 +12,7 @@ import {
   HEADER_HMAC_INDEX,
   INNER_STREAM_CHACHA20,
   KDF_ARGON2ID,
+  type KdbxBinary,
   type VariantValue,
 } from './types.js';
 
@@ -67,6 +68,22 @@ export interface WriteKdbxInput {
   };
   /** Injectable so a test can pin a file byte for byte. Production uses `crypto.randomBytes`. */
   readonly random?: (length: number) => Uint8Array;
+  /**
+   * The inner header's binary pool — a KDBX file's attachments.
+   *
+   * **Empty in production, and that is a decision rather than an omission:** Keyhold does not
+   * carry attachments into a KDBX export, and the export screen says so rather than dropping
+   * them silently.
+   *
+   * It is injectable for the same reason `kdf` and `random` above are — so a test can build a
+   * file production does not. Specifically, it makes the *reader's* attachment path
+   * reachable: that path counts binaries out of the inner header and appends the marker the
+   * wizard turns into "N attachments were not imported". Before this, the only database with
+   * a binary in it was one KeePassXC had written, so the branch could be reached by hand and
+   * by nothing else. `writeInnerHeader` has always accepted these; only this call site
+   * insisted on none.
+   */
+  readonly binaries?: readonly KdbxBinary[];
 }
 
 export async function writeKdbx(input: WriteKdbxInput): Promise<Uint8Array> {
@@ -103,7 +120,7 @@ export async function writeKdbx(input: WriteKdbxInput): Promise<Uint8Array> {
     const inner = writeInnerHeader({
       streamId: INNER_STREAM_CHACHA20,
       streamKey,
-      binaries: [],
+      binaries: input.binaries ?? [],
     });
 
     const protectedXml = protectValues(input.secretXml, INNER_STREAM_CHACHA20, streamKey);

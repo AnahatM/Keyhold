@@ -63,13 +63,17 @@ the second half is what makes an entry worth doing later rather than deleting.
       branch are asserted in one run, and the cap is exported so the test cannot hold a second
       copy of the number. The read-before-listing ordering is still not observable from
       outside — recorded in `diagnose.test.ts` rather than claimed.
-- [ ] `src/main/import-service/kdbx-source.ts` — the attachment-marker **append** path is
-      still reachable only from a real KeePassXC database, because Keyhold's own writer emits
-      no attachments to count. It is part of the manual interop check (`MANUAL-BACKLOG.md` →
-      M-KDBX-INTEROP) rather than something a fixture can reach. What is now guarded is the
-      agreement between the two sides: both derive from `KDBX_ATTACHMENT_MARKER` in the parser
-      — they used to keep separate hardcoded copies — and `keepass-xml.test.ts` round-trips
-      the composer through the reader.
+- [x] ~~`src/main/import-service/kdbx-source.ts` — the attachment-marker **append** path.~~
+      **Done.** It was recorded as reachable only from a real KeePassXC database, because
+      Keyhold's own writer emitted no attachments to count. `writeInnerHeader` had always
+      accepted a binary pool; only `writeKdbx` insisted on an empty one. It now takes
+      `binaries` as an injection point — beside the `kdf` and `random` ones already there for
+      the same kind of reason — and the test builds a database with two attachments and
+      asserts the **count**, through the warning a user actually sees. An append path that
+      always wrote `1` would pass a contains-check and lie to everyone with two; that
+      injection is one of the two run, and both fail. What the manual interop check still
+      adds is different and still worth doing: whether a _KeePassXC-written_ attachment is
+      shaped the way this writer's is.
 
 ## Owed documentation
 

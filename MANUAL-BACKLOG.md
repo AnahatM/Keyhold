@@ -381,8 +381,11 @@ KeePassXCTeam.KeePassXC`).
    - custom fields carry their labels, and a secret one is shown as protected.
 4. In KeePassXC, create a small database of your own with an **attachment** on one entry, save
    it as KDBX 4, and import it into Keyhold. The attachment must be **reported as not
-   imported** — that path counts attachments out of the inner header and is the one branch no
-   test in this repo can reach, because Keyhold's own writer never emits one.
+   imported**. This branch _is_ now covered by a test — `writeKdbx` gained a `binaries`
+   injection point, so the suite can build a database with attachments and assert the count.
+   What the test cannot tell you is whether a **KeePassXC-written** attachment is shaped the
+   way Keyhold's writer shapes one, which is the same self-consistency gap as the rest of this
+   entry.
 5. Tell me what you saw. If anything is wrong the fix is in `src/main/export/kdbx.ts` (the
    schema) or `src/main/kdbx/` (the framing), and the failure you describe will say which.
 
