@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BACKUP_INFIX } from '../vault/atomic-write.js';
-import { diagnoseVault } from './diagnose.js';
+import { diagnoseVault, MAX_SURVEYED_BYTES } from './diagnose.js';
 
 /**
  * The folder walk behind "Diagnose a vault".
@@ -33,8 +33,14 @@ import { diagnoseVault } from './diagnose.js';
  * confirmed it, and the confirmation is why this paragraph exists rather than a comfortable
  * claim of coverage.
  *
- * The 256 MB size cap is likewise unexercised. The smallest file that would trip it is 256 MB,
- * and writing one on every test run costs far more than the branch is worth.
+ * The 256 MB size cap **is** exercised, and the reasoning that said it could not be is worth
+ * correcting rather than deleting. It read: "the smallest file that would trip it is 256 MB,
+ * and writing one on every test run costs far more than the branch is worth." That is true of
+ * *writing* one and irrelevant to the branch, which only reads `stat().size`. `truncate` sets
+ * a file's length without writing its contents: measured at **0 ms to create and 1 ms to
+ * remove**, against the several seconds and 256 MB of I/O the original estimate assumed. The
+ * lesson is the cheaper one — a cost that rules out a test is worth measuring once before it
+ * is believed for six months.
  *
  * The report's *contents* — that it names no password, no record title and no folder path —
  * are the subject of the recovery builder's own tests.
@@ -125,6 +131,38 @@ describe('diagnosing a vault file', () => {
     expect(names).not.toContain('attachments');
     expect(names).not.toContain(`personal.keep${BACKUP_INFIX}.2`);
     expect(report.survey?.backupCount).toBe(1);
+  });
+
+  it('lists a file past the size cap without reading its bytes', async () => {
+    // `truncate` gives the file a length without writing its contents — the whole reason this
+    // branch is testable at all. The extra byte matters: the cap is `<=`, so exactly
+    // MAX_SURVEYED_BYTES is still read and only one more than that is not.
+    const huge = join(folder, 'personal.keep.bak.9');
+    const handle = await open(huge, 'w');
+    await handle.truncate(MAX_SURVEYED_BYTES + 1);
+    await handle.close();
+
+    await writeFile(vaultPath, 'not really a container');
+    await writeFile(backup(1), 'a small backup');
+
+    const report = await diagnoseVault({ vaultPath, generatedAt: NOW });
+    const listed = report.survey?.files.find((file) => file.name === 'personal.keep.bak.9');
+
+    // Listed, not skipped: a huge file beside the vault is worth telling the user about, and
+    // its size is exactly what makes it interesting.
+    expect(listed).toBeDefined();
+    expect(listed?.sizeBytes).toBe(MAX_SURVEYED_BYTES + 1);
+
+    // `null` is the documented signal for "the bytes were not supplied" — the observable
+    // difference between listed and read, and the only one from outside this module.
+    expect(listed?.structurallyIntact).toBeNull();
+    expect(listed?.generation).toBeNull();
+
+    // The other side of the same branch, in the same run: a small neighbour IS read, so a
+    // pass here cannot come from the survey having quietly stopped reading anything at all.
+    const small = report.survey?.files.find((file) => file.name.endsWith(`${BACKUP_INFIX}.1`));
+    expect(small).toBeDefined();
+    expect(small?.structurallyIntact).not.toBeNull();
   });
 
   it('reports on the folder when the vault path names nothing on disk', async () => {

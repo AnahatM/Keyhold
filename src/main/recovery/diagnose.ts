@@ -32,8 +32,14 @@ import { surveyVaultFiles, type DirectoryEntry } from './survey.js';
  * folder is not a vault, and reading it to find that out would hang the dialog.
  */
 
-/** Past this, a file is listed but not read. No Keyhold vault approaches it. */
-const MAX_SURVEYED_BYTES = 256 * 1024 * 1024;
+/**
+ * Past this, a file is listed but not read. No Keyhold vault approaches it.
+ *
+ * Exported for the test, which asserts both sides of the branch. The alternative is the test
+ * writing `256 * 1024 * 1024` itself, which is the second copy of a number hard rule 8 exists
+ * to prevent — and the copy that would silently stop matching if this were ever tuned.
+ */
+export const MAX_SURVEYED_BYTES = 256 * 1024 * 1024;
 
 export interface DiagnoseInput {
   readonly vaultPath: string;

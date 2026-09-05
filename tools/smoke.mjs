@@ -31,6 +31,13 @@ import { tmpdir } from 'node:os';
  * reproduces on a quiet machine, that is new information and worth chasing — a moving
  * failure point usually means a lifecycle race rather than a bad assertion. What it is not
  * is a reason to relax a check; nothing here has ever reported `false` during one of these.
+ *
+ * One new pressure worth naming rather than diagnosing: `verify:full` now runs
+ * `test:dev-smoke` straight after this, so the chain launches Electron twice in succession.
+ * That was observed once as a `verify:full` failure where every stage then passed
+ * individually and two further chain runs were clean. It is an observation, not a cause —
+ * but if the intermittency becomes frequent, the gap between the two launches is the first
+ * thing to look at.
  */
 
 const require = createRequire(import.meta.url);

@@ -55,11 +55,14 @@ the second half is what makes an entry worth doing later rather than deleting.
 
 ## Owed tests
 
-- [ ] `src/main/recovery/diagnose.ts` — the **256 MB size cap** is still unexercised, and
-      deliberately: the smallest file that would trip it is 256 MB and writing one per run
-      costs more than the branch is worth. The folder walk and the directory filter now have
-      tests. The read-before-listing ordering is not observable from outside — recorded in
-      `diagnose.test.ts` rather than claimed.
+- [x] ~~`src/main/recovery/diagnose.ts` — the **256 MB size cap**.~~ **Done**, and the reason
+      it sat here for months was wrong. The entry said "the smallest file that would trip it is
+      256 MB and writing one per run costs more than the branch is worth" — true of _writing_
+      one, and irrelevant to a branch that only reads `stat().size`. `truncate` sets a length
+      without writing contents: **0 ms to create, 1 ms to remove**, measured. Both sides of the
+      branch are asserted in one run, and the cap is exported so the test cannot hold a second
+      copy of the number. The read-before-listing ordering is still not observable from
+      outside — recorded in `diagnose.test.ts` rather than claimed.
 - [ ] `src/main/import-service/kdbx-source.ts` — the attachment-marker **append** path is
       still reachable only from a real KeePassXC database, because Keyhold's own writer emits
       no attachments to count. It is part of the manual interop check (`MANUAL-BACKLOG.md` →

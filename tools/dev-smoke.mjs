@@ -89,6 +89,32 @@ function note(name, value) {
 // ── The dev server ───────────────────────────────────────────────────────────
 
 /**
+ * Refuse to start if something is already answering on the debugging port.
+ *
+ * Without this the run attaches to *that* process and reports a pass for code it never
+ * loaded — the precise false positive `killTree` below exists to prevent, arriving by the
+ * other door. It matters more than it looks: `verify:full` runs `test:smoke` immediately
+ * before this, so there is always a just-exited Electron in the picture, and an editor with
+ * a debugger attached is the normal state of a developer's machine.
+ *
+ * A refusal that names the port is also a far better failure than a mysterious pass.
+ */
+try {
+  const response = await fetch(`http://127.0.0.1:${String(DEBUG_PORT)}/json/version`, {
+    signal: AbortSignal.timeout(1500),
+  });
+  if (response.ok) {
+    console.error(
+      `DEV-SMOKE-FAIL something is already listening on port ${String(DEBUG_PORT)}. ` +
+        'Attaching to it would test a process this run did not start. Close it and try again.'
+    );
+    process.exit(1);
+  }
+} catch {
+  // Nothing there, which is the expected state.
+}
+
+/**
  * Resolved through `package.json` rather than by naming the bin path directly.
  *
  * `require.resolve('electron-vite/bin/electron-vite.js')` throws `ERR_PACKAGE_PATH_NOT_EXPORTED`:
