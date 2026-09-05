@@ -13,59 +13,32 @@ exactly which is which.
 
 ---
 
-## Before anything works: three repository fixes
+## Three repository fixes that had to happen first — all done
 
-None of them can be applied from inside `electron-builder.yml` or a workflow file. All
-three are small. The first one is load-bearing.
+Kept as a record rather than a task list: each was invisible from inside
+`electron-builder.yml`, each would have failed the first CI run, and each is the kind of
+thing that is obvious only in hindsight.
 
-### 1. ~~`.gitignore` ignores `build/`~~ — fixed
+1. **`.gitignore` ignored `build/`.** `directories.buildResources: build` is where icons,
+   installer artwork and the entitlements plist live, and the ignore line had been written
+   for an output folder this project does not have — electron-vite writes `out/` and
+   electron-builder writes `release/`, both ignored separately. The effect was that no CI
+   checkout had an icon and every automated build would have come out unbranded. The line is
+   gone and a comment stands where it was so nobody re-adds it. The icons come from
+   `npm run icons`; do not edit them by hand, because `tools/icons.test.ts` regenerates them
+   and compares bytes. See [`build/README.md`](../../build/README.md).
+2. **`package:dir` did not exist.** It produces the unpacked application directory without an
+   installer or a DMG — seconds rather than minutes, and the fastest way to check the two
+   things that exist only in a packaged build: that the asar contains what it should, and
+   that the Argon2 worker loads from `app.asar.unpacked` (see
+   [The Argon2 worker](#the-argon2-worker-and-asar)).
+3. **The repository was not Prettier-clean.** `verify.yml` runs `format:check`, which
+   `npm run verify` did not at the time, so the first CI run would have failed on formatting
+   rather than on anything real. `npm run format` once fixed it; `format:check` now sits
+   inside `verify:full`, which is what stops the drift coming back.
 
-`electron-builder.yml` sets `directories.buildResources: build`, which is where icons,
-installer artwork and the entitlements plist live. `.gitignore` used to carry a line
-`build/` under "Build output", written for an output folder this project does not have —
-electron-vite writes to `out/` and electron-builder writes to `release/`, both separately
-ignored. The effect was that no CI checkout had an icon and every automated build was
-unbranded.
-
-The line is gone, and a comment stands where it was so nobody re-adds it. `build/README.md`,
-`build/entitlements.mac.plist` and the generated icons are all committed. The icons come
-from `npm run icons` — see [`build/README.md`](../../build/README.md), and do not edit them
-by hand: `tools/icons.test.ts` regenerates and compares bytes.
-
-### 2. `package.json` — the exact diff
-
-**No `devDependencies` change is required.** `electron-builder` is already present and
-pinned at `26.15.3`, and `electron` at `44.1.1`. The packaging toolchain was installed at
-scaffold time; nothing needs adding, and nothing here asks you to run `npm install`.
-
-The only change is one convenience script:
-
-```diff
-     "package": "npm run build && electron-builder",
-     "package:win": "npm run build && electron-builder --win",
-     "package:mac": "npm run build && electron-builder --mac",
-+    "package:dir": "npm run build && electron-builder --dir",
-     "lint": "eslint .",
-```
-
-`package:dir` produces the unpacked application directory without building an installer or
-a DMG. It takes seconds rather than minutes, and it is the fastest way to check the two
-things that only exist in a packaged build: that the asar archive contains what it should,
-and that the Argon2 worker loads from `app.asar.unpacked` (see
-[The Argon2 worker](#the-argon2-worker-and-asar)).
-
-### 3. Run the formatter once before enabling CI
-
-`verify.yml` runs `npm run format:check`, which `npm run verify` does not. As of writing
-**73 files in the repository are not Prettier-clean**, so the very first CI run would fail
-on formatting rather than on anything real.
-
-```bash
-npm run format
-```
-
-One command, once. After that the CI step is what stops the drift coming back — which is
-the reason it is there rather than the reason to drop it.
+**No `devDependencies` change was ever required.** `electron-builder` is pinned at
+`26.15.3` and `electron` at `44.1.1`; the packaging toolchain was installed at scaffold time.
 
 ---
 
@@ -572,30 +545,68 @@ cannot check:
 
 ---
 
-## What is unverified
+## Platforms: what is published, and what is built from source
+
+**GitHub releases carry the Windows build only.** There is no Mac on this project, and
+buying one to ship a build nobody has asked for yet is not a good trade. macOS and Linux
+users build from source — `npm install && npm run package:mac` or `:linux`, one command,
+no toolchain beyond Node, because there is no native code anywhere in Keyhold that would
+need compiling per architecture.
+
+That is an honest position for a GPL project and a better one than an unsigned Mac build
+Gatekeeper refuses to open anyway. **It has to be said in the README's download section**
+rather than left for a macOS visitor to discover by finding no asset, and it is.
+
+**Nothing in Keyhold is Windows-only.** Quick unlock, the network-name probe and the
+`mac` and `linux` blocks of `electron-builder.yml` all have their branches written. They
+have simply never been _run_. The first person to build on a Mac is the first person to
+find out, and publishing that plainly is better than implying coverage that does not exist.
+
+---
+
+## What is verified, and how
+
+**The packaged Windows build runs, and the Argon2 worker loads from `app.asar.unpacked`.**
+That was the one thing the asar arrangement could not prove about itself, and it is proven:
+`vault.create` returned `ok` after ~3.1 s of Argon2 inside the packaged app, lock and unlock
+both succeeded, and a wrong passphrase was refused with an error naming neither path nor
+password. Three seconds of Argon2 _is_ the redirect working — had it failed, the worker
+would never have loaded and no key would have been derived at all.
+
+**How to repeat it, because the obvious route is closed by design.** `isSmokeRun()` is gated
+on `!app.isPackaged` (`src/main/smoke.ts`), so `npm run test:smoke` cannot be pointed at a
+packaged build: the environment variable is the request and the gate is the permission. The
+route that works is to launch the executable with `--remote-debugging-port`, attach over the
+Chrome DevTools Protocol, and call the preload bridge directly:
+
+```bash
+npm run package:dir
+release/win-unpacked/Keyhold.exe --user-data-dir=<a throwaway profile> --remote-debugging-port=9444
+# then, against http://127.0.0.1:9444/json/list, evaluate in the page:
+#   await window.keyhold.vault.create('<a temp path>.keep', '<a passphrase>')
+```
+
+It needs no change to the app, and it is the technique to reach for any time a question can
+only be answered by a build that is actually packaged.
+
+---
+
+## What is still unverified
 
 Stated plainly, because the alternative is implying a level of confidence this work does
 not have.
 
-- **No packaged build has ever been produced from this configuration.** Not on Windows,
-  not on macOS. The config is schema-valid and the YAML parses; that is not the same as
-  working.
-- **No workflow has ever run.** The repository has no remote yet
-  (`MANUAL-BACKLOG.md` M1), so GitHub Actions has never seen any of these files.
+- **The NSIS installer has never been produced or run.** `package:dir` exercises the
+  unpacked application and nothing about the installer, its shortcuts, its uninstaller or
+  its file association.
 - **There is no Mac.** The universal build, the ad-hoc signature, the DMG, the Gatekeeper
-  wording, and the `.keep` association on macOS are all unexercised. `MANUAL-BACKLOG.md`
-  M2 covers this.
-- **The Argon2-worker-in-asar path is a mitigation, not a verified fix.** `asarUnpack` is
-  the correct mechanism and it is used the way native modules use it, but only unlocking a
-  vault in a packaged build proves it.
+  wording and the `.keep` association on macOS are all unexercised.
 - **The universal macOS build may need to become two per-architecture builds.** Keyhold
   contains no native code, which is the condition for `lipo` having nothing arch-specific
   to reconcile, so it should work. If it does not, the fallback is `arch: [x64, arm64]`
   under `mac.target` and two artifacts instead of one.
-- **The Windows runner's ability to launch Electron is inferred, not observed.** GitHub's
-  Windows runners have an interactive desktop session and Chromium falls back to software
-  rendering, so the smoke test should run. `ELECTRON_ENABLE_LOGGING` is set in both
-  workflows so that if it does not, the log says why.
+- **No Linux build has been produced**, though the AppImage, deb and rpm targets are
+  configured and the `nmcli` network probe is written.
 - **DMG creation is occasionally flaky on hosted macOS runners** (`hdiutil` reporting a
   busy resource). If it appears, re-running the job is the usual fix; if it recurs, it
   needs a retry step rather than a shrug.
@@ -608,4 +619,4 @@ not have.
 - [`build/README.md`](../../build/README.md) — icon specifications and installer artwork
 - [`docs/11-Development/00-Setup-And-Scripts.md`](../11-Development/00-Setup-And-Scripts.md) — every npm script and the local gate
 - [`docs/12-Roadmap/02-Decision-Log.md`](../12-Roadmap/02-Decision-Log.md) — D11 (costs nothing), D16 (unsigned), D14 (pure-WASM Argon2)
-- [`MANUAL-BACKLOG.md`](../../MANUAL-BACKLOG.md) — M1 (the remote), M2 (a real Mac), M4 (certificates)
+- [`docs/12-Roadmap/01-Feature-Backlog.md`](../12-Roadmap/01-Feature-Backlog.md) — F-series, platform and distribution

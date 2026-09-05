@@ -226,8 +226,43 @@ a full **vault → `.kdbx` → Keyhold's KeePass importer** loop, where the two 
 months apart for different reasons and neither was adjusted to make the other pass.
 
 **Not proven.** That KeePassXC opens these files. Nothing offline can prove it — a round trip
-passes for any self-consistent implementation. The schema check is a manual step and is listed
-as one in [`MANUAL-BACKLOG.md`](../../MANUAL-BACKLOG.md) (**M-KDBX-INTEROP**).
+passes for any self-consistent implementation, including a wrong one. The cryptography is
+pinned to published vectors, so the gap is not the framing or the key chain; it is the
+**schema**: whether KeePass wants these element names, in this nesting, with times in this
+encoding.
+
+Until somebody checks, the export screen carries a **Not verified yet** badge on the KDBX
+format saying exactly that, and the README and the landing page describe it as untested
+rather than as a route off the app.
+
+### The manual check, when there is a KeePassXC to hand
+
+Install KeePassXC (keepassxc.org, or `winget install KeePassXCTeam.KeePassXC`), export a
+vault with a few records, at least one folder, at least one custom field and at least one
+security question, choosing **KeePass database (KDBX 4)**. Open it with that passphrase and
+look at four things — each one is a different layer failing:
+
+1. **Every record is present, in the right group.** The group tree is the part most likely
+   to be nested wrongly.
+2. **Passwords are hidden in the entry list, not shown as plain text.** That is the
+   `Protected="True"` attribute working; if they are visible, the inner stream is not being
+   applied to the values it should be.
+3. **Created and modified dates look like real dates, not the year 1.** A wrong date means
+   the timestamp encoding is KDBX 3's ISO string rather than KDBX 4's base64 uint64.
+4. **Custom fields carry their labels, and a secret one is shown as protected.**
+
+Then the other direction: make a small database in KeePassXC with an **attachment** on one
+entry, save it as KDBX 4, and import it into Keyhold. The attachment must be reported as not
+imported. That path is covered by a test — `writeKdbx` takes a `binaries` injection point so
+the suite can build a database with attachments and assert the count — but the test cannot
+say whether a KeePassXC-written attachment is shaped the way Keyhold's writer shapes one,
+which is the same self-consistency gap as everything else here.
+
+**If KeePassXC refuses the file outright rather than opening it wrongly, that is the better
+failure**: it means the framing or the key chain is off, which is the half with the most test
+coverage and the easiest to bisect. A file that opens with wrong contents points at
+`src/main/export/kdbx.ts` (the schema); a file that will not open points at `src/main/kdbx/`
+(the framing).
 
 Three bugs were found by tests rather than by review, and each is recorded where it was fixed:
 

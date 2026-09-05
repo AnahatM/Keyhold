@@ -63,6 +63,27 @@ Injections performed so far:
 | `tools/file-length.test.ts`              | 20 code lines appended to a 488-line file · **60 comment lines** appended to the same file · an allow-listed file stubbed down to 10 lines  | First and third caught. The second correctly did **not** fire — that is the comment discount working, and it is the half of the guard most likely to break silently. An earlier attempt injected into a file whose size had been guessed rather than measured, and caught nothing; that near-miss is why the ceiling in that file is quoted from a measurement |
 | `tools/no-secret-in-a-log.test.ts`       | A secret interpolated into a URL template · `searchParams.set` with a secret · an innocent help URL whose path contains the word "password" | First two caught. The third correctly ignored — a URL rule that failed on a constant help link would be switched off in a week, so that case is the one that decides whether the rule ships                                                                                                                                                                    |
 
+## Numbers written in prose
+
+Hard rule 9: a number written in a document gets a test that parses it back out of the
+document. Three guards enforce it — `tools/doc-counts.test.ts` for the README's format and
+theme counts, `tools/keep-spec-matches-code.test.ts` for the KEEP format spec's byte
+offsets, field sizes, magic bytes and KDF parameters, and `tools/doc-paths.test.ts` for
+every file path a document cites.
+
+The KEEP spec one matters most and is worth saying why: that document is written to be
+**implementable by a third party**, and the no-lock-in claim rests on it. A drifted number
+there does not confuse a colleague — it produces a wrong reader, on somebody else's machine,
+months later, with nothing to trace it back to. It is fault-injected in both directions,
+including from the code side, because the guard has to fire when a constant moves away from
+the prose and not only when somebody edits the prose.
+
+**Per-file test counts are deliberately not written down.** The feature pages used to carry
+tables of how many tests each file had; they say `npx vitest run <dir>` instead. That is a
+better answer than a number: it is current by construction, and it tells a reader how to see
+the tests rather than how many there are. Restoring counts in order to guard them would add
+churn to every feature page on every test added, for a figure nobody acts on.
+
 ## Test environments
 
 Vitest runs two projects, because the two halves of the app have different rules:
