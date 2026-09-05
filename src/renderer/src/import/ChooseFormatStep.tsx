@@ -130,6 +130,28 @@ export function ChooseFormatStep({
           </p>
         </div>
       )}
+
+      {/*
+        Shown on every import, not only when detection was unsure, and stated once rather
+        than as a chip on each of the twenty formats — the caveat is identical for all of
+        them, and twenty identical badges teach people to stop reading badges.
+
+        It is the honest counterpart to the export screen's "Not verified yet" chips. Every
+        import fixture in this repository is *synthetic*: hand-written to the published or
+        observed shape of each format, with values like `example.com` and `hunter2`. No
+        genuine export produced by any of these applications has ever been read here, so
+        what the parser tests prove is that Keyhold agrees with Keyhold's understanding of
+        the format — which is not the same as agreeing with the file you are about to give
+        it. Saying so is cheap; a user discovering it from a half-imported vault is not.
+      */}
+      <p className="kh-import-note kh-import-note--warning">
+        <Icon name="warning" /> <strong>Import is not yet verified against real exports.</strong>{' '}
+        Keyhold&rsquo;s readers are built and tested against files written to each format&rsquo;s
+        published shape, not against genuine exports from these applications — so a real file may be
+        read wrongly, or refused. The next screen is a dry run that shows exactly what would be
+        created before anything is written, and nothing is imported until you approve it.{' '}
+        <strong>Keep your original export until you have checked the result.</strong>
+      </p>
     </div>
   );
 }

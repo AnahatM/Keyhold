@@ -199,7 +199,14 @@ test could never fail. No coverage target is chased.
 
 Git, on `main`. Remote: `AnahatM/Keyhold` — created and pushed, **private for now**.
 
-- Commit per completed slice, once lint, typecheck and tests are green.
+- Commit per completed slice, once lint, typecheck and tests are green. Anything touching
+  `src/main/` or `src/preload/` also needs `npm run build && npm run test:smoke` first.
 - **Stage by explicit path. Never `git add -A` or `git add .`.**
-- Never push, force-push, or open a PR unless asked.
-- Commit messages end with the co-authorship trailer defined in the session.
+- **Push every commit** to `origin main` as it is made. This is a standing instruction and
+  overrides the global `CLAUDE.md`'s "never push unless asked" — the remote is the working
+  copy that survives moving between machines, and this project has already been resumed on a
+  second computer once.
+- **Never force-push, and never open a PR, unless asked.** The push above is a fast-forward
+  of `main`; anything that rewrites published history is a separate decision.
+- **No co-authorship or session trailer in commit messages.** The project is going public and
+  the history is meant to read as the project's own. A message ends with its last paragraph.

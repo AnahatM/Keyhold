@@ -371,29 +371,26 @@ the half with the most test coverage and the easiest to bisect.
 
 ---
 
-## 🟡 M-PRIVACY · `PRIVACY.md` has gone stale in the under-claiming direction
+## ~~M-PRIVACY~~ — `PRIVACY.md` was stale; it no longer is — **withdrawn 2026-09-05**
 
-**Why it is amber rather than green:** `PRIVACY.md` is a published promise about behaviour, and
-a promise that is wrong — in either direction — is the one kind of documentation defect that
-costs trust rather than time. It is outside the paths the documentation pass may edit.
+This asked for three corrections to `PRIVACY.md`. All three were overtaken by the code, and
+the entry itself had become the stale document. Re-checked line by line against the source
+before withdrawing:
 
-It was corrected once (doc-audit finding F7) to say that the settings screen, the consent screen
-and the global network kill-switch did not exist. Two of those three have since landed:
+1. **The settings screen is reachable**, and "Settings → History & audit" names a real
+   control — the audit-privacy-level selector (`none` / `device` / `network` / `full`).
+   `PRIVACY.md` already says exactly that.
+2. **The network kill-switch has a UI control**, which is the one thing this entry said was
+   missing. It is rendered by `SecuritySessionSection.tsx` under `settingId="networkAllowed"`,
+   and the smoke run asserts it is present and off (`network-kill-switch-present-and-off`).
+   `PRIVACY.md`'s "two switches, not one" paragraph is accurate as written.
+3. **The breach check is no longer unreachable** — it shipped, opt-in and off by default,
+   behind two switches and a consent dialog. `PRIVACY.md` describes it that way, at length,
+   including what the service can and cannot infer. The old "nothing constructs a transport"
+   sentence would now be _wrong_, and it is correctly gone.
 
-1. **The settings screen is reachable.** `SettingsScreen` is the `settings` tool view, mounted by
-   `src/renderer/src/vault/VaultScreen.tsx` and openable from the sidebar's tool rows or the
-   native **Settings** menu item. "Settings → Privacy" no longer names a route that does not
-   exist — and the audit-privacy-level control (`none` / `device` / `network` / `full`) really is
-   in the history-and-audit section of that screen, so that sentence is now simply true.
-2. **The global network kill-switch exists** — `src/main/network-policy.ts` plus the
-   machine-scoped `Preferences.networkAllowed`, off by default and fail-closed (decision D23).
-   What does **not** exist is a UI control for it: it is writable over
-   `kh:settings:update-machine` and nothing renders a toggle, so today it is reachable only by
-   editing `preferences.json` in the user-data directory. Say that plainly rather than implying
-   a switch in Settings.
-3. **Still true, and worth keeping as the strongest sentence on the page:** the breach check is
-   unreachable. Nothing constructs a transport, so no code path in the running app makes a
-   request — a guarantee stronger than a setting.
+**Nothing is owed here.** Kept as a heading rather than deleted, like M3 and M-KDBX above, so
+the numbering and the reasoning survive.
 
 ---
 

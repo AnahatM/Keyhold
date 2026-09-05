@@ -13,6 +13,24 @@ import { tmpdir } from 'node:os';
  * Electron runtime — the whole reason it exists is that a sandboxed-ESM-preload defect
  * builds cleanly, launches cleanly, and silently leaves `window.keyhold` undefined.
  * See src/main/smoke.ts.
+ *
+ * ## A failure mode that is not a failing check
+ *
+ * This run has been observed to die with **exit code 4294967295 (-1)** and no `SMOKE-FAIL`
+ * marker, at a *different point each time* — sometimes on the first vault screen, sometimes
+ * eighty checks later. It is usually preceded in the log by Chromium's own
+ * `Network service crashed or was terminated, restarting service.`
+ *
+ * Measured, rather than assumed: it appeared only while several other Electron processes
+ * were alive on the same machine (a packaged build being driven over CDP alongside a dev
+ * server), and six of seven runs passed once those were gone — most recently four for four.
+ * So the current reading is host load or a Chromium service dying under it, not a check
+ * failing and not a defect in the app.
+ *
+ * **What to do if you see it:** re-run once with nothing else Electron-shaped running. If it
+ * reproduces on a quiet machine, that is new information and worth chasing — a moving
+ * failure point usually means a lifecycle race rather than a bad assertion. What it is not
+ * is a reason to relax a check; nothing here has ever reported `false` during one of these.
  */
 
 const require = createRequire(import.meta.url);
