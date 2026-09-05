@@ -393,16 +393,21 @@ Linux 1×, Windows 2×, macOS **10×**. The free allowance divided by ten is not
 runs. Keyhold's owner pays for nothing (decision D11), so macOS is not in the pull-request
 gate.
 
-This is a real gap and it is worth naming rather than burying: **a macOS-only regression
-can reach a release tag.** Two things partially cover it — the release workflow runs the
-launch smoke test on `macos-latest` before uploading anything, and `MANUAL-BACKLOG.md` M2
-is the manual pass on real hardware.
+**That gap is closed.** The repository is public, standard runners are free, and
+`verify.yml` is a matrix over `windows-latest` and `macos-latest` with `fail-fast: false`,
+so a failure on one platform does not hide the other's result.
 
-The moment the repository goes public (`MANUAL-BACKLOG.md` M5) standard runners are free,
-and `verify.yml` should become a matrix over `windows-latest` and `macos-latest`. It is a
-four-line change, flagged in a comment in the file itself.
+It was worth closing, and the first run proves it: **the first time this project's suite ran
+on macOS it found three real defects**, every one of which had been green on Windows for
+months. A Windows path built with the host's separator, so `join` produced
+`D:\Windows/System32/netsh.exe` off Windows. And two test fixtures that only parsed on
+Windows — one of them guarding the rule that no directory path ever reaches a recovery
+report, which is a security property. None of them could reach a user, because each is in a
+branch that only runs on the platform it was written for; all three were guards that had
+quietly stopped guarding on any machine but one.
 
-Linux is absent for a different reason: it is not built or shipped at all (backlog F1).
+Linux is absent for a different reason: it is not built or shipped at all (backlog F1), and
+`test:smoke` would need `xvfb-run` there since the runners have no display.
 
 ### The launch smoke test in CI — what is actually true
 
@@ -440,9 +445,13 @@ vulnerability in Keyhold. Build-time dependencies are reported but do not fail, 
 the ESLint/Vite/electron-builder tree produces advisories often enough that failing on
 them would train everyone to ignore the workflow entirely.
 
-`actions/dependency-review-action` would be the natural per-PR companion, but it needs
-GitHub's dependency graph, which private repositories only get under Advanced Security.
-Add it when the repository goes public.
+`actions/dependency-review-action` is the per-PR companion, and it lives in `verify.yml` as
+the `dependencies` job now that the repository is public and the dependency graph is
+available. The two ask different questions: the weekly audit asks whether anything already
+depended on has become known-bad, and the review asks whether a pull request is _adding_
+something known-bad — the cheaper question, at the better moment. It fails on `moderate`,
+matching the runtime threshold above, and denies four licences that would be incompatible
+with distributing Keyhold under GPL-3.0-or-later.
 
 > Scheduled workflows are automatically disabled after **60 days** of repository
 > inactivity. If the audit stops appearing, that is why; re-enable it from the Actions tab.

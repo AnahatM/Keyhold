@@ -7,10 +7,11 @@
 # is the one route that can appear without anybody touching this repository. So it gets a
 # clock rather than waiting for someone to remember.
 #
-# `actions/dependency-review-action` would be the natural companion to this on pull
-# requests, but it requires the dependency graph, which GitHub only provides for private
-# repositories under Advanced Security. Add it the day the repo goes public
-# (MANUAL-BACKLOG M5) — see docs/13-Packaging/00-Building-And-Releasing.md.
+# `actions/dependency-review-action` is the companion to this on pull requests, and it lives
+# in verify.yml now that the repository is public and the dependency graph is available. The
+# two ask different questions: this one asks whether anything already depended on has become
+# known-bad this week, and that one asks whether a pull request is adding something known-bad
+# — which is the cheaper question and the better moment to ask it.
 
 name: Audit
 

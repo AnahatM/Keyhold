@@ -28,23 +28,68 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Dependency review on pull requests, which needs the dependency graph GitHub only
+  # provides free on a public repository — which is why this could not exist until now.
+  #
+  # It is the companion to audit.yml's weekly `npm audit`: that one asks "is anything we
+  # already depend on known-bad this week", and this one asks "does this pull request add
+  # something known-bad", which is the cheaper question to answer and the better moment to
+  # answer it. Keyhold's dependency list is closed at six runtime packages, so a pull
+  # request that adds one at all is worth a second look on its own.
+  dependencies:
+    name: Dependency review
+    # Pull requests only. The action compares the base and head of a PR; on a push there is
+    # no pair to compare and it fails rather than no-opping.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # The action reads the dependency graph for the two commits it compares.
+      pull-requests: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Review the dependency change
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # `moderate`, matching audit.yml's runtime threshold and for the same reason: the
+          # blast radius is a password manager.
+          fail-on-severity: moderate
+          # GPL-3.0-or-later can take any GPL-compatible dependency, so the licence check is
+          # about noticing a surprise rather than blocking a category. These four are the
+          # ones that would actually be incompatible with distributing Keyhold.
+          deny-licenses: AGPL-3.0, SSPL-1.0, BUSL-1.1, Elastic-2.0
+
   verify:
-    name: Gate (Windows)
-    # Windows only, deliberately.
+    name: Gate (${{ matrix.os }})
+    # Windows and macOS, since the repository went public.
     #
-    # On a PRIVATE repository GitHub bills Actions minutes with a platform multiplier:
-    # Linux 1x, Windows 2x, macOS 10x. A macOS job in the PR gate would burn the entire
-    # free allowance in a few dozen pull requests, and Keyhold's owner pays for nothing
-    # (decision D11). macOS is therefore exercised on release tags only — see
-    # release.yml — plus the manual pass in MANUAL-BACKLOG M2.
+    # It was Windows-only for as long as the repository was private, because GitHub bills
+    # Actions minutes on a private repo with a platform multiplier — Linux 1x, Windows 2x,
+    # macOS 10x — and a macOS job in the gate would have burned the free allowance in a few
+    # dozen pull requests, against decision D11's promise that this project costs nothing to
+    # run. Standard runners are free on a public repository, so the gap closed with it.
     #
-    # This is a real gap, not a solved problem: a macOS-only regression can reach a tag.
-    # The moment the repository goes public (MANUAL-BACKLOG M5) standard runners are free
-    # and this should become a matrix over windows-latest and macos-latest.
+    # **It was a real gap and it was hiding real bugs.** The first macOS run this project
+    # ever did found three: a Windows path built with the host's separator, and two test
+    # fixtures that only parsed on Windows — one of them guarding the rule that no directory
+    # path ever reaches a recovery report. Every one of them had been green on Windows for
+    # months.
     #
     # Linux is not built or shipped at all (backlog F1), so it is absent for a different
-    # reason than macOS.
-    runs-on: windows-latest
+    # reason than macOS, and `test:smoke` would need `xvfb-run` there.
+    strategy:
+      # A macOS failure must not hide a Windows one, or the other way round. Each platform's
+      # result is worth having on its own.
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     # An Electron window that never reports back would otherwise sit here until GitHub's
     # 6-hour ceiling, metered at 2x the whole way.
     timeout-minutes: 25
