@@ -83,13 +83,17 @@ that, and quietly overstates how much is outstanding.
 
 ## Owed guards
 
-- [ ] The **second half** of the reachability rule is still one hand-written check at a time.
-      `tools/bridge-is-used.test.ts` now generalises the first half — every member of
-      `KeyholdApi` must be used somewhere under `src/renderer/`, which catches a capability
-      that was never wired up, and found three on its first run. What it cannot see is a call
-      site that _exists_ inside a component nothing renders; that is how `BreachSection` was
-      stranded despite `useBreachCheck` calling the bridge. Only the smoke run reaches it, and
-      only where somebody wrote the check. **This is the highest-value item left on this page.**
+- [x] ~~The **second half** of the reachability rule.~~ **Done** —
+      `tools/renderer-is-reachable.test.ts`. The entry that used to sit here said this half
+      "needs a running app"; it does not. Walking the import graph from the application entry
+      and from every test file answers it statically: a module nothing imports cannot run,
+      whatever its own tests say. It found four dead modules on its first run — two complete
+      gateway doubles nothing drives and two unused barrels — now backlog E23 and E24. The
+      three candidate forms were measured before one was chosen, and the measurements are in
+      the file so nobody repeats them blind. Four fault injections, including the anti-rot
+      half that refuses an exemption for a module which has since been wired up. What still
+      needs a running app is the third question — whether a reachable component renders
+      anything — and that remains `src/main/smoke.ts`'s job.
 - [x] ~~**No gate runs `npm run dev`.**~~ **Done** — `tools/dev-smoke.mjs`, wired into
       `verify:full` as `npm run test:dev-smoke`. It starts electron-vite, attaches to the
       renderer over CDP and asserts five things: the page is served by the dev server, `#root`

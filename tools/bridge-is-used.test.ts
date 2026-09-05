@@ -30,10 +30,15 @@ import { describe, expect, it } from 'vitest';
  *
  * A method that is called is not thereby *reachable* — the call could sit in a component
  * nothing renders, which is how `BreachSection` was stranded even though `useBreachCheck`
- * called the bridge. That second half needs a running app and belongs to
- * `src/main/smoke.ts`, which now asserts the breach panel is present and idle. The two guards
- * are complementary and neither replaces the other: this one is exhaustive over the API and
- * blind past the call site; the smoke run is the reverse.
+ * called the bridge. This file is blind past the call site, and deliberately.
+ *
+ * That second half is now covered too, and it did **not** need a running app after all, which
+ * is worth recording because this comment claimed for a while that it did.
+ * `tools/renderer-is-reachable.test.ts` walks the import graph from the application entry and
+ * from every test file: a module nothing imports cannot run, whatever its own tests say. It
+ * found four dead modules on its first run. What still needs a running app is the third
+ * question — whether a reachable component actually renders anything — and that is
+ * `src/main/smoke.ts`, which asserts the breach panel is present and idle.
  *
  * ## Why the parser rather than a regex
  *
