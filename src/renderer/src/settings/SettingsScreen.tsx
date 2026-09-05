@@ -16,6 +16,7 @@ import { HelpSection } from './HelpSection.js';
 import { HistoryAuditSection } from './HistoryAuditSection.js';
 import { MasterPasswordSection } from './MasterPasswordSection.js';
 import { SecuritySessionSection } from './SecuritySessionSection.js';
+import { TraySection } from './TraySection.js';
 import { VaultSection } from './VaultSection.js';
 import { ScopeBadge } from './SettingControls.js';
 import { createBridgeGateway } from './settings-gateway.js';
@@ -108,6 +109,7 @@ export function SettingsScreen({
       { id: 'kh-settings-appearance', label: 'Appearance' },
       { id: 'kh-settings-theme-studio', label: 'Theme studio' },
       { id: 'kh-settings-security', label: 'Security & session' },
+      { id: 'kh-settings-tray', label: 'System tray' },
     ];
     if (snapshot?.vault != null) {
       entries.push(
@@ -219,6 +221,13 @@ export function SettingsScreen({
           quickUnlock={snapshot.quickUnlock}
           hasVault={snapshot.vault !== null}
         />
+
+        {/*
+          Directly after the security section and before the vault-scoped ones, because it is
+          machine-scoped like the section above it and because `lockOnHideToTray` only makes
+          sense read against the auto-lock rules there.
+        */}
+        <TraySection controller={controller} machine={snapshot.machine} />
 
         {snapshot.vault === null ? (
           <p className="kh-callout kh-callout--vault">

@@ -15,7 +15,9 @@
  * | `file-open-request.ts` — path validation    | `shell-controller.ts`  |
  * | `window-placement.ts` — off-screen fallback |                        |
  * | `shortcut-parity.ts` — menu vs renderer     |                        |
- * | `shell-settings.ts` — settings + coercion   |                        |
+ * | (settings + coercion now live in            |                        |
+ * |  `@shared/model/shell-settings.ts`, because |                        |
+ *  | the settings screen configures them)       |                        |
  *
  * Every decision is on the left. The right-hand column translates and wires, and holds no
  * logic that a test would have anything to say about.
@@ -93,7 +95,7 @@ export {
   DEFAULT_SHELL_SETTINGS,
   coerceShellSettings,
   type ShellSettings,
-} from './shell-settings.js';
+} from '@shared/model/shell-settings.js';
 
 export { watchPowerEvents, type PowerEvent, type PowerWatchHandle } from './power-events.js';
 

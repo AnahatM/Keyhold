@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { join } from 'node:path';
 import { app, BrowserWindow } from 'electron';
 import { EVENTS } from '@shared/ipc/api.js';
 import { DEFAULT_BREACH_CHECK_SETTINGS } from '@shared/model/breach.js';
@@ -18,7 +19,12 @@ import { OriginCapture } from './history/origin.js';
 import { SystemNetworkProbe } from './history/network-name.js';
 import { applySessionHardening, applyWebContentsHardening } from './security.js';
 import { isSmokeRun, runSmokeCheck } from './smoke.js';
-import { installOpenFileHandler, NativeShell, type MenuCommandId } from './shell/index.js';
+import {
+  installOpenFileHandler,
+  loadTrayIcon,
+  NativeShell,
+  type MenuCommandId,
+} from './shell/index.js';
 import { SessionController } from './session/session-controller.js';
 import { mirrorVault, type MirrorResult } from './vault/mirror-backup.js';
 import { VaultService } from './vault/vault-service.js';
@@ -185,6 +191,25 @@ session.onKdfProgress((progress) => {
  * The shell, once the app is ready. Held at module scope so `before-quit` and `will-quit`
  * can reach it — without `prepareToQuit` a close-to-tray build cannot be quit at all.
  */
+/**
+ * Where the tray icon lives, in a dev tree and in a packaged app.
+ *
+ * `build/icons/` holds electron-builder's *inputs*, which are not shipped by the `files`
+ * allow-list — so the two sizes the tray needs are copied to `resources/icons/` by an
+ * `extraResources` entry, and this function is the only place that knows both layouts.
+ *
+ * **16 on macOS, 32 elsewhere.** The macOS menu bar renders a template image at its own
+ * logical size, so anything larger than 16 is visibly oversized there; Windows and most
+ * Linux shells ask for 16 logical pixels but downscale a 32 cleanly, which is what keeps
+ * the icon from going soft at 150% display scaling.
+ */
+function trayIconPath(): string {
+  const file = process.platform === 'darwin' ? '16x16.png' : '32x32.png';
+  return app.isPackaged
+    ? join(process.resourcesPath, 'icons', file)
+    : join(import.meta.dirname, '../../build/icons', file);
+}
+
 let shell: NativeShell | null = null;
 
 /**
@@ -319,6 +344,10 @@ if (!gotTheLock) {
       },
       userDataPath: app.getPath('userData'),
       getWindow: () => mainWindow,
+      // Lazy on purpose: the shell is constructed below, after the window exists. Reading
+      // `shell` through a closure rather than passing the object means the settings handler
+      // reaches whatever shell is current, including none during early startup.
+      applyShellSettings: (tray) => shell?.updateSettings(tray),
     });
 
     const window = createMainWindow();
@@ -335,6 +364,12 @@ if (!gotTheLock) {
     // copy of the enable/disable rules, and the weaker copy would have been the one in
     // force — the duplicate-list failure hard rule 8 exists to prevent.
     shell = new NativeShell({
+      // Both were previously left to default, and the pair of omissions is what made the
+      // tray a feature that existed only in its own source file: `showTrayIcon` defaults
+      // to true, so every launch asked for a tray, found `#trayIcon` null, and logged
+      // "no tray icon available" instead of creating one.
+      settings: session.machineSettings().tray,
+      trayIcon: loadTrayIcon(trayIconPath()),
       host: {
         appName: app.name,
         platform: process.platform,

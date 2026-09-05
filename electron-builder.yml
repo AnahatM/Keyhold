@@ -28,9 +28,9 @@ publish: null
 directories:
   # `release/` is already gitignored, so build output can never be committed by accident.
   output: release
-  # Icons, installer artwork and the (currently unused) entitlements plist.
-  # NOTE: `build/` is presently listed in .gitignore — see docs/13-Packaging for the
-  # one-line fix that must be applied before CI can produce a branded build.
+  # Icons, installer artwork and the (currently unused) entitlements plist. `build/` is
+  # tracked in git — .gitignore says so explicitly, because ignoring it once meant it never
+  # reached a CI checkout and every automated build came out unbranded.
   buildResources: build
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -58,6 +58,17 @@ files:
 # invisible.
 extraResources:
   - LICENSE
+  # The tray icon. `build/` holds electron-builder's *inputs* and is not in the `files`
+  # allow-list above, so without this the packaged app has no icon file to hand `Tray` —
+  # and `nativeImage.createFromPath` answers a missing file with an *empty* image rather
+  # than an error, which is an invisible, clickable dot in the notification area. Two
+  # sizes: 16 is what the macOS menu bar renders at, 32 is what Windows downscales from
+  # without going soft at 150% display scaling. `src/main/index.ts` picks between them.
+  - from: build/icons
+    to: icons
+    filter:
+      - 16x16.png
+      - 32x32.png
 
 # The Argon2 worker is loaded with `new Worker(<path>)` at runtime (src/main/crypto/
 # kdf-runner.ts), not imported. Loading a worker entry point from inside an asar archive

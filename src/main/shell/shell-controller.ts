@@ -19,7 +19,7 @@ import type { MenuCommandId } from './menu-commands.js';
 import { buildMenuModel, type MenuSection, type ShellState } from './menu-model.js';
 import { applyMenu } from './menu-template.js';
 import { watchPowerEvents, type PowerEvent, type PowerWatchHandle } from './power-events.js';
-import { DEFAULT_SHELL_SETTINGS, type ShellSettings } from './shell-settings.js';
+import { DEFAULT_SHELL_SETTINGS, type ShellSettings } from '@shared/model/shell-settings.js';
 import { createTray, type TrayHandle } from './tray.js';
 import { isVisibleOnSomeDisplay } from './window-placement.js';
 

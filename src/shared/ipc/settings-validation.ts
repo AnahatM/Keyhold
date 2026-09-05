@@ -86,6 +86,7 @@ export function requireMachineSettingsPatch(
     wipeAfterFailedAttempts?: number | null;
     networkAllowed?: boolean;
     blockScreenCapture?: boolean;
+    tray?: MachineSettings['tray'];
   } = {};
 
   if (value.networkAllowed !== undefined) {
@@ -100,6 +101,22 @@ export function requireMachineSettingsPatch(
       value.blockScreenCapture,
       'blockScreenCapture'
     );
+  }
+
+  if (value.tray !== undefined) {
+    if (!isObject(value.tray)) {
+      throw new IpcValidationError(channel, 'tray must be an object');
+    }
+    const source = value.tray;
+    // Every field required, like `autoLock` below and unlike the flat booleans above: a
+    // partial object here would silently reset the fields it omitted to whatever the
+    // spread put there. The screen sends the whole group; the boundary insists on it.
+    patch.tray = {
+      showTrayIcon: requireBoolean(channel, source.showTrayIcon, 'tray.showTrayIcon'),
+      closeToTray: requireBoolean(channel, source.closeToTray, 'tray.closeToTray'),
+      minimiseToTray: requireBoolean(channel, source.minimiseToTray, 'tray.minimiseToTray'),
+      lockOnHideToTray: requireBoolean(channel, source.lockOnHideToTray, 'tray.lockOnHideToTray'),
+    };
   }
 
   if (value.autoLock !== undefined) {

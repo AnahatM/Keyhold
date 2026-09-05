@@ -169,6 +169,7 @@ export class SessionController {
       blockScreenCapture: preferences.blockScreenCapture,
       mirrorDirectory: preferences.mirrorDirectory,
       mirrorKeep: preferences.mirrorKeep,
+      tray: preferences.tray,
     };
   }
 

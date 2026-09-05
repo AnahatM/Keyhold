@@ -126,7 +126,6 @@ const PURE_FILES: readonly string[] = [
   'file-open-request.ts',
   'menu-commands.ts',
   'menu-model.ts',
-  'shell-settings.ts',
   'shortcut-parity.ts',
   'tray-model.ts',
   'window-placement.ts',

@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app } from 'electron';
+import { coerceShellSettings, type ShellSettings } from '@shared/model/shell-settings.js';
 import { writeJsonFileSync } from '../config-file.js';
 import { coerceAutoLockSettings, type AutoLockSettings } from './auto-lock.js';
 import type { QuickUnlockRecord } from './quick-unlock.js';
@@ -60,6 +61,8 @@ export interface Preferences {
   /** Where a copy of the vault is mirrored after each save. `null` disables it. */
   readonly mirrorDirectory: string | null;
   readonly mirrorKeep: number;
+  /** The tray item and the window gestures that hide into it. See `ShellSettings`. */
+  readonly tray: ShellSettings;
   /** Quick-unlock enrolments, keyed by vault id. */
   readonly quickUnlock: Readonly<Record<string, QuickUnlockRecord>>;
   /**
@@ -84,6 +87,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   blockScreenCapture: true,
   mirrorDirectory: null,
   mirrorKeep: 3,
+  tray: coerceShellSettings(undefined),
   quickUnlock: {},
   kdfMsPerCostUnit: null,
 };
@@ -181,6 +185,9 @@ export function coercePreferences(value: unknown): Preferences {
       typeof raw.mirrorKeep === 'number' && Number.isInteger(raw.mirrorKeep) && raw.mirrorKeep > 0
         ? Math.min(raw.mirrorKeep, 50)
         : 3,
+    // Field by field, with the same degrade-one-setting-at-a-time contract as `autoLock`
+    // above, and with the tray lockout corrected rather than honoured.
+    tray: coerceShellSettings(raw.tray),
     quickUnlock,
     // A finite positive number or nothing. A stored `0`, a negative, a `NaN` round-tripped
     // through JSON as `null`, or a string all fall back to "not measured yet" — which costs

@@ -1669,6 +1669,31 @@ export function runSmokeCheck(window: BrowserWindow): void {
             );
             emit(`SMOKE-CHECK screen-capture-switch-present-and-on ${String(capture === 'on')}`);
 
+            // The tray group, checked the same way, and it is the check this section was
+            // most in need of. Every part of the tray was built and tested while nothing
+            // constructed it and nothing rendered a control for it, so the app shipped
+            // asking for a tray on every launch and silently getting none. The structural
+            // guard in `tray-is-wired.test.ts` asserts the wiring; this asserts that the
+            // controls actually reach the screen in a running app, which is the half a
+            // parser cannot see.
+            const trayRows: unknown = await window.webContents.executeJavaScript(
+              `(() => {
+                const wanted = [
+                  'Show a Keyhold icon in the system tray',
+                  'Closing the window keeps Keyhold running in the tray',
+                  'Minimising hides the window to the tray',
+                  'Lock the vault when the window is hidden to the tray',
+                ];
+                const rows = [...document.querySelectorAll('label, .kh-setting')];
+                return wanted.filter((text) =>
+                  rows.some((element) => element.textContent?.includes(text))
+                ).length;
+              })()`,
+              true
+            );
+            emit(`SMOKE-NOTE tray-rows-found ${String(trayRows)}`);
+            emit(`SMOKE-CHECK tray-settings-are-on-screen ${String(trayRows === 4)}`);
+
             // Scrolled to Security & session before the shot. Appearance is the top of this
             // screen and the theme picker is already shown elsewhere; the security block is
             // the part that is actually Keyhold's argument — auto-lock, quick unlock, and

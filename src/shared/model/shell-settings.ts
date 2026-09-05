@@ -10,6 +10,12 @@
  *
  * Decision D10: every behaviour here is a user choice, and the defaults are the
  * conservative reading of each one.
+ *
+ * **It lives in `shared/` rather than beside the shell because the settings screen owns
+ * these choices.** It sat in `src/main/shell/` while nothing configured it, and that is
+ * precisely how `showTrayIcon` came to default to `true` with no icon behind it and no
+ * control in front of it: the whole group was reachable only from a file the renderer
+ * cannot import. `MachineSettings.tray` is this type, not a copy of it — hard rule 8.
  */
 
 export interface ShellSettings {

@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { DEFAULT_KDF_PARAMS, MAX_KDF_PARAMS, MIN_KDF_PARAMS } from '../format/types.js';
 import {
+  coerceShellSettings,
+  DEFAULT_SHELL_SETTINGS,
+  type ShellSettings,
+} from './shell-settings.js';
+import {
   DEFAULT_VAULT_HEALTH_SETTINGS,
   DEFAULT_VAULT_SETTINGS,
   type VaultHealthSettings,
@@ -153,6 +158,18 @@ export interface MachineSettings {
   readonly mirrorDirectory: string | null;
   /** How many dated copies to keep in that folder. */
   readonly mirrorKeep: number;
+  /**
+   * The system tray / menu-bar item, and the two window gestures that can hide into it.
+   *
+   * Machine-scoped, and obviously so: a tray is a property of the desktop you are sitting
+   * at. `ShellSettings` is the same type the shell controller consumes, not a copy of it.
+   *
+   * **This group shipped unreachable.** `showTrayIcon` defaulted to `true` while nothing
+   * loaded an icon and nothing rendered a control, so every launch asked for a tray, took
+   * the "no tray icon available" branch, and gave the user nothing. Exposing it here is the
+   * other half of the fix; hard rule 7 is what says the icon alone would not have been one.
+   */
+  readonly tray: ShellSettings;
 }
 
 export const DEFAULT_MACHINE_SETTINGS: MachineSettings = {
@@ -165,6 +182,7 @@ export const DEFAULT_MACHINE_SETTINGS: MachineSettings = {
   blockScreenCapture: true,
   mirrorDirectory: null,
   mirrorKeep: 3,
+  tray: DEFAULT_SHELL_SETTINGS,
 };
 
 // ── Vault-scoped ─────────────────────────────────────────────────────────────
@@ -226,6 +244,10 @@ export const SETTING_IDS = [
   'networkAllowed',
   'breachCheck.enabled',
   'blockScreenCapture',
+  'tray.showTrayIcon',
+  'tray.closeToTray',
+  'tray.minimiseToTray',
+  'tray.lockOnHideToTray',
   'historyEnabledByDefault',
   'historyMaxVersions',
   'auditPrivacyLevel',
@@ -262,6 +284,11 @@ export const SETTING_SCOPE: Readonly<Record<SettingId, SettingsScope>> = {
   'breachCheck.enabled': 'vault',
   // Machine-scoped: it is a property of the screen you are sitting at, not of the file.
   blockScreenCapture: 'machine',
+  // Machine-scoped for the same reason: a tray belongs to the desktop, not to the file.
+  'tray.showTrayIcon': 'machine',
+  'tray.closeToTray': 'machine',
+  'tray.minimiseToTray': 'machine',
+  'tray.lockOnHideToTray': 'machine',
   historyEnabledByDefault: 'vault',
   historyMaxVersions: 'vault',
   auditPrivacyLevel: 'vault',
@@ -432,6 +459,10 @@ export function kdfPresetFor(cost: KdfCost): KdfPresetId | null {
 export function clampMachineSettings(settings: MachineSettings): MachineSettings {
   return {
     blockScreenCapture: settings.blockScreenCapture,
+    // Not a clamp but a correction, and it belongs here rather than in the UI: hiding to a
+    // tray that does not exist leaves the window hidden, not minimised, with no icon to
+    // bring it back. `coerceShellSettings` refuses that combination — see its own note.
+    tray: coerceShellSettings(settings.tray),
     mirrorDirectory: settings.mirrorDirectory,
     mirrorKeep: Math.min(Math.max(1, Math.trunc(settings.mirrorKeep)), 50),
     autoLock: {

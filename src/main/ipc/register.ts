@@ -14,6 +14,7 @@ import { readVaultFile } from '../vault/atomic-write.js';
 import type { BreachAvailability } from '@shared/model/breach.js';
 import type { RecoveryReport } from '@shared/model/recovery.js';
 import { diagnoseVault } from '../recovery/diagnose.js';
+import type { ShellSettings } from '@shared/model/shell-settings.js';
 import type { MirrorStatusView } from '@shared/model/settings-plan.js';
 import { mirrorDestinationProblem } from '../vault/mirror-backup.js';
 import { applyContentProtection } from '../window.js';
@@ -344,6 +345,15 @@ export interface IpcContext {
    */
   readonly userDataPath: string;
   readonly getWindow: () => BrowserWindow | null;
+  /**
+   * Hands a changed tray configuration to the native shell, so a toggle takes effect on the
+   * running app rather than at the next launch.
+   *
+   * Optional for the same reason `getWindow` is a function: the IPC layer is tested without
+   * an Electron runtime, and a headless embedding has no shell to update. Its absence means
+   * the setting is still stored and still read at startup — it just does not apply live.
+   */
+  readonly applyShellSettings?: ((settings: ShellSettings) => void) | undefined;
   /**
    * The provenance source, for the settings screen's "what network am I on?" check.
    *
@@ -1454,6 +1464,10 @@ export function registerIpcHandlers(context: IpcContext): void {
     // window that is already open. A switch that needs a restart to protect you is one people
     // flip and then assume is working.
     applyContentProtection(context.getWindow(), session.machineSettings().blockScreenCapture);
+    // Same reasoning one line up, applied to the tray: creating or destroying the icon and
+    // re-reading the hide-on-close rules is `updateSettings`' whole job, and a tray that
+    // appeared only after a restart would be indistinguishable from one that is broken.
+    context.applyShellSettings?.(session.machineSettings().tray);
     return settingsView();
   });
 

@@ -140,6 +140,28 @@ export const SETTING_COPY: Readonly<Record<SettingId, SettingCopy>> = {
     tradeOff:
       'Turning it off means anything that can record your screen can record your passwords.',
   },
+  'tray.showTrayIcon': {
+    label: 'Show a Keyhold icon in the system tray',
+    help: 'On. Puts Keyhold in the notification area (the menu bar on macOS) with a small menu — show the window, lock the vault, quit. The menu deliberately shows nothing about what is in your vault: no record names, no counts, no unlock state beyond locked or unlocked.',
+    tradeOff: null,
+  },
+  'tray.closeToTray': {
+    label: 'Closing the window keeps Keyhold running in the tray',
+    help: 'Off. Today, closing the last window locks the vault and quits, which is what guarantees the keys are gone from memory. With this on, closing hides the window instead and the process keeps running.',
+    tradeOff:
+      'A running Keyhold holds a decrypted vault in the memory of a process you believe you have finished with. The setting below is what limits that, and it is on by default.',
+  },
+  'tray.minimiseToTray': {
+    label: 'Minimising hides the window to the tray',
+    help: 'Off. Minimising sends Keyhold to the notification area rather than the taskbar. The tray icon is the way back.',
+    tradeOff: null,
+  },
+  'tray.lockOnHideToTray': {
+    label: 'Lock the vault when the window is hidden to the tray',
+    help: 'On. A window hidden to the tray fires neither “minimised” nor “lost focus”, so the two auto-lock settings above cannot see it — this is what covers the gesture that actually means “I have put this away”.',
+    tradeOff:
+      'Turning it off means Keyhold can sit in the tray with the vault unlocked for as long as the idle timer allows.',
+  },
   'breachCheck.enabled': {
     label: 'Check this vault’s passwords against Have I Been Pwned',
     help: 'Off. This is the only feature in Keyhold that uses the internet, and it needs the switch above turned on as well. It never sends a password: each one is hashed with SHA-1 locally, the **first five characters** of that hash are sent, and the service answers with every leaked hash sharing those five — hundreds of thousands of them — which Keyhold searches on your machine. The service therefore cannot tell which password you asked about, or whether it was found. This setting travels with the vault file, so a copy of it on another machine is not checked unless you turn this on there too.',
