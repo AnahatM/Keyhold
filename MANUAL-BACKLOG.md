@@ -421,23 +421,31 @@ the numbering and the reasoning survive.
 
 ---
 
-## 🟢 M-GUARD · Numbers in prose that hard rule 9 says should be guarded
+## ~~M-GUARD~~ · Numbers in prose that hard rule 9 says should be guarded — **done**
 
-Rule 9 says a number written in prose gets a test that parses it back out of the doc. Two such
-guards already exist (`docs/14-Audits/01-Doc-Code-Audit.md`, "Two new guards"). The documentation
-catch-up pass removed most remaining unguarded counts by describing what is covered instead of
-counting it — but a guard would be better than a deletion in two places, and writing one means
-adding a file under `tools/`, which that pass may not touch:
+Both items settled on 2026-09-05. Nothing is outstanding.
 
-1. **`docs/04-Vault-Format/00-KEEP-Format-Spec.md`** — the byte offsets and field counts in the
-   container layout. This document is written to be implementable by a third party, so a drifted
-   number here produces a wrong reader rather than a confused colleague. A test that parses the
-   layout table and compares it against the constants in `src/shared/format/types.ts` would be
-   the highest-value guard left unwritten.
-2. **The per-file test-count tables** in the feature pages. These were replaced with "run
-   `npx vitest run <dir>`" wherever the pass touched them. A test that reads the tables and
-   compares them against a real Vitest run would let the numbers come back — worth it only if
-   the numbers are actually wanted.
+**1. The KEEP format spec is guarded.** `tools/keep-spec-matches-code.test.ts` parses
+`docs/04-Vault-Format/00-KEEP-Format-Spec.md` and checks it against
+`src/shared/format/types.ts`: the byte-layout block adds up on its own terms, every named
+field size matches its constant, the magic bytes are compared byte for byte out of the hex
+block, the KDF table's defaults, floors and ceilings match all three parameter sets, and the
+encryption table's nonce, tag and chunk-id sizes match theirs.
+
+It was the highest-value guard left unwritten for the reason the entry gave: that document is
+written to be implementable by a third party, and the no-lock-in claim rests on it, so a
+drifted number there produces a **wrong reader** on somebody else's machine rather than a
+confused colleague. Five fault injections, four in the document and — the one that matters
+most — one in the **code**, changing `NONCE_BYTES` from 12 to 13. It fires in both
+directions, not only when somebody edits the prose.
+
+**2. The per-file test-count tables are deliberately not brought back.** The entry already
+said they were worth guarding "only if the numbers are actually wanted", and they are not: the
+documentation pass replaced them with `npx vitest run <dir>`, which is a better answer than a
+number, because it is current by construction and it tells a reader how to see the tests
+rather than how many there are. Restoring counts in order to guard them would add churn to
+every feature page on every test added, for a figure nobody acts on. Recorded as a decision
+rather than left looking unfinished.
 
 ---
 
